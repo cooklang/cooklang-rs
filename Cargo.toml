@@ -35,6 +35,10 @@ yaml-rust = "0.4"
 serde_json = "1"
 criterion = "0.4"
 
+# TODO remove in new ariadne release
+[patch.crates-io]
+ariadne = { git = "https://github.com/Zheoni/ariadne", branch = "update-concolor" }
+
 [features]
 default = ["bundled_units", "aisle"]
 bundled_units = []
