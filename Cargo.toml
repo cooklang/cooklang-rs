@@ -7,7 +7,7 @@ description = "Cooklang parser with opt-in extensions"
 license = "MIT"
 keywords = ["cooklang", "cooking", "recipes"]
 categories = ["parser-implementations"]
-repository = "https://github.com/Zheoni/cooklang-rs"
+repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 
 [dependencies]
