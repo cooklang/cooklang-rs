@@ -173,3 +173,18 @@ impl RichError for AileConfError {
         Some("shopping list")
     }
 }
+
+impl From<pest::Span<'_>> for Span<()> {
+    fn from(value: pest::Span) -> Self {
+        Self::new(value.start(), value.end())
+    }
+}
+
+impl From<pest::error::InputLocation> for Span<()> {
+    fn from(value: pest::error::InputLocation) -> Self {
+        match value {
+            pest::error::InputLocation::Pos(p) => (p..p).into(),
+            pest::error::InputLocation::Span((start, end)) => (start..end).into(),
+        }
+    }
+}

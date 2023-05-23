@@ -101,27 +101,6 @@ impl<T, Id: Clone> From<crate::located::Located<T, Id>> for Span<Id> {
     }
 }
 
-impl From<pest::Span<'_>> for Span<()> {
-    fn from(value: pest::Span) -> Self {
-        Self::new(value.start(), value.end())
-    }
-}
-
-impl From<pest::error::InputLocation> for Span<()> {
-    fn from(value: pest::error::InputLocation) -> Self {
-        match value {
-            pest::error::InputLocation::Pos(p) => (p..p).into(),
-            pest::error::InputLocation::Span((start, end)) => (start..end).into(),
-        }
-    }
-}
-
-impl<R: pest::RuleType> From<pest::iterators::Pair<'_, R>> for Span<()> {
-    fn from(value: pest::iterators::Pair<R>) -> Self {
-        value.as_span().into()
-    }
-}
-
 impl crate::context::Recover for Span<()> {
     fn recover() -> Self {
         Self::new(0, 0)
