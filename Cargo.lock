@@ -142,7 +142,7 @@ checksum = "0b946244a988c390a94667ae0e3958411fa40cc46ea496a929b263d883f5f9c3"
 
 [[package]]
 name = "cooklang"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "ariadne",
  "bitflags 2.3.1",

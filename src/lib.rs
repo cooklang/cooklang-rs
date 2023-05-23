@@ -1,32 +1,31 @@
 //! A [cooklang](https://cooklang.org/) parser with opt-in extensions.
 //!
 //! The extensions creates a superset of the original cooklang language and can
-//! be turned off. To see a detailed list go to [extensions](https://github.com/Zheoni/cooklang-rs/blob/main/docs/extensions.md).
+//! be turned off. To see a detailed list go to [extensions](https://github.com/cooklang/cooklang-rs/blob/main/extensions.md).
 //!
 //! Also includes:
 //! - Rich error report with annotated code spans.
 //! - Unit conversion.
 //! - Recipe scaling.
 //! - A parser for cooklang aisle configuration file.
-//!
-//! More information in the [cooklang-rs repo](https://github.com/Zheoni/cooklang-rs).
 
 #![deny(rustdoc::broken_intra_doc_links)]
 
 #[cfg(feature = "aisle")]
 pub mod aisle;
-mod analysis;
 pub mod ast;
-mod context;
 pub mod convert;
 pub mod error;
-mod lexer;
-mod located;
 pub mod metadata;
 pub mod model;
 pub mod parser;
 pub mod quantity;
 pub mod scale;
+
+mod analysis;
+mod context;
+mod lexer;
+mod located;
 mod span;
 
 use bitflags::bitflags;
@@ -42,6 +41,8 @@ bitflags! {
     /// for a detailed explanation of all of them.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     pub struct Extensions: u32 {
+        /// Steps separation is a blank line, not a line break. This may break
+        /// compatibility with other cooklang parsers.
         const MULTILINE_STEPS      = 1 << 0;
         const COMPONENT_MODIFIERS  = 1 << 1;
         const COMPONENT_NOTE       = 1 << 2;
@@ -55,8 +56,24 @@ bitflags! {
 
         /// Enables [Self::COMPONENT_MODIFIERS], [Self::COMPONENT_NOTE] and [Self::COMPONENT_ALIAS]
         const COMPONENT_ALL = Self::COMPONENT_MODIFIERS.bits()
-                             | Self::COMPONENT_ALIAS.bits()
-                             | Self::COMPONENT_NOTE.bits();
+                                | Self::COMPONENT_ALIAS.bits()
+                                | Self::COMPONENT_NOTE.bits();
+
+        /// Enables a subset of extensions to maximize compatibility with other
+        /// cooklang parsers.
+        ///
+        /// Currently it enables all the extensions except [Self::MULTILINE_STEPS].
+        ///
+        /// **ADDITIONS TO THE EXTENSIONS THIS ENABLES WILL NOT BE CONSIDERED A BREAKING CHANGE**
+        const COMPAT = Self::COMPONENT_MODIFIERS.bits()
+                        | Self::COMPONENT_NOTE.bits()
+                        | Self::COMPONENT_ALIAS.bits()
+                        | Self::SECTIONS.bits()
+                        | Self::ADVANCED_UNITS.bits()
+                        | Self::MODES.bits()
+                        | Self::TEMPERATURE.bits()
+                        | Self::TEXT_STEPS.bits()
+                        | Self::RANGE_VALUES.bits();
     }
 }
 
