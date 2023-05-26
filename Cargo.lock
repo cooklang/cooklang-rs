@@ -168,6 +168,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cooklang-capi"
+version = "0.1.0"
+dependencies = [
+ "cooklang",
+ "toml",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,13 @@
+[package]
+name = "cooklang-capi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "cooklang"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+
+[dependencies]
+cooklang = { version = "0", path = ".." }
+toml = "0.7"

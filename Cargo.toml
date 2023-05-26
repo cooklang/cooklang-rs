@@ -10,6 +10,9 @@ categories = ["parser-implementations"]
 repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 
+[workspace]
+members = ["cooklang-capi"]
+
 [dependencies]
 bitflags = { version = "2", features = ["serde"] }
 regex = "1"
