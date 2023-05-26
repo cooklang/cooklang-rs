@@ -41,6 +41,14 @@ where
         }
     }
 
+    pub fn errors(&self) -> &[E] {
+        &self.errors
+    }
+
+    pub fn warnings(&self) -> &[W] {
+        &self.warnings
+    }
+
     pub fn has_errors(&self) -> bool {
         !self.errors.is_empty()
     }
@@ -51,6 +59,10 @@ where
         self.errors.is_empty() && self.warnings.is_empty()
     }
 
+    /// Write a formatted report.
+    ///
+    /// Colors are set up like it was printing to `stderr`. Use [Self::write_for_stdout]
+    /// if you want that behaviour.
     pub fn write(
         &self,
         file_name: &str,
@@ -69,19 +81,45 @@ where
         }
         Ok(())
     }
+
+    /// Write a formatted report with `stdout` color settings.
+    ///
+    /// For `stderr` color settings use [Self::write]
+    pub fn write_for_stdout(
+        &self,
+        file_name: &str,
+        source_code: &str,
+        hide_warnings: bool,
+        w: &mut impl std::io::Write,
+    ) -> std::io::Result<()> {
+        let mut cache = DummyCache::new(file_name, source_code);
+        if !hide_warnings {
+            for warn in &self.warnings {
+                build_report(warn, source_code).write_for_stdout(&mut cache, &mut *w)?;
+            }
+        }
+        for err in &self.errors {
+            build_report(err, source_code).write_for_stdout(&mut cache, &mut *w)?;
+        }
+        Ok(())
+    }
+
+    /// Prints a formatted report to stdout
     pub fn print(
         &self,
         file_name: &str,
         source_code: &str,
         hide_warnings: bool,
     ) -> std::io::Result<()> {
-        self.write(
+        self.write_for_stdout(
             file_name,
             source_code,
             hide_warnings,
             &mut std::io::stdout(),
         )
     }
+
+    /// Prints a formatted report to stderr
     pub fn eprint(
         &self,
         file_name: &str,
@@ -145,14 +183,6 @@ impl<T, E, W> PassResult<T, E, W> {
             output,
             warnings,
             errors,
-        }
-    }
-
-    pub(crate) fn from_error(error: E) -> Self {
-        Self {
-            output: None,
-            warnings: vec![],
-            errors: vec![error],
         }
     }
 
@@ -269,12 +299,6 @@ impl<T, E, W> PassResult<T, E, W> {
             warnings: self.warnings,
             errors: self.errors,
         })
-    }
-}
-
-impl<T, E, W> From<E> for PassResult<T, E, W> {
-    fn from(value: E) -> Self {
-        Self::from_error(value)
     }
 }
 
