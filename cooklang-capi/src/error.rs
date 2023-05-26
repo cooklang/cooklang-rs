@@ -85,7 +85,7 @@ pub extern "C" fn cook_error_free(err: *mut Error) {
 
 /// cbindgen:rename-all=SCREAMING_SNAKE_CASE
 #[repr(C)]
-pub enum cook_error_code {
+pub enum CookErrorCode {
     None = 0,
     NonUtf8,
     IoError,
@@ -95,14 +95,14 @@ pub enum cook_error_code {
 
 /// Get a code for the error.
 #[no_mangle]
-pub extern "C" fn cook_error_get_code(err: *const Error) -> cook_error_code {
+pub extern "C" fn cook_error_code(err: *const Error) -> CookErrorCode {
     let err = unsafe { &*err };
     match err.kind {
-        ErrorKind::None => cook_error_code::None,
-        ErrorKind::NonUtf8 => cook_error_code::NonUtf8,
-        ErrorKind::IoError(_) => cook_error_code::IoError,
-        ErrorKind::ParseUnitsFile(_) => cook_error_code::ParseUnitsFile,
-        ErrorKind::ConverterBuilderError(_) => cook_error_code::ConverterBuilder,
+        ErrorKind::None => CookErrorCode::None,
+        ErrorKind::NonUtf8 => CookErrorCode::NonUtf8,
+        ErrorKind::IoError(_) => CookErrorCode::IoError,
+        ErrorKind::ParseUnitsFile(_) => CookErrorCode::ParseUnitsFile,
+        ErrorKind::ConverterBuilderError(_) => CookErrorCode::ConverterBuilder,
     }
 }
 

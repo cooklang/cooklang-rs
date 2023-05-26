@@ -31,13 +31,13 @@
 
 #define COOK_EXT_RANGE_VALUES (1 << 9)
 
-typedef enum cook_error_code {
+typedef enum CookErrorCode {
   NONE = 0,
   NON_UTF8,
   IO_ERROR,
   PARSE_UNITS_FILE,
   CONVERTER_BUILDER,
-} cook_error_code;
+} CookErrorCode;
 
 typedef struct CookAst CookAst;
 
@@ -76,7 +76,7 @@ void cook_error_free(struct CookError *err);
 /**
  * Get a code for the error.
  */
-enum cook_error_code cook_error_get_code(const struct CookError *err);
+enum CookErrorCode cook_error_code(const struct CookError *err);
 
 /**
  * Get an error message from the error given.
