@@ -3,6 +3,8 @@ use std::{
     fmt,
 };
 
+use crate::cstring_new;
+
 /// cbindgen:rename="lowercase"
 pub struct Error {
     kind: ErrorKind,
@@ -84,6 +86,7 @@ pub extern "C" fn cook_error_free(err: *mut Error) {
 }
 
 /// cbindgen:rename-all=SCREAMING_SNAKE_CASE
+/// cbindgen:prefix-with-name
 #[repr(C)]
 pub enum CookErrorCode {
     None = 0,
@@ -116,20 +119,6 @@ pub extern "C" fn cook_error_msg(err: *mut Error) -> *const c_char {
     let p = cmsg.as_ptr();
     err.message = Some(cmsg);
     p
-}
-
-pub(crate) fn cstring_new<T: Into<Vec<u8>>>(val: T) -> CString {
-    match CString::new(val) {
-        Ok(msg) => msg,
-        Err(err) => {
-            // I guess this can probably happen if the input text has a
-            // NUL, and that NUL re-occurs in the context presented by the
-            // error message. In this case, just show as much as we can.
-            let nul = err.nul_position();
-            let msg = err.into_vec();
-            CString::new(msg[0..nul].to_owned()).unwrap()
-        }
-    }
 }
 
 macro_rules! unwrap_or_bail {

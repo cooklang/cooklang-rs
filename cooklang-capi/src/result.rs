@@ -48,12 +48,15 @@ pub extern "C" fn cook_result_is_valid(result: *const ParseResult) -> bool {
 ///
 /// If there is no value, returns NULL.
 ///
+/// This can only be done once. Further calls will return null.
+///
 /// If the result was not created with `cook_parse` this will panic.
 #[no_mangle]
-pub extern "C" fn cook_result_get_recipe(result: *const ParseResult) -> *const cooklang::Recipe {
-    let r = unsafe { &*result };
-    if let Some(value) = &r.value {
-        value.downcast_ref().expect("not recipe")
+pub extern "C" fn cook_result_get_recipe(result: *mut ParseResult) -> *const crate::Recipe {
+    let r = unsafe { &mut *result };
+    if let Some(value) = r.value.take() {
+        let recipe = value.downcast().expect("not recipe");
+        Box::into_raw(recipe)
     } else {
         ptr::null()
     }

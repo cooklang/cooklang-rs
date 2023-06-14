@@ -14,9 +14,9 @@ use crate::{
 
 /// A complete recipe
 ///
-/// A recipe can be [Self::scale] (only once) and only after that [Self::convert]
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct Recipe<D: Serialize = ()> {
+/// A recipe can be [Self::scale] (only once) and [Self::convert] to other units.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Recipe<D = ()> {
     /// Recipe name
     pub name: String,
     /// Metadata
@@ -38,6 +38,19 @@ pub struct Recipe<D: Serialize = ()> {
     pub(crate) data: D,
 }
 
+impl<D> PartialEq for Recipe<D> {
+    fn eq(&self, other: &Self) -> bool {
+        // data ignored
+        self.name == other.name
+            && self.metadata == other.metadata
+            && self.sections == other.sections
+            && self.ingredients == other.ingredients
+            && self.cookware == other.cookware
+            && self.timers == other.timers
+            && self.inline_quantities == other.inline_quantities
+    }
+}
+
 /// A recipe after being scaled
 ///
 /// Note that this doesn't implement [Recipe::scale]. A recipe can only be
@@ -54,8 +67,20 @@ impl Recipe {
             cookware: content.cookware,
             timers: content.timers,
             inline_quantities: content.inline_quantities,
-
             data: (),
+        }
+    }
+
+    pub(crate) fn with_data<D>(self, data: D) -> Recipe<D> {
+        Recipe {
+            name: self.name,
+            metadata: self.metadata,
+            sections: self.sections,
+            ingredients: self.ingredients,
+            cookware: self.cookware,
+            timers: self.timers,
+            inline_quantities: self.inline_quantities,
+            data,
         }
     }
 }
@@ -113,7 +138,7 @@ pub struct IngredientListEntry {
 }
 
 /// A section holding steps
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Section {
     /// Name of the section
     pub name: Option<String>,
@@ -135,7 +160,7 @@ impl Section {
 }
 
 /// A step holding step [Item]s
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Step {
     /// [Item]s inside
     pub items: Vec<Item>,
@@ -147,7 +172,7 @@ pub struct Step {
 }
 
 /// A step item
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
@@ -332,7 +357,7 @@ pub struct Timer {
 }
 
 /// A component reference
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Component {
     /// What kind of component is
     pub kind: ComponentKind,

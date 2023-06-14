@@ -50,7 +50,7 @@ impl ScaleTarget {
 }
 
 /// Possible scaled states of a recipe
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(tag = "type")]
 pub enum Scaled {
     /// The recipe was scaled to its based servings
@@ -63,7 +63,7 @@ pub enum Scaled {
 }
 
 /// Data from scaling a recipe
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ScaledData {
     /// What the target was
     pub target: ScaleTarget,
@@ -138,17 +138,7 @@ impl Recipe {
             cookware,
             timers,
         };
-
-        ScaledRecipe {
-            name: self.name,
-            metadata: self.metadata,
-            sections: self.sections,
-            ingredients: self.ingredients,
-            cookware: self.cookware,
-            timers: self.timers,
-            inline_quantities: self.inline_quantities,
-            data: Scaled::Scaled(data),
-        }
+        self.with_data(Scaled::Scaled(data))
     }
 
     /// Scale the recipe to the default values.
@@ -160,17 +150,7 @@ impl Recipe {
         });
         default_scale_many(&mut self.cookware, |ck| ck.quantity.as_mut());
         default_scale_many(&mut self.timers, |tm| Some(&mut tm.quantity.value));
-
-        ScaledRecipe {
-            name: self.name,
-            metadata: self.metadata,
-            sections: self.sections,
-            ingredients: self.ingredients,
-            cookware: self.cookware,
-            timers: self.timers,
-            inline_quantities: self.inline_quantities,
-            data: Scaled::DefaultScaling,
-        }
+        self.with_data(Scaled::DefaultScaling)
     }
 }
 

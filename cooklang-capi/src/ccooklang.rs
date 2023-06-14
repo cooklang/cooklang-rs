@@ -21,7 +21,7 @@ pub const COOK_EXT_TEMPERATURE: u32 = 1 << 7;
 pub const COOK_EXT_TEXT_STEPS: u32 = 1 << 8;
 pub const COOK_EXT_RANGE_VALUES: u32 = 1 << 9;
 
-pub struct CookParser(CooklangParser);
+pub struct CookParser(pub(crate) CooklangParser);
 
 /// Creates a new parser.
 ///
@@ -97,7 +97,7 @@ pub extern "C" fn cook_parse(
     let recipe_name = unsafe { CStr::from_ptr(recipe_name) };
     let recipe_name = unwrap_or_bail!(error, recipe_name.to_str());
 
-    let result = parser.0.parse(input, recipe_name).map(crate::Recipe);
+    let result = parser.0.parse(input, recipe_name).map(crate::Recipe::new);
     Box::into_raw(Box::new(ParseResult::from(result)))
 }
 
@@ -118,7 +118,7 @@ pub extern "C" fn cook_parse_metadata(
     let input = unsafe { CStr::from_ptr(input) };
     let input = unwrap_or_bail!(error, input.to_str());
 
-    let result = parser.0.parse_metadata(input).map(crate::Metadata);
+    let result = parser.0.parse_metadata(input).map(crate::Metadata::new);
     Box::into_raw(Box::new(ParseResult::from(result)))
 }
 
