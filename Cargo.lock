@@ -19,8 +19,9 @@ checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
 
 [[package]]
 name = "ariadne"
-version = "0.2.0"
-source = "git+https://github.com/Zheoni/ariadne?branch=update-concolor#3fc779e233a9b435d2494e5b70c9ffcbbb6aba12"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72fe02fc62033df9ba41cba57ee19acf5e742511a140c7dbc3a873e19a19a1bd"
 dependencies = [
  "concolor",
  "unicode-width",
@@ -142,7 +143,7 @@ checksum = "0b946244a988c390a94667ae0e3958411fa40cc46ea496a929b263d883f5f9c3"
 
 [[package]]
 name = "cooklang"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "ariadne",
  "bitflags 2.3.1",

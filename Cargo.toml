@@ -1,6 +1,6 @@
 [package]
 name = "cooklang"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
@@ -26,7 +26,7 @@ once_cell = "1"
 enum-map = { version = "2.5", features = ["serde"] }
 humantime = "2"
 tracing = "0.1"
-ariadne = { version = "0.2.0", features = ["concolor"] }
+ariadne = { version = "0.3", features = ["concolor"] }
 either = "1.8"
 finl_unicode = { version = "1.2", features = ["categories"], default-features = false }
 
@@ -34,10 +34,6 @@ finl_unicode = { version = "1.2", features = ["categories"], default-features = 
 yaml-rust = "0.4"
 serde_json = "1"
 criterion = "0.4"
-
-# TODO remove in new ariadne release
-[patch.crates-io]
-ariadne = { git = "https://github.com/Zheoni/ariadne", branch = "update-concolor" }
 
 [features]
 default = ["bundled_units", "aisle"]
