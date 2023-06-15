@@ -73,6 +73,9 @@ impl Converter {
     ///
     /// When a unit is a "best" unit, the converter may choose it when trying
     /// to get the best match for a value.
+    ///
+    /// # Panics
+    /// If the unit is not known.
     pub fn is_best_unit(&self, unit: &Unit) -> bool {
         let unit_id = self
             .unit_index

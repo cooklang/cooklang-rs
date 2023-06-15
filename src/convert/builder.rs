@@ -146,6 +146,7 @@ impl ConverterBuilder {
 
             for (k, symbols) in symbols {
                 let id = self.unit_index.get_unit_id(k.as_str())?;
+                self.unit_index.add_unit_keys(id, symbols.iter().cloned())?;
                 join_alias_vec(&mut self.all_units[id].symbols, symbols, precedence);
                 if self.all_units[id].expand_si {
                     to_update.insert(id);
