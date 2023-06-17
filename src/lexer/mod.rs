@@ -87,7 +87,7 @@ fn is_newline(c: char, first: char) -> bool {
 }
 
 fn is_whitespace(c: char) -> bool {
-    c == ' ' || c == '\t'
+    c.is_separator_space() || c == '\t'
 }
 
 fn is_special(c: char) -> bool {
@@ -385,11 +385,13 @@ mod tests {
     fn word() {
         t!("basic", vec![Word]);
         t!("word.word", vec![Word, Punctuation, Word]);
+        t!("word⸫word", vec![Word, Punctuation, Word]);
         t!("👀", vec![Word]);
         t!("👀more", vec![Word]);
         t!("thing👀more", vec![Word]);
 
         t!("two words", vec![Word, Whitespace, Word]);
+        t!("two words", vec![Word, Whitespace, Word]); // unicode whitespace U+2009
         t!("word\nanother", vec![Word, Newline, Word]);
 
         // composed emojis more than one char
