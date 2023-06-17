@@ -25,6 +25,18 @@ impl ConverterBuilder {
         Self::default()
     }
 
+    #[cfg(feature = "bundled_units")]
+    pub fn with_bundled_units(mut self) -> Result<Self, ConverterBuilderError> {
+        self.add_bundled_units()?;
+        Ok(self)
+    }
+
+    #[cfg(feature = "bundled_units")]
+    pub fn add_bundled_units(&mut self) -> Result<&mut Self, ConverterBuilderError> {
+        self.add_units_file(UnitsFile::bundled())?;
+        Ok(self)
+    }
+
     pub fn with_units_file(mut self, units: UnitsFile) -> Result<Self, ConverterBuilderError> {
         self.add_units_file(units)?;
         Ok(self)

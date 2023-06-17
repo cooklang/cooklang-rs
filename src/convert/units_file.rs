@@ -114,6 +114,7 @@ pub struct UnitEntry {
     pub expand_si: bool,
 }
 
+#[cfg(feature = "bundled_units")]
 impl UnitsFile {
     pub fn bundled() -> Self {
         const TEXT: &str = include_str!("../../units.toml");
