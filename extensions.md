@@ -172,6 +172,9 @@ comunicating that in some cases.
 @flour{100%g} ... @&flour{200-400%g} -- the total will be 300-500 g
 ```
 
+## Timer requires time
+Just an extra rule that makes timers like `~name` invalid.
+
 [^1]: This is work in progress in `cooklang` but supported here.
 
 [^2]: Currently this is done in the analysis pass. So in the AST there is no

@@ -75,9 +75,10 @@ struct Body<'t> {
 fn comp_body<'t>(line: &mut LineParser<'t, '_>) -> Option<Body<'t>> {
     line.with_recover(|line| {
         let name = line.until(|t| matches!(t, T!['{'] | T![@] | T![#] | T![~]))?;
-        let close_span = line.consume(T!['{'])?.span;
+        let close_span_start = line.consume(T!['{'])?.span.start();
         let quantity = line.until(|t| t == T!['}'])?;
-        line.bump(T!['}']);
+        let close_span_end = line.bump(T!['}']).span.end();
+        let close_span = Span::new(close_span_start, close_span_end);
         if quantity
             .iter()
             .any(|t| !matches!(t.kind, T![ws] | T![block comment]))
@@ -351,50 +352,60 @@ fn timer<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Timer<'input>
 
     let name = line.text(name_offset, body.name);
 
-    let quantity = body
-        .quantity
-        .map(|tokens| {
-            let q = parse_quantity(tokens, line.input, line.extensions, &mut line.context);
-            if let ast::QuantityValue::Single {
-                auto_scale: Some(auto_scale),
-                ..
-            } = &q.quantity.value
-            {
-                line.error(ParserError::ComponentPartNotAllowed {
-                    container: TIMER,
-                    what: "auto scale marker",
-                    to_remove: *auto_scale,
-                    help: Some("Timer quantity can't be auto scaled."),
-                });
-            }
-            if q.quantity.unit.is_none() {
-                line.error(ParserError::ComponentPartMissing {
-                    container: TIMER,
-                    what: "quantity unit",
-                    expected_pos: Span::pos(q.quantity.value.span().end()),
-                });
-            }
-            q.quantity
-        })
-        .unwrap_or_else(|| {
-            let span = if let Some(s) = body.close {
-                Span::pos(s.end())
-            } else {
-                Span::pos(name.span().end())
-            };
+    let mut quantity = body.quantity.map(|tokens| {
+        let q = parse_quantity(tokens, line.input, line.extensions, &mut line.context);
+        if let ast::QuantityValue::Single {
+            auto_scale: Some(auto_scale),
+            ..
+        } = &q.quantity.value
+        {
+            line.error(ParserError::ComponentPartNotAllowed {
+                container: TIMER,
+                what: "auto scale marker",
+                to_remove: *auto_scale,
+                help: Some("Timer quantity can't be auto scaled."),
+            });
+        }
+        if q.quantity.unit.is_none() {
             line.error(ParserError::ComponentPartMissing {
                 container: TIMER,
-                what: "quantity",
-                expected_pos: span,
+                what: "quantity unit",
+                expected_pos: Span::pos(q.quantity.value.span().end()),
             });
-            Recover::recover()
+        }
+        q.quantity
+    });
+
+    if quantity.is_none() && line.extension(Extensions::TIMER_REQUIRES_TIME) {
+        let span = body.close.unwrap_or_else(|| Span::pos(name.span().end()));
+        line.error(ParserError::ComponentPartMissing {
+            container: TIMER,
+            what: "quantity",
+            expected_pos: span,
         });
+        quantity = Some(Recover::recover());
+    }
 
     let name = if name.is_text_empty() {
         None
     } else {
         Some(name)
     };
+
+    if name.is_none() && quantity.is_none() {
+        let span = if let Some(s) = body.close {
+            Span::new(name_offset, s.end())
+        } else {
+            Span::pos(name_offset)
+        };
+        line.error(ParserError::ComponentPartMissing {
+            container: TIMER,
+            what: "quantity OR name",
+            expected_pos: span,
+        });
+        quantity = Some(Recover::recover()); // could be also name, but whatever
+    }
+
     Some(ast::Timer { name, quantity })
 }
 

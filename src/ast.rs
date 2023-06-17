@@ -66,7 +66,7 @@ pub struct Cookware<'a> {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Timer<'a> {
     pub name: Option<Text<'a>>,
-    pub quantity: Located<Quantity<'a>>,
+    pub quantity: Option<Located<Quantity<'a>>>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

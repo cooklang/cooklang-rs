@@ -130,7 +130,9 @@ impl Recipe {
             }
         });
         let cookware = scale_many(target, &mut self.cookware, |ck| ck.quantity.as_mut());
-        let timers = scale_many(target, &mut self.timers, |tm| Some(&mut tm.quantity.value));
+        let timers = scale_many(target, &mut self.timers, |tm| {
+            tm.quantity.as_mut().map(|q| &mut q.value)
+        });
 
         let data = ScaledData {
             target,
@@ -159,7 +161,9 @@ impl Recipe {
             igr.quantity.as_mut().map(|q| &mut q.value)
         });
         default_scale_many(&mut self.cookware, |ck| ck.quantity.as_mut());
-        default_scale_many(&mut self.timers, |tm| Some(&mut tm.quantity.value));
+        default_scale_many(&mut self.timers, |tm| {
+            tm.quantity.as_mut().map(|q| &mut q.value)
+        });
 
         ScaledRecipe {
             name: self.name,

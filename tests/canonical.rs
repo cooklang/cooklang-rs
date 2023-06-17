@@ -60,7 +60,7 @@ fn compare_steps(expected: &Yaml, got: &[cooklang::model::Section], recipe: &coo
     for (expected, got) in expected.iter().zip(got.iter()) {
         let expected = expected.as_vec().unwrap();
         assert_eq!(got.is_text, false);
-        let got = &got.items;
+        let got = join_text_items(&got.items);
         eprintln!("{got:#?}");
         assert_eq!(expected.len(), got.len()); // same number of items
                                                // for each item
@@ -68,6 +68,23 @@ fn compare_steps(expected: &Yaml, got: &[cooklang::model::Section], recipe: &coo
             compare_items(expected, got, recipe);
         }
     }
+}
+
+fn join_text_items(items: &[cooklang::model::Item]) -> Vec<cooklang::model::Item> {
+    use cooklang::model::Item;
+    use Item::*;
+
+    let mut out = Vec::new();
+    for item in items {
+        if let Text(current) = item {
+            if let Some(Text(last)) = out.last_mut() {
+                last.push_str(&current);
+                continue;
+            }
+        }
+        out.push(item.clone());
+    }
+    out
 }
 
 fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang::Recipe) {
@@ -119,10 +136,15 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
                     Some(n) => assert_eq!(n, expected["name"].as_str().unwrap()),
                     None => assert!(expected["name"].as_str().unwrap().is_empty()),
                 }
-                compare_value(&expected["quantity"], &t.quantity.value);
-                match t.quantity.unit_text() {
-                    Some(u) => assert_eq!(u, expected["units"].as_str().unwrap()),
-                    None => assert!(expected["units"].as_str().unwrap().is_empty()),
+                match &t.quantity {
+                    Some(quantity) => {
+                        compare_value(&expected["quantity"], &quantity.value);
+                        match quantity.unit_text() {
+                            Some(u) => assert_eq!(u, expected["units"].as_str().unwrap()),
+                            None => assert!(expected["units"].as_str().unwrap().is_empty()),
+                        }
+                    }
+                    None => assert_eq!("", expected["quantity"].as_str().unwrap()),
                 }
             }
         },

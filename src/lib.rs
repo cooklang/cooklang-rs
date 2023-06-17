@@ -53,6 +53,7 @@ bitflags! {
         const TEMPERATURE          = 1 << 7;
         const TEXT_STEPS           = 1 << 8;
         const RANGE_VALUES         = 1 << 9;
+        const TIMER_REQUIRES_TIME  = 1 << 10;
 
         /// Enables [Self::COMPONENT_MODIFIERS], [Self::COMPONENT_NOTE] and [Self::COMPONENT_ALIAS]
         const COMPONENT_ALL = Self::COMPONENT_MODIFIERS.bits()

@@ -616,7 +616,9 @@ impl<D: Serialize> Recipe<D> {
         // cookware can't have units
 
         for timer in &mut self.timers {
-            conv(&mut timer.quantity)
+            if let Some(q) = &mut timer.quantity {
+                conv(q);
+            }
         }
 
         for q in &mut self.inline_quantities {

@@ -435,26 +435,35 @@ impl<'a, 'r> Walker<'a, 'r> {
     fn timer(&mut self, timer: Located<ast::Timer<'a>>) -> usize {
         let located_timer = timer.clone();
         let (timer, span) = timer.take_pair();
-
-        let quantity = self.quantity(timer.quantity, false);
-        if self.extensions.contains(Extensions::ADVANCED_UNITS) {
-            if let Some(unit) = quantity.unit() {
-                match unit.unit_or_parse(self.converter) {
-                    UnitInfo::Known(unit) => {
-                        if unit.physical_quantity != PhysicalQuantity::Time {
-                            self.error(AnalysisError::BadTimerUnit {
-                                unit: unit.as_ref().clone(),
-                                timer_span: located_timer.quantity.unit.as_ref().unwrap().span(),
-                            })
+        let quantity = timer.quantity.map(|q| {
+            let quantity = self.quantity(q, false);
+            if self.extensions.contains(Extensions::ADVANCED_UNITS) {
+                if let Some(unit) = quantity.unit() {
+                    match unit.unit_or_parse(self.converter) {
+                        UnitInfo::Known(unit) => {
+                            if unit.physical_quantity != PhysicalQuantity::Time {
+                                self.error(AnalysisError::BadTimerUnit {
+                                    unit: unit.as_ref().clone(),
+                                    timer_span: located_timer
+                                        .quantity
+                                        .as_ref()
+                                        .unwrap()
+                                        .unit
+                                        .as_ref()
+                                        .unwrap()
+                                        .span(),
+                                })
+                            }
                         }
+                        UnitInfo::Unknown => self.error(AnalysisError::UnknownTimerUnit {
+                            unit: unit.text().to_string(),
+                            timer_span: span,
+                        }),
                     }
-                    UnitInfo::Unknown => self.error(AnalysisError::UnknownTimerUnit {
-                        unit: unit.text().to_string(),
-                        timer_span: span,
-                    }),
                 }
             }
-        }
+            quantity
+        });
 
         let new_timer = Timer {
             name: timer.name.map(|t| t.text_trimmed().into_owned()),

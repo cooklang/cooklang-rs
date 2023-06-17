@@ -147,7 +147,7 @@ pub struct Step {
 }
 
 /// A step item
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
@@ -320,19 +320,26 @@ impl ComponentRelation {
 }
 
 /// A recipe timer
+///
+/// If created from parsing, at least one of the fields is guaranteed to be [Some].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Timer {
     /// Name
     pub name: Option<String>,
     /// Time quantity
     ///
-    /// If created from parsing and the advanced units extension is enabled,
+    /// If created from parsing the following applies:
+    ///
+    /// - If the `ADVANCED_UNITS` [extension](crate::Extensions) is enabled,
     /// this is guaranteed to have a time unit.
-    pub quantity: Quantity,
+    ///
+    /// - If the `TIMER_REQUIRES_TIME` [extension](crate::Extensions) is enabled,
+    /// this is guaranteed to be [Some].
+    pub quantity: Option<Quantity>,
 }
 
 /// A component reference
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Component {
     /// What kind of component is
     pub kind: ComponentKind,
