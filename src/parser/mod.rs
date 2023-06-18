@@ -433,6 +433,7 @@ impl<'t, 'input> LineParser<'t, 'input> {
         token
     }
 
+    /// Takes until condition reached, if never reached, return none
     pub(crate) fn until(&mut self, f: impl Fn(TokenKind) -> bool) -> Option<&'t [Token]> {
         let rest = self.rest();
         let pos = rest.iter().position(|t| f(t.kind))?;

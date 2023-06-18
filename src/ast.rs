@@ -144,6 +144,7 @@ impl<'a> Text<'a> {
         }
     }
 
+    /// Checks that the text is not empty or blank, i.e. whitespace does not count
     pub fn is_text_empty(&self) -> bool {
         self.fragments.iter().all(|f| f.text.trim().is_empty())
     }

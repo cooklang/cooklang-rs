@@ -1,5 +1,13 @@
+use smallvec::SmallVec;
+
 use crate::{
-    ast, context::Context, error::label, lexer::T, located::Located, quantity::Value, span::Span,
+    ast,
+    context::{Context, Recover},
+    error::label,
+    lexer::T,
+    located::Located,
+    quantity::Value,
+    span::Span,
     Extensions,
 };
 
@@ -34,20 +42,44 @@ pub fn parse_quantity<'input>(
             .any(|t| matches!(t.kind, T![|] | T![*] | T![%]))
     {
         if let Some((value, unit)) = line.with_recover(|line| {
-            let start = line.current_offset();
-            numeric_value(line).and_then(|value| {
-                let end = line.current_offset();
-                if line.ws_comments().is_empty() {
-                    return None;
+            line.ws_comments();
+            let value_tokens = line.consume_while(|t| !matches!(t, T![word]));
+
+            if value_tokens.is_empty() || value_tokens.last().unwrap().kind != T![ws] {
+                return None;
+            }
+
+            let value_tokens = {
+                // beginning already trimmed
+                let end_pos = value_tokens
+                    .iter()
+                    .rposition(|t| !matches!(t.kind, T![ws] | T![block comment]))
+                    .unwrap(); // ws_comments were already cosumed and then checked non empty
+                &value_tokens[..=end_pos]
+            };
+
+            let value_span = {
+                let start = value_tokens.first().unwrap().span.start();
+                let end = value_tokens.last().unwrap().span.end();
+                Span::new(start, end)
+            };
+
+            let result = numeric_value(value_tokens, &line)?;
+            let value = match result {
+                Ok(value) => value,
+                Err(err) => {
+                    line.error(err);
+                    Value::recover()
                 }
-                let unit = line.consume_rest();
-                if unit.is_empty() {
-                    return None;
-                }
-                let value = Located::new(value, Span::new(start, end));
-                let unit = line.text(unit.first().unwrap().span.start(), unit);
-                Some((value, unit))
-            })
+            };
+            let value = Located::new(value, value_span);
+
+            let unit = line.consume_rest();
+            if unit.is_empty() {
+                return None;
+            }
+            let unit = line.text(unit.first().unwrap().span.start(), unit);
+            Some((value, unit))
         }) {
             return ParsedQuantity {
                 quantity: Located::new(
@@ -122,7 +154,9 @@ fn many_values(line: &mut LineParser) -> ast::QuantityValue {
     let mut auto_scale = None;
 
     loop {
-        values.push(parse_value(line));
+        let value_tokens = line.consume_while(|t| !matches!(t, T![|] | T![*] | T![%]));
+        values.push(parse_value(value_tokens, line));
+
         match line.peek() {
             T![|] => {
                 line.bump_any();
@@ -163,125 +197,137 @@ fn many_values(line: &mut LineParser) -> ast::QuantityValue {
     }
 }
 
-fn parse_value(line: &mut LineParser) -> Located<Value> {
-    let start = line.current_offset();
-    let val = line.with_recover(numeric_value).unwrap_or_else(|| {
-        let offset = line.current_offset();
-        let tokens = line.consume_while(|t| !matches!(t, T![|] | T![*] | T![%]));
-        let text = line.text(offset, tokens);
-        if text.is_text_empty() {
-            line.error(ParserError::ComponentPartInvalid {
-                container: "quantity",
-                what: "value",
-                reason: "is empty",
-                labels: vec![label!(text.span(), "empty value here")],
-                help: None,
-            });
-        }
-        Value::Text(text.text_trimmed().into_owned())
-    });
-    line.ws_comments();
+fn parse_value(tokens: &[Token], line: &mut LineParser) -> Located<Value> {
+    let start = tokens
+        .first()
+        .map(|t| t.span.start())
+        .unwrap_or(line.current_offset()); // if empty, use the current offset
     let end = line.current_offset();
-    Located::new(val, Span::new(start, end))
+    let span = Span::new(start, end);
+
+    let result = numeric_value(tokens, line).unwrap_or_else(|| Ok(text_value(tokens, start, line)));
+
+    let val = match result {
+        Ok(value) => value,
+        Err(err) => {
+            line.error(err);
+            Value::recover()
+        }
+    };
+
+    Located::new(val, span)
 }
 
-fn numeric_value(line: &mut LineParser) -> Option<Value> {
-    line.ws_comments();
-    let val = match line.peek() {
-        T![int] => line
-            .with_recover(mixed_num)
-            .map(Value::from)
-            .or_else(|| line.with_recover(frac).map(Value::from))
-            .or_else(|| {
-                if line.extension(Extensions::RANGE_VALUES) {
-                    line.with_recover(range).map(Value::from)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| int(line).map(Value::from).unwrap()),
-        T![float] => if line.extension(Extensions::RANGE_VALUES) {
-            line.with_recover(range).map(Value::from)
-        } else {
-            None
+fn text_value(tokens: &[Token], offset: usize, line: &mut LineParser) -> Value {
+    let text = line.text(offset, tokens);
+    if text.is_text_empty() {
+        line.error(ParserError::ComponentPartInvalid {
+            container: "quantity",
+            what: "value",
+            reason: "is empty",
+            labels: vec![label!(text.span(), "empty value here")],
+            help: None,
+        });
+    }
+    Value::Text(text.text_trimmed().into_owned())
+}
+
+fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, ParserError>> {
+    // match token type
+    macro_rules! mt {
+        ($($reprs:tt)|*) => {
+            $(Token {
+                kind: T![$reprs],
+                ..
+            })|+
         }
-        .unwrap_or_else(|| float(line).map(Value::from).unwrap()),
+    }
+
+    // All the numeric values will be at most 4 tokens
+    let filtered_tokens: SmallVec<[Token; 4]> = tokens
+        .iter()
+        .copied()
+        .filter(|t| !matches!(t.kind, T![ws] | T![line comment] | T![block comment]))
+        .collect();
+
+    let r = match filtered_tokens.as_slice() {
+        // int
+        &[t @ mt![int]] => int(t, line).map(Value::Number),
+        // float
+        &[t @ mt![float]] => float(t, line).map(Value::Number),
+        // mixed number
+        &[i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
+            mixed_num(i, a, b, line).map(Value::Number)
+        }
+        // frac
+        &[a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, line).map(Value::Number),
+        // range
+        &[s @ mt![int | float], mt![-], e @ mt![int | float]]
+            if line.extension(Extensions::RANGE_VALUES) =>
+        {
+            range(s, e, line).map(Value::Range)
+        }
+        // other => text
         _ => return None,
     };
-    Some(val)
+    Some(r)
 }
 
-fn mixed_num(line: &mut LineParser) -> Option<f64> {
-    let a = int(line)?;
-    line.ws_comments();
-    let f = frac(line)?;
-    Some(a + f)
+fn mixed_num(i: Token, a: Token, b: Token, line: &LineParser) -> Result<f64, ParserError> {
+    let i = int(i, line)?;
+    let f = frac(a, b, line)?;
+    Ok(i + f)
 }
 
-fn frac(line: &mut LineParser) -> Option<f64> {
-    let start = line.current_offset();
-    let a = int(line)?;
-    line.ws_comments();
-    line.consume(T![/])?;
-    line.ws_comments();
-    let b = int(line)?;
-    let end = line.current_offset();
+fn frac(a: Token, b: Token, line: &LineParser) -> Result<f64, ParserError> {
+    let span = Span::new(a.span.start(), b.span.end());
+    let a = int(a, line)?;
+    let b = int(b, line)?;
 
     if b == 0.0 {
-        line.error(ParserError::DivisionByZero {
-            bad_bit: Span::new(start, end),
-        });
-        Some(1.0)
+        Err(ParserError::DivisionByZero { bad_bit: span })
     } else {
-        Some(a / b)
+        Ok(a / b)
     }
 }
 
-fn range(line: &mut LineParser) -> Option<std::ops::RangeInclusive<f64>> {
-    let start = num(line)?;
-    line.ws_comments();
-    line.consume(T![-])?;
-    line.ws_comments();
-    let end = num(line)?;
-    Some(start..=end)
+fn range(
+    s: Token,
+    e: Token,
+    line: &LineParser,
+) -> Result<std::ops::RangeInclusive<f64>, ParserError> {
+    let start = num(s, line)?;
+    let end = num(e, line)?;
+    Ok(start..=end)
 }
 
-fn num(line: &mut LineParser) -> Option<f64> {
-    match line.peek() {
-        T![int] => int(line),
-        T![float] => float(line),
-        _ => None,
+fn num(t: Token, line: &LineParser) -> Result<f64, ParserError> {
+    match t.kind {
+        T![int] => int(t, line),
+        T![float] => float(t, line),
+        _ => panic!("Unexpected num token: {t:?}"),
     }
 }
 
-fn int(line: &mut LineParser) -> Option<f64> {
-    let tok = line.consume(T![int])?;
-    let val = match line.as_str(tok).parse::<u32>() {
-        Ok(n) => n,
-        Err(e) => {
-            line.error(ParserError::ParseInt {
-                bad_bit: tok.span,
-                source: e,
-            });
-            0
-        }
-    };
-    Some(val as f64)
+fn int(tok: Token, line: &LineParser) -> Result<f64, ParserError> {
+    assert_eq!(tok.kind, T![int]);
+    line.as_str(tok)
+        .parse::<u32>()
+        .map(|i| i as f64)
+        .map_err(|e| ParserError::ParseInt {
+            bad_bit: tok.span,
+            source: e,
+        })
 }
 
-fn float(line: &mut LineParser) -> Option<f64> {
-    let tok = line.consume(T![float])?;
-    let val = match line.as_str(tok).parse::<f64>() {
-        Ok(n) => n,
-        Err(e) => {
-            line.error(ParserError::ParseFloat {
-                bad_bit: tok.span,
-                source: e,
-            });
-            0.0
-        }
-    };
-    Some(val)
+fn float(tok: Token, line: &LineParser) -> Result<f64, ParserError> {
+    assert_eq!(tok.kind, T![float]);
+    line.as_str(tok)
+        .parse::<f64>()
+        .map_err(|e| ParserError::ParseFloat {
+            bad_bit: tok.span,
+            source: e,
+        })
 }
 
 #[cfg(test)]
@@ -394,6 +440,19 @@ mod tests {
             q.value,
             QuantityValue::Single {
                 value: Located::new(Value::Range(2.0..=3.0), 0..3),
+                auto_scale: None
+            }
+        );
+        assert_eq!(q.unit, None);
+    }
+
+    #[test]
+    fn range_value_no_extension() {
+        let (q, _, _) = t!("2-3", Extensions::empty());
+        assert_eq!(
+            q.value,
+            QuantityValue::Single {
+                value: Located::new(Value::Text("2-3".into()), 0..3),
                 auto_scale: None
             }
         );
