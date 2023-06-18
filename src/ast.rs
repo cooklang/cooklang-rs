@@ -9,6 +9,7 @@ use crate::{context::Recover, located::Located, quantity::Value, span::Span};
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 #[derive(Debug, Serialize)]
 pub struct Ast<'a> {
@@ -88,14 +89,15 @@ pub enum QuantityValue {
 #[derive(Debug, Clone, Serialize)]
 pub struct Text<'a> {
     offset: usize,
-    //TODO Maybe a small vec in the stack? test it
-    fragments: Vec<TextFragment<'a>>,
+    /// Most texts will be only one fragment, when there are no comments or
+    /// escaped characters
+    fragments: SmallVec<[TextFragment<'a>; 1]>,
 }
 
 impl<'a> Text<'a> {
     pub(crate) fn empty(offset: usize) -> Self {
         Self {
-            fragments: vec![],
+            fragments: smallvec::smallvec![],
             offset,
         }
     }
@@ -127,8 +129,8 @@ impl<'a> Text<'a> {
     }
 
     pub fn text(&self) -> Cow<'a, str> {
-        // TODO can be further optimized to avoid copies.
         // Contiguous text fragments may be joined together without a copy.
+        // but most Text instances will only be one fragment anyways
 
         let mut s = Cow::default();
         for f in &self.fragments {
