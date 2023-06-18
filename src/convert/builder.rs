@@ -174,7 +174,8 @@ impl ConverterBuilder {
         let best = enum_map! {
             q =>  {
                 if let Some(best_units) = &self.best_units[q] {
-                    BestConversionsStore::new(best_units, &self.unit_index, &mut self.all_units)?
+                    unify_best_units_systems(best_units, &self.unit_index, &mut self.all_units)?;
+                    BestConversionsStore::new(best_units, &self.unit_index, &self.all_units)?
                 } else {
                     return Err(ConverterBuilderError::EmptyBest { reason: "no best units given", quantity: q })
                 }
@@ -211,20 +212,15 @@ impl BestConversionsStore {
     fn new(
         best_units: &BestUnits,
         unit_index: &UnitIndex,
-        all_units: &mut [Unit],
+        all_units: &[Unit],
     ) -> Result<Self, ConverterBuilderError> {
         let v = match best_units {
             BestUnits::Unified(names) => {
-                Self::Unified(BestConversions::new(names, unit_index, all_units, None)?)
+                Self::Unified(BestConversions::new(names, unit_index, all_units)?)
             }
             BestUnits::BySystem { metric, imperial } => Self::BySystem {
-                metric: BestConversions::new(metric, unit_index, all_units, Some(System::Metric))?,
-                imperial: BestConversions::new(
-                    imperial,
-                    unit_index,
-                    all_units,
-                    Some(System::Imperial),
-                )?,
+                metric: BestConversions::new(metric, unit_index, all_units)?,
+                imperial: BestConversions::new(imperial, unit_index, all_units)?,
             },
         };
         Ok(v)
@@ -235,31 +231,12 @@ impl BestConversions {
     fn new(
         units: &[String],
         unit_index: &UnitIndex,
-        all_units: &mut [Unit],
-        system: Option<System>,
+        all_units: &[Unit],
     ) -> Result<Self, ConverterBuilderError> {
         let mut units = units
             .iter()
             .map(|n| unit_index.get_unit_id(n))
             .collect::<Result<Vec<_>, _>>()?;
-
-        // TODO do it in other side... it makes no sense to do this in this function
-        if let Some(group_system) = system {
-            for &unit_id in &units {
-                match all_units[unit_id].system {
-                    Some(unit_system) => {
-                        if group_system != unit_system {
-                            return Err(ConverterBuilderError::IncorrectUnitSystem {
-                                unit: all_units[unit_id].clone().into(),
-                                expected: group_system,
-                                got: unit_system,
-                            });
-                        }
-                    }
-                    None => all_units[unit_id].system = Some(group_system),
-                }
-            }
-        }
 
         units.sort_unstable_by(|a, b| {
             let a = &all_units[*a];
@@ -282,6 +259,47 @@ impl BestConversions {
 
         Ok(Self(conversions))
     }
+}
+
+fn unify_best_units_systems(
+    best_units: &BestUnits,
+    unit_index: &UnitIndex,
+    all_units: &mut [Unit],
+) -> Result<(), ConverterBuilderError> {
+    match best_units {
+        BestUnits::Unified(_) => {}
+        BestUnits::BySystem { metric, imperial } => {
+            unify_units_systems(&metric, System::Metric, unit_index, all_units)?;
+            unify_units_systems(&imperial, System::Imperial, unit_index, all_units)?;
+        }
+    }
+    Ok(())
+}
+
+/// Checks that the best units refs are of the given system.
+/// If the unit has no system, set it to the given one.
+fn unify_units_systems(
+    units: &[String],
+    system: System,
+    unit_index: &UnitIndex,
+    all_units: &mut [Unit],
+) -> Result<(), ConverterBuilderError> {
+    for unit in units {
+        let unit_id = unit_index.get_unit_id(&unit)?;
+        match all_units[unit_id].system {
+            Some(unit_system) => {
+                if system != unit_system {
+                    return Err(ConverterBuilderError::IncorrectUnitSystem {
+                        unit: all_units[unit_id].clone().into(),
+                        contained: system,
+                        got: unit_system,
+                    });
+                }
+            }
+            None => all_units[unit_id].system = Some(system),
+        }
+    }
+    Ok(())
 }
 
 fn update_expanded_units(
@@ -461,10 +479,10 @@ pub enum ConverterBuilderError {
     #[error("No SI prefixes found when expandind SI on a unit")]
     EmptySIPrefixes,
 
-    #[error("Best units' unit incorrect system: in unit '{unit}' expected {expected}, got {got}")]
+    #[error("Best units' unit incorrect system: in {contained} units, unit '{unit}' was {got}")]
     IncorrectUnitSystem {
         unit: Box<Unit>,
-        expected: System,
+        contained: System,
         got: System,
     },
 }

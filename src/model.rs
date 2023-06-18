@@ -176,7 +176,11 @@ pub struct Ingredient {
     /// How the cookware is related to others
     pub relation: ComponentRelation,
     pub(crate) modifiers: Modifiers,
-    pub(crate) defined_in_step: bool, // TODO maybe move this into analysis?, is not needed in the model
+    // ? maybe move this into analysis?, is not needed in the model
+    // ? however I will keep it here for now. Because of alignment it does
+    // ? not increase the size of the struct. Maybe in the future it can even be
+    // ? be public.
+    pub(crate) defined_in_step: bool,
 }
 
 impl Ingredient {
