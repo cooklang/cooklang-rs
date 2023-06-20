@@ -512,12 +512,12 @@ impl<'a, 'r> Walker<'a, 'r> {
             }
         }
         let value_span = value.span();
-        let mut value = QuantityValue::from_ast(value);
+        let mut v = QuantityValue::from_ast(value);
 
         if is_ingredient && self.auto_scale_ingredients {
-            match value {
-                QuantityValue::Fixed(v) => value = QuantityValue::Linear(v),
-                QuantityValue::Linear(_) => {
+            match v {
+                QuantityValue::Fixed { value } => v =  QuantityValue::Linear{ value },
+                QuantityValue::Linear { .. } => {
                     self.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),
                     });
@@ -526,7 +526,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             };
         }
 
-        value
+        v
     }
 
     fn resolve_reference<C: RefComponent>(
@@ -683,7 +683,7 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity,
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(QuantityValue::Fixed(Value::Number(value)), Some(unit_text));
+    let temperature = Quantity::new(QuantityValue::Fixed { value: Value::Number(value) }, Some(unit_text));
 
     let range = caps.get(0).unwrap().range();
     let (before, after) = (&text[..range.start], &text[range.end..]);

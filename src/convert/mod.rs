@@ -231,17 +231,17 @@ impl Converter {
         };
 
         let (value, unit) = match &from.value {
-            QuantityValue::Fixed(v) => {
-                let (value, unit) = self.convert2(v.try_into()?, unit, to)?;
-                let q_value = QuantityValue::Fixed(value.into());
+            QuantityValue::Fixed{ value } => {
+                let (value, unit) = self.convert2(value.try_into()?, unit, to)?;
+                let q_value = QuantityValue::Fixed{ value: value.into()};
                 (q_value, unit)
             }
-            QuantityValue::Linear(v) => {
-                let (value, unit) = self.convert2(v.try_into()?, unit, to)?;
-                let q_value = QuantityValue::Linear(value.into());
+            QuantityValue::Linear{ value } => {
+                let (value, unit) = self.convert2(value.try_into()?, unit, to)?;
+                let q_value = QuantityValue::Linear{value: value.into()};
                 (q_value, unit)
             }
-            QuantityValue::ByServings(values) => {
+            QuantityValue::ByServings{values} => {
                 let mut new_values = Vec::with_capacity(values.len());
                 let mut new_unit = None;
                 for v in values {
@@ -249,7 +249,7 @@ impl Converter {
                     new_values.push(value.into());
                     new_unit = Some(unit);
                 }
-                let q_value = QuantityValue::ByServings(new_values);
+                let q_value = QuantityValue::ByServings{ values: new_values };
                 let unit = new_unit.expect("QuantityValue::ByServings empty");
                 (q_value, unit)
             }

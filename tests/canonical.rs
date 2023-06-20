@@ -154,7 +154,7 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
 
 fn compare_value(expected: &Yaml, got: &QuantityValue) {
     let value = match got {
-        QuantityValue::Fixed(v) => v,
+        QuantityValue::Fixed{ value } => v,
         _ => {
             panic!("scalable values not supported by cooklang currently");
         }

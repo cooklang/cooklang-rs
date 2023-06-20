@@ -25,11 +25,11 @@ pub struct Quantity {
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum QuantityValue {
     /// Cannot be scaled
-    Fixed(Value),
+    Fixed { value: Value },
     /// Scaling is linear to the number of servings
-    Linear(Value),
+    Linear { value: Value },
     /// Scaling is in defined steps of the number of servings
-    ByServings(Vec<Value>),
+    ByServings{ values: Vec<Value> },
 }
 
 /// Base value
@@ -69,8 +69,8 @@ impl QuantityValue {
     /// Checks if any of the possible values is text
     pub fn contains_text_value(&self) -> bool {
         match self {
-            QuantityValue::Fixed(v) | QuantityValue::Linear(v) => v.is_text(),
-            QuantityValue::ByServings(v) => v.iter().any(Value::is_text),
+            QuantityValue::Fixed{ value } |  QuantityValue::Linear{ value } => value.is_text(),
+            QuantityValue::ByServings { values } => values.iter().any(Value::is_text),
         }
     }
 }
@@ -189,14 +189,14 @@ impl QuantityValue {
                 value,
                 auto_scale: None,
                 ..
-            } => Self::Fixed(value.take()),
+            } => Self::Fixed { value: value.take() },
             ast::QuantityValue::Single {
                 value,
                 auto_scale: Some(_),
                 ..
-            } => Self::Linear(value.take()),
+            } => Self::Linear{ value: value.take() },
             ast::QuantityValue::Many(v) => {
-                Self::ByServings(v.into_iter().map(crate::located::Located::take).collect())
+                Self::ByServings { values: v.into_iter().map(crate::located::Located::take).collect() }
             }
         }
     }
@@ -215,12 +215,12 @@ impl Display for Quantity {
 impl Display for QuantityValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Fixed(v) | Self::Linear(v) => v.fmt(f),
-            Self::ByServings(v) => {
-                for value in &v[..v.len() - 1] {
+            Self::Fixed { value } | Self::Linear { value } => value.fmt(f),
+            Self::ByServings{ values } => {
+                for value in &values[..values.len() - 1] {
                     write!(f, "{}|", value)?;
                 }
-                write!(f, "{}", v.last().unwrap())
+                write!(f, "{}", values.last().unwrap())
             }
         }
     }
@@ -398,15 +398,15 @@ pub struct NotScaled(pub QuantityValue);
 impl QuantityValue {
     pub(crate) fn extract_value(&self) -> Result<&Value, NotScaled> {
         match self {
-            Self::Fixed(v) => Ok(v),
-            Self::Linear(_) | Self::ByServings(_) => Err(NotScaled(self.to_owned())),
+            Self::Fixed { value } => Ok(value),
+            Self::Linear{ .. } | Self::ByServings { .. } => Err(NotScaled(self.to_owned())),
         }
     }
 
     /// Try adding two [QuantityValue]s.
     pub fn try_add(&self, rhs: &Self) -> Result<Self, QuantityAddError> {
         let value = self.extract_value()?.try_add(rhs.extract_value()?)?;
-        Ok(QuantityValue::Fixed(value))
+        Ok(QuantityValue::Fixed { value })
     }
 }
 

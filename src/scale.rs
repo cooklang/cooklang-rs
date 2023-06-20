@@ -231,11 +231,11 @@ fn default_scale_many<'a, T: 'a>(
 impl QuantityValue {
     fn scale(self, target: ScaleTarget) -> Result<(QuantityValue, ScaleOutcome), ScaleError> {
         let (value, outcome) = match self {
-            Self::Fixed(v) => (v, ScaleOutcome::Fixed),
-            Self::Linear(v) => (v.scale(target.factor())?, ScaleOutcome::Scaled),
-            Self::ByServings(ref v) => {
+            Self::Fixed { value } => (value, ScaleOutcome::Fixed),
+            Self::Linear { value } => (value.scale(target.factor())?, ScaleOutcome::Scaled),
+            Self::ByServings { ref values } => {
                 if let Some(index) = target.index {
-                    let Some(value) = v.get(index) else {
+                    let Some(value) = values.get(index) else {
                         return Err(ScaleError::NotDefined { target, value: self });
                     };
                     (value.clone(), ScaleOutcome::Scaled)
@@ -247,18 +247,18 @@ impl QuantityValue {
                 }
             }
         };
-        Ok((Self::Fixed(value), outcome))
+        Ok((Self::Fixed { value }, outcome))
     }
 
     fn default_scale(self) -> Self {
         match self {
-            v @ Self::Fixed(_) => v,
-            Self::Linear(v) => Self::Fixed(v),
-            Self::ByServings(v) => Self::Fixed(
-                v.first()
+            v @ Self::Fixed { .. } => v,
+            Self::Linear { value } => Self::Fixed { value },
+            Self::ByServings { values } => Self::Fixed {
+                value: values.first()
                     .expect("scalable value servings list empty")
                     .clone(),
-            ),
+            },
         }
     }
 }
