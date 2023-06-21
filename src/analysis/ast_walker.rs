@@ -204,19 +204,19 @@ impl<'a, 'r> Walker<'a, 'r> {
                     if let Some(re) = &self.temperature_regex {
                         if let Some((before, temperature, after)) = find_temperature(&t, re) {
                             if !before.is_empty() {
-                                new_items.push(Item::Text(before.to_string()));
+                                new_items.push(Item::Text { value: before.to_string() });
                             }
                             new_items
-                                .push(Item::InlineQuantity(self.content.inline_quantities.len()));
+                                .push(Item::InlineQuantity { value: self.content.inline_quantities.len() });
                             self.content.inline_quantities.push(temperature);
                             if !after.is_empty() {
-                                new_items.push(Item::Text(after.to_string()));
+                                new_items.push(Item::Text { value: after.to_string() });
                             }
                             continue;
                         }
                     }
 
-                    new_items.push(Item::Text(t.into_owned()));
+                    new_items.push(Item::Text { value: t.into_owned() });
                 }
                 ast::Item::Component(c) => {
                     if is_text {
@@ -226,7 +226,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                         continue; // ignore component
                     }
                     let new_component = self.component(c);
-                    new_items.push(Item::Component(new_component))
+                    new_items.push(Item::ItemComponent { value: new_component })
                 }
             };
         }
