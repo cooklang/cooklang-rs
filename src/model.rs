@@ -355,7 +355,7 @@ pub struct Component {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum ComponentKind {
-    Ingredient,
-    Cookware,
-    Timer,
+    IngredientKind,
+    CookwareKind,
+    TimerKind,
 }
