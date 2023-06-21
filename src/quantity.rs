@@ -37,13 +37,13 @@ pub enum QuantityValue {
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Value {
     /// Numeric
-    Number(f64),
+    Number{ value: f64 },
     /// Range
-    Range(RangeInclusive<f64>),
+    Range{ value: RangeInclusive<f64> },
     /// Text
     ///
     /// It is not possible to operate with this variant.
-    Text(String),
+    Text { value: String },
 }
 
 /// Unit that has the text it has been parsed from and, if recognised,
@@ -77,7 +77,7 @@ impl QuantityValue {
 
 impl Value {
     pub fn is_text(&self) -> bool {
-        matches!(self, Value::Text(_))
+        matches!(self, Value::Text { value: _ })
     }
 }
 
@@ -233,9 +233,9 @@ impl Display for Value {
         }
 
         match self {
-            Value::Number(n) => write!(f, "{}", float(*n)),
-            Value::Range(r) => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
-            Value::Text(t) => write!(f, "{}", t),
+            Value::Number { value: n } => write!(f, "{}", float(*n)),
+            Value::Range { value: r} => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
+            Value::Text { value: t } => write!(f, "{}", t),
         }
     }
 }
@@ -248,19 +248,19 @@ impl Display for QuantityUnit {
 
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
-        Self::Number(value)
+        Self::Number { value }
     }
 }
 
 impl From<RangeInclusive<f64>> for Value {
     fn from(value: RangeInclusive<f64>) -> Self {
-        Self::Range(value)
+        Self::Range { value }
     }
 }
 
 impl From<String> for Value {
     fn from(value: String) -> Self {
-        Self::Text(value)
+        Self::Text { value }
     }
 }
 
@@ -419,14 +419,14 @@ impl Value {
     /// Try adding two [Value]s
     pub fn try_add(&self, rhs: &Self) -> Result<Value, TextValueError> {
         let val = match (self, rhs) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-            (Value::Number(n), Value::Range(r)) | (Value::Range(r), Value::Number(n)) => {
-                Value::Range(r.start() + n..=r.end() + n)
+            (Value::Number { value: a }, Value::Number { value: b }) => Value::Number { value: a + b },
+            (Value::Number { value: n }, Value::Range { value: r }) | (Value::Range { value: r }, Value::Number { value: n }) => {
+                Value::Range { value: r.start() + n..=r.end() + n }
             }
-            (Value::Range(a), Value::Range(b)) => {
-                Value::Range(a.start() + b.start()..=a.end() + b.end())
+            (Value::Range { value: a }, Value::Range { value: b }) => {
+                Value::Range { value: a.start() + b.start()..=a.end() + b.end() }
             }
-            (t @ Value::Text(_), _) | (_, t @ Value::Text(_)) => {
+            (t @ Value::Text { value: _ }, _) | (_, t @ Value::Text { value: _ }) => {
                 return Err(TextValueError(t.to_owned()));
             }
         };

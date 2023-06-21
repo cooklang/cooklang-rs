@@ -266,9 +266,9 @@ impl QuantityValue {
 impl Value {
     fn scale(&self, factor: f64) -> Result<Value, ScaleError> {
         match self.clone() {
-            Value::Number(n) => Ok(Value::Number(n * factor)),
-            Value::Range(r) => Ok(Value::Range(r.start() * factor..=r.end() * factor)),
-            v @ Value::Text(_) => Err(TextValueError(v).into()),
+            Value::Number { value: n } => Ok(Value::Number { value: n * factor }),
+            Value::Range { value: r } => Ok(Value::Range { value: r.start() * factor..=r.end() * factor }),
+            v @ Value::Text { value: _ } => Err(TextValueError(v).into()),
         }
     }
 }

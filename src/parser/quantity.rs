@@ -132,7 +132,7 @@ pub fn parse_quantity<'input>(
         _ => {
             line.consume_rest();
             let text = line.text(line.tokens().first().unwrap().span.start(), line.tokens());
-            let text_val = Value::Text(text.text_trimmed().into_owned());
+            let text_val = Value::Text { value: text.text_trimmed().into_owned() };
             value = ast::QuantityValue::Single {
                 value: Located::new(text_val, text.span()),
                 auto_scale: None,
@@ -229,7 +229,7 @@ fn text_value(tokens: &[Token], offset: usize, line: &mut LineParser) -> Value {
             help: None,
         });
     }
-    Value::Text(text.text_trimmed().into_owned())
+    Value::Text { value: text.text_trimmed().into_owned() }
 }
 
 fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, ParserError>> {
@@ -252,20 +252,20 @@ fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, Pa
 
     let r = match filtered_tokens.as_slice() {
         // int
-        &[t @ mt![int]] => int(t, line).map(Value::Number),
+        &[t @ mt![int]] => int(t, line).map(|v| { Value::Number { value: v }}),
         // float
-        &[t @ mt![float]] => float(t, line).map(Value::Number),
+        &[t @ mt![float]] => float(t, line).map(|v| { Value::Number { value: v }}),
         // mixed number
         &[i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
-            mixed_num(i, a, b, line).map(Value::Number)
+            mixed_num(i, a, b, line).map(|v| { Value::Number { value: v }})
         }
         // frac
-        &[a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, line).map(Value::Number),
+        &[a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, line).map(|v| { Value::Number { value: v }}),
         // range
         &[s @ mt![int | float], mt![-], e @ mt![int | float]]
             if line.extension(Extensions::RANGE_VALUES) =>
         {
-            range(s, e, line).map(Value::Range)
+            range(s, e, line).map(|v| { Value::Range { value: v }})
         }
         // other => text
         _ => return None,

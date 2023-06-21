@@ -266,7 +266,7 @@ impl Recover for QuantityValue {
 
 impl Recover for Value {
     fn recover() -> Self {
-        Self::Number(1.0)
+        Self::Number { value: 1.0 }
     }
 }
 
