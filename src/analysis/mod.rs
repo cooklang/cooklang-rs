@@ -62,6 +62,13 @@ pub enum AnalysisError {
         to_remove: Span,
         implicit: bool,
     },
+
+    #[error("Invalid intermediate ingredient refrence: {reason}")]
+    InvalidIntermediateReferece {
+        reference_span: Span,
+        reason: &'static str,
+        help: Cow<'static, str>,
+    },
 }
 
 #[derive(Debug, Error)]
@@ -160,6 +167,9 @@ impl RichError for AnalysisError {
             AnalysisError::ComponentPartNotAllowedInReference { to_remove, .. } => {
                 vec![label![to_remove, "remove this"]]
             }
+            AnalysisError::InvalidIntermediateReferece { reference_span, .. } => {
+                vec![label![reference_span]]
+            }
         }
     }
 
@@ -191,6 +201,7 @@ impl RichError for AnalysisError {
                     None
                 }
             }
+            AnalysisError::InvalidIntermediateReferece { help, .. } => Some(help.clone()),
             _ => None
         }
     }

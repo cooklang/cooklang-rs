@@ -68,7 +68,7 @@ impl ScaledRecipe {
             .ingredients
             .iter()
             .enumerate()
-            .filter(|(_, i)| !i.is_reference())
+            .filter(|(_, i)| i.modifiers.should_be_listed())
         {
             let mut grouped = GroupedQuantity::default();
             for q in ingredient.all_quantities(&self.ingredients) {
@@ -174,7 +174,7 @@ pub struct Ingredient {
     /// Note
     pub note: Option<String>,
     /// How the cookware is related to others
-    pub relation: ComponentRelation,
+    pub relation: IngredientRelation,
     pub(crate) modifiers: Modifiers,
     // ? maybe move this into analysis?, is not needed in the model
     // ? however I will keep it here for now. Because of alignment it does
@@ -320,6 +320,74 @@ impl ComponentRelation {
             ComponentRelation::Definition { .. } => None,
             ComponentRelation::Reference { references_to } => Some(*references_to),
         }
+    }
+}
+
+/// Same as [ComponentRelation] but with the ability to reference steps and
+/// sections apart from other ingredients.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub struct IngredientRelation {
+    #[serde(flatten)]
+    relation: ComponentRelation,
+    reference_target: Option<IngredientReferenceTarget>,
+}
+
+/// Target an ingredient reference references to
+///
+/// This is obtained from [IngredientRelation::references_to]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
+pub enum IngredientReferenceTarget {
+    /// Ingredient definition
+    Ingredient,
+    /// Step in the current section
+    Step,
+    /// Section in the current recipe
+    Section,
+}
+
+impl IngredientRelation {
+    /// Creates a new ingredient relation
+    ///
+    /// # Panics
+    /// If `relation` is [ComponentRelation::Reference] and `reference_target`
+    /// is not [Some].
+    pub(crate) fn new(
+        relation: ComponentRelation,
+        reference_target: Option<IngredientReferenceTarget>,
+    ) -> Self {
+        assert!(
+            matches!(relation, ComponentRelation::Definition { .. }) || reference_target.is_some(),
+            "ingredient relation reference without reference target defined. this is a bug."
+        );
+        Self {
+            relation,
+            reference_target,
+        }
+    }
+
+    /// Gets a list of the components referencing this one.
+    ///
+    /// Returns a list of indices to the corresponding vec in [Recipe].
+    pub fn referenced_from(&self) -> &[usize] {
+        self.relation.referenced_from()
+    }
+
+    pub fn referenced_from_mut(&mut self) -> Option<&mut Vec<usize>> {
+        match &mut self.relation {
+            ComponentRelation::Definition { referenced_from } => Some(referenced_from),
+            ComponentRelation::Reference { .. } => None,
+        }
+    }
+
+    /// Get the index the relation refrences to and the target
+    ///
+    /// If [Extensions::INTERMEDIATE_INGREDIENTS] is disabled, the target
+    /// will always be [IngredientReferenceTarget::Ingredient].
+    pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {
+        self.relation
+            .references_to()
+            .map(|index| (index, self.reference_target.unwrap()))
     }
 }
 

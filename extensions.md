@@ -26,6 +26,29 @@ are 5 modifiers:
 
 This also works (except recipe) for cookware.
 
+## Intermediate ingredients
+You can refer to intermediate preparations as ingredients. For example:
+```cooklang
+Add @flour{200%g} and @water. Mix until combined.
+
+Let the @&(~1)dough{} rest for ~{1%hour}.
+```
+Here, `dough` is refering to whatever was prepared one step back.
+These ingredients will not appear in the list.
+
+There are more syntax variations:
+```cooklang
+@&(~1)thing{}  -- 1 step back
+@&(2)thing{}   -- step index 2
+@&(=2)thing{}  -- section index 2
+@&(=~2)thing{} -- 2 sections back
+```
+
+Indexes start with 0, not 1. Only steps from the current section can be
+referenced. It can only be combined with the optional (`?`) modifier. In 
+relative references, text steps are ignored. Enabling this extension
+automatically enables the [modifiers](#modifiers) extension. 
+
 ## Component note
 Simple, add small notes to ingredients. The notes in between parenthesis.
 

@@ -1,5 +1,7 @@
+use smallvec::SmallVec;
+
 use crate::{
-    ast::{self, Modifiers, Text},
+    ast::{self, IntermediateData, IntermediateRefMode, IntermediateTargetKind, Modifiers, Text},
     context::Recover,
     error::label,
     lexer::T,
@@ -9,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    quantity::parse_quantity, token_stream::Token, tokens_span, LineParser, ParserError,
+    mt, quantity::parse_quantity, token_stream::Token, tokens_span, LineParser, ParserError,
     ParserWarning,
 };
 
@@ -112,7 +114,31 @@ fn comp_body<'t>(line: &mut LineParser<'t, '_>) -> Option<Body<'t>> {
 }
 
 fn modifiers<'t>(line: &mut LineParser<'t, '_>) -> &'t [Token] {
-    line.consume_while(|t| matches!(t, T![@] | T![&] | T![?] | T![+] | T![-]))
+    if !line.extension(Extensions::COMPONENT_MODIFIERS) {
+        return &[];
+    }
+
+    let start = line.current;
+    loop {
+        match line.peek() {
+            T![@] | T![?] | T![+] | T![-] => {
+                line.bump_any();
+            }
+            T![&] => {
+                line.bump_any();
+                if line.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
+                    line.with_recover(|line| {
+                        line.consume(T!['('])?;
+                        let intermediate = line.until(|t| t == T![')'])?;
+                        line.bump(T![')']);
+                        Some(intermediate)
+                    });
+                }
+            }
+            _ => break,
+        }
+    }
+    &line.tokens()[start..line.current]
 }
 
 fn note<'input>(line: &mut LineParser<'_, 'input>) -> Option<Text<'input>> {
@@ -129,48 +155,187 @@ fn note<'input>(line: &mut LineParser<'_, 'input>) -> Option<Text<'input>> {
         .flatten()
 }
 
+struct ParsedModifiers {
+    flags: Located<Modifiers>,
+    intermediate_data: Option<Located<IntermediateData>>,
+}
+
+// Parsing is defered so there are no errors for components that doesn't support modifiers
 fn parse_modifiers(
     line: &mut LineParser,
     modifiers_tokens: &[Token],
     modifiers_pos: usize,
-) -> Located<Modifiers> {
+) -> ParsedModifiers {
     if modifiers_tokens.is_empty() {
-        Located::new(Modifiers::empty(), Span::pos(modifiers_pos))
+        ParsedModifiers {
+            flags: Located::new(Modifiers::empty(), Span::pos(modifiers_pos)),
+            intermediate_data: None,
+        }
     } else if !line.extension(Extensions::COMPONENT_MODIFIERS) {
         let modifiers_span = tokens_span(modifiers_tokens);
+        // TODO remove extension not enabled error. when an extension is not enabled, it should be as it doesnt exist
         line.error(ParserError::ExtensionNotEnabled {
             span: modifiers_span,
             extension_name: "component modifiers",
         });
-        Located::new(Modifiers::empty(), modifiers_span)
+        ParsedModifiers {
+            flags: Located::new(Modifiers::empty(), modifiers_span),
+            intermediate_data: None,
+        }
     } else {
         let modifiers_span = tokens_span(modifiers_tokens);
-        let m = modifiers_tokens
-            .iter()
-            .try_fold(Modifiers::empty(), |acc, m| {
-                let new_m = match m.kind {
-                    T![@] => Modifiers::RECIPE,
-                    T![&] => Modifiers::REF,
-                    T![?] => Modifiers::OPT,
-                    T![+] => Modifiers::NEW,
-                    T![-] => Modifiers::HIDDEN,
-                    _ => unreachable!(), // checked in [modifiers] function
-                };
+        let mut modifiers = Modifiers::empty();
+        let mut intermediate_data = None;
 
-                if acc.contains(new_m) {
-                    line.error(ParserError::DuplicateModifiers {
-                        modifiers_span,
-                        dup: line.as_str(*m).to_string(),
-                    });
-                    Err(())
-                } else {
-                    Ok(acc | new_m)
+        let mut tokens = modifiers_tokens.iter();
+
+        while let Some(tok) = tokens.next() {
+            let new_m = match tok.kind {
+                T![@] => Modifiers::RECIPE,
+                T![&] => {
+                    if line.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
+                        intermediate_data = parse_intermediate_ref_data(line, &mut tokens);
+                    }
+
+                    Modifiers::REF
                 }
-            })
-            .unwrap_or(Modifiers::empty());
+                T![?] => Modifiers::OPT,
+                T![+] => Modifiers::NEW,
+                T![-] => Modifiers::HIDDEN,
+                _ => panic!("Bad modifiers token sequence. Unexpected token: {tok:?}"),
+            };
 
-        Located::new(m, modifiers_span)
+            if modifiers.contains(new_m) {
+                line.error(ParserError::DuplicateModifiers {
+                    modifiers_span,
+                    dup: line.as_str(*tok).to_string(),
+                });
+            } else {
+                modifiers |= new_m;
+            }
+        }
+
+        if let Some(data) = &intermediate_data {
+            match data.target_kind {
+                IntermediateTargetKind::Step => modifiers |= Modifiers::REF_TO_STEP,
+                IntermediateTargetKind::Section => modifiers |= Modifiers::REF_TO_SECTION,
+            }
+        }
+
+        ParsedModifiers {
+            flags: Located::new(modifiers, modifiers_span),
+            intermediate_data,
+        }
     }
+}
+
+fn parse_intermediate_ref_data(
+    line: &mut LineParser,
+    tokens: &mut std::slice::Iter<Token>,
+) -> Option<Located<IntermediateData>> {
+    use IntermediateRefMode::*;
+    use IntermediateTargetKind::*;
+    const CONTAINER: &str = "modifiers";
+    const WHAT: &str = "intermediate reference";
+    const INTER_REF_HELP: &str = "The reference is something like: `~1`, `1`, `=1` or `=~1`.";
+
+    // if '(' has been taken as a modifier token, it has taken until
+    // a closing ')'
+
+    if !matches!(tokens.clone().next(), Some(mt!['('])) {
+        return None;
+    }
+
+    let slice = {
+        let slice = tokens.as_slice();
+        let end_pos = tokens
+            .position(|t| t.kind == T![')']) // consumes until and including ')'
+            .expect("No closing paren in intermediate ingredient ref");
+        &slice[..=end_pos]
+    };
+    let inner_slice = &slice[1..slice.len() - 1];
+
+    if inner_slice.is_empty() {
+        line.error(ParserError::ComponentPartInvalid {
+            container: CONTAINER,
+            what: WHAT,
+            reason: "empty",
+            labels: vec![label!(tokens_span(slice), "add the reference here")],
+            help: Some(INTER_REF_HELP),
+        });
+        return None;
+    }
+
+    let filtered_tokens: SmallVec<[Token; 3]> = inner_slice
+        .iter()
+        .filter(|t| !matches!(t.kind, T![ws] | T![block comment]))
+        .copied()
+        .collect();
+
+    let (i, ref_mode, target_kind) = match *filtered_tokens.as_slice() {
+        [i @ mt![int]] => (i, Index, Step),
+        [mt![~], i @ mt![int]] => (i, Relative, Step),
+        [mt![=], i @ mt![int]] => (i, Index, Section),
+        [mt![=], mt![~], i @ mt![int]] => (i, Relative, Section),
+
+        // common errors
+        [rel @ mt![~], sec @ mt![=], mt![int]] => {
+            line.error(ParserError::ComponentPartInvalid {
+                container: "modifiers",
+                what: "intermediate reference",
+                reason: "Wrong relative section order",
+                labels: vec![
+                    label!(rel.span, "this should be"),
+                    label!(sec.span, "after this"),
+                ],
+                help: Some("Swap the `~` and the `=`"),
+            });
+            return None;
+        }
+        [.., s @ mt![- | +], mt![int]] => {
+            line.error(ParserError::ComponentPartNotAllowed {
+                container: "modifiers",
+                what: "intermediate reference sign",
+                to_remove: s.span,
+                help: Some(
+                    "The value cannot have a sign. They are indexes or relative always backwards.",
+                ),
+            });
+            return None;
+        }
+        _ => {
+            line.error(ParserError::ComponentPartInvalid {
+                container: "modifiers",
+                what: "intermediate reference",
+                reason: "Invalid reference syntax",
+                labels: vec![label!(
+                    tokens_span(inner_slice),
+                    "this reference is not valid"
+                )],
+                help: Some(INTER_REF_HELP),
+            });
+            return None;
+        }
+    };
+
+    let val = match line.as_str(i).parse::<i16>() {
+        Ok(val) => val,
+        Err(err) => {
+            line.error(ParserError::ParseInt {
+                bad_bit: i.span,
+                source: err,
+            });
+            return None;
+        }
+    };
+
+    let data = IntermediateData {
+        ref_mode,
+        target_kind,
+        val,
+    };
+
+    Some(Located::new(data, tokens_span(slice)))
 }
 
 fn parse_alias<'input>(
@@ -247,14 +412,17 @@ fn ingredient<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Ingredie
         });
     }
 
-    let modifiers = parse_modifiers(line, modifiers_tokens, modifiers_pos);
+    let ParsedModifiers {
+        flags,
+        intermediate_data,
+    } = parse_modifiers(line, modifiers_tokens, modifiers_pos);
 
     let quantity = body.quantity.map(|tokens| {
         parse_quantity(tokens, line.input, line.extensions, &mut line.context).quantity
     });
 
     Some(ast::Ingredient {
-        modifiers,
+        modifiers: (flags, intermediate_data),
         name,
         alias,
         quantity,
@@ -312,6 +480,7 @@ fn cookware<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Cookware<'
         q.quantity.map_inner(|q| q.value)
     });
     let modifiers = parse_modifiers(line, modifiers_tokens, modifiers_pos);
+    let modifiers = check_intermediate_data(line, modifiers, COOKWARE);
 
     if modifiers.contains(Modifiers::RECIPE) {
         let pos = modifiers_tokens
@@ -411,14 +580,32 @@ fn timer<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Timer<'input>
 
 fn check_modifiers(line: &mut LineParser, modifiers_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
+    assert_ne!(container, COOKWARE);
     if !modifiers_tokens.is_empty() {
         line.error(ParserError::ComponentPartNotAllowed {
             container,
             what: "modifiers",
             to_remove: tokens_span(modifiers_tokens),
-            help: Some("Modifiers are only available in ingredients"),
+            help: Some("Modifiers are only available in ingredients and cookware"),
         });
     }
+}
+
+fn check_intermediate_data(
+    line: &mut LineParser,
+    parsed_modifiers: ParsedModifiers,
+    container: &'static str,
+) -> Located<Modifiers> {
+    assert_ne!(container, INGREDIENT);
+    if let Some(inter_data) = parsed_modifiers.intermediate_data {
+        line.error(ParserError::ComponentPartNotAllowed {
+            container,
+            what: "intermediate reference modifier",
+            to_remove: inter_data.span(),
+            help: Some("Intermediate references are only available in ingredients"),
+        })
+    }
+    parsed_modifiers.flags
 }
 
 fn check_alias(line: &mut LineParser, name_tokens: &[Token], container: &'static str) {
@@ -457,4 +644,133 @@ fn check_note(line: &mut LineParser, container: &'static str) {
             None::<()> // always backtrack
         })
         .is_none());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ast::Item, parser::token_stream::TokenStream};
+
+    macro_rules! t {
+        ($input:literal) => {
+            t!($input, $crate::Extensions::all())
+        };
+        ($input:literal, $extensions:expr) => {{
+            let input = $input;
+            let tokens = TokenStream::new(input).collect::<Vec<_>>();
+            let mut line = LineParser::new(0, &tokens, input, $extensions);
+            let r = step(&mut line, false);
+            (r, line.finish())
+        }};
+    }
+
+    macro_rules! igr {
+        ($item:expr) => {
+            match $item {
+                Item::Component(comp) => comp.clone().map_inner(|comp| match comp {
+                    ast::Component::Ingredient(igr) => igr,
+                    _ => panic!(),
+                }),
+                _ => panic!(),
+            }
+        };
+    }
+
+    #[test]
+    fn test_intermediate_ref_relative() {
+        let (s, ctx) = t!("@&(~1)one step back{}");
+        let igr = igr!(&s.items[0]);
+        assert_eq!(igr.name.text(), "one step back");
+        assert_eq!(
+            igr.modifiers.0.inner,
+            Modifiers::REF | Modifiers::REF_TO_STEP
+        );
+        assert_eq!(igr.modifiers.0.span(), Span::new(1, 6));
+        assert_eq!(
+            igr.modifiers.1.unwrap().inner,
+            IntermediateData {
+                ref_mode: IntermediateRefMode::Relative,
+                target_kind: IntermediateTargetKind::Step,
+                val: 1
+            }
+        );
+        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 6));
+        assert!(ctx.is_empty());
+    }
+
+    #[test]
+    fn test_intermediate_ref_index() {
+        let (s, ctx) = t!("@&(1)step index 1{}");
+        let igr = igr!(&s.items[0]);
+        assert_eq!(igr.name.text(), "step index 1");
+        assert_eq!(
+            igr.modifiers.0.inner,
+            Modifiers::REF | Modifiers::REF_TO_STEP
+        );
+        assert_eq!(igr.modifiers.0.span(), Span::new(1, 5));
+        assert_eq!(
+            igr.modifiers.1.unwrap().inner,
+            IntermediateData {
+                ref_mode: IntermediateRefMode::Index,
+                target_kind: IntermediateTargetKind::Step,
+                val: 1
+            }
+        );
+        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 5));
+        assert!(ctx.is_empty());
+    }
+
+    #[test]
+    fn test_intermediate_ref_relative_section() {
+        let (s, ctx) = t!("@&(=~1)one section back{}");
+        let igr = igr!(&s.items[0]);
+        assert_eq!(igr.name.text(), "one section back");
+        assert_eq!(
+            igr.modifiers.0.inner,
+            Modifiers::REF | Modifiers::REF_TO_SECTION
+        );
+        assert_eq!(igr.modifiers.0.span(), Span::new(1, 7));
+        assert_eq!(
+            igr.modifiers.1.unwrap().inner,
+            IntermediateData {
+                ref_mode: IntermediateRefMode::Relative,
+                target_kind: IntermediateTargetKind::Section,
+                val: 1
+            }
+        );
+        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 7));
+        assert!(ctx.is_empty());
+    }
+
+    #[test]
+    fn test_intermediate_ref_index_section() {
+        let (s, ctx) = t!("@&(=1)section index 1{}");
+        let igr = igr!(&s.items[0]);
+        assert_eq!(igr.name.text(), "section index 1");
+        assert_eq!(
+            igr.modifiers.0.inner,
+            Modifiers::REF | Modifiers::REF_TO_SECTION
+        );
+        assert_eq!(igr.modifiers.0.span(), Span::new(1, 6));
+        assert_eq!(
+            igr.modifiers.1.unwrap().inner,
+            IntermediateData {
+                ref_mode: IntermediateRefMode::Index,
+                target_kind: IntermediateTargetKind::Section,
+                val: 1
+            }
+        );
+        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 6));
+        assert!(ctx.is_empty());
+    }
+
+    #[test]
+    fn test_intermediate_ref_errors() {
+        let (_, ctx) = t!("@&(~=1)name{}");
+        assert_eq!(ctx.errors.len(), 1);
+        let (_, ctx) = t!("@&(9999999999999999999999999999999999999999)name{}");
+        assert_eq!(ctx.errors.len(), 1);
+        let (_, ctx) = t!("@&(awebo)name{}");
+        assert_eq!(ctx.errors.len(), 1);
+    }
 }

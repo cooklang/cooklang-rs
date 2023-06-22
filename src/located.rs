@@ -66,6 +66,8 @@ impl<T, Id: Clone> Located<T, Id> {
     }
 }
 
+impl<T: Clone + Copy> Copy for Located<T> {}
+
 impl<T: Copy> Located<T> {
     pub fn get(&self) -> T {
         self.inner

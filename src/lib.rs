@@ -43,17 +43,19 @@ bitflags! {
     pub struct Extensions: u32 {
         /// Steps separation is a blank line, not a line break. This may break
         /// compatibility with other cooklang parsers.
-        const MULTILINE_STEPS      = 1 << 0;
-        const COMPONENT_MODIFIERS  = 1 << 1;
-        const COMPONENT_NOTE       = 1 << 2;
-        const COMPONENT_ALIAS      = 1 << 3;
-        const SECTIONS             = 1 << 4;
-        const ADVANCED_UNITS       = 1 << 5;
-        const MODES                = 1 << 6;
-        const TEMPERATURE          = 1 << 7;
-        const TEXT_STEPS           = 1 << 8;
-        const RANGE_VALUES         = 1 << 9;
-        const TIMER_REQUIRES_TIME  = 1 << 10;
+        const MULTILINE_STEPS          = 1 << 0;
+        const COMPONENT_MODIFIERS      = 1 << 1;
+        const COMPONENT_NOTE           = 1 << 2;
+        const COMPONENT_ALIAS          = 1 << 3;
+        const SECTIONS                 = 1 << 4;
+        const ADVANCED_UNITS           = 1 << 5;
+        const MODES                    = 1 << 6;
+        const TEMPERATURE              = 1 << 7;
+        const TEXT_STEPS               = 1 << 8;
+        const RANGE_VALUES             = 1 << 9;
+        const TIMER_REQUIRES_TIME      = 1 << 10;
+        /// This extensions also enables [Self::COMPONENT_MODIFIERS].
+        const INTERMEDIATE_INGREDIENTS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
 
         /// Enables [Self::COMPONENT_MODIFIERS], [Self::COMPONENT_NOTE] and [Self::COMPONENT_ALIAS]
         const COMPONENT_ALL = Self::COMPONENT_MODIFIERS.bits()
@@ -74,7 +76,8 @@ bitflags! {
                         | Self::MODES.bits()
                         | Self::TEMPERATURE.bits()
                         | Self::TEXT_STEPS.bits()
-                        | Self::RANGE_VALUES.bits();
+                        | Self::RANGE_VALUES.bits()
+                        | Self::INTERMEDIATE_INGREDIENTS.bits();
     }
 }
 

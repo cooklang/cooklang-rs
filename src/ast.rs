@@ -40,16 +40,18 @@ impl Item<'_> {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum Component<'a> {
     Ingredient(Ingredient<'a>),
     Cookware(Cookware<'a>),
     Timer(Timer<'a>),
 }
 
+pub type IngredientModifiers = (Located<Modifiers>, Option<Located<IntermediateData>>);
+
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Ingredient<'a> {
-    pub modifiers: Located<Modifiers>,
+    pub modifiers: IngredientModifiers,
     pub name: Text<'a>,
     pub alias: Option<Text<'a>>,
     pub quantity: Option<Located<Quantity<'a>>>,
@@ -272,7 +274,7 @@ impl Recover for Value {
 
 bitflags! {
     #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    pub struct Modifiers: u32 {
+    pub struct Modifiers: u16 {
         /// refers to a recipe with the same name
         const RECIPE = 1 << 0;
         /// references another igr with the same name, if amount given will sum
@@ -283,6 +285,9 @@ bitflags! {
         const OPT    = 1 << 3;
         /// forces to create a new ingredient
         const NEW    = 1 << 4;
+        /// intermediate ingredient REF
+        const REF_TO_STEP = 1 << 5 | Self::REF.bits();
+        const REF_TO_SECTION = 1 << 6 | Self::REF.bits();
     }
 }
 
@@ -298,10 +303,34 @@ impl Modifiers {
             _ => panic!("Unknown modifier: {:?}", self),
         }
     }
+
+    /// Returns true if the component should be diplayed in a list
+    pub fn should_be_listed(self) -> bool {
+        !self.intersects(Modifiers::HIDDEN | Modifiers::REF)
+    }
 }
 
 impl std::fmt::Display for Modifiers {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.0, f)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IntermediateData {
+    pub ref_mode: IntermediateRefMode,
+    pub target_kind: IntermediateTargetKind,
+    pub val: i16,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IntermediateRefMode {
+    Index,
+    Relative,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IntermediateTargetKind {
+    Step,
+    Section,
 }

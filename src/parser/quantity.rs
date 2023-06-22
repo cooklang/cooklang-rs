@@ -11,7 +11,7 @@ use crate::{
     Extensions,
 };
 
-use super::{token_stream::Token, tokens_span, LineParser, ParserError, ParserWarning};
+use super::{mt, token_stream::Token, tokens_span, LineParser, ParserError, ParserWarning};
 
 pub struct ParsedQuantity<'a> {
     pub quantity: Located<ast::Quantity<'a>>,
@@ -233,21 +233,11 @@ fn text_value(tokens: &[Token], offset: usize, line: &mut LineParser) -> Value {
 }
 
 fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, ParserError>> {
-    // match token type
-    macro_rules! mt {
-        ($($reprs:tt)|*) => {
-            $(Token {
-                kind: T![$reprs],
-                ..
-            })|+
-        }
-    }
-
     // All the numeric values will be at most 4 tokens
     let filtered_tokens: SmallVec<[Token; 4]> = tokens
         .iter()
-        .copied()
         .filter(|t| !matches!(t.kind, T![ws] | T![line comment] | T![block comment]))
+        .copied()
         .collect();
 
     let r = match filtered_tokens.as_slice() {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use regex::Regex;
 
-use crate::ast::{self, Modifiers, Text};
+use crate::ast::{self, IntermediateData, Modifiers, Text};
 use crate::context::Context;
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::located::Located;
@@ -43,13 +43,14 @@ pub fn parse_ast<'a>(
         })
         .flatten();
 
-    let mut walker = Walker {
+    let walker = Walker {
         extensions,
         temperature_regex,
         converter,
         recipe_ref_checker,
 
         content: Default::default(),
+        current_section: Section::default(),
 
         define_mode: DefineMode::All,
         duplicate_mode: DuplicateMode::New,
@@ -59,10 +60,7 @@ pub fn parse_ast<'a>(
         ingredient_locations: Default::default(),
         metadata_locations: Default::default(),
     };
-
-    walker.ast(ast);
-
-    walker.context.finish(Some(walker.content))
+    walker.ast(ast)
 }
 
 struct Walker<'a, 'c> {
@@ -72,6 +70,7 @@ struct Walker<'a, 'c> {
     recipe_ref_checker: Option<RecipeRefChecker<'c>>,
 
     content: RecipeContent,
+    current_section: Section,
 
     define_mode: DefineMode,
     duplicate_mode: DuplicateMode,
@@ -99,9 +98,7 @@ enum DuplicateMode {
 crate::context::impl_deref_context!(Walker<'_, '_>, AnalysisError, AnalysisWarning);
 
 impl<'a, 'r> Walker<'a, 'r> {
-    fn ast(&mut self, ast: ast::Ast<'a>) {
-        let mut current_section = Section::default();
-
+    fn ast(mut self, ast: ast::Ast<'a>) -> AnalysisResult {
         for line in ast.lines {
             match line {
                 ast::Line::Metadata { key, value } => self.metadata(key, value),
@@ -112,20 +109,22 @@ impl<'a, 'r> Walker<'a, 'r> {
                     // step to the section. The components should have been
                     // added to their lists
                     if self.define_mode != DefineMode::Components {
-                        current_section.steps.push(new_step);
+                        self.current_section.steps.push(new_step);
                     }
                 }
                 ast::Line::Section { name } => {
-                    if !current_section.is_empty() {
-                        self.content.sections.push(current_section);
+                    if !self.current_section.is_empty() {
+                        self.content.sections.push(self.current_section);
                     }
-                    current_section = Section::new(name.map(|t| t.text_trimmed().into_owned()));
+                    self.current_section =
+                        Section::new(name.map(|t| t.text_trimmed().into_owned()));
                 }
             }
         }
-        if !current_section.is_empty() {
-            self.content.sections.push(current_section);
+        if !self.current_section.is_empty() {
+            self.content.sections.push(self.current_section);
         }
+        self.context.finish(Some(self.content))
     }
 
     fn metadata(&mut self, key: Text<'a>, value: Text<'a>) {
@@ -267,16 +266,34 @@ impl<'a, 'r> Walker<'a, 'r> {
             alias: ingredient.alias.map(|t| t.text_trimmed().into_owned()),
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
-            modifiers: ingredient.modifiers.clone().take(),
-            relation: ComponentRelation::Definition {
-                referenced_from: Vec::new(),
-            },
+            modifiers: ingredient.modifiers.0.take(),
+            relation: IngredientRelation::new(
+                ComponentRelation::Definition {
+                    referenced_from: Vec::new(),
+                },
+                None,
+            ),
             defined_in_step: self.define_mode != DefineMode::Components,
         };
 
-        if let Some((references_to, implicit)) =
-            self.resolve_reference(&mut new_igr, location, located_ingredient.modifiers.span())
-        {
+        if let Some(inter_data) = ingredient.modifiers.1 {
+            if let Some(relation) = self.resolve_intermetiate_ref(inter_data) {
+                new_igr.relation = relation;
+                assert!(
+                    new_igr.relation.references_to().unwrap().1 != IngredientReferenceTarget::Step
+                        || new_igr.modifiers.contains(Modifiers::REF_TO_STEP)
+                );
+                assert!(
+                    new_igr.relation.references_to().unwrap().1
+                        != IngredientReferenceTarget::Section
+                        || new_igr.modifiers.contains(Modifiers::REF_TO_SECTION)
+                );
+            }
+        } else if let Some((references_to, implicit)) = self.resolve_reference(
+            &mut new_igr,
+            location,
+            located_ingredient.modifiers.0.span(),
+        ) {
             let referenced = &self.content.ingredients[references_to];
 
             // When the ingredient is not defined in a step, only the definition
@@ -337,12 +354,13 @@ impl<'a, 'r> Walker<'a, 'r> {
                 }
             }
 
+            // TODO This may be unreachable code. When resolving references, the recipe modifier will be inherited.
             if referenced.modifiers.contains(Modifiers::RECIPE)
                 && !new_igr.modifiers.contains(Modifiers::RECIPE)
             {
                 self.context
                     .warn(AnalysisWarning::ReferenceToRecipeMissing {
-                        modifiers: ingredient.modifiers,
+                        modifiers: ingredient.modifiers.0,
                         ingredient_span: location,
                         referenced_span: self.ingredient_locations[references_to].span(),
                     })
@@ -368,7 +386,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                 }
             }
 
-            set_referenced_from(&mut self.content.ingredients, references_to);
+            Ingredient::set_referenced_from(&mut self.content.ingredients, references_to);
         }
 
         if new_igr.modifiers.contains(Modifiers::RECIPE)
@@ -387,6 +405,130 @@ impl<'a, 'r> Walker<'a, 'r> {
         self.ingredient_locations.push(located_ingredient);
         self.content.ingredients.push(new_igr);
         self.content.ingredients.len() - 1
+    }
+
+    fn resolve_intermetiate_ref(
+        &mut self,
+        inter_data: Located<IntermediateData>,
+    ) -> Option<IngredientRelation> {
+        use ast::IntermediateRefMode::*;
+        use ast::IntermediateTargetKind::*;
+        assert!(!inter_data.val.is_negative());
+        let val = inter_data.val as usize;
+
+        if val <= 0 && inter_data.ref_mode == Relative {
+            self.error(AnalysisError::InvalidIntermediateReferece {
+                reference_span: inter_data.span(),
+                reason: "relative reference not positive",
+                help: "Relative reference value has to be greater than 0".into(),
+            });
+            return None;
+        }
+
+        let rel = |index, target| {
+            IngredientRelation::new(
+                ComponentRelation::Reference {
+                    references_to: index,
+                },
+                Some(target),
+            )
+        };
+
+        let relation = match (inter_data.target_kind, inter_data.ref_mode) {
+            (Step, Index) => {
+                if val >= self.current_section.steps.len() {
+                    let help = if self.current_section.steps.is_empty() {
+                        "This is in the first step, you can't reference other steps.".into()
+                    } else {
+                        format!(
+                            "The index has to be of a previous step. In this case, less than {}.",
+                            self.current_section.steps.len()
+                        )
+                        .into()
+                    };
+                    self.context
+                        .error(AnalysisError::InvalidIntermediateReferece {
+                            reference_span: inter_data.span(),
+                            reason: "step index out of bounds",
+                            help,
+                        });
+                    return None;
+                }
+                rel(val, IngredientReferenceTarget::Step)
+            }
+            (Step, Relative) => {
+                let index = self
+                    .current_section
+                    .steps
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .filter(|(_, s)| !s.is_text)
+                    .nth(val.saturating_sub(1))
+                    .map(|(index, _)| index);
+                match index {
+                    Some(index) => rel(index, IngredientReferenceTarget::Step),
+                    None => {
+                        let n = self
+                            .current_section
+                            .steps
+                            .iter()
+                            .filter(|s| !s.is_text)
+                            .count();
+                        let help = if n == 0 {
+                            "This is in the first (non text) step, you can't reference other steps."
+                                .into()
+                        } else {
+                            format!("The current section only have {} (non text) steps before this one.", n).into()
+                        };
+                        self.error(AnalysisError::InvalidIntermediateReferece {
+                            reference_span: inter_data.span(),
+                            reason: "relative step index out of bounds",
+                            help,
+                        });
+                        return None;
+                    }
+                }
+            }
+            (Section, Index) => {
+                if val >= self.content.sections.len() {
+                    let help = if self.content.sections.is_empty() {
+                        "This is in the first section, you can't reference other sections".into()
+                    } else {
+                        format!("The index has to be of a previous section. In this case, less than {}.", self.content.sections.len()).into()
+                    };
+                    self.error(AnalysisError::InvalidIntermediateReferece {
+                        reference_span: inter_data.span(),
+                        reason: "section index out of bounds",
+                        help,
+                    });
+                    return None;
+                }
+                rel(val, IngredientReferenceTarget::Section)
+            }
+            (Section, Relative) => {
+                if val > self.content.sections.len() {
+                    let help = if self.content.sections.is_empty() {
+                        "This is in the first section, you can't reference other sections".into()
+                    } else {
+                        format!(
+                            "The recipe only have {} sections before this one.",
+                            self.content.sections.len()
+                        )
+                        .into()
+                    };
+                    self.error(AnalysisError::InvalidIntermediateReferece {
+                        reference_span: inter_data.span(),
+                        reason: "relative section index out of bounds",
+                        help,
+                    });
+                    return None;
+                }
+                let index = self.content.sections.len().saturating_sub(val);
+                rel(index, IngredientReferenceTarget::Section)
+            }
+        };
+        Some(relation)
     }
 
     fn cookware(&mut self, cookware: Located<ast::Cookware<'a>>) -> usize {
@@ -425,7 +567,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                 });
             }
 
-            set_referenced_from(&mut self.content.ingredients, references_to);
+            Cookware::set_referenced_from(&mut self.content.cookware, references_to);
         }
 
         self.content.cookware.push(new_cw);
@@ -535,6 +677,12 @@ impl<'a, 'r> Walker<'a, 'r> {
         location: Span,
         modifiers_location: Span,
     ) -> Option<(usize, bool)> {
+        if new.modifiers().contains(Modifiers::REF_TO_SECTION)
+            || new.modifiers().contains(Modifiers::REF_TO_STEP)
+        {
+            return None;
+        }
+
         let new_name = new.name().to_lowercase();
 
         // find the LAST component with the same name
@@ -589,6 +737,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                 // is implicit if we are here (is a reference) and the reference modifier is not set
                 let implicit = !new.modifiers().contains(Modifiers::REF);
 
+                *new.modifiers() |= Modifiers::REF;
                 new.set_reference(references_to);
 
                 if !conflict.is_empty() {
@@ -611,33 +760,19 @@ impl<'a, 'r> Walker<'a, 'r> {
     }
 }
 
-fn set_referenced_from<C: RefComponent>(all: &mut Vec<C>, references_to: usize) {
-    let new_index = all.len();
-    match all[references_to].relation() {
-        ComponentRelation::Definition { referenced_from } => referenced_from.push(new_index),
-        ComponentRelation::Reference { .. } => panic!("Reference to reference"),
-    }
-}
-
 trait RefComponent: Sized {
-    fn relation(&mut self) -> &mut ComponentRelation;
     fn modifiers(&mut self) -> &mut Modifiers;
     fn name(&self) -> &str;
+    /// Get a slice with all the components of this type
     fn all(content: &mut RecipeContent) -> &mut [Self];
 
     fn inherit_modifiers() -> Modifiers;
 
-    fn set_reference(&mut self, references_to: usize) {
-        *self.modifiers() |= Modifiers::REF;
-        *self.relation() = ComponentRelation::Reference { references_to };
-    }
+    fn set_reference(&mut self, references_to: usize);
+    fn set_referenced_from(all: &mut [Self], references_to: usize);
 }
 
 impl RefComponent for Ingredient {
-    fn relation(&mut self) -> &mut ComponentRelation {
-        &mut self.relation
-    }
-
     fn modifiers(&mut self) -> &mut Modifiers {
         &mut self.modifiers
     }
@@ -653,13 +788,26 @@ impl RefComponent for Ingredient {
     fn inherit_modifiers() -> Modifiers {
         Modifiers::HIDDEN | Modifiers::OPT | Modifiers::RECIPE
     }
+
+    fn set_reference(&mut self, references_to: usize) {
+        self.relation = IngredientRelation::new(
+            ComponentRelation::Reference { references_to },
+            Some(IngredientReferenceTarget::Ingredient),
+        );
+    }
+
+    fn set_referenced_from(all: &mut [Self], references_to: usize) {
+        let new_index = all.len();
+        match all[references_to].relation.referenced_from_mut() {
+            Some(referenced_from) => {
+                referenced_from.push(new_index);
+            }
+            None => panic!("Reference to reference"),
+        }
+    }
 }
 
 impl RefComponent for Cookware {
-    fn relation(&mut self) -> &mut ComponentRelation {
-        &mut self.relation
-    }
-
     fn modifiers(&mut self) -> &mut Modifiers {
         &mut self.modifiers
     }
@@ -674,6 +822,18 @@ impl RefComponent for Cookware {
 
     fn inherit_modifiers() -> Modifiers {
         Modifiers::HIDDEN | Modifiers::OPT
+    }
+
+    fn set_reference(&mut self, references_to: usize) {
+        self.relation = ComponentRelation::Reference { references_to };
+    }
+
+    fn set_referenced_from(all: &mut [Self], references_to: usize) {
+        let new_index = all.len();
+        match &mut all[references_to].relation {
+            ComponentRelation::Definition { referenced_from } => referenced_from.push(new_index),
+            ComponentRelation::Reference { .. } => panic!("Reference to reference"),
+        }
     }
 }
 
