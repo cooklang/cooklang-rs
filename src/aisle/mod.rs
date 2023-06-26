@@ -1,4 +1,4 @@
-//! Cooklang aile configuration parser
+//! Cooklang aisle configuration parser
 use std::collections::HashMap;
 
 use pest::Parser;
@@ -12,12 +12,12 @@ mod parser {
     use pest_derive::Parser;
     #[derive(Parser)]
     #[grammar = "aisle/grammar.pest"]
-    pub struct AileConfParser;
+    pub struct AisleConfParser;
 }
-use parser::{AileConfParser, Rule};
+use parser::{AisleConfParser, Rule};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-pub struct AileConf<'a> {
+pub struct AisleConf<'a> {
     #[serde(borrow)]
     pub categories: Vec<Category<'a>>,
     len: Option<usize>,
@@ -36,7 +36,7 @@ pub struct Ingredient<'a> {
     pub names: Vec<&'a str>,
 }
 
-impl AileConf<'_> {
+impl AisleConf<'_> {
     pub fn reverse(&self) -> HashMap<&str, &str> {
         let mut map = HashMap::with_capacity(self.len.unwrap_or_default());
         for cat in &self.categories {
@@ -50,10 +50,10 @@ impl AileConf<'_> {
     }
 }
 
-/// Parse an [AileConf]
-pub fn parse(input: &str) -> Result<AileConf, AileConfError> {
+/// Parse an [AisleConf]
+pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
     let pairs =
-        AileConfParser::parse(Rule::shopping_list, input).map_err(|e| AileConfError::Parse {
+        AisleConfParser::parse(Rule::shopping_list, input).map_err(|e| AisleConfError::Parse {
             span: e.location.into(),
             message: e.variant.message().to_string(),
         })?;
@@ -69,7 +69,7 @@ pub fn parse(input: &str) -> Result<AileConf, AileConfError> {
         let current_span = Span::from(name_pair.as_span());
 
         if let Some(other) = categories_span.insert(name, current_span) {
-            return Err(AileConfError::DuplicateCategory {
+            return Err(AisleConfError::DuplicateCategory {
                 name: name.to_string(),
                 first_span: other,
                 second_span: current_span,
@@ -85,7 +85,7 @@ pub fn parse(input: &str) -> Result<AileConf, AileConfError> {
                 let name = p.as_str().trim();
                 let span = Span::from(p.as_span());
                 if let Some(other) = names_span.insert(name, span) {
-                    return Err(AileConfError::DuplicateIngredient {
+                    return Err(AisleConfError::DuplicateIngredient {
                         name: name.to_string(),
                         first_span: other,
                         second_span: span,
@@ -100,14 +100,14 @@ pub fn parse(input: &str) -> Result<AileConf, AileConfError> {
         categories.push(category);
     }
 
-    Ok(AileConf {
+    Ok(AisleConf {
         categories,
         len: Some(names_span.len()),
     })
 }
 
-/// Write an [AileConf] in the cooklang supported format.
-pub fn write(conf: &AileConf, mut write: impl std::io::Write) -> std::io::Result<()> {
+/// Write an [AisleConf] in the cooklang supported format.
+pub fn write(conf: &AisleConf, mut write: impl std::io::Write) -> std::io::Result<()> {
     let w = &mut write;
     for category in &conf.categories {
         writeln!(w, "[{}]", category.name)?;
@@ -128,7 +128,7 @@ pub fn write(conf: &AileConf, mut write: impl std::io::Write) -> std::io::Result
 }
 
 #[derive(Debug, Error)]
-pub enum AileConfError {
+pub enum AisleConfError {
     #[error("Error parsing input: {message}")]
     Parse { span: Span, message: String },
     #[error("Duplicate category: '{name}'")]
@@ -145,12 +145,12 @@ pub enum AileConfError {
     },
 }
 
-impl RichError for AileConfError {
+impl RichError for AisleConfError {
     fn labels(&self) -> Vec<(Span<()>, Option<std::borrow::Cow<'static, str>>)> {
         use crate::error::label;
         match self {
-            AileConfError::Parse { span, .. } => vec![label!(span)],
-            AileConfError::DuplicateCategory {
+            AisleConfError::Parse { span, .. } => vec![label!(span)],
+            AisleConfError::DuplicateCategory {
                 first_span,
                 second_span,
                 ..
@@ -158,7 +158,7 @@ impl RichError for AileConfError {
                 label!(first_span, "first defined here"),
                 label!(second_span, "then here"),
             ],
-            AileConfError::DuplicateIngredient {
+            AisleConfError::DuplicateIngredient {
                 first_span,
                 second_span,
                 ..
