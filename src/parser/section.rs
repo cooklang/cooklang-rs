@@ -11,6 +11,7 @@ pub(crate) fn section<'input>(
     let name_tokens = line.consume_while(|t| t != T![=]);
     let name = line.text(name_pos, name_tokens);
     line.consume_while(|t| t == T![=]);
+    line.ws_comments();
 
     if !line.rest().is_empty() {
         return None;
@@ -27,57 +28,37 @@ pub(crate) fn section<'input>(
 mod tests {
     use super::*;
     use crate::{
-        parser::{token_stream::tokens, LineParser},
+        parser::{token_stream::TokenStream, LineParser},
         span::Span,
         Extensions,
     };
+    use test_case::test_case;
 
-    #[test]
-    fn basic_section() {
-        let input = "= section";
-        let tokens = tokens![=.1, ws.1, word.7];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let name = section(&mut line).unwrap().unwrap();
-        let context = line.finish();
-        assert_eq!(name.text(), " section");
-        assert_eq!(name.span(), Span::new(1, 9));
-        assert!(context.errors.is_empty());
-        assert!(context.warnings.is_empty());
-
-        let input = "== section ==";
-        let tokens = tokens![=.1, =.1, ws.1, word.7, ws.1, =.1, =.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let name = section(&mut line).unwrap().unwrap();
-        let context = line.finish();
-        assert_eq!(name.text(), " section ");
-        assert_eq!(name.span(), Span::new(2, 11));
-        assert!(context.errors.is_empty());
-        assert!(context.warnings.is_empty());
+    macro_rules! text {
+        ($s:expr; $offset:expr) => {
+            text!($s; $offset, $offset + $s.len())
+        };
+        ($s:expr; $start:expr, $end:expr) => {
+            ($s.to_string(), Span::new($start, $end))
+        };
     }
 
-    #[test]
-    fn no_name_section() {
-        let input = "====";
-        let tokens = tokens![=.1, =.1, =.1, =.1];
+    #[test_case("= section" => Some(text!(" section"; 1)); "single char")]
+    #[test_case("== section ==" => Some(text!(" section "; 2)) ; "fenced")]
+    #[test_case("=" => None ; "no name single char")]
+    #[test_case("===" => None ; "no name multiple char")]
+    #[test_case("= ==" => None ; "no name unbalanced")]
+    #[test_case("= = ==" => panics "failed to parse section" ; "more than one split")]
+    #[test_case("== section ==    " => Some(text!(" section "; 2)) ; "trailing whitespace")]
+    #[test_case("== section ==  -- comment  " => Some(text!(" section "; 2)) ; "trailing line comment")]
+    #[test_case("== section ==  [- comment -]  " => Some(text!(" section "; 2)) ; "trailing block comment")]
+    #[test_case("== section [- and a comment = -] ==" => Some(text!(" section  "; 2, 33)) ; "in between block comment")]
+    #[test_case("== section -- and a comment" => Some(text!(" section "; 2)) ; "in between line comment")]
+    fn test_section(input: &'static str) -> Option<(String, Span)> {
+        let tokens = TokenStream::new(input).collect::<Vec<_>>();
         let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let name = section(&mut line).unwrap();
-        let context = line.finish();
-        assert!(name.is_none());
-        assert!(context.errors.is_empty());
-        assert!(context.warnings.is_empty());
-
-        let input = "==   ==";
-        let tokens = tokens![=.1, =.1, ws.3, =.1, =.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let name = section(&mut line).unwrap();
-        let context = line.finish();
-        assert!(name.is_none());
-        assert!(context.errors.is_empty());
-        assert!(context.warnings.is_empty());
-
-        let input = "= =  ==";
-        let tokens = tokens![=.1, ws.1, =.1, ws.2, =.1, =.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        assert!(section(&mut line).is_none());
+        section(&mut line)
+            .expect("failed to parse section")
+            .map(|text| (text.text().into_owned(), text.span()))
     }
 }
