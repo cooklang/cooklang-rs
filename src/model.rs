@@ -8,15 +8,14 @@ use crate::{
     ast::Modifiers,
     convert::Converter,
     metadata::Metadata,
-    quantity::{GroupedQuantity, Quantity, QuantityAddError, QuantityValue},
-    scale::ScaleOutcome,
+    quantity::{Quantity, QuantityAddError, QuantityValue},
 };
 
 /// A complete recipe
 ///
 /// A recipe can be [Self::scale] (only once) and only after that [Self::convert]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct Recipe<D: Serialize = ()> {
+pub struct Recipe<D = ()> {
     /// Recipe name
     pub name: String,
     /// Metadata
@@ -43,74 +42,6 @@ pub struct Recipe<D: Serialize = ()> {
 /// Note that this doesn't implement [Recipe::scale]. A recipe can only be
 /// scaled once.
 pub type ScaledRecipe = Recipe<crate::scale::Scaled>;
-
-impl Recipe {
-    pub(crate) fn from_content(name: String, content: crate::analysis::RecipeContent) -> Self {
-        Recipe {
-            name,
-            metadata: content.metadata,
-            sections: content.sections,
-            ingredients: content.ingredients,
-            cookware: content.cookware,
-            timers: content.timers,
-            inline_quantities: content.inline_quantities,
-
-            data: (),
-        }
-    }
-}
-
-impl ScaledRecipe {
-    pub fn ingredient_list(&self, converter: &Converter) -> IngredientList {
-        let mut list = Vec::new();
-        let data = self.scaled_data();
-        for (index, ingredient) in self
-            .ingredients
-            .iter()
-            .enumerate()
-            .filter(|(_, i)| i.modifiers.should_be_listed())
-        {
-            let mut grouped = GroupedQuantity::default();
-            for q in ingredient.all_quantities(&self.ingredients) {
-                grouped.add(q, converter);
-            }
-            let outcome: Option<ScaleOutcome> = data
-                .as_ref()
-                .map(|data| {
-                    // Color in list depends on outcome of definition and all references
-                    let mut outcome = &data.ingredients[index]; // temp value
-                    let all_indices = std::iter::once(index)
-                        .chain(ingredient.relation.referenced_from().iter().copied());
-                    for index in all_indices {
-                        match &data.ingredients[index] {
-                            e @ ScaleOutcome::Error(_) => return e, // if err, return
-                            e @ ScaleOutcome::Fixed => outcome = e, // if fixed, store
-                            _ => {}
-                        }
-                    }
-                    outcome
-                })
-                .cloned();
-            list.push(IngredientListEntry {
-                index,
-                quantity: grouped,
-                outcome,
-            });
-        }
-        list
-    }
-}
-
-pub type IngredientList = Vec<IngredientListEntry>;
-#[derive(Debug, Clone, Serialize)]
-pub struct IngredientListEntry {
-    /// Index into the recipe ingredients (ingredient definition)
-    pub index: usize,
-    /// Total grouped quantity
-    pub quantity: GroupedQuantity,
-    /// Scale outcome, if scaled to a custom target
-    pub outcome: Option<ScaleOutcome>,
-}
 
 /// A section holding steps
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -203,22 +134,6 @@ impl Ingredient {
         self.modifiers
     }
 
-    pub fn is_hidden(&self) -> bool {
-        self.modifiers.contains(Modifiers::HIDDEN)
-    }
-
-    pub fn is_optional(&self) -> bool {
-        self.modifiers.contains(Modifiers::OPT)
-    }
-
-    pub fn is_recipe(&self) -> bool {
-        self.modifiers.contains(Modifiers::RECIPE)
-    }
-
-    pub fn is_reference(&self) -> bool {
-        self.modifiers.contains(Modifiers::REF)
-    }
-
     /// Calculates the total quantity adding all the quantities from the
     /// references.
     pub fn total_quantity<'a>(
@@ -281,18 +196,6 @@ impl Cookware {
     /// Access the ingredient modifiers
     pub fn modifiers(&self) -> Modifiers {
         self.modifiers
-    }
-
-    pub fn is_hidden(&self) -> bool {
-        self.modifiers.contains(Modifiers::HIDDEN)
-    }
-
-    pub fn is_optional(&self) -> bool {
-        self.modifiers.contains(Modifiers::OPT)
-    }
-
-    pub fn is_reference(&self) -> bool {
-        self.modifiers.contains(Modifiers::REF)
     }
 }
 

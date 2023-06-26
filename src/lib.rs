@@ -16,6 +16,7 @@ pub mod aisle;
 pub mod ast;
 pub mod convert;
 pub mod error;
+pub mod ingredient_list;
 pub mod metadata;
 pub mod model;
 pub mod parser;
@@ -181,7 +182,16 @@ impl CooklangParser {
         analysis::parse_ast(ast, self.extensions, &self.converter, recipe_ref_checker)
             .into_context_result()
             .merge(r)
-            .map(|c| Recipe::from_content(recipe_name.to_string(), c))
+            .map(|c| Recipe {
+                name: recipe_name.to_string(),
+                metadata: c.metadata,
+                sections: c.sections,
+                ingredients: c.ingredients,
+                cookware: c.cookware,
+                timers: c.timers,
+                inline_quantities: c.inline_quantities,
+                data: (),
+            })
     }
 
     /// Parse only the metadata of a recipe

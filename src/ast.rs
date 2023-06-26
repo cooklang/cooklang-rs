@@ -307,6 +307,22 @@ impl Modifiers {
     pub fn should_be_listed(self) -> bool {
         !self.intersects(Modifiers::HIDDEN | Modifiers::REF)
     }
+
+    pub fn is_hidden(&self) -> bool {
+        self.contains(Modifiers::HIDDEN)
+    }
+
+    pub fn is_optional(&self) -> bool {
+        self.contains(Modifiers::OPT)
+    }
+
+    pub fn is_recipe(&self) -> bool {
+        self.contains(Modifiers::RECIPE)
+    }
+
+    pub fn is_reference(&self) -> bool {
+        self.contains(Modifiers::REF)
+    }
 }
 
 impl std::fmt::Display for Modifiers {
