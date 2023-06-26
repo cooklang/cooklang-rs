@@ -285,8 +285,8 @@ impl IngredientRelation {
 
     /// Get the index the relation refrences to and the target
     ///
-    /// If [Extensions::INTERMEDIATE_INGREDIENTS] is disabled, the target
-    /// will always be [IngredientReferenceTarget::Ingredient].
+    /// If the [INTERMEDIATE_INGREDIENTS](crate::Extensions::INTERMEDIATE_INGREDIENTS)
+    /// extension is disabled, the target will always be [IngredientReferenceTarget::Ingredient].
     pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {
         self.relation
             .references_to()
@@ -305,11 +305,11 @@ pub struct Timer {
     ///
     /// If created from parsing the following applies:
     ///
-    /// - If the `ADVANCED_UNITS` [extension](crate::Extensions) is enabled,
-    /// this is guaranteed to have a time unit.
+    /// - If the [`ADVANCED_UNITS`](crate::Extensions::ADVANCED_UNITS) extension
+    /// is enabled, this is guaranteed to have a time unit.
     ///
-    /// - If the `TIMER_REQUIRES_TIME` [extension](crate::Extensions) is enabled,
-    /// this is guaranteed to be [Some].
+    /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
+    /// extension is enabled, this is guaranteed to be [Some].
     pub quantity: Option<Quantity>,
 }
 
