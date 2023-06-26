@@ -82,13 +82,13 @@ pub struct Step {
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
-    Text(String),
+    Text { value: String },
     /// A [Component]
-    Component(Component),
+    ItemComponent { value: Component },
     /// An inline quantity.
     ///
     /// The number inside is an index into [Recipe::inline_quantities].
-    InlineQuantity(usize),
+    InlineQuantity { value: usize },
 }
 
 /// A recipe ingredient
@@ -326,7 +326,7 @@ pub struct Component {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum ComponentKind {
-    Ingredient,
-    Cookware,
-    Timer,
+    IngredientKind,
+    CookwareKind,
+    TimerKind,
 }

@@ -231,17 +231,17 @@ impl Converter {
         };
 
         let (value, unit) = match &from.value {
-            QuantityValue::Fixed(v) => {
-                let (value, unit) = self.convert2(v.try_into()?, unit, to)?;
-                let q_value = QuantityValue::Fixed(value.into());
+            QuantityValue::Fixed{ value } => {
+                let (value, unit) = self.convert2(value.try_into()?, unit, to)?;
+                let q_value = QuantityValue::Fixed{ value: value.into()};
                 (q_value, unit)
             }
-            QuantityValue::Linear(v) => {
-                let (value, unit) = self.convert2(v.try_into()?, unit, to)?;
-                let q_value = QuantityValue::Linear(value.into());
+            QuantityValue::Linear{ value } => {
+                let (value, unit) = self.convert2(value.try_into()?, unit, to)?;
+                let q_value = QuantityValue::Linear{value: value.into()};
                 (q_value, unit)
             }
-            QuantityValue::ByServings(values) => {
+            QuantityValue::ByServings{values} => {
                 let mut new_values = Vec::with_capacity(values.len());
                 let mut new_unit = None;
                 for v in values {
@@ -249,7 +249,7 @@ impl Converter {
                     new_values.push(value.into());
                     new_unit = Some(unit);
                 }
-                let q_value = QuantityValue::ByServings(new_values);
+                let q_value = QuantityValue::ByServings{ values: new_values };
                 let unit = new_unit.expect("QuantityValue::ByServings empty");
                 (q_value, unit)
             }
@@ -471,8 +471,8 @@ impl<'a> From<&'a Arc<Unit>> for ConvertTo<'a> {
 impl From<ConvertValue> for Value {
     fn from(value: ConvertValue) -> Self {
         match value {
-            ConvertValue::Number(n) => Self::Number(n),
-            ConvertValue::Range(r) => Self::Range(r),
+            ConvertValue::Number(n) => Self::Number { value: n },
+            ConvertValue::Range(r) => Self::Range { value: r },
         }
     }
 }
@@ -481,9 +481,9 @@ impl TryFrom<&Value> for ConvertValue {
     type Error = ConvertError;
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         let value = match value {
-            Value::Number(n) => ConvertValue::Number(*n),
-            Value::Range(r) => ConvertValue::Range(r.clone()),
-            Value::Text(t) => return Err(ConvertError::TextValue(t.to_string())),
+            Value::Number { value: n } => ConvertValue::Number(*n),
+            Value::Range { value: r } => ConvertValue::Range(r.clone()),
+            Value::Text { value: t } => return Err(ConvertError::TextValue(t.to_string())),
         };
         Ok(value)
     }

@@ -203,19 +203,19 @@ impl<'a, 'r> Walker<'a, 'r> {
                     if let Some(re) = &self.temperature_regex {
                         if let Some((before, temperature, after)) = find_temperature(&t, re) {
                             if !before.is_empty() {
-                                new_items.push(Item::Text(before.to_string()));
+                                new_items.push(Item::Text { value: before.to_string() });
                             }
                             new_items
-                                .push(Item::InlineQuantity(self.content.inline_quantities.len()));
+                                .push(Item::InlineQuantity { value: self.content.inline_quantities.len() });
                             self.content.inline_quantities.push(temperature);
                             if !after.is_empty() {
-                                new_items.push(Item::Text(after.to_string()));
+                                new_items.push(Item::Text { value: after.to_string() });
                             }
                             continue;
                         }
                     }
 
-                    new_items.push(Item::Text(t.into_owned()));
+                    new_items.push(Item::Text { value: t.into_owned() });
                 }
                 ast::Item::Component(c) => {
                     if is_text {
@@ -225,7 +225,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                         continue; // ignore component
                     }
                     let new_component = self.component(c);
-                    new_items.push(Item::Component(new_component))
+                    new_items.push(Item::ItemComponent { value: new_component })
                 }
             };
         }
@@ -241,15 +241,15 @@ impl<'a, 'r> Walker<'a, 'r> {
 
         match inner {
             ast::Component::Ingredient(i) => Component {
-                kind: ComponentKind::Ingredient,
+                kind: ComponentKind::IngredientKind,
                 index: self.ingredient(Located::new(i, span)),
             },
             ast::Component::Cookware(c) => Component {
-                kind: ComponentKind::Cookware,
+                kind: ComponentKind::CookwareKind,
                 index: self.cookware(Located::new(c, span)),
             },
             ast::Component::Timer(t) => Component {
-                kind: ComponentKind::Timer,
+                kind: ComponentKind::TimerKind,
                 index: self.timer(Located::new(t, span)),
             },
         }
@@ -652,12 +652,12 @@ impl<'a, 'r> Walker<'a, 'r> {
             }
         }
         let value_span = value.span();
-        let mut value = QuantityValue::from_ast(value);
+        let mut v = QuantityValue::from_ast(value);
 
         if is_ingredient && self.auto_scale_ingredients {
-            match value {
-                QuantityValue::Fixed(v) => value = QuantityValue::Linear(v),
-                QuantityValue::Linear(_) => {
+            match v {
+                QuantityValue::Fixed { value } => v =  QuantityValue::Linear{ value },
+                QuantityValue::Linear { .. } => {
                     self.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),
                     });
@@ -666,7 +666,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             };
         }
 
-        value
+        v
     }
 
     fn resolve_reference<C: RefComponent>(
@@ -841,7 +841,7 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity,
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(QuantityValue::Fixed(Value::Number(value)), Some(unit_text));
+    let temperature = Quantity::new(QuantityValue::Fixed { value: Value::Number { value: value } }, Some(unit_text));
 
     let range = caps.get(0).unwrap().range();
     let (before, after) = (&text[..range.start], &text[range.end..]);

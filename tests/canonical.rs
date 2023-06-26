@@ -76,8 +76,8 @@ fn join_text_items(items: &[cooklang::model::Item]) -> Vec<cooklang::model::Item
 
     let mut out = Vec::new();
     for item in items {
-        if let Text(current) = item {
-            if let Some(Text(last)) = out.last_mut() {
+        if let Text { value: current } = item {
+            if let Some(Text { value: last }) = out.last_mut() {
                 last.push_str(&current);
                 continue;
             }
@@ -93,12 +93,12 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
     let tyype = expected["type"].as_str().unwrap();
 
     match got {
-        Item::Text(text) => {
+        Item::Text { value: text } => {
             assert_eq!(tyype, "text");
             assert_eq!(expected["value"].as_str().unwrap(), text);
         }
-        Item::Component(component) => match component.kind {
-            ComponentKind::Ingredient => {
+        Item::ItemComponent { value: component } => match component.kind {
+            ComponentKind::IngredientKind => {
                 let i = &recipe.ingredients[component.index];
                 assert_eq!(tyype, "ingredient");
                 assert!(i.alias.is_none());
@@ -117,7 +117,7 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
                     None => assert_eq!("some", expected["quantity"].as_str().unwrap()),
                 }
             }
-            ComponentKind::Cookware => {
+            ComponentKind::CookwareKind => {
                 let c = &recipe.cookware[component.index];
                 assert_eq!(tyype, "cookware");
                 assert_eq!(c.name, expected["name"].as_str().unwrap());
@@ -126,7 +126,7 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
                     None => assert_eq!(expected["quantity"].as_i64().unwrap(), 1),
                 }
             }
-            ComponentKind::Timer => {
+            ComponentKind::TimerKind => {
                 let t = &recipe.timers[component.index];
                 assert_eq!(tyype, "timer");
                 match &t.name {
@@ -151,13 +151,13 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
 
 fn compare_value(expected: &Yaml, got: &QuantityValue) {
     let value = match got {
-        QuantityValue::Fixed(v) => v,
+        QuantityValue::Fixed { value: v } => v,
         _ => {
             panic!("scalable values not supported by cooklang currently");
         }
     };
     match value {
-        Value::Number(n) => {
+        Value::Number { value: n } => {
             assert_eq!(
                 *n as f64,
                 expected
@@ -167,7 +167,7 @@ fn compare_value(expected: &Yaml, got: &QuantityValue) {
                     .unwrap()
             )
         }
-        Value::Range(_) => panic!("Unexpected range value"),
-        Value::Text(t) => assert_eq!(t, expected.as_str().unwrap()),
+        Value::Range { value: _ } => panic!("Unexpected range value"),
+        Value::Text { value: t } => assert_eq!(t, expected.as_str().unwrap()),
     };
 }
