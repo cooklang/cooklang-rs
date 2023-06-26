@@ -47,11 +47,10 @@ pub enum Component<'a> {
     Timer(Timer<'a>),
 }
 
-pub type IngredientModifiers = (Located<Modifiers>, Option<Located<IntermediateData>>);
-
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Ingredient<'a> {
-    pub modifiers: IngredientModifiers,
+    pub modifiers: Located<Modifiers>,
+    pub intermediate_data: Option<Located<IntermediateData>>,
     pub name: Text<'a>,
     pub alias: Option<Text<'a>>,
     pub quantity: Option<Located<Quantity<'a>>>,
@@ -276,17 +275,17 @@ bitflags! {
     #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Modifiers: u16 {
         /// refers to a recipe with the same name
-        const RECIPE = 1 << 0;
+        const RECIPE         = 1 << 0;
         /// references another igr with the same name, if amount given will sum
-        const REF    = 1 << 1;
+        const REF            = 1 << 1;
         /// not shown in the ingredient list, only inline
-        const HIDDEN = 1 << 2;
+        const HIDDEN         = 1 << 2;
         /// mark as optional
-        const OPT    = 1 << 3;
+        const OPT            = 1 << 3;
         /// forces to create a new ingredient
-        const NEW    = 1 << 4;
+        const NEW            = 1 << 4;
         /// intermediate ingredient REF
-        const REF_TO_STEP = 1 << 5 | Self::REF.bits();
+        const REF_TO_STEP    = 1 << 5 | Self::REF.bits();
         const REF_TO_SECTION = 1 << 6 | Self::REF.bits();
     }
 }

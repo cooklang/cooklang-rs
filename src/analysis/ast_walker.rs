@@ -266,7 +266,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             alias: ingredient.alias.map(|t| t.text_trimmed().into_owned()),
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
-            modifiers: ingredient.modifiers.0.take(),
+            modifiers: ingredient.modifiers.take(),
             relation: IngredientRelation::new(
                 ComponentRelation::Definition {
                     referenced_from: Vec::new(),
@@ -276,7 +276,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             defined_in_step: self.define_mode != DefineMode::Components,
         };
 
-        if let Some(inter_data) = ingredient.modifiers.1 {
+        if let Some(inter_data) = ingredient.intermediate_data {
             if let Some(relation) = self.resolve_intermetiate_ref(inter_data) {
                 new_igr.relation = relation;
                 assert!(
@@ -289,11 +289,9 @@ impl<'a, 'r> Walker<'a, 'r> {
                         || new_igr.modifiers.contains(Modifiers::REF_TO_SECTION)
                 );
             }
-        } else if let Some((references_to, implicit)) = self.resolve_reference(
-            &mut new_igr,
-            location,
-            located_ingredient.modifiers.0.span(),
-        ) {
+        } else if let Some((references_to, implicit)) =
+            self.resolve_reference(&mut new_igr, location, located_ingredient.modifiers.span())
+        {
             let referenced = &self.content.ingredients[references_to];
 
             // When the ingredient is not defined in a step, only the definition
@@ -360,7 +358,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             {
                 self.context
                     .warn(AnalysisWarning::ReferenceToRecipeMissing {
-                        modifiers: ingredient.modifiers.0,
+                        modifiers: ingredient.modifiers,
                         ingredient_span: location,
                         referenced_span: self.ingredient_locations[references_to].span(),
                     })

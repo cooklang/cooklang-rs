@@ -413,7 +413,7 @@ fn ingredient<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Ingredie
     }
 
     let ParsedModifiers {
-        flags,
+        flags: modifiers,
         intermediate_data,
     } = parse_modifiers(line, modifiers_tokens, modifiers_pos);
 
@@ -422,7 +422,8 @@ fn ingredient<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Ingredie
     });
 
     Some(ast::Ingredient {
-        modifiers: (flags, intermediate_data),
+        modifiers,
+        intermediate_data,
         name,
         alias,
         quantity,
@@ -650,12 +651,13 @@ fn check_note(line: &mut LineParser, container: &'static str) {
 mod tests {
     use super::*;
     use crate::{ast::Item, parser::token_stream::TokenStream};
+    use test_case::test_case;
 
     macro_rules! t {
-        ($input:literal) => {
+        ($input:expr) => {
             t!($input, $crate::Extensions::all())
         };
-        ($input:literal, $extensions:expr) => {{
+        ($input:expr, $extensions:expr) => {{
             let input = $input;
             let tokens = TokenStream::new(input).collect::<Vec<_>>();
             let mut line = LineParser::new(0, &tokens, input, $extensions);
@@ -676,101 +678,50 @@ mod tests {
         };
     }
 
-    #[test]
-    fn test_intermediate_ref_relative() {
-        let (s, ctx) = t!("@&(~1)one step back{}");
+    #[test_case("@&(~1)one step back{}" => (
+        Located::new(Modifiers::REF | Modifiers::REF_TO_STEP, 1..6),
+        Located::new(IntermediateData {
+            ref_mode: IntermediateRefMode::Relative,
+            target_kind: IntermediateTargetKind::Step,
+            val: 1
+            }, 2..6)
+    ); "step relative")]
+    #[test_case("@&(1)step index 1{}" => (
+        Located::new(Modifiers::REF | Modifiers::REF_TO_STEP, 1..5),
+        Located::new(IntermediateData {
+            ref_mode: IntermediateRefMode::Index,
+            target_kind: IntermediateTargetKind::Step,
+            val: 1
+        }, 2..5)
+    ); "step index")]
+    #[test_case("@&(=~1)one section back{}" => (
+        Located::new(Modifiers::REF | Modifiers::REF_TO_SECTION, 1..7),
+        Located::new(IntermediateData {
+            ref_mode: IntermediateRefMode::Relative,
+            target_kind: IntermediateTargetKind::Section,
+            val: 1
+        }, 2..7)
+    ); "section relative")]
+    #[test_case("@&(=1)section index 1{}" => (
+        Located::new(Modifiers::REF | Modifiers::REF_TO_SECTION, 1..6),
+        Located::new(IntermediateData {
+            ref_mode: IntermediateRefMode::Index,
+            target_kind: IntermediateTargetKind::Section,
+            val: 1
+        }, 2..6)
+    ); "section index")]
+    fn intermediate_ref(input: &str) -> (Located<Modifiers>, Located<IntermediateData>) {
+        let (s, ctx) = t!(input);
         let igr = igr!(&s.items[0]);
-        assert_eq!(igr.name.text(), "one step back");
-        assert_eq!(
-            igr.modifiers.0.inner,
-            Modifiers::REF | Modifiers::REF_TO_STEP
-        );
-        assert_eq!(igr.modifiers.0.span(), Span::new(1, 6));
-        assert_eq!(
-            igr.modifiers.1.unwrap().inner,
-            IntermediateData {
-                ref_mode: IntermediateRefMode::Relative,
-                target_kind: IntermediateTargetKind::Step,
-                val: 1
-            }
-        );
-        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 6));
         assert!(ctx.is_empty());
+        (igr.modifiers, igr.intermediate_data.unwrap())
     }
 
-    #[test]
-    fn test_intermediate_ref_index() {
-        let (s, ctx) = t!("@&(1)step index 1{}");
-        let igr = igr!(&s.items[0]);
-        assert_eq!(igr.name.text(), "step index 1");
-        assert_eq!(
-            igr.modifiers.0.inner,
-            Modifiers::REF | Modifiers::REF_TO_STEP
-        );
-        assert_eq!(igr.modifiers.0.span(), Span::new(1, 5));
-        assert_eq!(
-            igr.modifiers.1.unwrap().inner,
-            IntermediateData {
-                ref_mode: IntermediateRefMode::Index,
-                target_kind: IntermediateTargetKind::Step,
-                val: 1
-            }
-        );
-        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 5));
-        assert!(ctx.is_empty());
-    }
-
-    #[test]
-    fn test_intermediate_ref_relative_section() {
-        let (s, ctx) = t!("@&(=~1)one section back{}");
-        let igr = igr!(&s.items[0]);
-        assert_eq!(igr.name.text(), "one section back");
-        assert_eq!(
-            igr.modifiers.0.inner,
-            Modifiers::REF | Modifiers::REF_TO_SECTION
-        );
-        assert_eq!(igr.modifiers.0.span(), Span::new(1, 7));
-        assert_eq!(
-            igr.modifiers.1.unwrap().inner,
-            IntermediateData {
-                ref_mode: IntermediateRefMode::Relative,
-                target_kind: IntermediateTargetKind::Section,
-                val: 1
-            }
-        );
-        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 7));
-        assert!(ctx.is_empty());
-    }
-
-    #[test]
-    fn test_intermediate_ref_index_section() {
-        let (s, ctx) = t!("@&(=1)section index 1{}");
-        let igr = igr!(&s.items[0]);
-        assert_eq!(igr.name.text(), "section index 1");
-        assert_eq!(
-            igr.modifiers.0.inner,
-            Modifiers::REF | Modifiers::REF_TO_SECTION
-        );
-        assert_eq!(igr.modifiers.0.span(), Span::new(1, 6));
-        assert_eq!(
-            igr.modifiers.1.unwrap().inner,
-            IntermediateData {
-                ref_mode: IntermediateRefMode::Index,
-                target_kind: IntermediateTargetKind::Section,
-                val: 1
-            }
-        );
-        assert_eq!(igr.modifiers.1.unwrap().span(), Span::new(2, 6));
-        assert!(ctx.is_empty());
-    }
-
-    #[test]
-    fn test_intermediate_ref_errors() {
-        let (_, ctx) = t!("@&(~=1)name{}");
-        assert_eq!(ctx.errors.len(), 1);
-        let (_, ctx) = t!("@&(9999999999999999999999999999999999999999)name{}");
-        assert_eq!(ctx.errors.len(), 1);
-        let (_, ctx) = t!("@&(awebo)name{}");
+    #[test_case("@&(~=1)name{}"; "swap ~ =")]
+    #[test_case("@&(9999999999999999999999999999999999999999)name{}"; "number too big")]
+    #[test_case("@&(awebo)name{}"; "unexpected syntax")]
+    fn intermediate_ref_errors(input: &str) {
+        let (_, ctx) = t!(input);
         assert_eq!(ctx.errors.len(), 1);
     }
 }

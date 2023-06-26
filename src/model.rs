@@ -373,7 +373,7 @@ impl IngredientRelation {
         self.relation.referenced_from()
     }
 
-    pub fn referenced_from_mut(&mut self) -> Option<&mut Vec<usize>> {
+    pub(crate) fn referenced_from_mut(&mut self) -> Option<&mut Vec<usize>> {
         match &mut self.relation {
             ComponentRelation::Definition { referenced_from } => Some(referenced_from),
             ComponentRelation::Reference { .. } => None,
