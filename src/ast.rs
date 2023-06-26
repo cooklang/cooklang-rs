@@ -110,14 +110,14 @@ impl<'a> Text<'a> {
     }
 
     pub(crate) fn append_fragment(&mut self, fragment: TextFragment<'a>) {
-        assert_eq!(self.span().end(), fragment.offset);
+        assert!(self.span().end() <= fragment.offset);
         if !fragment.text.is_empty() {
             self.fragments.push(fragment);
         }
     }
 
-    pub(crate) fn append_str(&mut self, s: &'a str) {
-        self.append_fragment(TextFragment::new(s, self.span().end()))
+    pub(crate) fn append_str(&mut self, s: &'a str, offset: usize) {
+        self.append_fragment(TextFragment::new(s, offset))
     }
 
     pub fn span(&self) -> Span {

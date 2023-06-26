@@ -344,12 +344,12 @@ impl<'t, 'input> LineParser<'t, 'input> {
         for token in tokens {
             match token.kind {
                 T![line comment] | T![block comment] => {
-                    t.append_str(&self.input[start..end]);
+                    t.append_str(&self.input[start..end], start);
                     start = token.span.end();
                     end = start;
                 }
                 T![escaped] => {
-                    t.append_str(&self.input[start..end]);
+                    t.append_str(&self.input[start..end], start);
                     debug_assert_eq!(token.len(), 2, "unexpected escaped token length");
                     start = token.span.start() + 1; // skip "\"
                     end = token.span.end()
@@ -357,7 +357,7 @@ impl<'t, 'input> LineParser<'t, 'input> {
                 _ => end = token.span.end(),
             }
         }
-        t.append_str(&self.input[start..end]);
+        t.append_str(&self.input[start..end], start);
         t
     }
 
