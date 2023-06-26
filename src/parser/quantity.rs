@@ -357,7 +357,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Number(100.0), 0..3),
+                value: Located::new(Value::Number { value: 100.0 }, 0..3),
                 auto_scale: None,
             }
         );
@@ -371,7 +371,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Number(100.0), 0..3),
+                value: Located::new(Value::Number { value: 100.0 }, 0..3),
                 auto_scale: None
             }
         );
@@ -383,7 +383,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Text("100 ml".into()), 0..6),
+                value: Located::new(Value::Text { value: "100 ml".into() }, 0..6),
                 auto_scale: None
             }
         );
@@ -398,9 +398,9 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number(100.0), 0..3),
-                Located::new(Value::Number(200.0), 4..7),
-                Located::new(Value::Number(300.0), 8..11),
+                Located::new(Value::Number { value: 100.0 }, 0..3),
+                Located::new(Value::Number { value: 200.0 }, 4..7),
+                Located::new(Value::Number { value: 300.0 }, 8..11),
             ])
         );
         assert_eq!(s, Some((11..12).into()));
@@ -411,9 +411,9 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number(100.0), 0..3),
-                Located::new(Value::Range(2.0..=3.0), 4..7),
-                Located::new(Value::Text("str".into()), 8..11),
+                Located::new(Value::Number { value: 100.0 }, 0..3),
+                Located::new(Value::Range { value: 2.0..=3.0 }, 4..7),
+                Located::new(Value::Text { value: "str".into() }, 8..11),
             ])
         );
         assert_eq!(s, Some((12..13).into()));
@@ -425,8 +425,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number(100.0), 0..3),
-                Located::new(Value::Text("".into()), 4..4)
+                Located::new(Value::Number { value: 100.0 }, 0..3),
+                Located::new(Value::Text { value: "".into() }, 4..4)
             ])
         );
         assert_eq!(ctx.errors.len(), 1);
@@ -439,7 +439,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range(2.0..=3.0), 0..3),
+                value: Located::new(Value::Range { value: 2.0..=3.0 }, 0..3),
                 auto_scale: None
             }
         );
@@ -452,7 +452,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Text("2-3".into()), 0..3),
+                value: Located::new(Value::Text { value: "2-3".into() }, 0..3),
                 auto_scale: None
             }
         );
