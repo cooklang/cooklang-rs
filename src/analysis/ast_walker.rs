@@ -203,19 +203,26 @@ impl<'a, 'r> Walker<'a, 'r> {
                     if let Some(re) = &self.temperature_regex {
                         if let Some((before, temperature, after)) = find_temperature(&t, re) {
                             if !before.is_empty() {
-                                new_items.push(Item::Text { value: before.to_string() });
+                                new_items.push(Item::Text {
+                                    value: before.to_string(),
+                                });
                             }
-                            new_items
-                                .push(Item::InlineQuantity { value: self.content.inline_quantities.len() });
+                            new_items.push(Item::InlineQuantity {
+                                value: self.content.inline_quantities.len(),
+                            });
                             self.content.inline_quantities.push(temperature);
                             if !after.is_empty() {
-                                new_items.push(Item::Text { value: after.to_string() });
+                                new_items.push(Item::Text {
+                                    value: after.to_string(),
+                                });
                             }
                             continue;
                         }
                     }
 
-                    new_items.push(Item::Text { value: t.into_owned() });
+                    new_items.push(Item::Text {
+                        value: t.into_owned(),
+                    });
                 }
                 ast::Item::Component(c) => {
                     if is_text {
@@ -225,7 +232,9 @@ impl<'a, 'r> Walker<'a, 'r> {
                         continue; // ignore component
                     }
                     let new_component = self.component(c);
-                    new_items.push(Item::ItemComponent { value: new_component })
+                    new_items.push(Item::ItemComponent {
+                        value: new_component,
+                    })
                 }
             };
         }
@@ -280,12 +289,13 @@ impl<'a, 'r> Walker<'a, 'r> {
             if let Some(relation) = self.resolve_intermetiate_ref(inter_data) {
                 new_igr.relation = relation;
                 assert!(
-                    new_igr.relation.references_to().unwrap().1 != IngredientReferenceTarget::Step
+                    new_igr.relation.references_to().unwrap().1
+                        != IngredientReferenceTarget::StepTarget
                         || new_igr.modifiers.contains(Modifiers::REF_TO_STEP)
                 );
                 assert!(
                     new_igr.relation.references_to().unwrap().1
-                        != IngredientReferenceTarget::Section
+                        != IngredientReferenceTarget::SectionTarget
                         || new_igr.modifiers.contains(Modifiers::REF_TO_SECTION)
                 );
             }
@@ -452,7 +462,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                         });
                     return None;
                 }
-                rel(val, IngredientReferenceTarget::Step)
+                rel(val, IngredientReferenceTarget::StepTarget)
             }
             (Step, Relative) => {
                 let index = self
@@ -465,7 +475,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     .nth(val.saturating_sub(1))
                     .map(|(index, _)| index);
                 match index {
-                    Some(index) => rel(index, IngredientReferenceTarget::Step),
+                    Some(index) => rel(index, IngredientReferenceTarget::StepTarget),
                     None => {
                         let n = self
                             .current_section
@@ -502,7 +512,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     });
                     return None;
                 }
-                rel(val, IngredientReferenceTarget::Section)
+                rel(val, IngredientReferenceTarget::SectionTarget)
             }
             (Section, Relative) => {
                 if val > self.content.sections.len() {
@@ -523,7 +533,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     return None;
                 }
                 let index = self.content.sections.len().saturating_sub(val);
-                rel(index, IngredientReferenceTarget::Section)
+                rel(index, IngredientReferenceTarget::SectionTarget)
             }
         };
         Some(relation)
@@ -656,7 +666,7 @@ impl<'a, 'r> Walker<'a, 'r> {
 
         if is_ingredient && self.auto_scale_ingredients {
             match v {
-                QuantityValue::Fixed { value } => v =  QuantityValue::Linear{ value },
+                QuantityValue::Fixed { value } => v = QuantityValue::Linear { value },
                 QuantityValue::Linear { .. } => {
                     self.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),
@@ -790,7 +800,7 @@ impl RefComponent for Ingredient {
     fn set_reference(&mut self, references_to: usize) {
         self.relation = IngredientRelation::new(
             ComponentRelation::Reference { references_to },
-            Some(IngredientReferenceTarget::Ingredient),
+            Some(IngredientReferenceTarget::IngredientTarget),
         );
     }
 
@@ -841,7 +851,12 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity,
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(QuantityValue::Fixed { value: Value::Number { value: value } }, Some(unit_text));
+    let temperature = Quantity::new(
+        QuantityValue::Fixed {
+            value: Value::Number { value: value },
+        },
+        Some(unit_text),
+    );
 
     let range = caps.get(0).unwrap().range();
     let (before, after) = (&text[..range.start], &text[range.end..]);

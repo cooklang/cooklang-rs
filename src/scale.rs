@@ -255,7 +255,8 @@ impl QuantityValue {
             v @ Self::Fixed { .. } => v,
             Self::Linear { value } => Self::Fixed { value },
             Self::ByServings { values } => Self::Fixed {
-                value: values.first()
+                value: values
+                    .first()
                     .expect("scalable value servings list empty")
                     .clone(),
             },
@@ -267,7 +268,9 @@ impl Value {
     fn scale(&self, factor: f64) -> Result<Value, ScaleError> {
         match self.clone() {
             Value::Number { value: n } => Ok(Value::Number { value: n * factor }),
-            Value::Range { value: r } => Ok(Value::Range { value: r.start() * factor..=r.end() * factor }),
+            Value::Range { value: r } => Ok(Value::Range {
+                value: r.start() * factor..=r.end() * factor,
+            }),
             v @ Value::Text { value: _ } => Err(TextValueError(v).into()),
         }
     }

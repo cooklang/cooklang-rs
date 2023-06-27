@@ -132,7 +132,9 @@ pub fn parse_quantity<'input>(
         _ => {
             line.consume_rest();
             let text = line.text(line.tokens().first().unwrap().span.start(), line.tokens());
-            let text_val = Value::Text { value: text.text_trimmed().into_owned() };
+            let text_val = Value::Text {
+                value: text.text_trimmed().into_owned(),
+            };
             value = ast::QuantityValue::Single {
                 value: Located::new(text_val, text.span()),
                 auto_scale: None,
@@ -229,7 +231,9 @@ fn text_value(tokens: &[Token], offset: usize, line: &mut LineParser) -> Value {
             help: None,
         });
     }
-    Value::Text { value: text.text_trimmed().into_owned() }
+    Value::Text {
+        value: text.text_trimmed().into_owned(),
+    }
 }
 
 fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, ParserError>> {
@@ -242,20 +246,22 @@ fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, Pa
 
     let r = match filtered_tokens.as_slice() {
         // int
-        &[t @ mt![int]] => int(t, line).map(|v| { Value::Number { value: v }}),
+        &[t @ mt![int]] => int(t, line).map(|v| Value::Number { value: v }),
         // float
-        &[t @ mt![float]] => float(t, line).map(|v| { Value::Number { value: v }}),
+        &[t @ mt![float]] => float(t, line).map(|v| Value::Number { value: v }),
         // mixed number
         &[i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
-            mixed_num(i, a, b, line).map(|v| { Value::Number { value: v }})
+            mixed_num(i, a, b, line).map(|v| Value::Number { value: v })
         }
         // frac
-        &[a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, line).map(|v| { Value::Number { value: v }}),
+        &[a @ mt![int], mt![/], b @ mt![int]] => {
+            frac(a, b, line).map(|v| Value::Number { value: v })
+        }
         // range
         &[s @ mt![int | float], mt![-], e @ mt![int | float]]
             if line.extension(Extensions::RANGE_VALUES) =>
         {
-            range(s, e, line).map(|v| { Value::Range { value: v }})
+            range(s, e, line).map(|v| Value::Range { value: v })
         }
         // other => text
         _ => return None,
@@ -373,7 +379,12 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Text { value: "100 ml".into() }, 0..6),
+                value: Located::new(
+                    Value::Text {
+                        value: "100 ml".into()
+                    },
+                    0..6
+                ),
                 auto_scale: None
             }
         );
@@ -403,7 +414,12 @@ mod tests {
             QuantityValue::Many(vec![
                 Located::new(Value::Number { value: 100.0 }, 0..3),
                 Located::new(Value::Range { value: 2.0..=3.0 }, 4..7),
-                Located::new(Value::Text { value: "str".into() }, 8..11),
+                Located::new(
+                    Value::Text {
+                        value: "str".into()
+                    },
+                    8..11
+                ),
             ])
         );
         assert_eq!(s, Some((12..13).into()));
@@ -442,7 +458,12 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Text { value: "2-3".into() }, 0..3),
+                value: Located::new(
+                    Value::Text {
+                        value: "2-3".into()
+                    },
+                    0..3
+                ),
                 auto_scale: None
             }
         );

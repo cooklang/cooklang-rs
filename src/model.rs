@@ -1,5 +1,13 @@
 //! Recipe representation
 
+/*
+
+   To make this model compatible with UniFFI
+     - Do not use tuple-like enums
+     - Enum variant names can't conflict with types or other enums
+
+*/
+
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
@@ -79,11 +87,12 @@ pub struct Step {
 
 /// A step item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
     Text { value: String },
     /// A [Component]
+    #[serde(rename = "component")]
     ItemComponent { value: Component },
     /// An inline quantity.
     ///
@@ -239,14 +248,16 @@ pub struct IngredientRelation {
 ///
 /// This is obtained from [IngredientRelation::references_to]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
-    Ingredient,
+    #[serde(rename = "ingredient")]
+    IngredientTarget,
     /// Step in the current section
-    Step,
+    #[serde(rename = "step")]
+    StepTarget,
     /// Section in the current recipe
-    Section,
+    #[serde(rename = "section")]
+    SectionTarget,
 }
 
 impl IngredientRelation {
@@ -324,9 +335,11 @@ pub struct Component {
 
 /// Component kind used in [Component]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
-#[serde(rename_all = "camelCase")]
 pub enum ComponentKind {
+    #[serde(rename = "ingredient")]
     IngredientKind,
+    #[serde(rename = "cookware")]
     CookwareKind,
+    #[serde(rename = "timer")]
     TimerKind,
 }

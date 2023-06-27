@@ -22,24 +22,24 @@ pub struct Quantity {
 
 /// A value that can or not be changed by scaling it
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum QuantityValue {
     /// Cannot be scaled
     Fixed { value: Value },
     /// Scaling is linear to the number of servings
     Linear { value: Value },
     /// Scaling is in defined steps of the number of servings
-    ByServings{ values: Vec<Value> },
+    ByServings { values: Vec<Value> },
 }
 
 /// Base value
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+#[serde(tag = "type", rename_all = "camelCase")]
 pub enum Value {
     /// Numeric
-    Number{ value: f64 },
+    Number { value: f64 },
     /// Range
-    Range{ value: RangeInclusive<f64> },
+    Range { value: RangeInclusive<f64> },
     /// Text
     ///
     /// It is not possible to operate with this variant.
@@ -69,7 +69,7 @@ impl QuantityValue {
     /// Checks if any of the possible values is text
     pub fn contains_text_value(&self) -> bool {
         match self {
-            QuantityValue::Fixed{ value } |  QuantityValue::Linear{ value } => value.is_text(),
+            QuantityValue::Fixed { value } | QuantityValue::Linear { value } => value.is_text(),
             QuantityValue::ByServings { values } => values.iter().any(Value::is_text),
         }
     }
@@ -189,15 +189,19 @@ impl QuantityValue {
                 value,
                 auto_scale: None,
                 ..
-            } => Self::Fixed { value: value.take() },
+            } => Self::Fixed {
+                value: value.take(),
+            },
             ast::QuantityValue::Single {
                 value,
                 auto_scale: Some(_),
                 ..
-            } => Self::Linear{ value: value.take() },
-            ast::QuantityValue::Many(v) => {
-                Self::ByServings { values: v.into_iter().map(crate::located::Located::take).collect() }
-            }
+            } => Self::Linear {
+                value: value.take(),
+            },
+            ast::QuantityValue::Many(v) => Self::ByServings {
+                values: v.into_iter().map(crate::located::Located::take).collect(),
+            },
         }
     }
 }
@@ -216,7 +220,7 @@ impl Display for QuantityValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Fixed { value } | Self::Linear { value } => value.fmt(f),
-            Self::ByServings{ values } => {
+            Self::ByServings { values } => {
                 for value in &values[..values.len() - 1] {
                     write!(f, "{}|", value)?;
                 }
@@ -234,7 +238,7 @@ impl Display for Value {
 
         match self {
             Value::Number { value: n } => write!(f, "{}", float(*n)),
-            Value::Range { value: r} => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
+            Value::Range { value: r } => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
             Value::Text { value: t } => write!(f, "{}", t),
         }
     }
@@ -399,7 +403,7 @@ impl QuantityValue {
     pub(crate) fn extract_value(&self) -> Result<&Value, NotScaled> {
         match self {
             Self::Fixed { value } => Ok(value),
-            Self::Linear{ .. } | Self::ByServings { .. } => Err(NotScaled(self.to_owned())),
+            Self::Linear { .. } | Self::ByServings { .. } => Err(NotScaled(self.to_owned())),
         }
     }
 
@@ -419,13 +423,16 @@ impl Value {
     /// Try adding two [Value]s
     pub fn try_add(&self, rhs: &Self) -> Result<Value, TextValueError> {
         let val = match (self, rhs) {
-            (Value::Number { value: a }, Value::Number { value: b }) => Value::Number { value: a + b },
-            (Value::Number { value: n }, Value::Range { value: r }) | (Value::Range { value: r }, Value::Number { value: n }) => {
-                Value::Range { value: r.start() + n..=r.end() + n }
+            (Value::Number { value: a }, Value::Number { value: b }) => {
+                Value::Number { value: a + b }
             }
-            (Value::Range { value: a }, Value::Range { value: b }) => {
-                Value::Range { value: a.start() + b.start()..=a.end() + b.end() }
-            }
+            (Value::Number { value: n }, Value::Range { value: r })
+            | (Value::Range { value: r }, Value::Number { value: n }) => Value::Range {
+                value: r.start() + n..=r.end() + n,
+            },
+            (Value::Range { value: a }, Value::Range { value: b }) => Value::Range {
+                value: a.start() + b.start()..=a.end() + b.end(),
+            },
             (t @ Value::Text { value: _ }, _) | (_, t @ Value::Text { value: _ }) => {
                 return Err(TextValueError(t.to_owned()));
             }
