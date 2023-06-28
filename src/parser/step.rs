@@ -24,48 +24,61 @@ pub(crate) fn step<'input>(
     line: &mut LineParser<'_, 'input>,
     force_text: bool,
 ) -> ParsedStep<'input> {
-    let is_text = line.consume(T![>]).is_some();
+    let is_text = line.consume(T![>]).is_some() || force_text;
 
     let mut items: Vec<ast::Item> = vec![];
 
-    if is_text || force_text {
+    if is_text {
         let start = line.current_offset();
         let tokens = line.consume_rest();
-        items.push(ast::Item::Text(line.text(start, tokens)));
-        return ParsedStep { is_text, items };
-    }
+        let text = line.text(start, tokens);
+        if !text.is_text_empty() {
+            items.push(ast::Item::Text(text));
+        }
+    } else {
+        while !line.rest().is_empty() {
+            let start = line.current_offset();
+            let component = match line.peek() {
+                T![@] => line
+                    .with_recover(ingredient)
+                    .map(ast::Component::Ingredient),
+                T![#] => line.with_recover(cookware).map(ast::Component::Cookware),
+                T![~] => line.with_recover(timer).map(ast::Component::Timer),
+                _ => None,
+            };
+            if let Some(component) = component {
+                let end = line.current_offset();
+                items.push(ast::Item::Component(Box::new(Located::new(
+                    component,
+                    Span::new(start, end),
+                ))));
+            } else {
+                let tokens_start = line.tokens_consumed();
+                line.bump_any(); // consume the first token, this avoids entering an infinite loop
+                line.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
+                let tokens_end = line.tokens_consumed();
+                let tokens = &line.tokens()[tokens_start..tokens_end];
 
-    while !line.rest().is_empty() {
-        let start = line.current_offset();
-        let component = match line.peek() {
-            T![@] => line
-                .with_recover(ingredient)
-                .map(ast::Component::Ingredient),
-            T![#] => line.with_recover(cookware).map(ast::Component::Cookware),
-            T![~] => line.with_recover(timer).map(ast::Component::Timer),
-            _ => None,
-        };
-        if let Some(component) = component {
-            let end = line.current_offset();
-            items.push(ast::Item::Component(Box::new(Located::new(
-                component,
-                Span::new(start, end),
-            ))));
-        } else {
-            let tokens_start = line.tokens_consumed();
-            line.bump_any(); // consume the first token, this avoids entering an infinite loop
-            line.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
-            let tokens_end = line.tokens_consumed();
-            let tokens = &line.tokens()[tokens_start..tokens_end];
-
-            items.push(ast::Item::Text(line.text(start, tokens)));
+                items.push(ast::Item::Text(line.text(start, tokens)));
+            }
         }
     }
 
-    ParsedStep {
-        is_text: false,
-        items,
+    // trim the line
+    if let Some(ast::Item::Text(text)) = items.last_mut() {
+        text.trim_fragments_end();
+        if text.fragments().is_empty() {
+            items.pop();
+        }
     }
+    if let Some(ast::Item::Text(text)) = items.first_mut() {
+        text.trim_fragments_start();
+        if text.fragments().is_empty() {
+            items.remove(0);
+        }
+    }
+
+    ParsedStep { is_text, items }
 }
 
 struct Body<'t> {

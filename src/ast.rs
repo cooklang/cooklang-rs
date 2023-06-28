@@ -120,6 +120,23 @@ impl<'a> Text<'a> {
         self.append_fragment(TextFragment::new(s, offset))
     }
 
+    pub(crate) fn trim_fragments_start(&mut self) {
+        if let Some(last) = self.fragments.first_mut() {
+            last.trim_start();
+            if last.text().is_empty() {
+                self.fragments.remove(0);
+            }
+        }
+    }
+    pub(crate) fn trim_fragments_end(&mut self) {
+        if let Some(last) = self.fragments.last_mut() {
+            last.trim_end();
+            if last.text().is_empty() {
+                self.fragments.pop();
+            }
+        }
+    }
+
     pub fn span(&self) -> Span {
         if self.fragments.is_empty() {
             return Span::pos(self.offset);
@@ -185,7 +202,7 @@ impl From<Text<'_>> for Span {
 
 #[derive(Debug, Clone, Copy, Serialize)]
 pub struct TextFragment<'a> {
-    pub text: &'a str,
+    text: &'a str,
     offset: usize,
 }
 
@@ -194,6 +211,9 @@ impl<'a> TextFragment<'a> {
         Self { text, offset }
     }
 
+    pub fn text(&self) -> &str {
+        self.text
+    }
     pub fn span(&self) -> Span {
         Span::new(self.start(), self.end())
     }
@@ -202,6 +222,19 @@ impl<'a> TextFragment<'a> {
     }
     pub fn end(&self) -> usize {
         self.offset + self.text.len()
+    }
+
+    // Trims start adjusting the span
+    pub(crate) fn trim_start(&mut self) {
+        let old_len = self.text.len();
+        self.text = self.text.trim_start();
+        let new_len = self.text.len();
+        let remove_count = old_len - new_len;
+        self.offset = self.offset + remove_count;
+    }
+    // Trim end adjusting the span
+    pub(crate) fn trim_end(&mut self) {
+        self.text = self.text.trim_end();
     }
 }
 
