@@ -59,6 +59,7 @@ pub fn parse_ast<'a>(
 
         ingredient_locations: Default::default(),
         metadata_locations: Default::default(),
+        step_counter: 0,
     };
     walker.ast(ast)
 }
@@ -79,6 +80,7 @@ struct Walker<'a, 'c> {
 
     ingredient_locations: Vec<Located<ast::Ingredient<'a>>>,
     metadata_locations: HashMap<Cow<'a, str>, (Text<'a>, Text<'a>)>,
+    step_counter: u32,
 }
 
 #[derive(PartialEq)]
@@ -184,6 +186,10 @@ impl<'a, 'r> Walker<'a, 'r> {
 
         let is_text = is_text || self.define_mode == DefineMode::Text;
 
+        if !is_text {
+            self.step_counter += 1;
+        }
+
         for item in items {
             match item {
                 ast::Item::Text(text) => {
@@ -239,9 +245,11 @@ impl<'a, 'r> Walker<'a, 'r> {
             };
         }
 
+        let number = (!is_text).then_some(self.step_counter);
+
         Step {
             items: new_items,
-            is_text,
+            number,
         }
     }
 
@@ -471,23 +479,21 @@ impl<'a, 'r> Walker<'a, 'r> {
                     .iter()
                     .enumerate()
                     .rev()
-                    .filter(|(_, s)| !s.is_text)
+                    .filter(|(_, s)| !s.is_text())
                     .nth(val.saturating_sub(1))
                     .map(|(index, _)| index);
                 match index {
                     Some(index) => rel(index, IngredientReferenceTarget::StepTarget),
                     None => {
-                        let n = self
-                            .current_section
-                            .steps
-                            .iter()
-                            .filter(|s| !s.is_text)
-                            .count();
-                        let help = if n == 0 {
-                            "This is in the first (non text) step, you can't reference other steps."
+                        let help = match self.step_counter {
+                            1 => {
+                                "This is in the first (non text) step, you can't reference other steps."
                                 .into()
-                        } else {
-                            format!("The current section only have {} (non text) steps before this one.", n).into()
+                            }
+                            2.. => {
+                                format!("The current section only have {} (non text) steps before this one.", self.step_counter - 1).into()
+                            }
+                            0 => unreachable!(), // being here would mean be resolving an intermediate ref before any non text step.
                         };
                         self.error(AnalysisError::InvalidIntermediateReferece {
                             reference_span: inter_data.span(),

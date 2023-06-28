@@ -59,7 +59,7 @@ fn compare_steps(expected: &Yaml, got: &[cooklang::model::Section], recipe: &coo
     // for each step
     for (expected, got) in expected.iter().zip(got.iter()) {
         let expected = expected.as_vec().unwrap();
-        assert_eq!(got.is_text, false);
+        assert_eq!(got.is_text(), false);
         let got = join_text_items(&got.items);
         eprintln!("{got:#?}");
         assert_eq!(expected.len(), got.len()); // same number of items

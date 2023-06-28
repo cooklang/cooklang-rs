@@ -75,14 +75,28 @@ impl Section {
 
 /// A step holding step [Item]s
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[non_exhaustive]
 pub struct Step {
     /// [Item]s inside
     pub items: Vec<Item>,
+
+    /// Step number
+    ///
+    /// The step numbers start at 1 in each section and increase with every non
+    /// text step. Text steps do not have a number. If this is not a text step,
+    /// it will always be [Some].
+    pub number: Option<u32>,
+}
+
+impl Step {
     /// Flag that indicates the step is a text step.
     ///
-    /// A text step should not increase the step counter, and there are only
-    /// text items inside.
-    pub is_text: bool,
+    /// A text step does not increase the step counter, so, if this method
+    /// returns `true`, the step does not have a number. There are only
+    /// [Item::Text] in [`items`](Self::items).
+    pub fn is_text(&self) -> bool {
+        self.number.is_none()
+    }
 }
 
 /// A step item
