@@ -184,6 +184,20 @@ pub fn parse<'input>(
                 if let Some(ast::Line::Step { items, is_text }) = lines.last_mut() {
                     let parsed_step = step(&mut line, *is_text);
                     if !parsed_step.items.is_empty() {
+                        /* TODO remove this and uncomment it at the end of ste::step
+                            to trim all lines, not just end of multiline.
+
+                            Currently a canonical test requires that trailing spaces
+                            remain.
+                        */
+                        if let Some(ast::Item::Text(text)) = items.last_mut() {
+                            text.trim_fragments_end();
+                            if text.fragments().is_empty() {
+                                items.pop();
+                            }
+                        }
+                        /* until here */
+
                         items.push(ast::Item::Text(ast::Text::from_str(
                             " ",
                             items.last().unwrap().span().end(),
