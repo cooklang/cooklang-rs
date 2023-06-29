@@ -64,22 +64,6 @@ pub(crate) fn step<'input>(
         }
     }
 
-    // trim the line
-
-    // TODO uncomment or remove when super::parse TODO is solved
-    // if let Some(ast::Item::Text(text)) = items.last_mut() {
-    //     text.trim_fragments_end();
-    //     if text.fragments().is_empty() {
-    //         items.pop();
-    //     }
-    // }
-    if let Some(ast::Item::Text(text)) = items.first_mut() {
-        text.trim_fragments_start();
-        if text.fragments().is_empty() {
-            items.remove(0);
-        }
-    }
-
     ParsedStep { is_text, items }
 }
 

@@ -182,26 +182,27 @@ pub fn parse<'input>(
         } else {
             if !last_line_is_empty && extensions.contains(Extensions::MULTILINE_STEPS) {
                 if let Some(ast::Line::Step { items, is_text }) = lines.last_mut() {
-                    let parsed_step = step(&mut line, *is_text);
+                    let mut parsed_step = step(&mut line, *is_text);
                     if !parsed_step.items.is_empty() {
-                        /* TODO remove this and uncomment it at the end of ste::step
-                            to trim all lines, not just end of multiline.
-
-                            Currently a canonical test requires that trailing spaces
-                            remain.
-                        */
+                        // pos of the newline/end of last step before trimming
+                        let newline_pos = items.last().unwrap().span().end();
+                        // trim last step end
                         if let Some(ast::Item::Text(text)) = items.last_mut() {
                             text.trim_fragments_end();
                             if text.fragments().is_empty() {
                                 items.pop();
                             }
                         }
-                        /* until here */
-
-                        items.push(ast::Item::Text(ast::Text::from_str(
-                            " ",
-                            items.last().unwrap().span().end(),
-                        )));
+                        // trim new step begining
+                        if let ast::Item::Text(text) = &mut parsed_step.items[0] {
+                            text.trim_fragments_start();
+                            if text.fragments().is_empty() {
+                                parsed_step.items.remove(0);
+                            }
+                        }
+                        // add a space in between the 2 lines
+                        // where the last line originally ended in the input
+                        items.push(ast::Item::Text(ast::Text::from_str(" ", newline_pos)));
                         items.extend(parsed_step.items);
                     }
                     let mut ctx = line.finish();
@@ -652,21 +653,11 @@ impl RichError for ParserWarning {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::Text;
-
     use super::*;
+    use crate::ast::*;
 
     #[test]
-    fn the_test() {
-        let (ast, warn, err) =
-            parse("a test @step @salt{1%mg} more text", Extensions::all()).into_tuple();
-        println!("{:#?}", ast);
-        println!("{:#?}", warn);
-        println!("{:#?}", err);
-    }
-
-    #[test]
-    fn the_metadata_test() {
+    fn just_metadata() {
         let (ast, warn, err) = parse_metadata(
             r#">> entry: true
 a test @step @salt{1%mg} more text
@@ -682,15 +673,40 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             ast.unwrap().lines,
             vec![
-                ast::Line::Metadata {
+                Line::Metadata {
                     key: Text::from_str(" entry", 2),
                     value: Text::from_str(" true", 10)
                 },
-                ast::Line::Metadata {
+                Line::Metadata {
                     key: Text::from_str(" entry2", 126),
                     value: Text::from_str(" uwu", 134)
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn multiline_spaces() {
+        let (ast, warn, err) = parse(
+            r#"  This is a step           -- comment
+  and this line continues  -- another comment"#,
+            Extensions::MULTILINE_STEPS,
+        )
+        .into_tuple();
+
+        // Only whitespace between line should be trimmed
+        assert!(warn.is_empty());
+        assert!(err.is_empty());
+        assert_eq!(
+            ast.unwrap().lines,
+            vec![Line::Step {
+                is_text: false,
+                items: vec![
+                    Item::Text(Text::from_str("  This is a step", 0)),
+                    Item::Text(Text::from_str(" ", 37)), // at the original end of the line
+                    Item::Text(Text::from_str("and this line continues  ", 41))
+                ]
+            }]
         );
     }
 }
