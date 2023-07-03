@@ -1,14 +1,12 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use regex::Regex;
-
 use crate::ast::{self, IntermediateData, Modifiers, Text};
 use crate::context::Context;
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::located::Located;
 use crate::metadata::Metadata;
-use crate::quantity::{Quantity, QuantityValue, UnitInfo, Value};
+use crate::quantity::{Quantity, QuantityValue, UnitInfo};
 use crate::span::Span;
 use crate::{model::*, Extensions, RecipeRefChecker};
 
@@ -21,7 +19,7 @@ pub struct RecipeContent {
     pub ingredients: Vec<Ingredient>,
     pub cookware: Vec<Cookware>,
     pub timers: Vec<Timer>,
-    pub inline_quantities: Vec<Quantity>,
+    // pub inline_quantities: Vec<Quantity>,
 }
 
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis", fields(ast_lines = ast.lines.len()))]
@@ -31,21 +29,10 @@ pub fn parse_ast<'a>(
     converter: &Converter,
     recipe_ref_checker: Option<RecipeRefChecker>,
 ) -> AnalysisResult {
-    let mut context = Context::default();
-    let temperature_regex = extensions
-        .contains(Extensions::TEMPERATURE)
-        .then(|| match converter.temperature_regex() {
-            Ok(re) => Some(re),
-            Err(source) => {
-                context.warn(AnalysisWarning::TemperatureRegexCompile { source });
-                None
-            }
-        })
-        .flatten();
+    let context = Context::default();
 
     let walker = Walker {
         extensions,
-        temperature_regex,
         converter,
         recipe_ref_checker,
 
@@ -66,7 +53,6 @@ pub fn parse_ast<'a>(
 
 struct Walker<'a, 'c> {
     extensions: Extensions,
-    temperature_regex: Option<&'c Regex>,
     converter: &'c Converter,
     recipe_ref_checker: Option<RecipeRefChecker<'c>>,
 
@@ -206,25 +192,6 @@ impl<'a, 'r> Walker<'a, 'r> {
                         continue; // ignore text
                     }
 
-                    if let Some(re) = &self.temperature_regex {
-                        if let Some((before, temperature, after)) = find_temperature(&t, re) {
-                            if !before.is_empty() {
-                                new_items.push(Item::Text {
-                                    value: before.to_string(),
-                                });
-                            }
-                            new_items.push(Item::InlineQuantity {
-                                value: self.content.inline_quantities.len(),
-                            });
-                            self.content.inline_quantities.push(temperature);
-                            if !after.is_empty() {
-                                new_items.push(Item::Text {
-                                    value: after.to_string(),
-                                });
-                            }
-                            continue;
-                        }
-                    }
 
                     new_items.push(Item::Text {
                         value: t.into_owned(),
@@ -849,23 +816,4 @@ impl RefComponent for Cookware {
             ComponentRelation::Reference { .. } => panic!("Reference to reference"),
         }
     }
-}
-
-fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity, &'a str)> {
-    let Some(caps) = re.captures(text) else { return None; };
-
-    let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
-    let unit = caps.get(3).unwrap().range();
-    let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(
-        QuantityValue::Fixed {
-            value: Value::Number { value: value },
-        },
-        Some(unit_text),
-    );
-
-    let range = caps.get(0).unwrap().range();
-    let (before, after) = (&text[..range.start], &text[range.end..]);
-
-    Some((before, temperature, after))
 }

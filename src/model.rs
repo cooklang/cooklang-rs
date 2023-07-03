@@ -39,8 +39,6 @@ pub struct Recipe<D = ()> {
     pub cookware: Vec<Cookware>,
     /// All the timers
     pub timers: Vec<Timer>,
-    /// All the inline quantities
-    pub inline_quantities: Vec<Quantity>,
     #[serde(skip_deserializing)]
     pub(crate) data: D,
 }
@@ -108,10 +106,7 @@ pub enum Item {
     /// A [Component]
     #[serde(rename = "component")]
     ItemComponent { value: Component },
-    /// An inline quantity.
-    ///
-    /// The number inside is an index into [Recipe::inline_quantities].
-    InlineQuantity { value: usize },
+
 }
 
 /// A recipe ingredient

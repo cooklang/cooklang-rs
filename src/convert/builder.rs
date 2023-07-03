@@ -196,7 +196,6 @@ impl ConverterBuilder {
             quantity_index,
             best,
             default_system: self.default_system,
-            temperature_regex: Default::default(),
         })
     }
 

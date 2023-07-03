@@ -148,7 +148,7 @@ impl Recipe {
             ingredients: self.ingredients,
             cookware: self.cookware,
             timers: self.timers,
-            inline_quantities: self.inline_quantities,
+            // inline_quantities: self.inline_quantities,
             data: Scaled::Scaled(data),
         }
     }
@@ -172,7 +172,7 @@ impl Recipe {
             ingredients: self.ingredients,
             cookware: self.cookware,
             timers: self.timers,
-            inline_quantities: self.inline_quantities,
+            // inline_quantities: self.inline_quantities,
             data: Scaled::DefaultScaling,
         }
     }
