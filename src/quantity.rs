@@ -32,6 +32,8 @@ pub enum QuantityValue {
     ByServings { values: Vec<Value> },
 }
 
+pub type ValueRange = RangeInclusive<f64>;
+
 /// Base value
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -39,7 +41,7 @@ pub enum Value {
     /// Numeric
     Number { value: f64 },
     /// Range
-    Range { value: RangeInclusive<f64> },
+    Range { value: ValueRange },
     /// Text
     ///
     /// It is not possible to operate with this variant.
