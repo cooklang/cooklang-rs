@@ -226,15 +226,15 @@ impl<'a, 'r> Walker<'a, 'r> {
         match inner {
             ast::Component::Ingredient(i) => Component {
                 kind: ComponentKind::IngredientKind,
-                index: self.ingredient(Located::new(i, span)),
+                // index: self.ingredient(Located::new(i, span)),
             },
             ast::Component::Cookware(c) => Component {
                 kind: ComponentKind::CookwareKind,
-                index: self.cookware(Located::new(c, span)),
+                // index: self.cookware(Located::new(c, span)),
             },
             ast::Component::Timer(t) => Component {
                 kind: ComponentKind::TimerKind,
-                index: self.timer(Located::new(t, span)),
+                // index: self.timer(Located::new(t, span)),
             },
         }
     }

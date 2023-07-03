@@ -338,8 +338,6 @@ pub struct Timer {
 pub struct Component {
     /// What kind of component is
     pub kind: ComponentKind,
-    /// The index in the corresponding [Vec] in the [Recipe] struct.
-    pub index: usize,
 }
 
 /// Component kind used in [Component]
