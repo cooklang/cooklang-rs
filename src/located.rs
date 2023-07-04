@@ -1,3 +1,5 @@
+//! Utility to add location information to any type
+
 use std::{
     fmt::Display,
     ops::{Deref, DerefMut, Range},
@@ -7,21 +9,24 @@ use serde::Serialize;
 
 use crate::{context::Recover, span::Span};
 
+/// Wrapper type that adds location information to another
 #[derive(Debug, PartialEq, Serialize)]
-pub struct Located<T, Id = ()> {
-    pub(crate) inner: T,
-    span: Span<Id>,
+pub struct Located<T> {
+    inner: T,
+    span: Span,
 }
 
-impl<T, Id: Clone> Located<T, Id> {
-    pub fn new(inner: T, span: impl Into<Span<Id>>) -> Self {
+impl<T> Located<T> {
+    /// Creata a new instance of [`Located`]
+    pub fn new(inner: T, span: impl Into<Span>) -> Self {
         Self {
             inner,
             span: span.into(),
         }
     }
 
-    pub fn map_inner<F, O>(self, f: F) -> Located<O, Id>
+    /// Map the inner value while keeping the same location
+    pub fn map<F, O>(self, f: F) -> Located<O>
     where
         F: FnOnce(T) -> O,
     {
@@ -31,44 +36,31 @@ impl<T, Id: Clone> Located<T, Id> {
         }
     }
 
-    pub fn map<F, O>(self, f: F) -> Located<O, Id>
-    where
-        F: FnOnce(Self) -> Located<O, Id>,
-    {
-        f(self)
-    }
-
-    pub fn offset(&self) -> usize {
-        self.span.start()
-    }
-
-    pub fn take(self) -> T {
+    /// Discard the location and consume the inner value
+    pub fn into_inner(self) -> T {
         self.inner
     }
 
-    pub fn range(&self) -> Range<usize> {
-        self.span.range()
-    }
-
-    pub fn span(&self) -> Span<Id> {
-        self.span.clone()
-    }
-
-    pub fn take_pair(self) -> (T, Span<Id>) {
+    /// Consume and get the inner value and it's location
+    pub fn take_pair(self) -> (T, Span) {
         (self.inner, self.span)
     }
 
-    pub fn replace<O>(self, new_inner: O) -> Located<O, Id> {
-        Located {
-            inner: new_inner,
-            span: self.span,
-        }
+    /// Get a reference to the inner value
+    pub fn value(&self) -> &T {
+        &self.inner
+    }
+
+    /// Get the location
+    pub fn span(&self) -> Span {
+        self.span.clone()
     }
 }
 
 impl<T: Clone + Copy> Copy for Located<T> {}
 
 impl<T: Copy> Located<T> {
+    /// Get the inner value by copy
     pub fn get(&self) -> T {
         self.inner
     }
@@ -109,8 +101,8 @@ impl<T> DerefMut for Located<T> {
     }
 }
 
-impl<T, Id> From<Located<T, Id>> for Range<usize> {
-    fn from(value: Located<T, Id>) -> Self {
+impl<T> From<Located<T>> for Range<usize> {
+    fn from(value: Located<T>) -> Self {
         value.span.range()
     }
 }
@@ -124,15 +116,5 @@ where
             inner: T::recover(),
             span: Recover::recover(),
         }
-    }
-}
-
-pub trait OptTake<T> {
-    fn opt_take(self) -> Option<T>;
-}
-
-impl<T> OptTake<T> for Option<Located<T>> {
-    fn opt_take(self) -> Option<T> {
-        self.map(Located::take)
     }
 }

@@ -10,7 +10,7 @@ use crate::{
 /// Ingredient with all quantities from it's references and itself grouped
 #[derive(Debug, Clone, Serialize)]
 pub struct GroupedIngredient<'a> {
-    /// Index of the ingredient definition in the [Recipe::ingredients]
+    /// Index of the ingredient definition in the [Recipe::ingredients](crate::model::Recipe::ingredients)
     pub index: usize,
     /// Ingredient definition
     pub ingredient: &'a Ingredient,
@@ -173,7 +173,7 @@ impl IntoIterator for IngredientList {
 
 /// Ingredient list split into categories.
 ///
-/// Obtained from [IngredientList::split_into_categories].
+/// Obtained from [IngredientList::categorize].
 #[derive(Debug, Default)]
 pub struct CategorizedIngredientList {
     /// One ingredient list per category

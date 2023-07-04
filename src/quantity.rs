@@ -12,7 +12,7 @@ use crate::{
     convert::{ConvertError, Converter, PhysicalQuantity, Unit},
 };
 
-/// A quantity used in components such an [Ingredient](crate::model::Ingredient)
+/// A quantity used in components
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Quantity {
     /// Value
@@ -20,7 +20,7 @@ pub struct Quantity {
     pub(crate) unit: Option<QuantityUnit>,
 }
 
-/// A value that can or not be changed by scaling it
+/// A value with scaling support
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum QuantityValue {
@@ -33,6 +33,8 @@ pub enum QuantityValue {
 }
 
 /// Base value
+///
+/// The [`Display`] implementation round `f64` to 3 decimal places.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Value {
@@ -46,8 +48,7 @@ pub enum Value {
     Text { value: String },
 }
 
-/// Unit that has the text it has been parsed from and, if recognised,
-/// information about what unit it is.
+/// Unit text with lazy rich information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct QuantityUnit {
@@ -76,6 +77,7 @@ impl QuantityValue {
 }
 
 impl Value {
+    /// Checks if it's text
     pub fn is_text(&self) -> bool {
         matches!(self, Value::Text { value: _ })
     }
@@ -95,14 +97,14 @@ impl QuantityUnit {
 
     /// Cached information about the unit.
     ///
-    /// If [None] is returned it means
-    /// the unit has not been parsed yet. Try with [Self::unit_or_parse].
-    pub fn unit(&self) -> Option<&UnitInfo> {
-        self.info.get()
+    /// If [`None`] is returned it means
+    /// the unit has not been parsed yet. Try with [`Self::unit_info_or_parse`].
+    pub fn unit_info(&self) -> Option<UnitInfo> {
+        self.info.get().cloned()
     }
 
     /// Information about the unit
-    pub fn unit_or_parse(&self, converter: &Converter) -> UnitInfo {
+    pub fn unit_info_or_parse(&self, converter: &Converter) -> UnitInfo {
         self.info
             .get_or_init(|| UnitInfo::new(&self.text, converter))
             .clone()
@@ -110,7 +112,8 @@ impl QuantityUnit {
 }
 
 impl UnitInfo {
-    fn new(text: &str, converter: &Converter) -> Self {
+    /// Parse the unit with the given converter
+    pub fn new(text: &str, converter: &Converter) -> Self {
         match converter.get_unit(&text.into()) {
             Ok(unit) => Self::Known(Arc::clone(unit)),
             Err(_) => Self::Unknown,
@@ -169,16 +172,18 @@ impl Quantity {
     }
 
     /// Get the unit text
+    ///
+    /// This is just a shorthand
+    /// ```
+    /// # use cooklang::quantity::*;
+    /// let q = Quantity::new(
+    ///             QuantityValue::Fixed { value: 1.0.into() },
+    ///             Some("unit".into())
+    ///         );
+    /// assert_eq!(q.unit_text(), q.unit().map(|u| u.text()));
+    /// ```
     pub fn unit_text(&self) -> Option<&str> {
         self.unit.as_ref().map(|u| u.text.as_ref())
-    }
-
-    /// Get the unit info.
-    ///
-    /// [None] can mean that it has no unit or that the unit has not been parsed
-    /// yet. See [QuantityUnit::unit_or_parse].
-    pub fn unit_info(&self) -> Option<&UnitInfo> {
-        self.unit.as_ref().and_then(|u| u.info.get())
     }
 }
 
@@ -190,17 +195,20 @@ impl QuantityValue {
                 auto_scale: None,
                 ..
             } => Self::Fixed {
-                value: value.take(),
+                value: value.into_inner(),
             },
             ast::QuantityValue::Single {
                 value,
                 auto_scale: Some(_),
                 ..
             } => Self::Linear {
-                value: value.take(),
+                value: value.into_inner(),
             },
             ast::QuantityValue::Many(v) => Self::ByServings {
-                values: v.into_iter().map(crate::located::Located::take).collect(),
+                values: v
+                    .into_iter()
+                    .map(crate::located::Located::into_inner)
+                    .collect(),
             },
         }
     }
@@ -301,8 +309,9 @@ pub enum IncompatibleUnits {
 }
 
 impl Quantity {
-    /// Checks if two quantities can be added
-    pub fn is_compatible(
+    /// Checks if two quantities can be added and return the compatible unit
+    /// (if any) or an error if they are not
+    pub fn compatible_unit(
         &self,
         rhs: &Self,
         converter: &Converter,
@@ -323,8 +332,8 @@ impl Quantity {
             }
             // Units -> check
             (Some(a), Some(b)) => {
-                let a_unit = a.unit_or_parse(converter);
-                let b_unit = b.unit_or_parse(converter);
+                let a_unit = a.unit_info_or_parse(converter);
+                let b_unit = b.unit_info_or_parse(converter);
 
                 match (a_unit, b_unit) {
                     (UnitInfo::Known(a_unit), UnitInfo::Known(b_unit)) => {
@@ -356,7 +365,7 @@ impl Quantity {
     /// Try adding two quantities
     pub fn try_add(&self, rhs: &Self, converter: &Converter) -> Result<Quantity, QuantityAddError> {
         // 1. Check if the units are compatible and (maybe) get a common unit
-        let convert_to = self.is_compatible(rhs, converter)?;
+        let convert_to = self.compatible_unit(rhs, converter)?;
 
         // 2. Convert rhs to the unit of the first one if needed
         let rhs = if let Some(to) = convert_to {
@@ -385,7 +394,7 @@ impl Quantity {
 
         // if the unit is known, convert to the best match in the same system
         if matches!(
-            self.unit().map(|u| u.unit_or_parse(converter)),
+            self.unit().map(|u| u.unit_info_or_parse(converter)),
             Some(UnitInfo::Known(_))
         ) {
             *self = converter.convert(&*self, ConvertTo::SameSystem)?;
@@ -407,7 +416,7 @@ impl QuantityValue {
         }
     }
 
-    /// Try adding two [QuantityValue]s.
+    /// Try adding two [`QuantityValue`]s.
     pub fn try_add(&self, rhs: &Self) -> Result<Self, QuantityAddError> {
         let value = self.extract_value()?.try_add(rhs.extract_value()?)?;
         Ok(QuantityValue::Fixed { value })
@@ -420,7 +429,7 @@ impl QuantityValue {
 pub struct TextValueError(pub Value);
 
 impl Value {
-    /// Try adding two [Value]s
+    /// Try adding two [`Value`]s
     pub fn try_add(&self, rhs: &Self) -> Result<Value, TextValueError> {
         let val = match (self, rhs) {
             (Value::Number { value: a }, Value::Number { value: b }) => {
@@ -442,6 +451,12 @@ impl Value {
     }
 }
 
+/// Group of quantities
+///
+/// This support efficient adding of new quantities, merging other groups and
+/// calculating the [`TotalQuantity`].
+///
+/// This is used to create, and merge ingredients lists.
 #[derive(Default, Debug, Clone, Serialize)]
 pub struct GroupedQuantity {
     /// known units
@@ -455,6 +470,12 @@ pub struct GroupedQuantity {
 }
 
 impl GroupedQuantity {
+    /// Create a new empty group
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Add a new quantity to the group
     pub fn add(&mut self, q: &Quantity, converter: &Converter) {
         macro_rules! add {
             ($stored:expr, $quantity:ident, $converter:expr, $other:expr) => {
@@ -482,7 +503,7 @@ impl GroupedQuantity {
         }
 
         let unit = q.unit.as_ref().unwrap();
-        let info = unit.unit_or_parse(converter);
+        let info = unit.unit_info_or_parse(converter);
         match info {
             UnitInfo::Known(unit) => {
                 if let Some(stored) = &mut self.known[unit.physical_quantity] {
@@ -501,6 +522,7 @@ impl GroupedQuantity {
         };
     }
 
+    /// Merge the group with another one
     pub fn merge(&mut self, other: &Self, converter: &Converter) {
         for q in other.all_quantities() {
             self.add(&q, converter)
@@ -517,6 +539,7 @@ impl GroupedQuantity {
             .cloned()
     }
 
+    /// Get the [`TotalQuantity`]
     pub fn total(&self) -> TotalQuantity {
         let mut all = self.all_quantities().peekable();
 
@@ -536,10 +559,42 @@ impl GroupedQuantity {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+/// Total quantity from a [`GroupedQuantity`]
+///
+/// [`TotalQuantity::Many`] is needed to avoid loosing information when not all
+/// quantities are compatible. This happens when the total cannot be calculated
+/// because 2 or more units can't be added. In this case, the vec contains all
+/// the quantities added where possible.
+///
+/// For example:
+/// ```
+/// # use cooklang::quantity::*;
+/// # use cooklang::convert::Converter;
+/// # let converter = Converter::bundled();
+/// let a = Quantity::new(QuantityValue::Fixed { value: 2.0.into()   }, Some("l".into()));
+/// let b = Quantity::new(QuantityValue::Fixed { value: 200.0.into() }, Some("ml".into()));
+/// let c = Quantity::new(QuantityValue::Fixed { value: 1.0.into()   }, Some("bottle".into()));
+///
+/// let mut group = GroupedQuantity::empty();
+/// group.add(&a, &converter);
+/// group.add(&b, &converter);
+/// group.add(&c, &converter);
+/// let total = group.total();
+/// assert_eq!(
+///     total,
+///     TotalQuantity::Many(vec![
+///         Quantity::new(QuantityValue::Fixed { value: 2.2.into() }, Some("l".into())),
+///         Quantity::new(QuantityValue::Fixed { value: 1.0.into()   }, Some("bottle".into()))
+///     ])
+/// );
+/// ```
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(untagged)]
 pub enum TotalQuantity {
+    /// No quantity
     None,
+    /// A single quantity
     Single(Quantity),
+    /// Many quantities when they can't be added
     Many(Vec<Quantity>),
 }

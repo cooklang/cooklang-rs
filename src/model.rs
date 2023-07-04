@@ -21,7 +21,7 @@ use crate::{
 
 /// A complete recipe
 ///
-/// A recipe can be [Self::scale] (only once) and only after that [Self::convert]
+/// A recipe can be [scaled](Self::scale) (only once) and [converted](Self::convert)
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Recipe<D = ()> {
     /// Recipe name
@@ -41,13 +41,12 @@ pub struct Recipe<D = ()> {
     pub timers: Vec<Timer>,
     /// All the inline quantities
     pub inline_quantities: Vec<Quantity>,
-    #[serde(skip_deserializing)]
     pub(crate) data: D,
 }
 
 /// A recipe after being scaled
 ///
-/// Note that this doesn't implement [Recipe::scale]. A recipe can only be
+/// Note that this doesn't implement [`Recipe::scale`]. A recipe can only be
 /// scaled once.
 pub type ScaledRecipe = Recipe<crate::scale::Scaled>;
 
@@ -68,23 +67,26 @@ impl Section {
         }
     }
 
+    /// Check if the section is empty
+    ///
+    /// A section is empty when it has no name and no steps.
     pub fn is_empty(&self) -> bool {
         self.name.is_none() && self.steps.is_empty()
     }
 }
 
-/// A step holding step [Item]s
+/// A step holding step [`Item`]s
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 #[non_exhaustive]
 pub struct Step {
-    /// [Item]s inside
+    /// [`Item`]s inside
     pub items: Vec<Item>,
 
     /// Step number
     ///
     /// The step numbers start at 1 in each section and increase with every non
     /// text step. Text steps do not have a number. If this is not a text step,
-    /// it will always be [Some].
+    /// it will always be [`Some`].
     pub number: Option<u32>,
 }
 
@@ -93,7 +95,7 @@ impl Step {
     ///
     /// A text step does not increase the step counter, so, if this method
     /// returns `true`, the step does not have a number. There are only
-    /// [Item::Text] in [`items`](Self::items).
+    /// [`Item::Text`] in [`items`](Self::items).
     pub fn is_text(&self) -> bool {
         self.number.is_none()
     }
@@ -105,12 +107,12 @@ impl Step {
 pub enum Item {
     /// Just plain text
     Text { value: String },
-    /// A [Component]
-    #[serde(rename = "component")]
+    /// A [`Component`]
+    #[serde(rename = "component")] // UniFFI
     ItemComponent { value: Component },
     /// An inline quantity.
     ///
-    /// The number inside is an index into [Recipe::inline_quantities].
+    /// The number inside is an index into [`Recipe::inline_quantities`].
     InlineQuantity { value: usize },
 }
 
@@ -211,28 +213,38 @@ pub struct Cookware {
 }
 
 impl Cookware {
-    /// Gets the name the ingredient should be displayed with
+    /// Gets the name the cookware item should be displayed with
     pub fn display_name(&self) -> &str {
         self.alias.as_ref().unwrap_or(&self.name)
     }
 
-    /// Access the ingredient modifiers
+    /// Access the cookware modifiers
     pub fn modifiers(&self) -> Modifiers {
         self.modifiers
     }
 }
 
+/// Relation between components
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ComponentRelation {
-    Definition { referenced_from: Vec<usize> },
-    Reference { references_to: usize },
+    /// The component is a definition
+    Definition {
+        /// List of indices of other components of the same kind referencing this
+        /// one
+        referenced_from: Vec<usize>,
+    },
+    /// The component is a reference
+    Reference {
+        /// Index of the definition component
+        references_to: usize,
+    },
 }
 
 impl ComponentRelation {
     /// Gets a list of the components referencing this one.
     ///
-    /// Returns a list of indices to the corresponding vec in [Recipe].
+    /// Returns a list of indices to the corresponding vec in [`Recipe`].
     pub fn referenced_from(&self) -> &[usize] {
         match self {
             ComponentRelation::Definition { referenced_from } => referenced_from,
@@ -249,7 +261,7 @@ impl ComponentRelation {
     }
 }
 
-/// Same as [ComponentRelation] but with the ability to reference steps and
+/// Same as [`ComponentRelation`] but with the ability to reference steps and
 /// sections apart from other ingredients.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct IngredientRelation {
@@ -311,7 +323,8 @@ impl IngredientRelation {
     /// Get the index the relation refrences to and the target
     ///
     /// If the [INTERMEDIATE_INGREDIENTS](crate::Extensions::INTERMEDIATE_INGREDIENTS)
-    /// extension is disabled, the target will always be [IngredientReferenceTarget::Ingredient].
+    /// extension is disabled, the target will always be
+    /// [IngredientReferenceTarget::IngredientTarget].
     pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {
         self.relation
             .references_to()
@@ -321,7 +334,8 @@ impl IngredientRelation {
 
 /// A recipe timer
 ///
-/// If created from parsing, at least one of the fields is guaranteed to be [Some].
+/// If created from parsing, at least one of the fields is guaranteed to be
+/// [`Some`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Timer {
     /// Name
@@ -334,7 +348,7 @@ pub struct Timer {
     /// is enabled, this is guaranteed to have a time unit.
     ///
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
-    /// extension is enabled, this is guaranteed to be [Some].
+    /// extension is enabled, this is guaranteed to be [`Some`].
     pub quantity: Option<Quantity>,
 }
 
@@ -343,11 +357,11 @@ pub struct Timer {
 pub struct Component {
     /// What kind of component is
     pub kind: ComponentKind,
-    /// The index in the corresponding [Vec] in the [Recipe] struct.
+    /// The index in the corresponding vec in the [`Recipe`] struct.
     pub index: usize,
 }
 
-/// Component kind used in [Component]
+/// Component kind used in [`Component`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
 pub enum ComponentKind {
     #[serde(rename = "ingredient")]

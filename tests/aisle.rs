@@ -9,7 +9,6 @@ potatoes
 [dairy]
 milk
 butter
-
 [deli]
 chicken
 
@@ -17,7 +16,6 @@ chicken
 tuna|chicken of the sea
 
 [empty category]
-
 [another]
 "#;
 

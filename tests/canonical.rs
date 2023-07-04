@@ -3,6 +3,7 @@
 use cooklang::{
     model::ComponentKind,
     quantity::{QuantityValue, Value},
+    Converter, CooklangParser, Extensions,
 };
 use yaml_rust::{Yaml, YamlLoader};
 
@@ -13,17 +14,17 @@ fn canonical_tests() {
     let doc = &docs[0];
     let tests = doc["tests"].as_hash().unwrap();
 
+    let parser = CooklangParser::new(Extensions::empty(), Converter::default());
+
     for (name, test) in tests.iter() {
         let name = name.as_str().unwrap();
-        run_test(name, test);
+        run_test(&parser, name, test);
     }
 }
 
-fn run_test(name: &str, test: &Yaml) {
+fn run_test(parser: &CooklangParser, name: &str, test: &Yaml) {
     eprintln!("Running test {name}");
-    let got = cooklang::CooklangParser::builder()
-        .with_extensions(cooklang::Extensions::empty())
-        .finish()
+    let got = parser
         .parse(test["source"].as_str().unwrap(), name)
         .into_output()
         .expect("Failed to parse");

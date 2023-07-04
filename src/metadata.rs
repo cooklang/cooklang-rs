@@ -1,7 +1,5 @@
 //! Metadata of a recipe
 
-use std::ops::RangeInclusive;
-
 pub use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -20,29 +18,53 @@ macro_rules! regex {
 }
 pub(crate) use regex;
 
+/// Metadata of a recipe
+///
+/// The fields on this struct are the parsed values with some special meaning.
+/// The raw key/value pairs from the recipe are in the `map` field.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct Metadata {
+    /// Description of the recipe
     pub description: Option<String>,
+    /// List of tags
     pub tags: Vec<String>,
+    /// Emoji for the recipe
     pub emoji: Option<String>,
+    /// Author
     pub author: Option<NameAndUrl>,
+    /// Source
+    ///
+    /// This *where* the recipe was obtained from. It's different from author.
     pub source: Option<NameAndUrl>,
+    /// Time it takes to prepare/cook the recipe
     pub time: Option<RecipeTime>,
+    /// Servings the recipe is made for
     pub servings: Option<Vec<u32>>,
+    /// All the raw key/value pairs from the recipe
     pub map: IndexMap<String, String>,
 }
 
+/// Combination of name and URL.
+///
+/// At least one of the fields is [`Some`].
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct NameAndUrl {
-    pub name: Option<String>,
-    pub url: Option<Url>,
+    name: Option<String>,
+    url: Option<Url>,
 }
 
+/// Time that takes to prep/cook a recipe
+///
+/// All values are in minutes.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum RecipeTime {
+    /// Total time
     Total(u32),
+    /// Combination of preparation and cook time
+    ///
+    /// At least one is [`Some`]
     Composed {
         #[serde(alias = "prep")]
         prep_time: Option<u32>,
@@ -73,8 +95,8 @@ impl Metadata {
                     return Err(MetadataError::NotEmoji { value });
                 }
             }
-            "author" => self.author = Some(NameAndUrl::new(&value)),
-            "source" => self.source = Some(NameAndUrl::new(&value)),
+            "author" => self.author = Some(NameAndUrl::parse(&value)),
+            "source" => self.source = Some(NameAndUrl::parse(&value)),
             "time" => self.time = Some(RecipeTime::Total(parse_time(&value)?)),
             "prep_time" | "prep time" => {
                 let cook_time = self.time.and_then(|t| match t {
@@ -114,7 +136,7 @@ impl Metadata {
         Ok(())
     }
 
-    /// Returns a copy of [Self::map] but with all "special" metadata values
+    /// Returns a copy of [Self::map] but with all *special* metadata values
     /// removed
     pub fn map_filtered(&self) -> IndexMap<String, String> {
         const ALL_KNOWN_KEYS: &[&str] = &[
@@ -147,7 +169,16 @@ fn parse_time(s: &str) -> Result<u32, std::num::ParseIntError> {
 }
 
 impl NameAndUrl {
-    pub fn new(s: &str) -> Self {
+    /// Parse a string into [`NameAndUrl`]
+    ///
+    /// The string is of the form:
+    /// - `Name <Url>`
+    /// - `Url`
+    /// - `Name`
+    ///
+    /// The Url validated, so it has to be correct. If no url is found or it's
+    /// invalid, everything will be the name.
+    pub fn parse(s: &str) -> Self {
         let re = regex!(r"^(\w+(?:\s\w+)*)\s+<([^>]+)>$");
         if let Some(captures) = re.captures(s) {
             let name = &captures[1];
@@ -171,9 +202,20 @@ impl NameAndUrl {
             }
         }
     }
+
+    /// Get the name
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
+    }
+
+    /// Get the url
+    pub fn url(&self) -> Option<&Url> {
+        self.url.as_ref()
+    }
 }
 
 impl RecipeTime {
+    /// Get the total time prep + cook (minutes)
     pub fn total(self) -> u32 {
         match self {
             RecipeTime::Total(t) => t,
@@ -195,14 +237,24 @@ pub enum MetadataError {
     ParseIntError(#[from] std::num::ParseIntError),
 }
 
-const TAG_LEN: RangeInclusive<usize> = 1..=32;
-fn is_valid_tag(tag: &str) -> bool {
+/// Checks that a tag is valid
+///
+/// A tag is valid when:
+/// - The length is 1 <= len <= 32
+/// - lowercase letters, numbers and '-'
+/// - starts with a letters
+/// - '-' have to be surrouded by letters or numbers, no two '-' can be together
+pub fn is_valid_tag(tag: &str) -> bool {
+    let tag_len = 1..=32;
     let re = regex!(r"^\p{Ll}[\p{Ll}\d]*(-[\p{Ll}\d]+)*$");
 
-    TAG_LEN.contains(&tag.chars().count()) && re.is_match(tag)
+    tag_len.contains(&tag.chars().count()) && re.is_match(tag)
 }
 
-pub fn slugify(text: &str) -> String {
+/// Transform the input text into a valid tag*
+///
+/// *Length is not checked
+pub fn tagify(text: &str) -> String {
     let text = text
         .trim()
         .replace(|c: char| (c.is_whitespace() || c == '_'), "-")
@@ -235,17 +287,17 @@ mod tests {
     }
 
     #[test]
-    fn test_slugify() {
-        assert_eq!(slugify("text"), "text");
-        assert_eq!(slugify("text with spaces"), "text-with-spaces");
+    fn test_tagify() {
+        assert_eq!(tagify("text"), "text");
+        assert_eq!(tagify("text with spaces"), "text-with-spaces");
         assert_eq!(
-            slugify("text with      many\tspaces"),
+            tagify("text with      many\tspaces"),
             "text-with-many-spaces"
         );
-        assert_eq!(slugify("text with CAPS"), "text-with-caps");
-        assert_eq!(slugify("text with CAPS"), "text-with-caps");
-        assert_eq!(slugify("text_with_underscores"), "text-with-underscores");
-        assert_eq!(slugify("WhATever_--thiS - - is"), "whatever-this-is");
-        assert_eq!(slugify("Sensible recipe name"), "sensible-recipe-name");
+        assert_eq!(tagify("text with CAPS"), "text-with-caps");
+        assert_eq!(tagify("text with CAPS"), "text-with-caps");
+        assert_eq!(tagify("text_with_underscores"), "text-with-underscores");
+        assert_eq!(tagify("WhATever_--thiS - - is"), "whatever-this-is");
+        assert_eq!(tagify("Sensible recipe name"), "sensible-recipe-name");
     }
 }

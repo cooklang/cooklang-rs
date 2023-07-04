@@ -1,4 +1,4 @@
-shopping_list = _{ SOI ~ NEWLINE* ~ category+ ~ EOI }
+shopping_list = _{ SOI ~ NEWLINE* ~ category* ~ EOI }
 category = { "[" ~ name ~ "]" ~ NEWLINE+ ~ (ingredient ~ NEWLINE+)* ~ ingredient? }
 ingredient = { name ~ ("|" ~ name)* }
 name = @{ (!("|" | "[" | "]" | NEWLINE | COMMENT) ~ ANY)+ }

@@ -134,8 +134,8 @@ impl<'a, 'r> Walker<'a, 'r> {
             .insert(key.text_trimmed(), (key.clone(), value.clone()));
 
         let invalid_value = |possible_values| AnalysisError::InvalidSpecialMetadataValue {
-            key: key.located_string(),
-            value: value.located_string(),
+            key: key.located_string_trimmed(),
+            value: value.located_string_trimmed(),
             possible_values,
         };
 
@@ -165,7 +165,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     _ => self.error(invalid_value(vec!["true", "false"])),
                 },
                 _ => self.warn(AnalysisWarning::UnknownSpecialMetadataKey {
-                    key: key.located_string(),
+                    key: key.located_string_trimmed(),
                 }),
             }
         } else if let Err(warn) = self
@@ -174,8 +174,8 @@ impl<'a, 'r> Walker<'a, 'r> {
             .insert(key_t.into_owned(), value_t.into_owned())
         {
             self.warn(AnalysisWarning::InvalidMetadataValue {
-                key: key.located_string(),
-                value: value.located_string(),
+                key: key.located_string_trimmed(),
+                value: value.located_string_trimmed(),
                 source: warn,
             });
         }
@@ -283,7 +283,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             alias: ingredient.alias.map(|t| t.text_trimmed().into_owned()),
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
-            modifiers: ingredient.modifiers.take(),
+            modifiers: ingredient.modifiers.into_inner(),
             relation: IngredientRelation::new(
                 ComponentRelation::Definition {
                     referenced_from: Vec::new(),
@@ -346,7 +346,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                                 .map(|q| (index, q))
                         });
                     for (index, q) in all_quantities {
-                        if let Err(e) = q.is_compatible(new_quantity, self.converter) {
+                        if let Err(e) = q.compatible_unit(new_quantity, self.converter) {
                             let old_q_loc =
                                 self.ingredient_locations[index].quantity.as_ref().unwrap();
                             let a = old_q_loc
@@ -552,9 +552,9 @@ impl<'a, 'r> Walker<'a, 'r> {
         let mut new_cw = Cookware {
             name: cookware.name.text_trimmed().into_owned(),
             alias: cookware.alias.map(|t| t.text_trimmed().into_owned()),
-            quantity: cookware.quantity.map(|q| self.value(q.inner, false)),
+            quantity: cookware.quantity.map(|q| self.value(q.into_inner(), false)),
             note: cookware.note.map(|n| n.text_trimmed().into_owned()),
-            modifiers: cookware.modifiers.take(),
+            modifiers: cookware.modifiers.into_inner(),
             relation: ComponentRelation::Definition {
                 referenced_from: Vec::new(),
             },
@@ -595,7 +595,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 if let Some(unit) = quantity.unit() {
-                    match unit.unit_or_parse(self.converter) {
+                    match unit.unit_info_or_parse(self.converter) {
                         UnitInfo::Known(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
                                 self.error(AnalysisError::BadTimerUnit {
@@ -631,7 +631,7 @@ impl<'a, 'r> Walker<'a, 'r> {
     }
 
     fn quantity(&mut self, quantity: Located<ast::Quantity<'a>>, is_ingredient: bool) -> Quantity {
-        let ast::Quantity { value, unit, .. } = quantity.take();
+        let ast::Quantity { value, unit, .. } = quantity.into_inner();
         Quantity::new(
             self.value(value, is_ingredient),
             unit.map(|t| t.text_trimmed().into_owned()),

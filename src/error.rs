@@ -1,13 +1,50 @@
 //! Error type, formatting and utilities.
 
 use std::borrow::Cow;
+use std::ops::Deref;
 
 use thiserror::Error;
 
+/// Errors and warnings container with fancy formatting
+///
+/// The [`Display`](std::fmt::Display) implementation is not fancy formatting,
+/// use one of the print or write methods.
 #[derive(Debug, Clone)]
 pub struct Report<E, W> {
     pub(crate) errors: Vec<E>,
     pub(crate) warnings: Vec<W>,
+}
+
+pub type CooklangReport = Report<CooklangError, CooklangWarning>;
+
+impl<E, W> Report<E, W> {
+    /// Create a new report
+    pub fn new(errors: Vec<E>, warnings: Vec<W>) -> Self {
+        Self { errors, warnings }
+    }
+
+    /// Errors of the report
+    pub fn errors(&self) -> &[E] {
+        &self.errors
+    }
+
+    /// Warnings of the report
+    pub fn warnings(&self) -> &[W] {
+        &self.warnings
+    }
+
+    /// Check if the reports has errors
+    pub fn has_errors(&self) -> bool {
+        !self.errors.is_empty()
+    }
+    /// Check if the reports has warnings
+    pub fn has_warnings(&self) -> bool {
+        !self.warnings.is_empty()
+    }
+    /// Check if the reports doesn't have errors or warnings
+    pub fn is_empty(&self) -> bool {
+        self.errors.is_empty() && self.warnings.is_empty()
+    }
 }
 
 impl<E, W> Report<E, W>
@@ -15,91 +52,23 @@ where
     E: RichError,
     W: RichError,
 {
-    pub fn new(errors: Vec<E>, warnings: Vec<W>) -> Self {
-        Self { errors, warnings }
-    }
-    pub fn from_err(error: E) -> Self {
-        Self {
-            errors: vec![error],
-            warnings: vec![],
-        }
-    }
-    pub fn from_warning(warning: W) -> Self {
-        Self {
-            errors: vec![],
-            warnings: vec![warning],
-        }
-    }
-    pub fn from_report<E2, W2>(other: Report<E2, W2>) -> Self
-    where
-        E2: Into<E>,
-        W2: Into<W>,
-    {
-        Self {
-            errors: other.errors.into_iter().map(Into::into).collect(),
-            warnings: other.warnings.into_iter().map(Into::into).collect(),
-        }
-    }
-
-    pub fn errors(&self) -> &[E] {
-        &self.errors
-    }
-
-    pub fn warnings(&self) -> &[W] {
-        &self.warnings
-    }
-
-    pub fn has_errors(&self) -> bool {
-        !self.errors.is_empty()
-    }
-    pub fn has_warnings(&self) -> bool {
-        !self.warnings.is_empty()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.errors.is_empty() && self.warnings.is_empty()
-    }
-
-    /// Write a formatted report.
-    ///
-    /// Colors are set up like it was printing to `stderr`. Use [Self::write_for_stdout]
-    /// if you want that behaviour.
+    /// Write a formatted report
     pub fn write(
         &self,
         file_name: &str,
         source_code: &str,
         hide_warnings: bool,
+        color: bool,
         w: &mut impl std::io::Write,
     ) -> std::io::Result<()> {
         let mut cache = DummyCache::new(file_name, source_code);
         if !hide_warnings {
             for warn in &self.warnings {
-                build_report(warn, source_code).write(&mut cache, &mut *w)?;
+                build_report(warn, file_name, source_code, color).write(&mut cache, &mut *w)?;
             }
         }
         for err in &self.errors {
-            build_report(err, source_code).write(&mut cache, &mut *w)?;
-        }
-        Ok(())
-    }
-
-    /// Write a formatted report with `stdout` color settings.
-    ///
-    /// For `stderr` color settings use [Self::write]
-    pub fn write_for_stdout(
-        &self,
-        file_name: &str,
-        source_code: &str,
-        hide_warnings: bool,
-        w: &mut impl std::io::Write,
-    ) -> std::io::Result<()> {
-        let mut cache = DummyCache::new(file_name, source_code);
-        if !hide_warnings {
-            for warn in &self.warnings {
-                build_report(warn, source_code).write_for_stdout(&mut cache, &mut *w)?;
-            }
-        }
-        for err in &self.errors {
-            build_report(err, source_code).write_for_stdout(&mut cache, &mut *w)?;
+            build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
         }
         Ok(())
     }
@@ -110,11 +79,13 @@ where
         file_name: &str,
         source_code: &str,
         hide_warnings: bool,
+        color: bool,
     ) -> std::io::Result<()> {
-        self.write_for_stdout(
+        self.write(
             file_name,
             source_code,
             hide_warnings,
+            color,
             &mut std::io::stdout(),
         )
     }
@@ -125,11 +96,13 @@ where
         file_name: &str,
         source_code: &str,
         hide_warnings: bool,
+        color: bool,
     ) -> std::io::Result<()> {
         self.write(
             file_name,
             source_code,
             hide_warnings,
+            color,
             &mut std::io::stderr(),
         )
     }
@@ -170,6 +143,61 @@ where
 {
 }
 
+/// Partial [`Report`] only for warnings
+pub struct Warnings<W>(Vec<W>);
+
+impl<W> Warnings<W> {
+    pub fn new(warnings: Vec<W>) -> Self {
+        Self(warnings)
+    }
+
+    pub fn into_report<E>(self) -> Report<E, W> {
+        self.into()
+    }
+}
+
+impl<W: RichError> Warnings<W> {
+    /// Write a formatted report
+    pub fn write(
+        &self,
+        file_name: &str,
+        source_code: &str,
+        color: bool,
+        w: &mut impl std::io::Write,
+    ) -> std::io::Result<()> {
+        let mut cache = DummyCache::new(file_name, source_code);
+        for warn in &self.0 {
+            build_report(warn, file_name, source_code, color).write(&mut cache, &mut *w)?;
+        }
+        Ok(())
+    }
+
+    /// Prints a formatted report to stdout
+    pub fn print(&self, file_name: &str, source_code: &str, color: bool) -> std::io::Result<()> {
+        self.write(file_name, source_code, color, &mut std::io::stdout())
+    }
+
+    /// Prints a formatted report to stderr
+    pub fn eprint(&self, file_name: &str, source_code: &str, color: bool) -> std::io::Result<()> {
+        self.write(file_name, source_code, color, &mut std::io::stderr())
+    }
+}
+
+impl<E, W> From<Warnings<W>> for Report<E, W> {
+    fn from(value: Warnings<W>) -> Self {
+        Self::new(vec![], value.0)
+    }
+}
+
+impl<W> Deref for Warnings<W> {
+    type Target = [W];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Output from the different passes of the parsing process
 #[derive(Debug)]
 pub struct PassResult<T, E, W> {
     output: Option<T>,
@@ -178,7 +206,7 @@ pub struct PassResult<T, E, W> {
 }
 
 impl<T, E, W> PassResult<T, E, W> {
-    pub fn new(output: Option<T>, warnings: Vec<W>, errors: Vec<E>) -> Self {
+    pub(crate) fn new(output: Option<T>, warnings: Vec<W>, errors: Vec<E>) -> Self {
         Self {
             output,
             warnings,
@@ -186,43 +214,55 @@ impl<T, E, W> PassResult<T, E, W> {
         }
     }
 
+    /// Check if the result has any output. It may not be valid.
     pub fn has_output(&self) -> bool {
         self.output.is_some()
     }
 
+    /// Check if the result has errors.
     pub fn has_errors(&self) -> bool {
         !self.errors.is_empty()
     }
 
+    /// Check if the result has warnings.
     pub fn has_warnings(&self) -> bool {
         !self.warnings.is_empty()
     }
 
+    /// Check if the result is invalid.
+    ///
+    /// Output, if any, should be discarded or used knowing that it contains
+    /// errors or is incomplete.
     pub fn invalid(&self) -> bool {
         self.has_errors() || !self.has_output()
     }
 
+    /// Get the output
     pub fn output(&self) -> Option<&T> {
         self.output.as_ref()
     }
 
+    /// Get the warnings
     pub fn warnings(&self) -> &[W] {
         &self.warnings
     }
 
+    /// Get the errors
     pub fn errors(&self) -> &[E] {
         &self.errors
     }
 
-    pub fn into_result(mut self) -> Result<(T, Report<E, W>), Report<E, W>> {
+    /// Transform into a common rust [`Result`]
+    pub fn into_result(mut self) -> Result<(T, Warnings<W>), Report<E, W>> {
         if let Some(o) = self.output.take() {
             if self.errors.is_empty() {
-                return Ok((o, self.into_report()));
+                return Ok((o, Warnings::new(self.warnings)));
             }
         }
         Err(self.into_report())
     }
 
+    /// Transform into a [`Report`] discarding the output
     pub fn into_report(self) -> Report<E, W> {
         Report {
             errors: self.errors,
@@ -230,22 +270,27 @@ impl<T, E, W> PassResult<T, E, W> {
         }
     }
 
+    /// Take the output discarding the errors/warnings
     pub fn take_output(&mut self) -> Option<T> {
         self.output.take()
     }
 
+    /// Transform into the ouput discarding errors/warnings
     pub fn into_output(self) -> Option<T> {
         self.output
     }
 
+    /// Transform into errors discarding output and warnings
     pub fn into_errors(self) -> Vec<E> {
         self.errors
     }
 
+    /// Transform into warnings discarding output and errors
     pub fn into_warnings(self) -> Vec<W> {
         self.warnings
     }
 
+    /// Get output, errors and warnings in a tuple
     pub fn into_tuple(self) -> (Option<T>, Vec<W>, Vec<E>) {
         (self.output, self.warnings, self.errors)
     }
@@ -278,6 +323,7 @@ impl<T, E, W> PassResult<T, E, W> {
         self
     }
 
+    /// Map the inner output
     pub fn map<F, O>(self, f: F) -> PassResult<O, E, W>
     where
         F: FnOnce(T) -> O,
@@ -289,6 +335,7 @@ impl<T, E, W> PassResult<T, E, W> {
         }
     }
 
+    /// Map the inner output with a fallible function
     pub fn try_map<F, O, E2>(self, f: F) -> Result<PassResult<O, E, W>, E2>
     where
         F: FnOnce(T) -> Result<O, E2>,
@@ -302,8 +349,9 @@ impl<T, E, W> PassResult<T, E, W> {
     }
 }
 
-pub trait RichError<Id: Clone = ()>: std::error::Error {
-    fn labels(&self) -> Vec<(Span<Id>, Option<Cow<'static, str>>)> {
+/// Trait to enhace errors with rich metadata
+pub trait RichError: std::error::Error {
+    fn labels(&self) -> Vec<(Span, Option<Cow<'static, str>>)> {
         vec![]
     }
     fn help(&self) -> Option<Cow<'static, str>> {
@@ -317,12 +365,6 @@ pub trait RichError<Id: Clone = ()>: std::error::Error {
     }
     fn kind(&self) -> ariadne::ReportKind {
         ariadne::ReportKind::Error
-    }
-    fn offset(&self) -> Option<usize> {
-        None
-    }
-    fn source_id(&self) -> Option<Id> {
-        None
     }
 }
 
@@ -355,32 +397,39 @@ use crate::span::Span;
 /// Writes a rich error report
 ///
 /// This function should not be used in a loop as each call will
-/// perform a light parse of the whole source code.
+/// perform a light parse of the whole source code. To print many rich errors
+/// use [`Report`].
 pub fn write_rich_error(
     error: &dyn RichError,
     file_name: &str,
     source_code: &str,
+    color: bool,
     w: impl std::io::Write,
 ) -> std::io::Result<()> {
     let cache = DummyCache::new(file_name, source_code);
-    let report = build_report(error, source_code);
+    let report = build_report(error, file_name, source_code, color);
     report.write(cache, w)
 }
 
-fn build_report<'a>(err: &'a dyn RichError, src_code: &str) -> ariadne::Report<'a> {
+fn build_report<'a>(
+    err: &'a dyn RichError,
+    file_name: &str,
+    src_code: &str,
+    color: bool,
+) -> ariadne::Report<'a> {
     use ariadne::{Color, ColorGenerator, Fmt, Label, Report};
 
-    let mut labels = err
+    let labels = err
         .labels()
         .into_iter()
-        .map(|(s, t)| (s.to_chars_span(src_code).range(), t))
-        .peekable();
-    let offset = err
-        .offset()
-        .or_else(|| labels.peek().map(|l| l.0.start))
-        .unwrap_or_default();
+        .map(|(s, t)| (s.to_chars_span(src_code, file_name).range(), t))
+        .collect::<Vec<_>>();
 
-    let mut r = Report::build(err.kind(), (), offset);
+    // The start of the first span
+    let offset = labels.iter().map(|l| l.0.start).min().unwrap_or_default();
+
+    let mut r = Report::build(err.kind(), (), offset)
+        .with_config(ariadne::Config::default().with_color(color));
 
     if let Some(source) = err.source() {
         let color = match err.kind() {
@@ -396,7 +445,7 @@ fn build_report<'a>(err: &'a dyn RichError, src_code: &str) -> ariadne::Report<'
     }
 
     let mut c = ColorGenerator::new();
-    r.add_labels(labels.enumerate().map(|(order, (span, text))| {
+    r.add_labels(labels.into_iter().enumerate().map(|(order, (span, text))| {
         let mut l = Label::new(span)
             .with_order(order as i32)
             .with_color(c.next());
@@ -417,7 +466,10 @@ fn build_report<'a>(err: &'a dyn RichError, src_code: &str) -> ariadne::Report<'
     r.finish()
 }
 
-pub struct DummyCache(String, ariadne::Source);
+// This is a ariadne cache that only supports one file.
+// If needed it can be expanded to a full cache as the source id is already
+// stored in CharsSpan (the ariadne::Span)
+struct DummyCache(String, ariadne::Source);
 impl DummyCache {
     fn new(file_name: &str, src_code: &str) -> Self {
         Self(file_name.into(), src_code.into())
@@ -433,22 +485,27 @@ impl ariadne::Cache<()> for DummyCache {
     }
 }
 
+/// General cooklang error type
 #[derive(Debug, Error)]
 pub enum CooklangError {
+    /// An error in the parse pass
     #[error(transparent)]
     Parser(#[from] crate::parser::ParserError),
+    /// An error in the analysis pass
     #[error(transparent)]
     Analysis(#[from] crate::analysis::AnalysisError),
+    /// Error related to I/O
     #[error(transparent)]
     Io(#[from] std::io::Error),
-    #[error("No file name in path: '{path}'")]
-    NoFilename { path: std::path::PathBuf },
 }
 
+/// General cooklang warning type
 #[derive(Debug, Error)]
 #[error(transparent)]
 pub enum CooklangWarning {
+    /// A waring in the parse pass
     Parser(#[from] crate::parser::ParserWarning),
+    /// A waring in the analysis pass
     Analysis(#[from] crate::analysis::AnalysisWarning),
 }
 
@@ -458,7 +515,6 @@ impl RichError for CooklangError {
             CooklangError::Parser(e) => e.labels(),
             CooklangError::Analysis(e) => e.labels(),
             CooklangError::Io(_) => vec![],
-            CooklangError::NoFilename { .. } => vec![],
         }
     }
 
@@ -467,9 +523,6 @@ impl RichError for CooklangError {
             CooklangError::Parser(e) => e.help(),
             CooklangError::Analysis(e) => e.help(),
             CooklangError::Io(_) => None,
-            CooklangError::NoFilename { .. } => {
-                help!("The recipe name is needed and comes from the file name")
-            }
         }
     }
 
@@ -478,7 +531,6 @@ impl RichError for CooklangError {
             CooklangError::Parser(e) => e.note(),
             CooklangError::Analysis(e) => e.note(),
             CooklangError::Io(_) => None,
-            CooklangError::NoFilename { .. } => None,
         }
     }
 
@@ -487,7 +539,6 @@ impl RichError for CooklangError {
             CooklangError::Parser(e) => e.code(),
             CooklangError::Analysis(e) => e.code(),
             CooklangError::Io(_) => Some("io"),
-            CooklangError::NoFilename { .. } => Some("no_file_name"),
         }
     }
 }

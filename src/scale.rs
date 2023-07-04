@@ -1,6 +1,6 @@
 //! Support for recipe scaling
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
@@ -9,8 +9,8 @@ use crate::{
     Recipe, ScaledRecipe,
 };
 
-/// Configures the scaling
-#[derive(Debug, Clone, Copy, Serialize)]
+/// Configures the scaling target
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ScaleTarget {
     base: u32,
     target: u32,
@@ -18,10 +18,13 @@ pub struct ScaleTarget {
 }
 
 impl ScaleTarget {
-    /// Creates a new [ScaleTarget].
+    /// Creates a new [`ScaleTarget`].
     /// - `base` is the number of servings the recipe was initially written for.
+    ///   Usually this is the first value of `declared_servings` but doesn't
+    ///   need to.
     /// - `target` is the wanted number of servings.
-    /// - `declared_servigs` is a slice with all the servings of the recipe metadata.
+    /// - `declared_servigs` is the slice with all the servings of the recipe
+    ///   metadata.
     ///
     /// Invalid parameters don't error here, but may do so in the
     /// scaling process.
@@ -33,12 +36,12 @@ impl ScaleTarget {
         }
     }
 
-    /// Get the scaling factor calculated
+    /// Get the calculated scaling factor
     pub fn factor(&self) -> f64 {
         self.target as f64 / self.base as f64
     }
 
-    /// Get the index into a [QuantityValue::ByServings]
+    /// Get the index into a [`QuantityValue::ByServings`]
     pub fn index(&self) -> Option<usize> {
         self.index
     }
@@ -50,7 +53,7 @@ impl ScaleTarget {
 }
 
 /// Possible scaled states of a recipe
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Scaled {
     /// The recipe was scaled to its based servings
@@ -63,31 +66,33 @@ pub enum Scaled {
 }
 
 /// Data from scaling a recipe
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ScaledData {
     /// What the target was
     pub target: ScaleTarget,
-    /// The
+    /// Outcome of scaling the ingredients. Use the same index as in the recipe.
     pub ingredients: Vec<ScaleOutcome>,
+    /// Outcome of scaling the cookware items. Use the same index as in the recipe.
     pub cookware: Vec<ScaleOutcome>,
+    /// Outcome of scaling the timers. Use the same index as in the recipe.
     pub timers: Vec<ScaleOutcome>,
 }
 
 /// Possible outcomes from scaling a component
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ScaleOutcome {
     /// Success
     Scaled,
-    /// Not changed becuse it doen't have to be changed
+    /// Not changed becuse it doesn't have to be changed
     Fixed,
     /// It has no quantity, so it can't be scaled
     NoQuantity,
     /// Error scaling
-    Error(#[serde(skip_serializing)] ScaleError),
+    Error(#[serde(skip)] ScaleError),
 }
 
 /// Possible errors during scaling process
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error, Clone, Default)]
 pub enum ScaleError {
     #[error(transparent)]
     TextValueError(#[from] TextValueError),
@@ -103,12 +108,20 @@ pub enum ScaleError {
         target: ScaleTarget,
         value: QuantityValue,
     },
+
+    /// There has been an error but it can't be determined
+    ///
+    /// This is used when deserializing, because serializing the [`ScaleOutcome`]
+    /// skips the error.
+    #[default]
+    #[error("Undefined scale error")]
+    UndefinedError,
 }
 
 impl Recipe {
-    /// Scale a recipe.
+    /// Scale a recipe
     ///
-    /// Note that this returns a [ScaledRecipe] wich doesn't implement this
+    /// Note that this returns a [`ScaledRecipe`] wich doesn't implement this
     /// method. A recipe can only be scaled once.
     pub fn scale(mut self, target: u32, converter: &Converter) -> ScaledRecipe {
         let target = if let Some(servings) = self.metadata.servings.as_ref() {
@@ -153,9 +166,10 @@ impl Recipe {
         }
     }
 
-    /// Scale the recipe to the default values.
+    /// Scale the recipe to the default values
     ///
-    /// This collapses the [QuantityValue::ByServings] to a single value.
+    /// The default values are the ones written in the recipe and the first one
+    /// in [`QuantityValue::ByServings`].
     pub fn default_scale(mut self) -> ScaledRecipe {
         default_scale_many(&mut self.ingredients, |igr| {
             igr.quantity.as_mut().map(|q| &mut q.value)
@@ -180,6 +194,8 @@ impl Recipe {
 
 impl ScaledRecipe {
     /// Get the [ScaledData] from a recipe after scaling.
+    ///
+    /// Returns [`None`] if it was [`default scaled`](Recipe::default_scale).
     pub fn scaled_data(&self) -> Option<&ScaledData> {
         if let Scaled::Scaled(data) = &self.data {
             Some(data)
@@ -188,7 +204,7 @@ impl ScaledRecipe {
         }
     }
 
-    /// Shorthand to check if [Self::scaled_data] is [Scaled::DefaultScaling].
+    /// Shorthand to check if [`Self::scaled_data`] is [`Scaled::DefaultScaling`].
     pub fn is_default_scaled(&self) -> bool {
         matches!(self.data, Scaled::DefaultScaling)
     }

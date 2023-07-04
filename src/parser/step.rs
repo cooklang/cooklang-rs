@@ -477,7 +477,7 @@ fn cookware<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Cookware<'
                 help: Some("Cookware quantity can't be auto scaled."),
             });
         }
-        q.quantity.map_inner(|q| q.value)
+        q.quantity.map(|q| q.value)
     });
     let modifiers = parse_modifiers(line, modifiers_tokens, modifiers_pos);
     let modifiers = check_intermediate_data(line, modifiers, COOKWARE);
@@ -668,7 +668,7 @@ mod tests {
     macro_rules! igr {
         ($item:expr) => {
             match $item {
-                Item::Component(comp) => comp.clone().map_inner(|comp| match comp {
+                Item::Component(comp) => comp.clone().map(|comp| match comp {
                     ast::Component::Ingredient(igr) => igr,
                     _ => panic!(),
                 }),

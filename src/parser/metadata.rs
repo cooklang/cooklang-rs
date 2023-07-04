@@ -31,7 +31,7 @@ pub(crate) fn metadata_entry<'input>(
         });
     } else if value.is_text_empty() {
         line.warn(ParserWarning::EmptyMetadataValue {
-            key: key.located_string(),
+            key: key.located_string_trimmed(),
         });
     }
 

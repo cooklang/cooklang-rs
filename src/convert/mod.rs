@@ -1,4 +1,9 @@
-//! Support for unit conversion
+//! Support for **configurable** unit conversion
+//!
+//! This includes:
+//!     - A layered configuration system
+//!     - Conversions between systems
+//!     - Conversions to the best fit possible
 
 use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 
@@ -11,25 +16,26 @@ use thiserror::Error;
 
 use crate::{
     quantity::{Quantity, QuantityValue, Value},
-    Recipe,
+    Recipe, UnitInfo,
 };
 
-use self::{
-    builder::ConverterBuilder,
-    units_file::{SIPrefix, UnitsFile},
-};
+pub use builder::{ConverterBuilder, ConverterBuilderError};
+pub use units_file::UnitsFile;
 
-pub mod builder;
+use units_file::SIPrefix;
+
+mod builder;
 pub mod units_file;
 
 /// Main struct to perform conversions
 ///
 /// This holds information about all the known units and how to convert them.
 ///
-/// [Converter::default] changes with the feature `bundled_units`:
-/// - When enabled, it will have the bundled units. These are the basic unit for
-///   most of the recipes you will need (in English).
-/// - When disabled, empty.
+/// To create one use [`Converter::builder`].
+///
+/// [`Converter::default`] changes with the feature `bundled_units`:
+/// - When enabled, [`Converter::bundled`].
+/// - When disabled, [`Converter::empty`].
 #[derive(Debug, Clone)]
 pub struct Converter {
     all_units: Vec<Arc<Unit>>,
@@ -47,6 +53,31 @@ impl Converter {
         ConverterBuilder::new()
     }
 
+    /// Empty converter
+    ///
+    /// This is the default when the `bundled_units` feature is disabled.
+    pub fn empty() -> Self {
+        ConverterBuilder::new().finish().unwrap()
+    }
+
+    /// Converter with the bundled units
+    ///
+    /// The converter will have the bundled units that doens't need any external
+    /// file. These are the basic unit for most of the recipes you will need
+    /// (in English).
+    ///
+    /// This is only available when the `bundled_units` feature is enabled.
+    ///
+    /// This is the default when the `bundled_units` feature is enabled.
+    #[cfg(feature = "bundled_units")]
+    pub fn bundled() -> Self {
+        ConverterBuilder::new()
+            .with_units_file(UnitsFile::bundled())
+            .unwrap()
+            .finish()
+            .unwrap()
+    }
+
     /// Get the default unit [System]
     pub fn default_system(&self) -> System {
         self.default_system
@@ -54,7 +85,7 @@ impl Converter {
 
     /// Get the total number of known units.
     ///
-    /// This is now all the known unit names, just different units.
+    /// This is **not** all the known unit names, just **different units**.
     pub fn unit_count(&self) -> usize {
         self.all_units.len()
     }
@@ -69,9 +100,9 @@ impl Converter {
         self.all_units.iter().map(|u| u.as_ref())
     }
 
-    /// Check if a unit is oneof the possible conversions in it's units system.
+    /// Check if a unit is one of the possible conversions in it's units system.
     ///
-    /// When a unit is a "best" unit, the converter may choose it when trying
+    /// When a unit is a *best unit*, the converter can choose it when trying
     /// to get the best match for a value.
     ///
     /// # Panics
@@ -96,22 +127,30 @@ impl Converter {
 #[cfg(not(feature = "bundled_units"))]
 impl Default for Converter {
     fn default() -> Self {
-        ConverterBuilder::new().finish().unwrap()
+        Self::empty()
     }
 }
 
 #[cfg(feature = "bundled_units")]
 impl Default for Converter {
     fn default() -> Self {
-        ConverterBuilder::new()
-            .with_units_file(UnitsFile::bundled())
-            .unwrap()
-            .finish()
-            .unwrap()
+        Self::bundled()
     }
 }
 
-#[derive(Debug, Default, Clone)]
+impl PartialEq for Converter {
+    fn eq(&self, other: &Self) -> bool {
+        self.all_units == other.all_units
+            && self.unit_index == other.unit_index
+            && self.quantity_index == other.quantity_index
+            && self.best == other.best
+            && self.default_system == other.default_system
+        // temperature_regex ignored, it should be the same if the rest is the
+        // the same
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
 pub(crate) struct UnitIndex(HashMap<Arc<str>, usize>);
 
 pub(crate) type UnitQuantityIndex = EnumMap<PhysicalQuantity, Vec<usize>>;
@@ -163,6 +202,19 @@ impl Unit {
     }
 }
 
+impl PartialEq for Unit {
+    fn eq(&self, other: &Self) -> bool {
+        self.names == other.names
+            && self.symbols == other.symbols
+            && self.aliases == other.aliases
+            && self.ratio == other.ratio
+            && self.difference == other.difference
+            && self.physical_quantity == other.physical_quantity
+            && self.system == other.system
+        // expand_si and expanded_units ignored
+    }
+}
+
 impl std::fmt::Display for Unit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() && !self.names.is_empty() {
@@ -173,7 +225,7 @@ impl std::fmt::Display for Unit {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum BestConversionsStore {
     Unified(BestConversions),
     BySystem {
@@ -188,7 +240,7 @@ impl Default for BestConversionsStore {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 struct BestConversions(Vec<(f64, usize)>);
 
 #[derive(
@@ -225,8 +277,14 @@ impl Converter {
         to: impl Into<ConvertTo<'t>>,
     ) -> Result<Quantity, ConvertError> {
         let to = to.into();
-        let unit = match from.unit().map(|u| u.text()) {
-            Some(u) => ConvertUnit::Key(u),
+        let unit_info = from.unit().map(|u| u.unit_info_or_parse(self));
+        let unit = match unit_info {
+            Some(UnitInfo::Known(ref u)) => ConvertUnit::Unit(u),
+            Some(UnitInfo::Unknown) => {
+                return Err(ConvertError::UnknownUnit(UnknownUnit(
+                    from.unit_text().unwrap().to_string(),
+                )))
+            }
             None => return Err(ConvertError::NoUnit(from.clone())),
         };
 
@@ -262,52 +320,54 @@ impl Converter {
         Ok(Quantity::with_known_unit(
             value,
             unit.to_string(),
-            Some(unit.clone()),
+            Some(unit),
         ))
     }
 
     /// Perform a conversion
-    pub fn convert2<'a>(
-        &'a self,
+    pub fn convert2(
+        &self,
         value: ConvertValue,
         unit: ConvertUnit,
         to: ConvertTo,
-    ) -> Result<(ConvertValue, &'a Arc<Unit>), ConvertError> {
+    ) -> Result<(ConvertValue, Arc<Unit>), ConvertError> {
         let unit = self.get_unit(&unit)?;
 
-        match to {
+        let (value, unit) = match to {
             ConvertTo::Unit(target_unit) => {
                 let to = self.get_unit(&target_unit)?;
-                self.convert_to_unit(value, unit, to)
+                let val = self.convert_to_unit(value, unit, to.as_ref())?;
+                (val, Arc::clone(to))
             }
-            ConvertTo::Best(system) => Ok(self.convert_to_best(value, unit, system)),
+            ConvertTo::Best(system) => self.convert_to_best(value, unit, system),
             ConvertTo::SameSystem => {
-                Ok(self.convert_to_best(value, unit, unit.system.unwrap_or(self.default_system)))
+                self.convert_to_best(value, unit, unit.system.unwrap_or(self.default_system))
             }
-        }
+        };
+        Ok((value, unit))
     }
 
     fn convert_to_unit<'a>(
         &self,
         value: ConvertValue,
-        unit: &Arc<Unit>,
-        target_unit: &'a Arc<Unit>,
-    ) -> Result<(ConvertValue, &'a Arc<Unit>), ConvertError> {
+        unit: &Unit,
+        target_unit: &Unit,
+    ) -> Result<ConvertValue, ConvertError> {
         if unit.physical_quantity != target_unit.physical_quantity {
             return Err(ConvertError::MixedQuantities {
                 from: unit.physical_quantity,
                 to: target_unit.physical_quantity,
             });
         }
-        Ok((self.convert_value(value, unit, target_unit), target_unit))
+        Ok(self.convert_value(value, unit, target_unit))
     }
 
-    fn convert_to_best<'a>(
-        &'a self,
+    fn convert_to_best(
+        &self,
         value: ConvertValue,
-        unit: &Arc<Unit>,
+        unit: &Unit,
         system: System,
-    ) -> (ConvertValue, &'a Arc<Unit>) {
+    ) -> (ConvertValue, Arc<Unit>) {
         let conversions = match &self.best[unit.physical_quantity] {
             BestConversionsStore::Unified(u) => u,
             BestConversionsStore::BySystem { metric, imperial } => match system {
@@ -317,12 +377,12 @@ impl Converter {
         };
 
         let best_unit = conversions.best_unit(self, &value, unit);
-        let converted = self.convert_value(value, unit, best_unit);
+        let converted = self.convert_value(value, unit, best_unit.as_ref());
 
         (converted, best_unit)
     }
 
-    fn convert_value(&self, value: ConvertValue, from: &Arc<Unit>, to: &Arc<Unit>) -> ConvertValue {
+    fn convert_value(&self, value: ConvertValue, from: &Unit, to: &Unit) -> ConvertValue {
         match value {
             ConvertValue::Number(n) => ConvertValue::Number(self.convert_f64(n, from, to)),
             ConvertValue::Range(r) => {
@@ -333,20 +393,25 @@ impl Converter {
         }
     }
 
-    fn convert_f64(&self, value: f64, from: &Arc<Unit>, to: &Arc<Unit>) -> f64 {
-        if Arc::ptr_eq(from, to) {
+    fn convert_f64(&self, value: f64, from: &Unit, to: &Unit) -> f64 {
+        if std::ptr::eq(from, to) {
             return value;
         }
         convert_f64(value, from, to)
     }
 
-    pub(crate) fn get_unit<'a>(&'a self, unit: &ConvertUnit) -> Result<&'a Arc<Unit>, UnknownUnit> {
-        let id = match unit {
-            ConvertUnit::Unit(u) => self.unit_index.get_unit_id(u.symbol())?,
-            ConvertUnit::UnitId(id) => *id,
-            ConvertUnit::Key(key) => self.unit_index.get_unit_id(key)?,
+    pub(crate) fn get_unit<'a>(
+        &'a self,
+        unit: &'a ConvertUnit,
+    ) -> Result<&'a Arc<Unit>, UnknownUnit> {
+        let unit = match unit {
+            ConvertUnit::Unit(u) => u,
+            ConvertUnit::Key(key) => {
+                let id = self.unit_index.get_unit_id(key)?;
+                &self.all_units[id]
+            }
         };
-        Ok(&self.all_units[id])
+        Ok(unit)
     }
 }
 
@@ -376,12 +441,7 @@ impl BestConversions {
         self.0.first().map(|c| c.1).expect("empty best conversions")
     }
 
-    fn best_unit<'a>(
-        &self,
-        converter: &'a Converter,
-        value: &ConvertValue,
-        unit: &Arc<Unit>,
-    ) -> &'a Arc<Unit> {
+    fn best_unit(&self, converter: &Converter, value: &ConvertValue, unit: &Unit) -> Arc<Unit> {
         let value = match value {
             ConvertValue::Number(n) => n.abs(),
             ConvertValue::Range(r) => r.start().abs(),
@@ -398,7 +458,7 @@ impl BestConversions {
             .or_else(|| self.0.first())
             .map(|&(_, id)| id)
             .expect("empty best units");
-        &converter.all_units[best_id]
+        Arc::clone(&converter.all_units[best_id])
     }
 }
 
@@ -406,14 +466,21 @@ impl BestConversions {
 #[derive(PartialEq, Clone, Debug)]
 pub enum ConvertValue {
     Number(f64),
+    /// It will convert the range as if start and end were 2 calls to convert as
+    /// a number
     Range(RangeInclusive<f64>),
 }
 
 /// Input unit for [Converter::convert]
 #[derive(Debug, Clone, Copy)]
 pub enum ConvertUnit<'a> {
+    /// A unit directly
+    ///
+    /// This is a small optimization when you already know the unit instance,
+    /// but [`ConvertUnit::Key`] will produce the same result with a fast
+    /// lookup.
     Unit(&'a Arc<Unit>),
-    UnitId(usize),
+    /// Any name, symbol or alias to a unit
     Key(&'a str),
 }
 
@@ -454,6 +521,12 @@ impl<'a> From<&'a str> for ConvertUnit<'a> {
     }
 }
 
+impl<'a> From<&'a Arc<Unit>> for ConvertUnit<'a> {
+    fn from(value: &'a Arc<Unit>) -> Self {
+        Self::Unit(value)
+    }
+}
+
 impl<'a> From<&'a str> for ConvertTo<'a> {
     fn from(value: &'a str) -> Self {
         Self::Unit(ConvertUnit::Key(value))
@@ -468,7 +541,7 @@ impl From<System> for ConvertTo<'_> {
 
 impl<'a> From<&'a Arc<Unit>> for ConvertTo<'a> {
     fn from(value: &'a Arc<Unit>) -> Self {
-        Self::Unit(ConvertUnit::Unit(value))
+        Self::Unit(value.into())
     }
 }
 
@@ -596,7 +669,7 @@ impl UnitCount {
     }
 }
 
-impl<D: Serialize> Recipe<D> {
+impl<D> Recipe<D> {
     /// Convert a [Recipe] to another [System] in place.
     ///
     /// When an error occurs, it is stored and the quantity stays the same.

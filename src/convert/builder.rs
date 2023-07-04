@@ -10,7 +10,12 @@ use super::{
     UnknownUnit,
 };
 
-#[derive(Default)]
+/// Builder to create a custom [`Converter`]
+///
+/// The builder uses [`UnitsFile`] to configure the converter. More than one
+/// file can be layered. Order matters, as one file can extend the units of
+/// another added before, or be overwritten by others after.
+#[derive(Debug, Default)]
 pub struct ConverterBuilder {
     all_units: Vec<Unit>,
     unit_index: UnitIndex,
@@ -21,27 +26,36 @@ pub struct ConverterBuilder {
 }
 
 impl ConverterBuilder {
+    /// New empty builder
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Add the bundled units to the builder
+    ///
+    /// This is only available with the `bundled_units` feature.
     #[cfg(feature = "bundled_units")]
     pub fn with_bundled_units(mut self) -> Result<Self, ConverterBuilderError> {
         self.add_bundled_units()?;
         Ok(self)
     }
 
+    /// Add the bundled units to the builder
+    ///
+    /// This is only available with the `bundled_units` feature.
     #[cfg(feature = "bundled_units")]
     pub fn add_bundled_units(&mut self) -> Result<&mut Self, ConverterBuilderError> {
         self.add_units_file(UnitsFile::bundled())?;
         Ok(self)
     }
 
+    /// Add a [`UnitsFile`] to the builder
     pub fn with_units_file(mut self, units: UnitsFile) -> Result<Self, ConverterBuilderError> {
         self.add_units_file(units)?;
         Ok(self)
     }
 
+    /// Add a [`UnitsFile`] to the builder
     pub fn add_units_file(&mut self, units: UnitsFile) -> Result<&mut Self, ConverterBuilderError> {
         for group in units.quantity {
             // Add all units to an index
@@ -116,6 +130,7 @@ impl ConverterBuilder {
         Ok(self)
     }
 
+    /// Consume the builder and return the new [`Converter`]
     pub fn finish(mut self) -> Result<Converter, ConverterBuilderError> {
         // expand the stored units
         for id in 0..self.all_units.len() {

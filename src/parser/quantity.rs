@@ -342,7 +342,7 @@ mod tests {
             let tokens = TokenStream::new(input).collect::<Vec<_>>();
             let mut ctx = Context::default();
             let q = parse_quantity(&tokens, input, $extensions, &mut ctx);
-            (q.quantity.inner, q.unit_separator, ctx)
+            (q.quantity.into_inner(), q.unit_separator, ctx)
         }};
     }
 

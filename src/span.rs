@@ -1,107 +1,91 @@
-use std::ops::Range;
+use std::ops::{Deref, Range};
 
+/// Location in the source code
+///
+/// The values returned are byte indices, not chars. So the source code can
+/// be directly indexed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct Span<Id = ()> {
-    source_id: Id,
-
+pub struct Span {
     start: usize,
     end: usize,
 }
 
-impl<Id: Default> Span<Id> {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self {
-            source_id: Id::default(),
-            start,
-            end,
-        }
+impl Span {
+    pub(crate) fn new(start: usize, end: usize) -> Self {
+        Self { start, end }
     }
 
-    pub fn pos(pos: usize) -> Self {
+    pub(crate) fn pos(pos: usize) -> Self {
         Self {
-            source_id: Id::default(),
             start: pos,
             end: pos,
         }
     }
-}
 
-impl<Id> Span<Id> {
-    pub fn new_with_id(source_id: Id, start: usize, end: usize) -> Self {
-        Self {
-            source_id,
-            start,
-            end,
-        }
-    }
-
+    /// Start of the span
     pub fn start(&self) -> usize {
         self.start
     }
 
+    /// End of the span (non inclusive)
     pub fn end(&self) -> usize {
         self.end
     }
 
+    /// Get the span as a range
     pub fn range(&self) -> Range<usize> {
         self.start..self.end
     }
 
+    /// Len of the span in bytes
     pub fn len(&self) -> usize {
         self.end - self.start
     }
 }
 
-impl<Id: Clone> Span<Id> {
-    pub fn to_chars_span(&self, all_source: &str) -> CharsSpan<Id> {
+impl Span {
+    pub(crate) fn to_chars_span<Id>(&self, all_source: &str, source_id: Id) -> CharsSpan<Id> {
         let start = all_source[..self.start].chars().count();
         let len = all_source[self.range()].chars().count();
-        CharsSpan(Span::<Id>::new_with_id(
-            self.source_id.clone(),
-            start,
-            start + len,
-        ))
+        CharsSpan {
+            span: Span::new(start, start + len),
+            source_id,
+        }
     }
 }
 
-pub struct CharsSpan<Id>(Span<Id>);
+pub(crate) struct CharsSpan<Id> {
+    span: Span,
+    source_id: Id,
+}
 
-impl<Id> CharsSpan<Id>
-where
-    Id: Clone + PartialEq,
-{
-    pub fn start(&self) -> usize {
-        self.0.start
-    }
+impl<Id> Deref for CharsSpan<Id> {
+    type Target = Span;
 
-    pub fn end(&self) -> usize {
-        self.0.end
-    }
-
-    pub fn range(&self) -> Range<usize> {
-        self.0.range()
+    fn deref(&self) -> &Self::Target {
+        &self.span
     }
 }
 
-impl From<Range<usize>> for Span<()> {
+impl From<Range<usize>> for Span {
     fn from(value: Range<usize>) -> Self {
         Self::new(value.start, value.end)
     }
 }
 
-impl<T> From<Span<T>> for Range<usize> {
-    fn from(value: Span<T>) -> Self {
+impl From<Span> for Range<usize> {
+    fn from(value: Span) -> Self {
         value.start..value.end
     }
 }
 
-impl<T, Id: Clone> From<crate::located::Located<T, Id>> for Span<Id> {
-    fn from(value: crate::located::Located<T, Id>) -> Self {
+impl<T> From<crate::located::Located<T>> for Span {
+    fn from(value: crate::located::Located<T>) -> Self {
         value.span()
     }
 }
 
-impl crate::context::Recover for Span<()> {
+impl crate::context::Recover for Span {
     fn recover() -> Self {
         Self::new(0, 0)
     }
@@ -114,14 +98,14 @@ where
     type SourceId = Id;
 
     fn source(&self) -> &Self::SourceId {
-        &self.0.source_id
+        &self.source_id
     }
 
     fn start(&self) -> usize {
-        self.0.start
+        self.span.start
     }
 
     fn end(&self) -> usize {
-        self.0.end
+        self.span.end
     }
 }
