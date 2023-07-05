@@ -181,8 +181,8 @@ pub fn parse<'input>(
             l
         } else {
             if !last_line_is_empty && extensions.contains(Extensions::MULTILINE_STEPS) {
-                if let Some(ast::Line::Step { items, is_text }) = lines.last_mut() {
-                    let parsed_step = step(&mut line, *is_text);
+                if let Some(ast::Line::Step { items }) = lines.last_mut() {
+                    let parsed_step = step(&mut line);
                     if !parsed_step.items.is_empty() {
                         /* TODO remove this and uncomment it at the end of ste::step
                             to trim all lines, not just end of multiline.
@@ -210,9 +210,8 @@ pub fn parse<'input>(
                 }
             }
 
-            let parsed_step = step(&mut line, false);
+            let parsed_step = step(&mut line);
             ast::Line::Step {
-                is_text: parsed_step.is_text,
                 items: parsed_step.items,
             }
         };

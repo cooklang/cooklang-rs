@@ -103,8 +103,6 @@ fn compare_items(expected: &Yaml, got: &cooklang::model::Item, recipe: &cooklang
                 assert_eq!(tyype, "ingredient");
                 assert!(i.alias.is_none());
                 assert!(i.note.is_none());
-                assert!(i.relation.referenced_from().is_empty());
-                assert!(i.modifiers().is_empty());
                 assert_eq!(i.name, expected["name"].as_str().unwrap());
                 match &i.quantity {
                     Some(quantity) => {

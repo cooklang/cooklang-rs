@@ -17,7 +17,7 @@ use crate::{
 pub struct Quantity {
     /// Value
     pub value: QuantityValue,
-    pub(crate) unit: Option<QuantityUnit>,
+    pub unit: Option<QuantityUnit>,
 }
 
 /// A value that can or not be changed by scaling it

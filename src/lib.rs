@@ -16,12 +16,10 @@ pub mod aisle;
 pub mod ast;
 pub mod convert;
 pub mod error;
-pub mod ingredient_list;
 pub mod metadata;
 pub mod model;
 pub mod parser;
 pub mod quantity;
-pub mod scale;
 
 mod analysis;
 mod context;
@@ -33,7 +31,7 @@ use bitflags::bitflags;
 use convert::Converter;
 use error::{CooklangError, CooklangWarning, PassResult};
 use metadata::Metadata;
-pub use model::{Recipe, ScaledRecipe};
+pub use model::{Recipe};
 
 bitflags! {
     /// Extensions bitflags
@@ -138,8 +136,6 @@ impl CooklangParserBuilder {
 pub type RecipeResult = PassResult<Recipe, CooklangError, CooklangWarning>;
 pub type MetadataResult = PassResult<Metadata, CooklangError, CooklangWarning>;
 
-pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> bool + 'a>;
-
 impl CooklangParser {
     /// Start initializing a new parser
     pub fn builder() -> CooklangParserBuilder {
@@ -161,7 +157,7 @@ impl CooklangParser {
     /// As in cooklang the name is external to the recipe, this must be given
     /// here too.
     pub fn parse(&self, input: &str, recipe_name: &str) -> RecipeResult {
-        self.parse_with_recipe_ref_checker(input, recipe_name, None)
+        self.parse_with_recipe_ref_checker(input, recipe_name)
     }
 
     /// Same as [Self::parse] but with a function that checks if a recipe
@@ -172,14 +168,13 @@ impl CooklangParser {
         &self,
         input: &str,
         recipe_name: &str,
-        recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
         let mut r = parser::parse(input, self.extensions).into_context_result();
         if r.invalid() {
             return r.discard_output();
         }
         let ast = r.take_output().unwrap();
-        analysis::parse_ast(ast, self.extensions, &self.converter, recipe_ref_checker)
+        analysis::parse_ast(ast, self.extensions, &self.converter)
             .into_context_result()
             .merge(r)
             .map(|c| Recipe {
@@ -204,7 +199,7 @@ impl CooklangParser {
             return r.discard_output();
         }
         let ast = r.take_output().unwrap();
-        analysis::parse_ast(ast, Extensions::empty(), &self.converter, None)
+        analysis::parse_ast(ast, Extensions::empty(), &self.converter)
             .into_context_result()
             .merge(r)
             .map(|c| c.metadata)

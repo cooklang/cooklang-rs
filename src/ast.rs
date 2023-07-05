@@ -7,8 +7,7 @@ use std::{borrow::Cow, fmt::Display};
 
 use crate::{context::Recover, located::Located, quantity::Value, span::Span};
 
-use bitflags::bitflags;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use smallvec::SmallVec;
 
 #[derive(Debug, Serialize)]
@@ -21,7 +20,7 @@ pub struct Ast<'a> {
 #[derive(Debug, Serialize, PartialEq)]
 pub enum Line<'a> {
     Metadata { key: Text<'a>, value: Text<'a> },
-    Step { is_text: bool, items: Vec<Item<'a>> },
+    Step { items: Vec<Item<'a>> },
     Section { name: Option<Text<'a>> },
 }
 
@@ -49,19 +48,14 @@ pub enum Component<'a> {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Ingredient<'a> {
-    pub modifiers: Located<Modifiers>,
-    pub intermediate_data: Option<Located<IntermediateData>>,
     pub name: Text<'a>,
-    pub alias: Option<Text<'a>>,
     pub quantity: Option<Located<Quantity<'a>>>,
     pub note: Option<Text<'a>>,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Cookware<'a> {
-    pub modifiers: Located<Modifiers>,
     pub name: Text<'a>,
-    pub alias: Option<Text<'a>>,
     pub quantity: Option<Located<QuantityValue>>,
     pub note: Option<Text<'a>>,
 }
@@ -302,83 +296,4 @@ impl Recover for Value {
     fn recover() -> Self {
         Self::Number { value: 1.0 }
     }
-}
-
-bitflags! {
-    #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-    pub struct Modifiers: u16 {
-        /// refers to a recipe with the same name
-        const RECIPE         = 1 << 0;
-        /// references another igr with the same name, if amount given will sum
-        const REF            = 1 << 1;
-        /// not shown in the ingredient list, only inline
-        const HIDDEN         = 1 << 2;
-        /// mark as optional
-        const OPT            = 1 << 3;
-        /// forces to create a new ingredient
-        const NEW            = 1 << 4;
-        /// intermediate ingredient REF
-        const REF_TO_STEP    = 1 << 5 | Self::REF.bits();
-        const REF_TO_SECTION = 1 << 6 | Self::REF.bits();
-    }
-}
-
-impl Modifiers {
-    pub fn as_char(self) -> char {
-        assert_eq!(self.bits().count_ones(), 1);
-        match self {
-            Self::RECIPE => '@',
-            Self::HIDDEN => '-',
-            Self::OPT => '?',
-            Self::REF => '&',
-            Self::NEW => '+',
-            _ => panic!("Unknown modifier: {:?}", self),
-        }
-    }
-
-    /// Returns true if the component should be diplayed in a list
-    pub fn should_be_listed(self) -> bool {
-        !self.intersects(Modifiers::HIDDEN | Modifiers::REF)
-    }
-
-    pub fn is_hidden(&self) -> bool {
-        self.contains(Modifiers::HIDDEN)
-    }
-
-    pub fn is_optional(&self) -> bool {
-        self.contains(Modifiers::OPT)
-    }
-
-    pub fn is_recipe(&self) -> bool {
-        self.contains(Modifiers::RECIPE)
-    }
-
-    pub fn is_reference(&self) -> bool {
-        self.contains(Modifiers::REF)
-    }
-}
-
-impl std::fmt::Display for Modifiers {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, f)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct IntermediateData {
-    pub ref_mode: IntermediateRefMode,
-    pub target_kind: IntermediateTargetKind,
-    pub val: i16,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum IntermediateRefMode {
-    Index,
-    Relative,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum IntermediateTargetKind {
-    Step,
-    Section,
 }

@@ -22,16 +22,6 @@ pub enum AnalysisError {
         possible_values: Vec<&'static str>,
     },
 
-    #[error("Reference not found: {name}")]
-    ReferenceNotFound { name: String, reference_span: Span },
-
-    #[error("Conflicting ingredient reference quantities: {ingredient_name}")]
-    ConflictingReferenceQuantities {
-        ingredient_name: String,
-        definition_span: Span,
-        reference_span: Span,
-    },
-
     #[error("Unknown timer unit: {unit}")]
     UnknownTimerUnit { unit: String, timer_span: Span },
 
@@ -41,34 +31,6 @@ pub enum AnalysisError {
         timer_span: Span,
     },
 
-    #[error("Quantity scaling error: {reason}")]
-    ScalableValueManyConflict {
-        reason: Cow<'static, str>,
-        value_span: Span,
-        servings_meta_span: Option<Span>,
-    },
-
-    #[error("Unsuported modifier combination with reference: {}", conflict)]
-    ConflictingModifiersInReference {
-        modifiers: Located<crate::ast::Modifiers>,
-        conflict: crate::ast::Modifiers,
-        implicit: bool,
-    },
-
-    #[error("A {container} reference cannot contain: {what}")]
-    ComponentPartNotAllowedInReference {
-        container: &'static str,
-        what: &'static str,
-        to_remove: Span,
-        implicit: bool,
-    },
-
-    #[error("Invalid intermediate ingredient refrence: {reason}")]
-    InvalidIntermediateReferece {
-        reference_span: Span,
-        reason: &'static str,
-        help: Cow<'static, str>,
-    },
 }
 
 #[derive(Debug, Error)]
@@ -103,29 +65,9 @@ pub enum AnalysisWarning {
     #[error("Component found in text mode")]
     ComponentInTextMode { component_span: Span },
 
-    #[error("An error ocurred searching temperature values")]
-    TemperatureRegexCompile {
-        #[source]
-        source: regex::Error,
-    },
-
-    #[error("Redundant auto scale marker")]
-    RedundantAutoScaleMarker { quantity_span: Span },
-
-    #[error("Redundant reference (&) modifier")]
-    RedundantReferenceModifier {
-        modifiers: Located<crate::ast::Modifiers>,
-    },
-
     #[error("Referenced recipe not found: '{name}'")]
     RecipeNotFound { ref_span: Span, name: String },
 
-    #[error("Reference ingredient to a referenced recipe is missing recipe modifier")]
-    ReferenceToRecipeMissing {
-        ingredient_span: Span,
-        referenced_span: Span,
-        modifiers: Located<crate::ast::Modifiers>,
-    },
 }
 
 impl RichError for AnalysisError {
@@ -136,40 +78,8 @@ impl RichError for AnalysisError {
                 label!(key, "this key"),
                 label!(value, "does not support this value"),
             ],
-            AnalysisError::ReferenceNotFound { reference_span, .. } => vec![label!(reference_span)],
-            AnalysisError::ConflictingReferenceQuantities {
-                definition_span,
-                reference_span,
-                ..
-            } => vec![
-                label!(definition_span, "defined outside step here"),
-                label!(reference_span, "referenced here"),
-            ],
             AnalysisError::UnknownTimerUnit { timer_span, .. } => vec![label!(timer_span)],
             AnalysisError::BadTimerUnit { timer_span, .. } => vec![label!(timer_span)],
-            AnalysisError::ScalableValueManyConflict {
-                value_span,
-                servings_meta_span,
-                ..
-            } => {
-                if let Some(servings) = servings_meta_span {
-                    vec![
-                        label!(servings, "servings defined here"),
-                        label!(value_span, "do not match number of values"),
-                    ]
-                } else {
-                    vec![label!(value_span)]
-                }
-            }
-            AnalysisError::ConflictingModifiersInReference { modifiers, .. } => {
-                vec![label![modifiers]]
-            }
-            AnalysisError::ComponentPartNotAllowedInReference { to_remove, .. } => {
-                vec![label![to_remove, "remove this"]]
-            }
-            AnalysisError::InvalidIntermediateReferece { reference_span, .. } => {
-                vec![label![reference_span]]
-            }
         }
     }
 
@@ -179,29 +89,9 @@ impl RichError for AnalysisError {
             AnalysisError::InvalidSpecialMetadataValue {
                 possible_values, ..
             } => help!(format!("Possible values are: {possible_values:?}")),
-            AnalysisError::ReferenceNotFound { .. } => help!(
-                "A non reference ingredient with the same name defined before cannot be found"
-            ),
-            AnalysisError::ConflictingReferenceQuantities { .. } => help!(
-                "If the ingredient is not defined in a step and has a quantity, its references cannot have a quantity"
-            ),
             AnalysisError::UnknownTimerUnit { .. } => {
                 help!("Add a unit to the timer")
             }
-            AnalysisError::ConflictingModifiersInReference { implicit, conflict, .. } => {
-                use crate::ast::Modifiers;
-                if !conflict.contains(Modifiers::NEW | Modifiers::REF) {
-                    let extra = conflict.iter_names().map(|(s, _)| s.to_lowercase()).collect::<Vec<_>>().join(", ");
-                    if *implicit {
-                        help!(format!("Mark the definition as {extra} or add new ('+') to this."))
-                    } else {
-                        help!(format!("Mark the definition as {extra} or remove the reference ('&')."))
-                    }
-                } else {
-                    None
-                }
-            }
-            AnalysisError::InvalidIntermediateReferece { help, .. } => Some(help.clone()),
             _ => None
         }
     }
@@ -211,14 +101,6 @@ impl RichError for AnalysisError {
         match self {
             AnalysisError::UnknownTimerUnit { .. } => {
                 note!("With the ADVANCED_UNITS extensions, timers are required to have a time unit")
-            }
-            AnalysisError::ConflictingModifiersInReference { implicit, .. }
-            | AnalysisError::ComponentPartNotAllowedInReference { implicit, .. } => {
-                if *implicit {
-                    note!("The reference ('&') is implicit.")
-                } else {
-                    None
-                }
             }
             _ => None,
         }
@@ -262,25 +144,7 @@ impl RichError for AnalysisWarning {
             AnalysisWarning::ComponentInTextMode { component_span } => {
                 vec![label!(component_span, "this will be ignored")]
             }
-            AnalysisWarning::TemperatureRegexCompile { .. } => vec![],
-            AnalysisWarning::RedundantAutoScaleMarker { quantity_span } => {
-                vec![label!(quantity_span)]
-            }
-            AnalysisWarning::RedundantReferenceModifier { modifiers } => {
-                vec![label!(modifiers)]
-            }
             AnalysisWarning::RecipeNotFound { ref_span, .. } => vec![label!(ref_span)],
-            AnalysisWarning::ReferenceToRecipeMissing {
-                ingredient_span,
-                referenced_span,
-                modifiers,
-            } => {
-                vec![
-                    label!(referenced_span, "this ingredient recipe"),
-                    label!(ingredient_span, "referenced here"),
-                    label!(modifiers, "add '@' here"),
-                ]
-            }
         }
     }
 
@@ -289,15 +153,6 @@ impl RichError for AnalysisWarning {
         match self {
             AnalysisWarning::UnknownSpecialMetadataKey { .. } => {
                 help!("Possible values are 'define', 'duplicate' and 'auto scale'")
-            }
-            AnalysisWarning::TemperatureRegexCompile { .. } => {
-                help!("Check the temperature symbols defined in the units.toml file")
-            }
-            AnalysisWarning::RedundantAutoScaleMarker { .. } => {
-                help!("Be careful as every ingredient is already marked to auto scale")
-            }
-            AnalysisWarning::RedundantReferenceModifier { .. } => {
-                help!("Be careful as every ingredient is already marked to be a reference")
             }
             AnalysisWarning::RecipeNotFound { .. } => {
                 help!("Names must match exactly except for upper and lower case")
