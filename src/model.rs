@@ -21,7 +21,7 @@ use crate::{
 ///
 /// A recipe can be [Self::scale] (only once) and only after that [Self::convert]
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct Recipe<D = ()> {
+pub struct Recipe {
     /// Recipe name
     pub name: String,
     /// Metadata
@@ -37,8 +37,6 @@ pub struct Recipe<D = ()> {
     pub cookware: Vec<Cookware>,
     /// All the timers
     pub timers: Vec<Timer>,
-    #[serde(skip_deserializing)]
-    pub(crate) data: D,
 }
 
 /// A section holding steps

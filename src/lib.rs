@@ -184,8 +184,6 @@ impl CooklangParser {
                 ingredients: c.ingredients,
                 cookware: c.cookware,
                 timers: c.timers,
-                // inline_quantities: c.inline_quantities,
-                data: (),
             })
     }
 

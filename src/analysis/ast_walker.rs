@@ -167,7 +167,7 @@ impl<'a, 'r> Walker<'a, 'r> {
     }
 
     fn component(&mut self, component: Box<Located<ast::Component<'a>>>) -> Component {
-        let (inner, span) = component.take_pair();
+        let (inner, _span) = component.take_pair();
 
         match inner {
             ast::Component::Ingredient(_) => Component {
@@ -184,11 +184,11 @@ impl<'a, 'r> Walker<'a, 'r> {
 
     fn ingredient(&mut self, ingredient: Located<ast::Ingredient<'a>>) -> usize {
         let located_ingredient = ingredient.clone();
-        let (ingredient, location) = ingredient.take_pair();
+        let (ingredient, _location) = ingredient.take_pair();
 
         let name = ingredient.name.text_trimmed();
 
-        let mut new_igr = Ingredient {
+        let new_igr = Ingredient {
             name: name.into_owned(),
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
@@ -201,10 +201,10 @@ impl<'a, 'r> Walker<'a, 'r> {
 
 
     fn cookware(&mut self, cookware: Located<ast::Cookware<'a>>) -> usize {
-        let located_cookware = cookware.clone();
-        let (cookware, location) = cookware.take_pair();
+        let _located_cookware = cookware.clone();
+        let (cookware, _location) = cookware.take_pair();
 
-        let mut new_cw = Cookware {
+        let new_cw = Cookware {
             name: cookware.name.text_trimmed().into_owned(),
             quantity: cookware.quantity.map(|q| self.value(q.inner, false)),
             note: cookware.note.map(|n| n.text_trimmed().into_owned()),
@@ -264,9 +264,9 @@ impl<'a, 'r> Walker<'a, 'r> {
         )
     }
 
-    fn value(&mut self, value: ast::QuantityValue, is_ingredient: bool) -> QuantityValue {
-        let value_span = value.span();
-        let mut v = QuantityValue::from_ast(value);
+    fn value(&mut self, value: ast::QuantityValue, _is_ingredient: bool) -> QuantityValue {
+        let _value_span = value.span();
+        let v = QuantityValue::from_ast(value);
 
         v
     }

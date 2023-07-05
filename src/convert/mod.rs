@@ -565,7 +565,7 @@ impl UnitCount {
     }
 }
 
-impl<D: Serialize> Recipe<D> {
+impl Recipe {
     /// Convert a [Recipe] to another [System] in place.
     ///
     /// When an error occurs, it is stored and the quantity stays the same.
