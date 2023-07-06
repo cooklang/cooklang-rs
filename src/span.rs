@@ -2,8 +2,8 @@ use std::ops::{Deref, Range};
 
 /// Location in the source code
 ///
-/// The values returned are byte indices, not chars. So the source code can
-/// be directly indexed.
+/// The offsets are zero-indexed charactere offsets from the beginning of the source
+/// code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Span {
     start: usize,
@@ -22,12 +22,12 @@ impl Span {
         }
     }
 
-    /// Start of the span
+    /// Start offset of the span
     pub fn start(&self) -> usize {
         self.start
     }
 
-    /// End of the span (non inclusive)
+    /// End (exclusive) offset of the span
     pub fn end(&self) -> usize {
         self.end
     }

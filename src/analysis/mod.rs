@@ -48,6 +48,12 @@ pub enum AnalysisError {
         servings_meta_span: Option<Span>,
     },
 
+    #[error("A text value cannot be scaled")]
+    ScaleTextValue {
+        value_span: Span,
+        auto_scale_marker: Span,
+    },
+
     #[error("Unsuported modifier combination with reference: {}", conflict)]
     ConflictingModifiersInReference {
         modifiers: Located<crate::ast::Modifiers>,
@@ -160,6 +166,15 @@ impl RichError for AnalysisError {
                 } else {
                     vec![label!(value_span)]
                 }
+            }
+            AnalysisError::ScaleTextValue {
+                value_span,
+                auto_scale_marker,
+            } => {
+                vec![
+                    label!(value_span, "text can't be scaled"),
+                    label!(auto_scale_marker, "remove this"),
+                ]
             }
             AnalysisError::ConflictingModifiersInReference { modifiers, .. } => {
                 vec![label![modifiers]]

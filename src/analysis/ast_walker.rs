@@ -639,40 +639,54 @@ impl<'a, 'r> Walker<'a, 'r> {
     }
 
     fn value(&mut self, value: ast::QuantityValue, is_ingredient: bool) -> QuantityValue {
-        if let ast::QuantityValue::Many(v) = &value {
-            if let Some(s) = &self.content.metadata.servings {
-                let servings_meta_span = self
-                    .metadata_locations
-                    .get("servings")
-                    .map(|(_, value)| value.span());
-                if s.len() != v.len() {
-                    self.context
-                        .error(AnalysisError::ScalableValueManyConflict {
-                            reason: format!(
-                                "{} servings defined but {} values in the quantity",
-                                s.len(),
-                                v.len()
-                            )
-                            .into(),
-                            value_span: value.span(),
-                            servings_meta_span,
-                        });
-                }
-            } else {
-                self.error(AnalysisError::ScalableValueManyConflict {
-                    reason: format!("no servings defined but {} values in quantity", v.len())
-                        .into(),
+        match &value {
+            ast::QuantityValue::Single {
+                value,
+                auto_scale: Some(auto_scale_marker),
+            } => {
+                self.error(AnalysisError::ScaleTextValue {
                     value_span: value.span(),
-                    servings_meta_span: None,
-                })
+                    auto_scale_marker: *auto_scale_marker,
+                });
             }
+            ast::QuantityValue::Many(v) => {
+                if let Some(s) = &self.content.metadata.servings {
+                    let servings_meta_span = self
+                        .metadata_locations
+                        .get("servings")
+                        .map(|(_, value)| value.span());
+                    if s.len() != v.len() {
+                        self.context
+                            .error(AnalysisError::ScalableValueManyConflict {
+                                reason: format!(
+                                    "{} servings defined but {} values in the quantity",
+                                    s.len(),
+                                    v.len()
+                                )
+                                .into(),
+                                value_span: value.span(),
+                                servings_meta_span,
+                            });
+                    }
+                } else {
+                    self.error(AnalysisError::ScalableValueManyConflict {
+                        reason: format!("no servings defined but {} values in quantity", v.len())
+                            .into(),
+                        value_span: value.span(),
+                        servings_meta_span: None,
+                    })
+                }
+            }
+            _ => {}
         }
         let value_span = value.span();
         let mut v = QuantityValue::from_ast(value);
 
         if is_ingredient && self.auto_scale_ingredients {
             match v {
-                QuantityValue::Fixed { value } => v = QuantityValue::Linear { value },
+                QuantityValue::Fixed { value } if !value.is_text() => {
+                    v = QuantityValue::Linear { value }
+                }
                 QuantityValue::Linear { .. } => {
                     self.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),

@@ -161,7 +161,9 @@ special keys are between square brackets.
     @water{1} @&water{2}
     ```
 - `auto scale` | `auto_scale`
-  - `true`. All quantities have the implicit auto scale marker[^1] (`*`).
+  - `true`. All quantities in ingredients have the implicit auto scale
+    marker[^1] (`*`). This does not apply when the quantity has a text value,
+    because text can't be scaled automatically.
     ```cooklang
     >> [auto scale]: true
     @water{1}

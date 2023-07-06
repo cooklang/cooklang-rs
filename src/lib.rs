@@ -99,13 +99,13 @@ bitflags! {
     /// This allows to enable or disable the extensions. See [extensions](_extensions)
     /// for a detailed explanation of all of them.
     ///
-    /// [Extensions::default] enables all extensions.
+    /// [`Extensions::default`] enables all extensions.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     pub struct Extensions: u32 {
         /// Steps separation is a blank line, not a line break. This may break
         /// compatibility with other cooklang parsers.
         const MULTILINE_STEPS          = 1 << 0;
-        /// Enables the [Modifiers](crate::ast::Modifiers)
+        /// Enables the [`Modifiers`](crate::ast::Modifiers)
         const COMPONENT_MODIFIERS      = 1 << 1;
         /// Notes with `@igr(note)`
         const COMPONENT_NOTE           = 1 << 2;
@@ -127,10 +127,10 @@ bitflags! {
         const RANGE_VALUES             = 1 << 9;
         /// Creating a timer without a time becomes an error
         const TIMER_REQUIRES_TIME      = 1 << 10;
-        /// This extensions also enables [Self::COMPONENT_MODIFIERS].
+        /// This extensions also enables [`Self::COMPONENT_MODIFIERS`].
         const INTERMEDIATE_INGREDIENTS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
 
-        /// Enables [Self::COMPONENT_MODIFIERS], [Self::COMPONENT_NOTE] and [Self::COMPONENT_ALIAS]
+        /// Enables [`Self::COMPONENT_MODIFIERS`], [`Self::COMPONENT_NOTE`] and [`Self::COMPONENT_ALIAS`]
         const COMPONENT_ALL = Self::COMPONENT_MODIFIERS.bits()
                                 | Self::COMPONENT_ALIAS.bits()
                                 | Self::COMPONENT_NOTE.bits();
@@ -138,7 +138,8 @@ bitflags! {
         /// Enables a subset of extensions to maximize compatibility with other
         /// cooklang parsers.
         ///
-        /// Currently it enables all the extensions except [Self::MULTILINE_STEPS].
+        /// Currently it enables all the extensions except
+        /// [`Self::MULTILINE_STEPS`] and [`Self::TIMER_REQUIRES_TIME`].
         ///
         /// **ADDITIONS TO THE EXTENSIONS THIS ENABLES WILL NOT BE CONSIDERED A BREAKING CHANGE**
         const COMPAT = Self::COMPONENT_MODIFIERS.bits()
@@ -168,7 +169,7 @@ impl Default for Extensions {
 ///
 /// The default parser enables all extensions.
 ///
-/// The 2 main methods are [CooklangParser::parse] and [CooklangParser::parse_metadata].
+/// The 2 main methods are [`CooklangParser::parse`] and [`CooklangParser::parse_metadata`].
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct CooklangParser {
     extensions: Extensions,
@@ -209,7 +210,7 @@ impl CooklangParser {
         self.parse_with_recipe_ref_checker(input, recipe_name, None)
     }
 
-    /// Same as [Self::parse] but with a function that checks if a recipe
+    /// Same as [`Self::parse`] but with a function that checks if a recipe
     /// reference exists. If the function returns `false` for a recipe reference,
     /// it will be considered an error.
     #[tracing::instrument(level = "debug", name = "parse", skip_all, fields(len = input.len()))]
@@ -241,7 +242,7 @@ impl CooklangParser {
 
     /// Parse only the metadata of a recipe
     ///
-    /// This is a bit faster than [Self::parse] if you only want the metadata
+    /// This is a bit faster than [`Self::parse`] if you only want the metadata
     #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
         let mut r = parser::parse_metadata(input).into_context_result();
@@ -256,15 +257,15 @@ impl CooklangParser {
     }
 }
 
-/// Parse a recipe with a default [CooklangParser]. Avoid calling this in a loop.
+/// Parse a recipe with a default [`CooklangParser`]. Avoid calling this in a loop.
 ///
 /// The default parser enables all extensions.
 ///
 /// **IMPORTANT:** If you are going to parse more than one recipe you may want
-/// to only create one [CooklangParser] and reuse it. Every time this function
+/// to only create one [`CooklangParser`] and reuse it. Every time this function
 /// is called, an instance of a parser is constructed. Depending on the
 /// configuration, creating an instance and the first call to that can take much
-/// longer than later calls to [CooklangParser::parse].
+/// longer than later calls to [`CooklangParser::parse`].
 pub fn parse(input: &str, recipe_name: &str) -> RecipeResult {
     CooklangParser::default().parse(input, recipe_name)
 }
