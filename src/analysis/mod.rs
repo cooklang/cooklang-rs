@@ -125,13 +125,6 @@ pub enum AnalysisWarning {
 
     #[error("Referenced recipe not found: '{name}'")]
     RecipeNotFound { ref_span: Span, name: String },
-
-    #[error("Reference ingredient to a referenced recipe is missing recipe modifier")]
-    ReferenceToRecipeMissing {
-        ingredient_span: Span,
-        referenced_span: Span,
-        modifiers: Located<crate::ast::Modifiers>,
-    },
 }
 
 impl RichError for AnalysisError {
@@ -285,17 +278,6 @@ impl RichError for AnalysisWarning {
                 vec![label!(modifiers)]
             }
             AnalysisWarning::RecipeNotFound { ref_span, .. } => vec![label!(ref_span)],
-            AnalysisWarning::ReferenceToRecipeMissing {
-                ingredient_span,
-                referenced_span,
-                modifiers,
-            } => {
-                vec![
-                    label!(referenced_span, "this ingredient recipe"),
-                    label!(ingredient_span, "referenced here"),
-                    label!(modifiers, "add '@' here"),
-                ]
-            }
         }
     }
 

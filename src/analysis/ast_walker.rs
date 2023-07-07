@@ -370,18 +370,6 @@ impl<'a, 'r> Walker<'a, 'r> {
                 }
             }
 
-            // TODO This may be unreachable code. When resolving references, the recipe modifier will be inherited.
-            if referenced.modifiers.contains(Modifiers::RECIPE)
-                && !new_igr.modifiers.contains(Modifiers::RECIPE)
-            {
-                self.context
-                    .warn(AnalysisWarning::ReferenceToRecipeMissing {
-                        modifiers: ingredient.modifiers,
-                        ingredient_span: location,
-                        referenced_span: self.ingredient_locations[references_to].span(),
-                    })
-            }
-
             if let Some(note) = &located_ingredient.note {
                 self.context
                     .error(AnalysisError::ComponentPartNotAllowedInReference {
