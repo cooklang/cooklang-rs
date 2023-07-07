@@ -347,7 +347,7 @@ impl Converter {
         Ok((value, unit))
     }
 
-    fn convert_to_unit<'a>(
+    fn convert_to_unit(
         &self,
         value: ConvertValue,
         unit: &Unit,

@@ -41,10 +41,15 @@ impl Span {
     pub fn len(&self) -> usize {
         self.end - self.start
     }
+
+    /// Check if the span is empty
+    pub fn is_empty(&self) -> bool {
+        self.start == self.end
+    }
 }
 
 impl Span {
-    pub(crate) fn to_chars_span<Id>(&self, all_source: &str, source_id: Id) -> CharsSpan<Id> {
+    pub(crate) fn to_chars_span<Id>(self, all_source: &str, source_id: Id) -> CharsSpan<Id> {
         let start = all_source[..self.start].chars().count();
         let len = all_source[self.range()].chars().count();
         CharsSpan {

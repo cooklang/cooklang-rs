@@ -284,8 +284,8 @@ fn unify_best_units_systems(
     match best_units {
         BestUnits::Unified(_) => {}
         BestUnits::BySystem { metric, imperial } => {
-            unify_units_systems(&metric, System::Metric, unit_index, all_units)?;
-            unify_units_systems(&imperial, System::Imperial, unit_index, all_units)?;
+            unify_units_systems(metric, System::Metric, unit_index, all_units)?;
+            unify_units_systems(imperial, System::Imperial, unit_index, all_units)?;
         }
     }
     Ok(())
@@ -300,7 +300,7 @@ fn unify_units_systems(
     all_units: &mut [Unit],
 ) -> Result<(), ConverterBuilderError> {
     for unit in units {
-        let unit_id = unit_index.get_unit_id(&unit)?;
+        let unit_id = unit_index.get_unit_id(unit)?;
         match all_units[unit_id].system {
             Some(unit_system) => {
                 if system != unit_system {

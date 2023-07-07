@@ -176,7 +176,7 @@ impl<'a> TextFragment<'a> {
         self.text = self.text.trim_start();
         let new_len = self.text.len();
         let remove_count = old_len - new_len;
-        self.offset = self.offset + remove_count;
+        self.offset += remove_count;
     }
     /// Trim end adjusting the span
     pub(crate) fn trim_end(&mut self) {
@@ -187,5 +187,31 @@ impl<'a> TextFragment<'a> {
 impl PartialEq for TextFragment<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.text == other.text
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TextFragment;
+    use test_case::test_case;
+
+    #[test_case(TextFragment::new("text", 0) => TextFragment::new("text", 0); "nothing")]
+    #[test_case(TextFragment::new("text", 14) => TextFragment::new("text", 14); "no trim offset")]
+    #[test_case(TextFragment::new("  text", 0) => TextFragment::new("text", 2); "trim begin")]
+    #[test_case(TextFragment::new("  text", 14) => TextFragment::new("text", 16); "trim middle")]
+    #[test_case(TextFragment::new("text  ", 0) => TextFragment::new("text  ", 0); "no trim end")]
+    fn fragment_trim_start(mut s: TextFragment) -> TextFragment {
+        s.trim_start();
+        s
+    }
+
+    #[test_case(TextFragment::new("text", 0) => TextFragment::new("text", 0); "nothing")]
+    #[test_case(TextFragment::new("text", 14) => TextFragment::new("text", 14); "no trim offset")]
+    #[test_case(TextFragment::new("text  ", 0) => TextFragment::new("text", 0); "trim begin")]
+    #[test_case(TextFragment::new("text  ", 14) => TextFragment::new("text", 14); "trim middle")]
+    #[test_case(TextFragment::new("  text  ", 0) => TextFragment::new("  text", 0); "no trim start")]
+    fn fragment_trim_end(mut s: TextFragment) -> TextFragment {
+        s.trim_end();
+        s
     }
 }

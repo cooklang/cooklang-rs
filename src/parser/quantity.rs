@@ -64,7 +64,7 @@ pub fn parse_quantity<'input>(
                 Span::new(start, end)
             };
 
-            let result = numeric_value(value_tokens, &line)?;
+            let result = numeric_value(value_tokens, line)?;
             let value = match result {
                 Ok(value) => value,
                 Err(err) => {
@@ -244,21 +244,21 @@ fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, Pa
         .copied()
         .collect();
 
-    let r = match filtered_tokens.as_slice() {
+    let r = match *filtered_tokens.as_slice() {
         // int
-        &[t @ mt![int]] => int(t, line).map(|v| Value::Number { value: v }),
+        [t @ mt![int]] => int(t, line).map(|v| Value::Number { value: v }),
         // float
-        &[t @ mt![float]] => float(t, line).map(|v| Value::Number { value: v }),
+        [t @ mt![float]] => float(t, line).map(|v| Value::Number { value: v }),
         // mixed number
-        &[i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
+        [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
             mixed_num(i, a, b, line).map(|v| Value::Number { value: v })
         }
         // frac
-        &[a @ mt![int], mt![/], b @ mt![int]] => {
+        [a @ mt![int], mt![/], b @ mt![int]] => {
             frac(a, b, line).map(|v| Value::Number { value: v })
         }
         // range
-        &[s @ mt![int | float], mt![-], e @ mt![int | float]]
+        [s @ mt![int | float], mt![-], e @ mt![int | float]]
             if line.extension(Extensions::RANGE_VALUES) =>
         {
             range(s, e, line).map(|v| Value::Range { value: v })

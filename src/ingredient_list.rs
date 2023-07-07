@@ -136,7 +136,7 @@ impl IngredientList {
     /// Split this list into different categories.
     ///
     /// Ingredients without category will be placed in `"other"`.
-    pub fn categorize<'a>(self, aisle: &AisleConf) -> CategorizedIngredientList {
+    pub fn categorize(self, aisle: &AisleConf) -> CategorizedIngredientList {
         let aisle = aisle.reverse();
         let mut categorized = CategorizedIngredientList::default();
         for (name, quantity) in self.0 {

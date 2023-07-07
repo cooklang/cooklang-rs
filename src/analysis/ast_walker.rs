@@ -294,7 +294,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         };
 
         if let Some(inter_data) = ingredient.intermediate_data {
-            if let Some(relation) = self.resolve_intermetiate_ref(inter_data) {
+            if let Some(relation) = self.resolve_intermediate_ref(inter_data) {
                 new_igr.relation = relation;
                 assert!(
                     new_igr.relation.references_to().unwrap().1
@@ -411,7 +411,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         self.content.ingredients.len() - 1
     }
 
-    fn resolve_intermetiate_ref(
+    fn resolve_intermediate_ref(
         &mut self,
         inter_data: Located<IntermediateData>,
     ) -> Option<IngredientRelation> {
@@ -420,7 +420,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         assert!(!inter_data.val.is_negative());
         let val = inter_data.val as usize;
 
-        if val <= 0 && inter_data.ref_mode == Relative {
+        if val == 0 && inter_data.ref_mode == Relative {
             self.error(AnalysisError::InvalidIntermediateReferece {
                 reference_span: inter_data.span(),
                 reason: "relative reference not positive",
@@ -861,7 +861,7 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity,
     let unit_text = text[unit].to_string();
     let temperature = Quantity::new(
         QuantityValue::Fixed {
-            value: Value::Number { value: value },
+            value: Value::Number { value },
         },
         Some(unit_text),
     );

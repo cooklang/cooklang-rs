@@ -53,7 +53,7 @@ impl<T> Located<T> {
 
     /// Get the location
     pub fn span(&self) -> Span {
-        self.span.clone()
+        self.span
     }
 }
 
