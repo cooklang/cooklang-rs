@@ -170,17 +170,6 @@ fn parse_modifiers(
             flags: Located::new(Modifiers::empty(), Span::pos(modifiers_pos)),
             intermediate_data: None,
         }
-    } else if !line.extension(Extensions::COMPONENT_MODIFIERS) {
-        let modifiers_span = tokens_span(modifiers_tokens);
-        // TODO remove extension not enabled error. when an extension is not enabled, it should be as it doesnt exist
-        line.error(ParserError::ExtensionNotEnabled {
-            span: modifiers_span,
-            extension_name: "component modifiers",
-        });
-        ParsedModifiers {
-            flags: Located::new(Modifiers::empty(), modifiers_span),
-            intermediate_data: None,
-        }
     } else {
         let modifiers_span = tokens_span(modifiers_tokens);
         let mut modifiers = Modifiers::empty();

@@ -533,12 +533,6 @@ pub enum ParserError {
         help: Option<&'static str>,
     },
 
-    #[error("Tried to use a disabled extension: {extension_name}")]
-    ExtensionNotEnabled {
-        span: Span,
-        extension_name: &'static str,
-    },
-
     #[error("Duplicate ingredient modifier: {dup}")]
     DuplicateModifiers { modifiers_span: Span, dup: String },
 
@@ -590,7 +584,6 @@ impl RichError for ParserError {
                 vec![label!(to_remove, "remove this")]
             }
             ParserError::ComponentPartInvalid { labels, .. } => labels.clone(),
-            ParserError::ExtensionNotEnabled { span, .. } => vec![label!(span, "used here")],
             ParserError::DuplicateModifiers { modifiers_span, .. } => vec![label!(modifiers_span)],
             ParserError::ParseInt { bad_bit, .. } => vec![label!(bad_bit)],
             ParserError::ParseFloat { bad_bit, .. } => vec![label!(bad_bit)],
@@ -604,9 +597,6 @@ impl RichError for ParserError {
         match self {
             ParserError::ComponentPartNotAllowed { help, .. } => help!(opt help),
             ParserError::ComponentPartInvalid { help, .. } => help!(opt help),
-            ParserError::ExtensionNotEnabled { extension_name, .. } => {
-                help!(format!("Remove the usage or enable the {extension_name} extension"))
-            }
             ParserError::DuplicateModifiers { .. } => help!("Remove duplicate modifiers"),
             ParserError::DivisionByZero { .. } => {
                 help!("Change this please, we don't want an infinite amount of anything")
