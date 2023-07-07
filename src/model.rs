@@ -259,6 +259,16 @@ impl ComponentRelation {
             ComponentRelation::Reference { references_to } => Some(*references_to),
         }
     }
+
+    /// Check if the relation is a reference
+    pub fn is_reference(&self) -> bool {
+        matches!(self, ComponentRelation::Reference { .. })
+    }
+
+    /// Check if the relation is a definition
+    pub fn is_definition(&self) -> bool {
+        matches!(self, ComponentRelation::Definition { .. })
+    }
 }
 
 /// Same as [`ComponentRelation`] but with the ability to reference steps and
@@ -273,7 +283,7 @@ pub struct IngredientRelation {
 /// Target an ingredient reference references to
 ///
 /// This is obtained from [IngredientRelation::references_to]
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
     #[serde(rename = "ingredient")]
@@ -329,6 +339,27 @@ impl IngredientRelation {
         self.relation
             .references_to()
             .map(|index| (index, self.reference_target.unwrap()))
+    }
+
+    /// Checks if the relation is a regular reference to an ingredient
+    pub fn is_regular_reference(&self) -> bool {
+        use IngredientReferenceTarget::*;
+        self.references_to()
+            .map(|(_, target)| target == IngredientTarget)
+            .unwrap_or(false)
+    }
+
+    /// Checks if the relation is an intermediate reference to a step or section
+    pub fn is_intermediate_reference(&self) -> bool {
+        use IngredientReferenceTarget::*;
+        self.references_to()
+            .map(|(_, target)| matches!(target, StepTarget | SectionTarget))
+            .unwrap_or(false)
+    }
+
+    /// Check if the relation is a definition
+    pub fn is_definition(&self) -> bool {
+        self.relation.is_definition()
     }
 }
 
