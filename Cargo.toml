@@ -45,7 +45,3 @@ aisle = ["dep:pest", "dep:pest_derive"]
 [[bench]]
 name = "parse"
 harness = false
-
-[[test]]
-name = "aisle"
-required-features = ["aisle"]

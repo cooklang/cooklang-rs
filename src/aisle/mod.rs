@@ -69,7 +69,7 @@ impl AisleConf<'_> {
     }
 }
 
-/// Parse an [AisleConf] with the cooklang shopping list format
+/// Parse an [`AisleConf`] with the cooklang shopping list format
 pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
     let pairs =
         AisleConfParser::parse(Rule::shopping_list, input).map_err(|e| AisleConfError::Parse {
@@ -125,7 +125,7 @@ pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
     })
 }
 
-/// Write an [AisleConf] in the cooklang shopping list format
+/// Write an [`AisleConf`] in the cooklang shopping list format
 pub fn write(conf: &AisleConf, mut write: impl std::io::Write) -> std::io::Result<()> {
     let w = &mut write;
     for category in &conf.categories {
@@ -348,5 +348,79 @@ tuna|chicken of the sea
                 second_span: Span::new(7, 10)
             }
         )
+    }
+
+    const CONF: &str = r#"
+[produce]
+potatoes
+
+[dairy]
+milk
+butter
+[deli]
+chicken
+
+[canned goods]
+tuna|chicken of the sea
+
+[empty category]
+[another]
+"#;
+
+    #[test]
+    fn full_shopping_list() {
+        let got = parse(CONF).unwrap();
+
+        let expected = vec![
+            Category {
+                name: "produce",
+                ingredients: vec![Ingredient {
+                    names: vec!["potatoes"],
+                }],
+            },
+            Category {
+                name: "dairy",
+                ingredients: vec![
+                    Ingredient {
+                        names: vec!["milk"],
+                    },
+                    Ingredient {
+                        names: vec!["butter"],
+                    },
+                ],
+            },
+            Category {
+                name: "deli",
+                ingredients: vec![Ingredient {
+                    names: vec!["chicken"],
+                }],
+            },
+            Category {
+                name: "canned goods",
+                ingredients: vec![Ingredient {
+                    names: vec!["tuna", "chicken of the sea"],
+                }],
+            },
+            Category {
+                name: "empty category",
+                ingredients: vec![],
+            },
+            Category {
+                name: "another",
+                ingredients: vec![],
+            },
+        ];
+
+        assert_eq!(expected, got.categories);
+    }
+
+    #[test]
+    fn conf_write() {
+        let got = parse(CONF).unwrap();
+        let mut buffer = Vec::new();
+        write(&got, &mut buffer).unwrap();
+        let serialized = String::from_utf8(buffer).unwrap();
+        let got2 = parse(&serialized).unwrap();
+        assert_eq!(got, got2);
     }
 }
