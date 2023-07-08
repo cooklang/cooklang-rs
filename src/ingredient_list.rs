@@ -1,3 +1,5 @@
+//! Generate ingredients lists from recipes
+
 use std::collections::BTreeMap;
 
 use serde::Serialize;

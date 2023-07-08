@@ -1,3 +1,5 @@
+//! Utility to represent a location in the source code
+
 use std::ops::{Deref, Range};
 
 /// Location in the source code

@@ -22,7 +22,7 @@ use crate::{
 /// A complete recipe
 ///
 /// A recipe can be [scaled](Self::scale) (only once) and [converted](Self::convert)
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Recipe<D = ()> {
     /// Recipe name
     pub name: String,
@@ -51,7 +51,7 @@ pub struct Recipe<D = ()> {
 pub type ScaledRecipe = Recipe<crate::scale::Scaled>;
 
 /// A section holding steps
-#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Section {
     /// Name of the section
     pub name: Option<String>,
@@ -76,7 +76,7 @@ impl Section {
 }
 
 /// A step holding step [`Item`]s
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[non_exhaustive]
 pub struct Step {
     /// [`Item`]s inside
