@@ -56,7 +56,7 @@ enum TestValue {
 mod canonical_cases;
 
 fn runner(input: TestCase) {
-    let parser = CooklangParser::new(Extensions::empty(), Converter::default());
+    let parser = CooklangParser::new(Extensions::empty(), Converter::empty());
     let got = parser
         .parse(&input.source, "test")
         .into_output()

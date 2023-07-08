@@ -56,8 +56,20 @@ impl Converter {
     /// Empty converter
     ///
     /// This is the default when the `bundled_units` feature is disabled.
+    ///
+    /// The main use case for this is to ignore the units, because an empty
+    /// converter will fail to convert everything. Also, if the `ADVANCED_UNITS`
+    /// extension is enabled, every timer unit will throw an error, because they
+    /// have to be known time units.
     pub fn empty() -> Self {
-        ConverterBuilder::new().finish().unwrap()
+        Self {
+            all_units: Default::default(),
+            unit_index: Default::default(),
+            quantity_index: Default::default(),
+            best: Default::default(),
+            default_system: Default::default(),
+            temperature_regex: Default::default(),
+        }
     }
 
     /// Converter with the bundled units
@@ -339,9 +351,9 @@ impl Converter {
                 let val = self.convert_to_unit(value, unit, to.as_ref())?;
                 (val, Arc::clone(to))
             }
-            ConvertTo::Best(system) => self.convert_to_best(value, unit, system),
+            ConvertTo::Best(system) => self.convert_to_best(value, unit, system)?,
             ConvertTo::SameSystem => {
-                self.convert_to_best(value, unit, unit.system.unwrap_or(self.default_system))
+                self.convert_to_best(value, unit, unit.system.unwrap_or(self.default_system))?
             }
         };
         Ok((value, unit))
@@ -367,7 +379,7 @@ impl Converter {
         value: ConvertValue,
         unit: &Unit,
         system: System,
-    ) -> (ConvertValue, Arc<Unit>) {
+    ) -> Result<(ConvertValue, Arc<Unit>), ConvertError> {
         let conversions = match &self.best[unit.physical_quantity] {
             BestConversionsStore::Unified(u) => u,
             BestConversionsStore::BySystem { metric, imperial } => match system {
@@ -376,10 +388,15 @@ impl Converter {
             },
         };
 
-        let best_unit = conversions.best_unit(self, &value, unit);
+        let best_unit = conversions.best_unit(self, &value, unit).ok_or_else(|| {
+            ConvertError::BestUnitNotFound {
+                physical_quantity: unit.physical_quantity,
+                system: unit.system,
+            }
+        })?;
         let converted = self.convert_value(value, unit, best_unit.as_ref());
 
-        (converted, best_unit)
+        Ok((converted, best_unit))
     }
 
     fn convert_value(&self, value: ConvertValue, from: &Unit, to: &Unit) -> ConvertValue {
@@ -437,16 +454,21 @@ impl UnitIndex {
 }
 
 impl BestConversions {
-    fn base(&self) -> usize {
-        self.0.first().map(|c| c.1).expect("empty best conversions")
+    fn base(&self) -> Option<usize> {
+        self.0.first().map(|c| c.1)
     }
 
-    fn best_unit(&self, converter: &Converter, value: &ConvertValue, unit: &Unit) -> Arc<Unit> {
+    fn best_unit(
+        &self,
+        converter: &Converter,
+        value: &ConvertValue,
+        unit: &Unit,
+    ) -> Option<Arc<Unit>> {
         let value = match value {
             ConvertValue::Number(n) => n.abs(),
             ConvertValue::Range(r) => r.start().abs(),
         };
-        let base_unit_id = self.base();
+        let base_unit_id = self.base()?;
         let base_unit = &converter.all_units[base_unit_id];
         let norm = converter.convert_f64(value, unit, base_unit);
 
@@ -456,9 +478,8 @@ impl BestConversions {
             .rev()
             .find(|(th, _)| norm >= *th)
             .or_else(|| self.0.first())
-            .map(|&(_, id)| id)
-            .expect("empty best units");
-        Arc::clone(&converter.all_units[best_id])
+            .map(|&(_, id)| id)?;
+        Some(Arc::clone(&converter.all_units[best_id]))
     }
 }
 
@@ -605,6 +626,12 @@ pub enum ConvertError {
     MixedQuantities {
         from: PhysicalQuantity,
         to: PhysicalQuantity,
+    },
+
+    #[error("Could not find best unit for a {physical_quantity} unit. System: {system:?}")]
+    BestUnitNotFound {
+        physical_quantity: PhysicalQuantity,
+        system: Option<System>,
     },
 
     #[error(transparent)]
