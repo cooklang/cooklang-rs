@@ -289,6 +289,10 @@ impl Converter {
         to: impl Into<ConvertTo<'t>>,
     ) -> Result<Quantity, ConvertError> {
         let to = to.into();
+        self.convert_(from, to)
+    }
+
+    fn convert_(&self, from: &Quantity, to: ConvertTo) -> Result<Quantity, ConvertError> {
         let unit_info = from.unit().map(|u| u.unit_info_or_parse(self));
         let unit = match unit_info {
             Some(UnitInfo::Known(ref u)) => ConvertUnit::Unit(u),

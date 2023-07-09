@@ -406,9 +406,9 @@ pub fn write_rich_error(
     color: bool,
     w: impl std::io::Write,
 ) -> std::io::Result<()> {
-    let cache = DummyCache::new(file_name, source_code);
+    let mut cache = DummyCache::new(file_name, source_code);
     let report = build_report(error, file_name, source_code, color);
-    report.write(cache, w)
+    report.write(&mut cache, w)
 }
 
 fn build_report<'a>(
