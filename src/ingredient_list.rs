@@ -28,18 +28,48 @@ pub struct GroupedIngredient<'a> {
 }
 
 impl ScaledRecipe {
-    /// List of ingredient definitions with quantities of all of it references
-    /// combined.
+    /// List of ingredient **definitions** with quantities of all of it references
+    /// grouped.
     ///
     /// Order is the recipe order.
-    pub fn group_ingredients(&self, converter: &Converter) -> Vec<GroupedIngredient> {
+    ///
+    /// ```
+    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, QuantityValue, Quantity};
+    /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}", "name")
+    ///                 .into_output()
+    ///                 .unwrap()
+    ///                 .default_scale();
+    /// let grouped = recipe.group_ingredients(parser.converter());
+    ///
+    /// // Only 2 definitions, the second flour is a reference
+    /// assert_eq!(grouped.len(), 2);
+    ///
+    /// let flour = &grouped[0];
+    /// assert_eq!(flour.ingredient.name, "flour");
+    /// assert_eq!(
+    ///     flour.quantity.total(),
+    ///     TotalQuantity::Single(
+    ///         Quantity::new(
+    ///             QuantityValue::Fixed { value: 1.1.into() },
+    ///             Some("kg".to_string()) // Unit fit to kilograms
+    ///         )
+    ///     )
+    /// );
+    ///
+    /// // Water is second, because it is after flour in the recipe
+    /// let water = &grouped[1];
+    /// assert_eq!(water.ingredient.name, "water");
+    /// assert_eq!(water.quantity.total(), TotalQuantity::None);
+    /// ```
+    pub fn group_ingredients<'a>(&'a self, converter: &Converter) -> Vec<GroupedIngredient<'a>> {
         let mut list = Vec::new();
         let data = self.scaled_data();
         for (index, ingredient) in self.ingredients.iter().enumerate() {
-            let mut grouped = GroupedQuantity::default();
-            for q in ingredient.all_quantities(&self.ingredients) {
-                grouped.add(q, converter);
+            if !ingredient.relation.is_definition() {
+                continue;
             }
+            let grouped = ingredient.group_quantities(&self.ingredients, converter);
             let outcome: Option<ScaleOutcome> = data
                 .as_ref()
                 .map(|data| {
