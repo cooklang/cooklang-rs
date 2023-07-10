@@ -525,23 +525,39 @@ impl GroupedQuantity {
     /// Merge the group with another one
     pub fn merge(&mut self, other: &Self, converter: &Converter) {
         for q in other.all_quantities() {
-            self.add(&q, converter)
+            self.add(q, converter)
         }
     }
 
-    fn all_quantities(&self) -> impl Iterator<Item = Quantity> + '_ {
+    fn all_quantities(&self) -> impl Iterator<Item = &Quantity> + '_ {
         self.known
             .values()
             .filter_map(|q| q.as_ref())
             .chain(self.unknown.values())
             .chain(self.other.iter())
             .chain(self.no_unit.iter())
-            .cloned()
+    }
+
+    /// Calls [`Quantity::fit`] on all possible underlying units
+    ///
+    /// This will try to avoid fitting quantities that will produce an error
+    /// like, for example, a text value. Other conver errors may
+    /// occur, for example, if the converter is [`Converter::empty`].
+    ///
+    /// However, if this errors, you probably can ignore it and use the unfit
+    /// value.
+    pub fn fit(&mut self, converter: &Converter) -> Result<(), ConvertError> {
+        for q in self.known.values_mut().filter_map(|q| q.as_mut()) {
+            q.fit(converter)?;
+        }
+        Ok(())
     }
 
     /// Get the [`TotalQuantity`]
+    ///
+    /// Quantities are already
     pub fn total(&self) -> TotalQuantity {
-        let mut all = self.all_quantities().peekable();
+        let mut all = self.all_quantities().cloned().peekable();
 
         let Some(first) = all.next()
         else { return TotalQuantity::None; };

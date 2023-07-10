@@ -17,6 +17,7 @@ use crate::{
     convert::Converter,
     metadata::Metadata,
     quantity::{Quantity, QuantityAddError, QuantityValue},
+    GroupedQuantity,
 };
 
 /// A complete recipe
@@ -175,6 +176,46 @@ impl Ingredient {
         let _ = total.fit(converter);
 
         Ok(Some(total))
+    }
+
+    /// Groups all quantities from itself and it's references (if any).
+    /// ```
+    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, QuantityValue, Quantity};
+    /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}", "name")
+    ///                 .into_output()
+    ///                 .unwrap()
+    ///                 .default_scale();
+    ///
+    /// let flour = &recipe.ingredients[0];
+    /// assert_eq!(flour.name, "flour");
+    ///
+    /// let grouped_flour = recipe.ingredients[0].group_quantities(
+    ///                         &recipe.ingredients,
+    ///                         parser.converter()
+    ///                     );
+    ///
+    /// assert_eq!(
+    ///     grouped_flour.total(),
+    ///     TotalQuantity::Single(
+    ///         Quantity::new(
+    ///             QuantityValue::Fixed { value: 1.1.into() },
+    ///             Some("kg".to_string()) // Unit fit to kilograms
+    ///         )
+    ///     )
+    /// );
+    /// ```
+    pub fn group_quantities(
+        &self,
+        all_ingredients: &[Self],
+        converter: &Converter,
+    ) -> GroupedQuantity {
+        let mut grouped = GroupedQuantity::default();
+        for q in self.all_quantities(all_ingredients) {
+            grouped.add(q, converter);
+        }
+        let _ = grouped.fit(converter);
+        grouped
     }
 
     /// Gets an iterator over all quantities of this ingredient and its references.
