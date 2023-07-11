@@ -614,3 +614,24 @@ pub enum TotalQuantity {
     /// Many quantities when they can't be added
     Many(Vec<Quantity>),
 }
+
+impl TotalQuantity {
+    /// Get the total quantity as a vec of quantities
+    ///
+    /// - [`TotalQuantity::None`] is an empty vec.
+    /// - [`TotalQuantity::Single`] is a vec with one item.
+    /// - [`TotalQuantity::Many`] is just it's inner vec.
+    pub fn into_vec(self) -> Vec<Quantity> {
+        match self {
+            TotalQuantity::None => vec![],
+            TotalQuantity::Single(q) => vec![q],
+            TotalQuantity::Many(many) => many,
+        }
+    }
+}
+
+impl From<TotalQuantity> for Vec<Quantity> {
+    fn from(value: TotalQuantity) -> Self {
+        value.into_vec()
+    }
+}
