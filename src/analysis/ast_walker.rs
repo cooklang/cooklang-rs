@@ -284,32 +284,35 @@ impl<'a, 'r> Walker<'a, 'r> {
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
             modifiers: ingredient.modifiers.into_inner(),
-            relation: IngredientRelation::new(
-                ComponentRelation::Definition {
-                    referenced_from: Vec::new(),
-                },
-                None,
-            ),
+            relation: IngredientRelation::definition(Vec::new()),
             defined_in_step: self.define_mode != DefineMode::Components,
         };
 
         if let Some(inter_data) = ingredient.intermediate_data {
-            if let Some(relation) = self.resolve_intermediate_ref(inter_data) {
-                new_igr.relation = relation;
-                assert!(
-                    new_igr.relation.references_to().unwrap().1
-                        != IngredientReferenceTarget::StepTarget
-                        || new_igr.modifiers.contains(Modifiers::REF_TO_STEP)
-                );
-                assert!(
-                    new_igr.relation.references_to().unwrap().1
-                        != IngredientReferenceTarget::SectionTarget
-                        || new_igr.modifiers.contains(Modifiers::REF_TO_SECTION)
-                );
+            match self.resolve_intermediate_ref(inter_data) {
+                Ok(relation) => {
+                    new_igr.relation = relation;
+                    assert!(new_igr.modifiers().contains(Modifiers::REF));
+                    let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
+                    if new_igr.modifiers().intersects(invalid_modifiers) {
+                        self.error(AnalysisError::InvalidIntermediateReferece {
+                            reference_span: ingredient.modifiers.span(),
+                            reason: "Invalid combination of modifiers",
+                            help: format!(
+                                "Remove the following modifiers: {}",
+                                new_igr.modifiers() & invalid_modifiers
+                            )
+                            .into(),
+                        })
+                    }
+                }
+                Err(error) => self.error(error),
             }
         } else if let Some((references_to, implicit)) =
             self.resolve_reference(&mut new_igr, location, located_ingredient.modifiers.span())
         {
+            assert!(ingredient.intermediate_data.is_none()); // now unreachable, but just to be safe in the future
+
             let referenced = &self.content.ingredients[references_to];
 
             // When the ingredient is not defined in a step, only the definition
@@ -414,29 +417,19 @@ impl<'a, 'r> Walker<'a, 'r> {
     fn resolve_intermediate_ref(
         &mut self,
         inter_data: Located<IntermediateData>,
-    ) -> Option<IngredientRelation> {
+    ) -> Result<IngredientRelation, AnalysisError> {
         use ast::IntermediateRefMode::*;
         use ast::IntermediateTargetKind::*;
         assert!(!inter_data.val.is_negative());
         let val = inter_data.val as usize;
 
         if val == 0 && inter_data.ref_mode == Relative {
-            self.error(AnalysisError::InvalidIntermediateReferece {
+            return Err(AnalysisError::InvalidIntermediateReferece {
                 reference_span: inter_data.span(),
                 reason: "relative reference not positive",
                 help: "Relative reference value has to be greater than 0".into(),
             });
-            return None;
         }
-
-        let rel = |index, target| {
-            IngredientRelation::new(
-                ComponentRelation::Reference {
-                    references_to: index,
-                },
-                Some(target),
-            )
-        };
 
         let relation = match (inter_data.target_kind, inter_data.ref_mode) {
             (Step, Index) => {
@@ -450,15 +443,13 @@ impl<'a, 'r> Walker<'a, 'r> {
                         )
                         .into()
                     };
-                    self.context
-                        .error(AnalysisError::InvalidIntermediateReferece {
-                            reference_span: inter_data.span(),
-                            reason: "step index out of bounds",
-                            help,
-                        });
-                    return None;
+                    return Err(AnalysisError::InvalidIntermediateReferece {
+                        reference_span: inter_data.span(),
+                        reason: "step index out of bounds",
+                        help,
+                    });
                 }
-                rel(val, IngredientReferenceTarget::StepTarget)
+                IngredientRelation::reference(val, IngredientReferenceTarget::StepTarget)
             }
             (Step, Relative) => {
                 let index = self
@@ -471,7 +462,9 @@ impl<'a, 'r> Walker<'a, 'r> {
                     .nth(val.saturating_sub(1))
                     .map(|(index, _)| index);
                 match index {
-                    Some(index) => rel(index, IngredientReferenceTarget::StepTarget),
+                    Some(index) => {
+                        IngredientRelation::reference(index, IngredientReferenceTarget::StepTarget)
+                    }
                     None => {
                         let help = match self.step_counter {
                             1 => {
@@ -483,12 +476,11 @@ impl<'a, 'r> Walker<'a, 'r> {
                             }
                             0 => unreachable!(), // being here would mean be resolving an intermediate ref before any non text step.
                         };
-                        self.error(AnalysisError::InvalidIntermediateReferece {
+                        return Err(AnalysisError::InvalidIntermediateReferece {
                             reference_span: inter_data.span(),
                             reason: "relative step index out of bounds",
                             help,
                         });
-                        return None;
                     }
                 }
             }
@@ -499,14 +491,13 @@ impl<'a, 'r> Walker<'a, 'r> {
                     } else {
                         format!("The index has to be of a previous section. In this case, less than {}.", self.content.sections.len()).into()
                     };
-                    self.error(AnalysisError::InvalidIntermediateReferece {
+                    return Err(AnalysisError::InvalidIntermediateReferece {
                         reference_span: inter_data.span(),
                         reason: "section index out of bounds",
                         help,
                     });
-                    return None;
                 }
-                rel(val, IngredientReferenceTarget::SectionTarget)
+                IngredientRelation::reference(val, IngredientReferenceTarget::SectionTarget)
             }
             (Section, Relative) => {
                 if val > self.content.sections.len() {
@@ -519,18 +510,17 @@ impl<'a, 'r> Walker<'a, 'r> {
                         )
                         .into()
                     };
-                    self.error(AnalysisError::InvalidIntermediateReferece {
+                    return Err(AnalysisError::InvalidIntermediateReferece {
                         reference_span: inter_data.span(),
                         reason: "relative section index out of bounds",
                         help,
                     });
-                    return None;
                 }
                 let index = self.content.sections.len().saturating_sub(val);
-                rel(index, IngredientReferenceTarget::SectionTarget)
+                IngredientRelation::reference(index, IngredientReferenceTarget::SectionTarget)
             }
         };
-        Some(relation)
+        Ok(relation)
     }
 
     fn cookware(&mut self, cookware: Located<ast::Cookware<'a>>) -> usize {
@@ -693,12 +683,6 @@ impl<'a, 'r> Walker<'a, 'r> {
         location: Span,
         modifiers_location: Span,
     ) -> Option<(usize, bool)> {
-        if new.modifiers().contains(Modifiers::REF_TO_SECTION)
-            || new.modifiers().contains(Modifiers::REF_TO_STEP)
-        {
-            return None;
-        }
-
         let new_name = new.name().to_lowercase();
 
         // find the LAST component with the same name
@@ -806,9 +790,9 @@ impl RefComponent for Ingredient {
     }
 
     fn set_reference(&mut self, references_to: usize) {
-        self.relation = IngredientRelation::new(
-            ComponentRelation::Reference { references_to },
-            Some(IngredientReferenceTarget::IngredientTarget),
+        self.relation = IngredientRelation::reference(
+            references_to,
+            IngredientReferenceTarget::IngredientTarget,
         );
     }
 

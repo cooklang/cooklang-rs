@@ -219,9 +219,6 @@ bitflags! {
         const OPT            = 1 << 3;
         /// forces to create a new ingredient
         const NEW            = 1 << 4;
-        /// intermediate ingredient REF
-        const REF_TO_STEP    = 1 << 5 | Self::REF.bits();
-        const REF_TO_SECTION = 1 << 6 | Self::REF.bits();
     }
 }
 

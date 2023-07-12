@@ -203,13 +203,6 @@ fn parse_modifiers(
             }
         }
 
-        if let Some(data) = &intermediate_data {
-            match data.target_kind {
-                IntermediateTargetKind::Step => modifiers |= Modifiers::REF_TO_STEP,
-                IntermediateTargetKind::Section => modifiers |= Modifiers::REF_TO_SECTION,
-            }
-        }
-
         ParsedModifiers {
             flags: Located::new(modifiers, modifiers_span),
             intermediate_data,
@@ -667,7 +660,7 @@ mod tests {
     }
 
     #[test_case("@&(~1)one step back{}" => (
-        Located::new(Modifiers::REF | Modifiers::REF_TO_STEP, 1..6),
+        Located::new(Modifiers::REF, 1..6),
         Located::new(IntermediateData {
             ref_mode: IntermediateRefMode::Relative,
             target_kind: IntermediateTargetKind::Step,
@@ -675,7 +668,7 @@ mod tests {
             }, 2..6)
     ); "step relative")]
     #[test_case("@&(1)step index 1{}" => (
-        Located::new(Modifiers::REF | Modifiers::REF_TO_STEP, 1..5),
+        Located::new(Modifiers::REF, 1..5),
         Located::new(IntermediateData {
             ref_mode: IntermediateRefMode::Index,
             target_kind: IntermediateTargetKind::Step,
@@ -683,7 +676,7 @@ mod tests {
         }, 2..5)
     ); "step index")]
     #[test_case("@&(=~1)one section back{}" => (
-        Located::new(Modifiers::REF | Modifiers::REF_TO_SECTION, 1..7),
+        Located::new(Modifiers::REF, 1..7),
         Located::new(IntermediateData {
             ref_mode: IntermediateRefMode::Relative,
             target_kind: IntermediateTargetKind::Section,
@@ -691,7 +684,7 @@ mod tests {
         }, 2..7)
     ); "section relative")]
     #[test_case("@&(=1)section index 1{}" => (
-        Located::new(Modifiers::REF | Modifiers::REF_TO_SECTION, 1..6),
+        Located::new(Modifiers::REF, 1..6),
         Located::new(IntermediateData {
             ref_mode: IntermediateRefMode::Index,
             target_kind: IntermediateTargetKind::Section,
@@ -708,6 +701,8 @@ mod tests {
     #[test_case("@&(~=1)name{}"; "swap ~ =")]
     #[test_case("@&(9999999999999999999999999999999999999999)name{}"; "number too big")]
     #[test_case("@&(awebo)name{}"; "unexpected syntax")]
+    #[test_case("#&(1)name"; "cookware")]
+    #[test_case("~&(1){1%min}"; "timer")]
     fn intermediate_ref_errors(input: &str) {
         let (_, ctx) = t!(input);
         assert_eq!(ctx.errors.len(), 1);

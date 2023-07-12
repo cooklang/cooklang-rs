@@ -338,22 +338,20 @@ pub enum IngredientReferenceTarget {
 }
 
 impl IngredientRelation {
-    /// Creates a new ingredient relation
-    ///
-    /// # Panics
-    /// If `relation` is [ComponentRelation::Reference] and `reference_target`
-    /// is not [Some].
-    pub(crate) fn new(
-        relation: ComponentRelation,
-        reference_target: Option<IngredientReferenceTarget>,
-    ) -> Self {
-        assert!(
-            matches!(relation, ComponentRelation::Definition { .. }) || reference_target.is_some(),
-            "ingredient relation reference without reference target defined. this is a bug."
-        );
+    pub(crate) fn definition(referenced_from: Vec<usize>) -> Self {
         Self {
-            relation,
-            reference_target,
+            relation: ComponentRelation::Definition { referenced_from },
+            reference_target: None,
+        }
+    }
+
+    pub(crate) fn reference(
+        references_to: usize,
+        reference_target: IngredientReferenceTarget,
+    ) -> Self {
+        Self {
+            relation: ComponentRelation::Reference { references_to },
+            reference_target: Some(reference_target),
         }
     }
 
