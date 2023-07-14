@@ -577,7 +577,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                         UnitInfo::Known(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
                                 self.error(AnalysisError::BadTimerUnit {
-                                    unit: unit.as_ref().clone(),
+                                    unit: Box::new(unit.as_ref().clone()),
                                     timer_span: located_timer
                                         .quantity
                                         .as_ref()

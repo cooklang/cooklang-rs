@@ -392,7 +392,7 @@ impl Converter {
             },
         };
 
-        let best_unit = conversions.best_unit(self, &value, unit).ok_or_else(|| {
+        let best_unit = conversions.best_unit(self, &value, unit).ok_or({
             ConvertError::BestUnitNotFound {
                 physical_quantity: unit.physical_quantity,
                 system: unit.system,

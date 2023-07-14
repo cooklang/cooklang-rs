@@ -432,13 +432,17 @@ fn build_report<'a>(
         .with_config(ariadne::Config::default().with_color(color));
 
     if let Some(source) = err.source() {
-        let color = match err.kind() {
-            ariadne::ReportKind::Error => Color::Red,
-            ariadne::ReportKind::Warning => Color::Yellow,
-            ariadne::ReportKind::Advice => Color::Fixed(147),
-            ariadne::ReportKind::Custom(_, c) => c,
+        let arrow_color = if color {
+            match err.kind() {
+                ariadne::ReportKind::Error => Color::Red,
+                ariadne::ReportKind::Warning => Color::Yellow,
+                ariadne::ReportKind::Advice => Color::Fixed(147),
+                ariadne::ReportKind::Custom(_, c) => c,
+            }
+        } else {
+            Color::Default
         };
-        let message = format!("{err}\n  {} {source}", "╰▶ ".fg(color));
+        let message = format!("{err}\n  {} {source}", "╰▶ ".fg(arrow_color));
         r.set_message(message);
     } else {
         r.set_message(err);

@@ -37,7 +37,7 @@ pub enum AnalysisError {
 
     #[error("Bad timer unit. Expecting time, got: {}", .unit.physical_quantity)]
     BadTimerUnit {
-        unit: crate::convert::Unit,
+        unit: Box<crate::convert::Unit>,
         timer_span: Span,
     },
 
