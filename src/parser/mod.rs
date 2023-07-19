@@ -151,81 +151,87 @@ pub fn parse<'input>(
 ) -> PassResult<ast::Ast<'input>, ParserError, ParserWarning> {
     let mut parser = Parser::new(input, extensions);
 
-    let mut last_line_is_empty = true;
-
+    let mut last_empty = true;
     let mut lines = Vec::new();
     while let Some(mut line) = parser.next_line() {
-        if line
-            .tokens()
-            .iter()
-            .all(|t| matches!(t.kind, T![ws] | T![line comment] | T![block comment]))
-        {
-            last_line_is_empty = true;
-            continue;
-        }
-
-        let meta_or_section = match line.peek() {
-            T![meta] => line
-                .with_recover(metadata_entry)
-                .map(|entry| ast::Line::Metadata {
-                    key: entry.key,
-                    value: entry.value,
-                }),
-            T![=] => line
-                .with_recover(section)
-                .map(|name| ast::Line::Section { name }),
-            _ => None,
-        };
-
-        let ast_line = if let Some(l) = meta_or_section {
-            l
-        } else {
-            if !last_line_is_empty && extensions.contains(Extensions::MULTILINE_STEPS) {
-                if let Some(ast::Line::Step { items, is_text }) = lines.last_mut() {
-                    let mut parsed_step = step(&mut line, *is_text);
-                    if !parsed_step.items.is_empty() {
-                        // pos of the newline/end of last step before trimming
-                        let newline_pos = items.last().unwrap().span().end();
-                        // trim last step end
-                        if let Some(ast::Item::Text(text)) = items.last_mut() {
-                            text.trim_fragments_end();
-                            if text.fragments().is_empty() {
-                                items.pop();
-                            }
-                        }
-                        // trim new step begining
-                        if let ast::Item::Text(text) = &mut parsed_step.items[0] {
-                            text.trim_fragments_start();
-                            if text.fragments().is_empty() {
-                                parsed_step.items.remove(0);
-                            }
-                        }
-                        // add a space in between the 2 lines
-                        // where the last line originally ended in the input
-                        items.push(ast::Item::Text(ast::Text::from_str(" ", newline_pos)));
-                        items.extend(parsed_step.items);
-                    }
-                    let mut ctx = line.finish();
-                    parser.context.append(&mut ctx);
-                    continue;
-                }
-            }
-
-            let parsed_step = step(&mut line, false);
-            ast::Line::Step {
-                is_text: parsed_step.is_text,
-                items: parsed_step.items,
-            }
-        };
-
+        parse_line(&mut line, &mut lines, &mut last_empty);
         let mut ctx = line.finish();
         parser.context.append(&mut ctx);
-
-        last_line_is_empty = false;
-        lines.push(ast_line);
     }
+
     let ast = ast::Ast { lines };
     parser.context.finish(Some(ast))
+}
+
+fn parse_line<'input>(
+    line: &mut LineParser<'_, 'input>,
+    lines: &mut Vec<ast::Line<'input>>,
+    last_empty: &mut bool,
+) {
+    let is_empty = line
+        .tokens()
+        .iter()
+        .all(|t| matches!(t.kind, T![ws] | T![line comment] | T![block comment]));
+    if is_empty {
+        *last_empty = true;
+        line.consume_rest();
+        return;
+    }
+
+    let meta_or_section = match line.peek() {
+        T![meta] => line
+            .with_recover(metadata_entry)
+            .map(|entry| ast::Line::Metadata {
+                key: entry.key,
+                value: entry.value,
+            }),
+        T![=] => line
+            .with_recover(section)
+            .map(|name| ast::Line::Section { name }),
+        _ => None,
+    };
+
+    let ast_line = if let Some(l) = meta_or_section {
+        l
+    } else {
+        if !*last_empty && line.extension(Extensions::MULTILINE_STEPS) {
+            if let Some(ast::Line::Step { items, is_text }) = lines.last_mut() {
+                let mut parsed_step = step(line, *is_text);
+                if !parsed_step.items.is_empty() {
+                    // pos of the newline/end of last step before trimming
+                    let newline_pos = items.last().unwrap().span().end();
+                    // trim last step end
+                    if let Some(ast::Item::Text(text)) = items.last_mut() {
+                        text.trim_fragments_end();
+                        if text.fragments().is_empty() {
+                            items.pop();
+                        }
+                    }
+                    // trim new step begining
+                    if let ast::Item::Text(text) = &mut parsed_step.items[0] {
+                        text.trim_fragments_start();
+                        if text.fragments().is_empty() {
+                            parsed_step.items.remove(0);
+                        }
+                    }
+                    // add a space in between the 2 lines
+                    // where the last line originally ended in the input
+                    items.push(ast::Item::Text(ast::Text::from_str(" ", newline_pos)));
+                    items.extend(parsed_step.items);
+                }
+                return;
+            }
+        }
+
+        let parsed_step = step(line, false);
+        ast::Line::Step {
+            is_text: parsed_step.is_text,
+            items: parsed_step.items,
+        }
+    };
+
+    *last_empty = false;
+    lines.push(ast_line);
 }
 
 /// Parse only the recipe metadata into an [`Ast`](ast::Ast).
@@ -457,6 +463,7 @@ impl<'t, 'input> LineParser<'t, 'input> {
         Some(s)
     }
 
+    /// Consumes while the closure returns true or the line ends
     pub(crate) fn consume_while(&mut self, f: impl Fn(TokenKind) -> bool) -> &'t [Token] {
         let rest = self.rest();
         let pos = rest.iter().position(|t| !f(t.kind)).unwrap_or(rest.len());

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// The AST is (mostly) borrowed from the input and offers location information of each
 /// element back to the source file.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Ast<'a> {
     pub lines: Vec<Line<'a>>,
 }
@@ -26,7 +26,7 @@ pub struct Ast<'a> {
 /// They may not be just 1 line in the file, as a single step can be parsed from
 /// multiple lines when [`MULTILINE_STEPS`](crate::Extensions::MULTILINE_STEPS)
 /// is enabled.
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum Line<'a> {
     /// Metadata entry
     Metadata { key: Text<'a>, value: Text<'a> },
@@ -49,7 +49,7 @@ pub enum Line<'a> {
 }
 
 /// An item of a [`Line::Step`].
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum Item<'a> {
     /// Plain text
     Text(Text<'a>),
