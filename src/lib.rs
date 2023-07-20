@@ -221,7 +221,7 @@ impl CooklangParser {
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
         let mut r = parser::parse(input, self.extensions).into_context_result();
-        if r.invalid() {
+        if !r.is_valid() {
             return r.discard_output();
         }
         let ast = r.take_output().unwrap();
@@ -246,7 +246,7 @@ impl CooklangParser {
     #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
         let mut r = parser::parse_metadata(input).into_context_result();
-        if r.invalid() {
+        if !r.is_valid() {
             return r.discard_output();
         }
         let ast = r.take_output().unwrap();

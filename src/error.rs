@@ -233,8 +233,8 @@ impl<T, E, W> PassResult<T, E, W> {
     ///
     /// Output, if any, should be discarded or used knowing that it contains
     /// errors or is incomplete.
-    pub fn invalid(&self) -> bool {
-        self.has_errors() || !self.has_output()
+    pub fn is_valid(&self) -> bool {
+        !self.has_errors() && self.has_output()
     }
 
     /// Get the output
