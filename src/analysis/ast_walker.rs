@@ -59,7 +59,7 @@ pub fn parse_ast<'a>(
 
         ingredient_locations: Default::default(),
         metadata_locations: Default::default(),
-        step_counter: 0,
+        step_counter: 1,
     };
     walker.ast(ast)
 }
@@ -111,10 +111,14 @@ impl<'a, 'r> Walker<'a, 'r> {
                     // step to the section. The components should have been
                     // added to their lists
                     if self.define_mode != DefineMode::Components {
+                        if !is_text {
+                            self.step_counter += 1;
+                        }
                         self.current_section.steps.push(new_step);
                     }
                 }
                 ast::Line::Section { name } => {
+                    self.step_counter = 1;
                     if !self.current_section.is_empty() {
                         self.content.sections.push(self.current_section);
                     }
@@ -185,10 +189,6 @@ impl<'a, 'r> Walker<'a, 'r> {
         let mut new_items = Vec::new();
 
         let is_text = is_text || self.define_mode == DefineMode::Text;
-
-        if !is_text {
-            self.step_counter += 1;
-        }
 
         for item in items {
             match item {
