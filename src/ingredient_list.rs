@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use crate::{
     aisle::AisleConf, convert::Converter, model::Ingredient, quantity::GroupedQuantity,
-    scale::ScaleOutcome, ScaledRecipe,
+    scale::ScaleOutcome, ScaledRecipe, Value,
 };
 
 /// Ingredient with all quantities from it's references and itself grouped
@@ -15,7 +15,7 @@ pub struct GroupedIngredient<'a> {
     /// Index of the ingredient definition in the [Recipe::ingredients](crate::model::Recipe::ingredients)
     pub index: usize,
     /// Ingredient definition
-    pub ingredient: &'a Ingredient,
+    pub ingredient: &'a Ingredient<Value>,
     /// Grouped quantity of itself and all of it references
     pub quantity: GroupedQuantity,
     /// Scale outcome, if scaled to a custom target
@@ -34,7 +34,7 @@ impl ScaledRecipe {
     /// Order is the recipe order.
     ///
     /// ```
-    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, QuantityValue, Quantity};
+    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}", "name")
     ///                 .into_output()
@@ -51,7 +51,7 @@ impl ScaledRecipe {
     ///     flour.quantity.total(),
     ///     TotalQuantity::Single(
     ///         Quantity::new(
-    ///             QuantityValue::Fixed { value: 1.1.into() },
+    ///             Value::from(1.1),
     ///             Some("kg".to_string()) // Unit fit to kilograms
     ///         )
     ///     )

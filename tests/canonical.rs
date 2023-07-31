@@ -2,8 +2,8 @@
 
 use cooklang::{
     model::ComponentKind,
-    quantity::{QuantityValue, Value},
-    Component, Converter, CooklangParser, Extensions, Item, Recipe, Step,
+    quantity::{ScalableValue, Value},
+    Component, Converter, CooklangParser, Extensions, Item, ScalableRecipe, Step,
 };
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -66,7 +66,7 @@ fn runner(input: TestCase) {
 }
 
 impl TestResult {
-    fn from_cooklang(value: Recipe) -> Self {
+    fn from_cooklang(value: ScalableRecipe) -> Self {
         assert!(value.sections.len() <= 1);
         let steps = if let Some(section) = value.sections.first().cloned() {
             assert!(section.name.is_none());
@@ -86,7 +86,7 @@ impl TestResult {
 }
 
 impl TestStep {
-    fn from_cooklang_step(value: Step, recipe: &cooklang::Recipe) -> Self {
+    fn from_cooklang_step(value: Step, recipe: &cooklang::ScalableRecipe) -> Self {
         let items = join_text_items(&value.items);
         let items = items
             .into_iter()
@@ -97,7 +97,7 @@ impl TestStep {
 }
 
 impl TestStepItem {
-    fn from_cooklang_item(value: Item, recipe: &cooklang::Recipe) -> Self {
+    fn from_cooklang_item(value: Item, recipe: &cooklang::ScalableRecipe) -> Self {
         match value {
             Item::Text { value } => Self::Text { value },
             Item::ItemComponent {
@@ -182,15 +182,15 @@ impl TestStepItem {
 }
 
 impl TestValue {
-    fn from_cooklang_value(value: QuantityValue) -> Self {
+    fn from_cooklang_value(value: ScalableValue) -> Self {
         match value {
-            QuantityValue::Fixed { value } => match value {
+            ScalableValue::Fixed { value } => match value {
                 Value::Number { value } => TestValue::Number(value),
                 Value::Range { .. } => panic!("unexpected range value"),
                 Value::Text { value } => TestValue::Text(value),
             },
-            QuantityValue::Linear { .. } => panic!("unexpected linear value"),
-            QuantityValue::ByServings { .. } => panic!("unexpected value by servings"),
+            ScalableValue::Linear { .. } => panic!("unexpected linear value"),
+            ScalableValue::ByServings { .. } => panic!("unexpected value by servings"),
         }
     }
 }

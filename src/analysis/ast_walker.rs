@@ -8,7 +8,7 @@ use crate::context::Context;
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::located::Located;
 use crate::metadata::Metadata;
-use crate::quantity::{Quantity, QuantityValue, UnitInfo, Value};
+use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
 use crate::{model::*, Extensions, RecipeRefChecker};
 
@@ -18,10 +18,10 @@ use super::{AnalysisError, AnalysisResult, AnalysisWarning};
 pub struct RecipeContent {
     pub metadata: Metadata,
     pub sections: Vec<Section>,
-    pub ingredients: Vec<Ingredient>,
-    pub cookware: Vec<Cookware>,
-    pub timers: Vec<Timer>,
-    pub inline_quantities: Vec<Quantity>,
+    pub ingredients: Vec<Ingredient<ScalableValue>>,
+    pub cookware: Vec<Cookware<ScalableValue>>,
+    pub timers: Vec<Timer<ScalableValue>>,
+    pub inline_quantities: Vec<Quantity<Value>>,
 }
 
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis", fields(ast_lines = ast.lines.len()))]
@@ -386,7 +386,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             if let Some(quantity) = &new_igr.quantity {
                 // a text value can't be processed when calculating the total sum of
                 // all ingredient references. valid, but not optimal
-                if quantity.value.contains_text_value() {
+                if quantity.value.is_text() {
                     self.warn(AnalysisWarning::TextValueInReference {
                         quantity_span: ingredient.quantity.unwrap().span(),
                     });
@@ -608,7 +608,11 @@ impl<'a, 'r> Walker<'a, 'r> {
         self.content.timers.len() - 1
     }
 
-    fn quantity(&mut self, quantity: Located<ast::Quantity<'a>>, is_ingredient: bool) -> Quantity {
+    fn quantity(
+        &mut self,
+        quantity: Located<ast::Quantity<'a>>,
+        is_ingredient: bool,
+    ) -> Quantity<ScalableValue> {
         let ast::Quantity { value, unit, .. } = quantity.into_inner();
         Quantity::new(
             self.value(value, is_ingredient),
@@ -616,7 +620,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         )
     }
 
-    fn value(&mut self, value: ast::QuantityValue, is_ingredient: bool) -> QuantityValue {
+    fn value(&mut self, value: ast::QuantityValue, is_ingredient: bool) -> ScalableValue {
         match &value {
             ast::QuantityValue::Single {
                 value,
@@ -658,14 +662,14 @@ impl<'a, 'r> Walker<'a, 'r> {
             _ => {}
         }
         let value_span = value.span();
-        let mut v = QuantityValue::from_ast(value);
+        let mut v = ScalableValue::from_ast(value);
 
         if is_ingredient && self.auto_scale_ingredients {
             match v {
-                QuantityValue::Fixed { value } if !value.is_text() => {
-                    v = QuantityValue::Linear { value }
+                ScalableValue::Fixed { value } if !value.is_text() => {
+                    v = ScalableValue::Linear { value }
                 }
-                QuantityValue::Linear { .. } => {
+                ScalableValue::Linear { .. } => {
                     self.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),
                     });
@@ -772,7 +776,7 @@ trait RefComponent: Sized {
     fn set_referenced_from(all: &mut [Self], references_to: usize);
 }
 
-impl RefComponent for Ingredient {
+impl RefComponent for Ingredient<ScalableValue> {
     fn modifiers(&mut self) -> &mut Modifiers {
         &mut self.modifiers
     }
@@ -807,7 +811,7 @@ impl RefComponent for Ingredient {
     }
 }
 
-impl RefComponent for Cookware {
+impl RefComponent for Cookware<ScalableValue> {
     fn modifiers(&mut self) -> &mut Modifiers {
         &mut self.modifiers
     }
@@ -837,18 +841,13 @@ impl RefComponent for Cookware {
     }
 }
 
-fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity, &'a str)> {
+fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<Value>, &'a str)> {
     let Some(caps) = re.captures(text) else { return None; };
 
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(
-        QuantityValue::Fixed {
-            value: Value::Number { value },
-        },
-        Some(unit_text),
-    );
+    let temperature = Quantity::new(Value::Number { value }, Some(unit_text));
 
     let range = caps.get(0).unwrap().range();
     let (before, after) = (&text[..range.start], &text[range.end..]);
