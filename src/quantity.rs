@@ -258,8 +258,8 @@ impl From<f64> for Value {
     }
 }
 
-impl From<RangeInclusive<f64>> for Value {
-    fn from(value: RangeInclusive<f64>) -> Self {
+impl From<ValueRange> for Value {
+    fn from(value: ValueRange) -> Self {
         Self::Range { value }
     }
 }

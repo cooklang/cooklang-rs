@@ -7,6 +7,7 @@ use crate::{
     lexer::T,
     located::Located,
     quantity::Value,
+    quantity::ValueRange,
     span::Span,
     Extensions,
 };
@@ -291,7 +292,7 @@ fn range(
     s: Token,
     e: Token,
     line: &LineParser,
-) -> Result<std::ops::RangeInclusive<f64>, ParserError> {
+) -> Result<ValueRange, ParserError> {
     let start = num(s, line)?;
     let end = num(e, line)?;
     Ok(start..=end)

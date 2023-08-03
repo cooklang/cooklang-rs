@@ -1,6 +1,6 @@
 //! Support for unit conversion
 
-use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use enum_map::EnumMap;
 
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    quantity::{Quantity, QuantityValue, Value},
+    quantity::{Quantity, QuantityValue, Value, ValueRange},
     Recipe,
 };
 
@@ -402,7 +402,7 @@ impl BestConversions {
 #[derive(PartialEq, Clone, Debug)]
 pub enum ConvertValue {
     Number(f64),
-    Range(RangeInclusive<f64>),
+    Range(ValueRange),
 }
 
 /// Input unit for [Converter::convert]
@@ -495,8 +495,8 @@ impl From<f64> for ConvertValue {
     }
 }
 
-impl From<RangeInclusive<f64>> for ConvertValue {
-    fn from(value: RangeInclusive<f64>) -> Self {
+impl From<ValueRange> for ConvertValue {
+    fn from(value: ValueRange) -> Self {
         Self::Range(value)
     }
 }
