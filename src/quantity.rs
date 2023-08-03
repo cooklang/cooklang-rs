@@ -53,7 +53,7 @@ pub enum Value {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct QuantityUnit {
-    text: String,
+    pub text: String,
     #[serde(skip)]
     info: OnceCell<UnitInfo>,
 }
