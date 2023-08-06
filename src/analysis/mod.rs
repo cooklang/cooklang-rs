@@ -82,7 +82,7 @@ pub enum AnalysisWarning {
     #[error("Ignoring unknown special metadata key: {key}")]
     UnknownSpecialMetadataKey { key: Located<String> },
 
-    #[error("Ingoring text in define ingredients mode")]
+    #[error("Ignoring text in define ingredients mode")]
     TextDefiningIngredients { text_span: Span },
 
     #[error("Text value in reference prevents calculating total amount")]
