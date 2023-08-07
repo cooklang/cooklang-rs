@@ -16,15 +16,20 @@ use crate::{
     ast::Modifiers,
     convert::Converter,
     metadata::Metadata,
-    quantity::{Quantity, QuantityAddError, QuantityValue},
-    GroupedQuantity,
+    quantity::{Quantity, QuantityAddError, QuantityValue, ScalableValue, ScaledQuantity},
+    GroupedQuantity, Value,
 };
 
 /// A complete recipe
 ///
-/// A recipe can be [scaled](Self::scale) (only once) and [converted](Self::convert)
+/// The recipe returned from parsing is a [`ScalableRecipe`].
+///
+/// The difference between [`ScalableRecipe`] and [`ScaledRecipe`] is in the
+/// values of the quantities of ingredients, cookware and timers. The parser
+/// returns [`ScalableValue`]s and after scaling, these are converted to regular
+/// [`Value`]s.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Recipe<D = ()> {
+pub struct Recipe<D, V: QuantityValue> {
     /// Recipe name
     pub name: String,
     /// Metadata
@@ -35,21 +40,27 @@ pub struct Recipe<D = ()> {
     /// is the default.
     pub sections: Vec<Section>,
     /// All the ingredients
-    pub ingredients: Vec<Ingredient>,
+    pub ingredients: Vec<Ingredient<V>>,
     /// All the cookware
-    pub cookware: Vec<Cookware>,
+    pub cookware: Vec<Cookware<V>>,
     /// All the timers
-    pub timers: Vec<Timer>,
+    pub timers: Vec<Timer<V>>,
     /// All the inline quantities
-    pub inline_quantities: Vec<Quantity>,
+    pub inline_quantities: Vec<ScaledQuantity>,
     pub(crate) data: D,
 }
+
+/// A recipe before being scaled
+///
+/// Note that this doesn't implement [`Recipe::convert`]. Only scaled recipes
+/// can be converted.
+pub type ScalableRecipe = Recipe<(), ScalableValue>;
 
 /// A recipe after being scaled
 ///
 /// Note that this doesn't implement [`Recipe::scale`]. A recipe can only be
 /// scaled once.
-pub type ScaledRecipe = Recipe<crate::scale::Scaled>;
+pub type ScaledRecipe = Recipe<crate::scale::Scaled, Value>;
 
 /// A section holding steps
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
@@ -119,7 +130,7 @@ pub enum Item {
 
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Ingredient {
+pub struct Ingredient<V: QuantityValue = Value> {
     /// Name
     ///
     /// This can have the form of a path if the ingredient references a recipe.
@@ -127,7 +138,7 @@ pub struct Ingredient {
     /// Alias
     pub alias: Option<String>,
     /// Quantity
-    pub quantity: Option<Quantity>,
+    pub quantity: Option<Quantity<V>>,
     /// Note
     pub note: Option<String>,
     /// How the cookware is related to others
@@ -140,7 +151,7 @@ pub struct Ingredient {
     pub(crate) defined_in_step: bool,
 }
 
-impl Ingredient {
+impl<V: QuantityValue> Ingredient<V> {
     /// Gets the name the ingredient should be displayed with
     pub fn display_name(&self) -> Cow<str> {
         let mut name = Cow::from(&self.name);
@@ -159,14 +170,16 @@ impl Ingredient {
     pub fn modifiers(&self) -> Modifiers {
         self.modifiers
     }
+}
 
+impl Ingredient<Value> {
     /// Calculates the total quantity adding all the quantities from the
     /// references.
     pub fn total_quantity<'a>(
         &'a self,
         all_ingredients: &'a [Self],
         converter: &Converter,
-    ) -> Result<Option<Quantity>, QuantityAddError> {
+    ) -> Result<Option<ScaledQuantity>, QuantityAddError> {
         let mut quantities = self.all_quantities(all_ingredients);
 
         let Some(mut total) = quantities.next().cloned() else { return Ok(None); };
@@ -180,7 +193,7 @@ impl Ingredient {
 
     /// Groups all quantities from itself and it's references (if any).
     /// ```
-    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, QuantityValue, Quantity};
+    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}", "name")
     ///                 .into_output()
@@ -199,7 +212,7 @@ impl Ingredient {
     ///     grouped_flour.total(),
     ///     TotalQuantity::Single(
     ///         Quantity::new(
-    ///             QuantityValue::Fixed { value: 1.1.into() },
+    ///             Value::from(1.1),
     ///             Some("kg".to_string()) // Unit fit to kilograms
     ///         )
     ///     )
@@ -222,7 +235,7 @@ impl Ingredient {
     pub fn all_quantities<'a>(
         &'a self,
         all_ingredients: &'a [Self],
-    ) -> impl Iterator<Item = &Quantity> {
+    ) -> impl Iterator<Item = &ScaledQuantity> {
         std::iter::once(self.quantity.as_ref())
             .chain(
                 self.relation
@@ -237,7 +250,7 @@ impl Ingredient {
 
 /// A recipe cookware item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Cookware {
+pub struct Cookware<V: QuantityValue = Value> {
     /// Name
     pub name: String,
     /// Alias
@@ -245,7 +258,7 @@ pub struct Cookware {
     /// Amount needed
     ///
     /// Note that this is a value, not a quantity, so it doesn't have units.
-    pub quantity: Option<QuantityValue>,
+    pub quantity: Option<V>,
     /// Note
     pub note: Option<String>,
     /// How the cookware is related to others
@@ -253,7 +266,7 @@ pub struct Cookware {
     pub(crate) modifiers: Modifiers,
 }
 
-impl Cookware {
+impl<V: QuantityValue> Cookware<V> {
     /// Gets the name the cookware item should be displayed with
     pub fn display_name(&self) -> &str {
         self.alias.as_ref().unwrap_or(&self.name)
@@ -407,7 +420,7 @@ impl IngredientRelation {
 /// If created from parsing, at least one of the fields is guaranteed to be
 /// [`Some`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Timer {
+pub struct Timer<V: QuantityValue = Value> {
     /// Name
     pub name: Option<String>,
     /// Time quantity
@@ -419,7 +432,7 @@ pub struct Timer {
     ///
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
     /// extension is enabled, this is guaranteed to be [`Some`].
-    pub quantity: Option<Quantity>,
+    pub quantity: Option<Quantity<V>>,
 }
 
 /// A component reference

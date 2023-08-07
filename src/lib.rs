@@ -42,6 +42,13 @@
 //! # assert!(_warnings.is_empty());
 //! # Ok::<(), cooklang::error::CooklangReport>(())
 //! ```
+//!
+//! Recipes can be scaled and converted. But the following applies:
+//! - Parsing returns a [`ScalableRecipe`].
+//! - Only [`ScalableRecipe`] can be [`scale`](ScalableRecipe::scale)d or
+//!   [`default_scale`](ScalableRecipe::default_scale)d **only once** to obtain
+//!   a [`ScaledRecipe`].
+//! - Only [`ScaledRecipe`] can be [`convert`](ScaledRecipe::convert)ed.
 
 #![deny(rustdoc::broken_intra_doc_links)]
 
@@ -89,7 +96,8 @@ pub use located::Located;
 pub use metadata::Metadata;
 pub use model::*;
 pub use quantity::{
-    GroupedQuantity, Quantity, QuantityUnit, QuantityValue, TotalQuantity, UnitInfo, Value,
+    GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
+    TotalQuantity, UnitInfo, Value,
 };
 pub use span::Span;
 
@@ -176,7 +184,7 @@ pub struct CooklangParser {
     converter: Converter,
 }
 
-pub type RecipeResult = PassResult<Recipe, CooklangError, CooklangWarning>;
+pub type RecipeResult = PassResult<ScalableRecipe, CooklangError, CooklangWarning>;
 pub type MetadataResult = PassResult<Metadata, CooklangError, CooklangWarning>;
 
 pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> bool + 'a>;

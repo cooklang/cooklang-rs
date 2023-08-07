@@ -86,7 +86,7 @@ pub struct Ingredient<'a> {
     /// If there are no modifiers, this will be [`Modifiers::empty`] and the
     /// location of where the modifiers would be.
     pub modifiers: Located<Modifiers>,
-    /// Data for [`Modifiers::REF_TO_STEP`] and [`Modifiers::REF_TO_SECTION`].
+    /// Data for intermediate references
     ///
     /// If any of those modifiers is present, this will be.
     pub intermediate_data: Option<Located<IntermediateData>>,
