@@ -11,60 +11,51 @@ use crate::{
 };
 
 use super::{
-    mt, quantity::parse_quantity, token_stream::Token, tokens_span, LineParser, ParserError,
-    ParserWarning,
+    mt, quantity::parse_quantity, token_stream::Token, tokens_span, BlockParser, Event,
+    ParserError, ParserWarning,
 };
 
-pub struct ParsedStep<'input> {
-    pub is_text: bool,
-    pub items: Vec<ast::Item<'input>>,
-}
+pub(crate) fn step<'input>(line: &mut BlockParser<'_, 'input>) {
+    let is_text = line.consume(T![>]).is_some();
 
-pub(crate) fn step<'input>(
-    line: &mut LineParser<'_, 'input>,
-    force_text: bool,
-) -> ParsedStep<'input> {
-    let is_text = line.consume(T![>]).is_some() || force_text;
-
-    let mut items: Vec<ast::Item> = vec![];
+    line.event(Event::StartStep { is_text });
 
     if is_text {
         let start = line.current_offset();
-        let tokens = line.consume_rest();
-        let text = line.text(start, tokens);
-        if !text.is_text_empty() {
-            items.push(ast::Item::Text(text));
+        while !line.rest().is_empty() {
+            let _ = line.consume(T![>]);
+            let tokens = line.consume_while(|t| t != T![newline]);
+            let text = line.text(start, tokens);
+            if !text.is_text_empty() {
+                line.event(Event::Text(text));
+            }
         }
     } else {
         while !line.rest().is_empty() {
-            let start = line.current_offset();
             let component = match line.peek() {
-                T![@] => line
-                    .with_recover(ingredient)
-                    .map(ast::Component::Ingredient),
-                T![#] => line.with_recover(cookware).map(ast::Component::Cookware),
-                T![~] => line.with_recover(timer).map(ast::Component::Timer),
+                T![@] => line.with_recover(ingredient),
+                T![#] => line.with_recover(cookware),
+                T![~] => line.with_recover(timer),
                 _ => None,
             };
-            if let Some(component) = component {
-                let end = line.current_offset();
-                items.push(ast::Item::Component(Box::new(Located::new(
-                    component,
-                    Span::new(start, end),
-                ))));
+            if let Some(ev) = component {
+                line.event(ev)
             } else {
+                let start = line.current_offset();
                 let tokens_start = line.tokens_consumed();
                 line.bump_any(); // consume the first token, this avoids entering an infinite loop
                 line.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
                 let tokens_end = line.tokens_consumed();
                 let tokens = &line.tokens()[tokens_start..tokens_end];
-
-                items.push(ast::Item::Text(line.text(start, tokens)));
+                let text = line.text(start, tokens);
+                if !text.fragments().is_empty() {
+                    line.event(Event::Text(text));
+                }
             }
         }
     }
 
-    ParsedStep { is_text, items }
+    line.event(Event::EndStep { is_text });
 }
 
 struct Body<'t> {
@@ -73,7 +64,7 @@ struct Body<'t> {
     quantity: Option<&'t [Token]>,
 }
 
-fn comp_body<'t>(line: &mut LineParser<'t, '_>) -> Option<Body<'t>> {
+fn comp_body<'t>(line: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
     line.with_recover(|line| {
         let name = line.until(|t| matches!(t, T!['{'] | T![@] | T![#] | T![~]))?;
         let close_span_start = line.consume(T!['{'])?.span.start();
@@ -112,7 +103,7 @@ fn comp_body<'t>(line: &mut LineParser<'t, '_>) -> Option<Body<'t>> {
     })
 }
 
-fn modifiers<'t>(line: &mut LineParser<'t, '_>) -> &'t [Token] {
+fn modifiers<'t>(line: &mut BlockParser<'t, '_>) -> &'t [Token] {
     if !line.extension(Extensions::COMPONENT_MODIFIERS) {
         return &[];
     }
@@ -140,7 +131,7 @@ fn modifiers<'t>(line: &mut LineParser<'t, '_>) -> &'t [Token] {
     &line.tokens()[start..line.current]
 }
 
-fn note<'input>(line: &mut LineParser<'_, 'input>) -> Option<Text<'input>> {
+fn note<'input>(line: &mut BlockParser<'_, 'input>) -> Option<Text<'input>> {
     line.extension(Extensions::COMPONENT_NOTE)
         .then(|| {
             line.with_recover(|line| {
@@ -161,7 +152,7 @@ struct ParsedModifiers {
 
 // Parsing is defered so there are no errors for components that doesn't support modifiers
 fn parse_modifiers(
-    line: &mut LineParser,
+    line: &mut BlockParser,
     modifiers_tokens: &[Token],
     modifiers_pos: usize,
 ) -> ParsedModifiers {
@@ -211,7 +202,7 @@ fn parse_modifiers(
 }
 
 fn parse_intermediate_ref_data(
-    line: &mut LineParser,
+    line: &mut BlockParser,
     tokens: &mut std::slice::Iter<Token>,
 ) -> Option<Located<IntermediateData>> {
     use IntermediateRefMode::*;
@@ -321,7 +312,7 @@ fn parse_intermediate_ref_data(
 
 fn parse_alias<'input>(
     container: &'static str,
-    line: &mut LineParser<'_, 'input>,
+    line: &mut BlockParser<'_, 'input>,
     tokens: &[Token],
     name_offset: usize,
 ) -> (Text<'input>, Option<Text<'input>>) {
@@ -371,14 +362,16 @@ const INGREDIENT: &str = "ingredient";
 const COOKWARE: &str = "cookware";
 const TIMER: &str = "timer";
 
-fn ingredient<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Ingredient<'input>> {
+fn ingredient<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
+    let start = line.current_offset();
     line.consume(T![@])?;
     let modifiers_pos = line.current_offset();
     let modifiers_tokens = modifiers(line);
     let name_offset = line.current_offset();
     let body = comp_body(line)?;
     let note = note(line);
+    let end = line.current_offset();
 
     // Build text(s) and checks
     let (name, alias) = parse_alias(INGREDIENT, line, body.name, name_offset);
@@ -402,24 +395,29 @@ fn ingredient<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Ingredie
         parse_quantity(tokens, line.input, line.extensions, &mut line.context).quantity
     });
 
-    Some(ast::Ingredient {
-        modifiers,
-        intermediate_data,
-        name,
-        alias,
-        quantity,
-        note,
-    })
+    Some(Event::Ingredient(Located::new(
+        ast::Ingredient {
+            modifiers,
+            intermediate_data,
+            name,
+            alias,
+            quantity,
+            note,
+        },
+        start..end,
+    )))
 }
 
-fn cookware<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Cookware<'input>> {
+fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
+    let start = line.current_offset();
     line.consume(T![#])?;
     let modifiers_pos = line.current_offset();
     let modifiers_tokens = modifiers(line);
     let name_offset = line.current_offset();
     let body = comp_body(line)?;
     let note = note(line);
+    let end = line.current_offset();
 
     // Errors
     let (name, alias) = parse_alias(COOKWARE, line, body.name, name_offset);
@@ -480,21 +478,26 @@ fn cookware<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Cookware<'
         });
     }
 
-    Some(ast::Cookware {
-        name,
-        alias,
-        quantity,
-        modifiers,
-        note,
-    })
+    Some(Event::Cookware(Located::new(
+        ast::Cookware {
+            name,
+            alias,
+            quantity,
+            modifiers,
+            note,
+        },
+        start..end,
+    )))
 }
 
-fn timer<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Timer<'input>> {
+fn timer<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
+    let start = line.current_offset();
     line.consume(T![~])?;
     let modifiers_tokens = modifiers(line);
     let name_offset = line.current_offset();
     let body = comp_body(line)?;
+    let end = line.current_offset();
 
     // Errors
     check_modifiers(line, modifiers_tokens, TIMER);
@@ -557,10 +560,13 @@ fn timer<'input>(line: &mut LineParser<'_, 'input>) -> Option<ast::Timer<'input>
         quantity = Some(Recover::recover()); // could be also name, but whatever
     }
 
-    Some(ast::Timer { name, quantity })
+    Some(Event::Timer(Located::new(
+        ast::Timer { name, quantity },
+        start..end,
+    )))
 }
 
-fn check_modifiers(line: &mut LineParser, modifiers_tokens: &[Token], container: &'static str) {
+fn check_modifiers(line: &mut BlockParser, modifiers_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
     assert_ne!(container, COOKWARE);
     if !modifiers_tokens.is_empty() {
@@ -574,7 +580,7 @@ fn check_modifiers(line: &mut LineParser, modifiers_tokens: &[Token], container:
 }
 
 fn check_intermediate_data(
-    line: &mut LineParser,
+    line: &mut BlockParser,
     parsed_modifiers: ParsedModifiers,
     container: &'static str,
 ) -> Located<Modifiers> {
@@ -590,7 +596,7 @@ fn check_intermediate_data(
     parsed_modifiers.flags
 }
 
-fn check_alias(line: &mut LineParser, name_tokens: &[Token], container: &'static str) {
+fn check_alias(line: &mut BlockParser, name_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
     if let Some(sep) = name_tokens.iter().position(|t| t.kind == T![|]) {
         let to_remove = Span::new(
@@ -606,7 +612,7 @@ fn check_alias(line: &mut LineParser, name_tokens: &[Token], container: &'static
     }
 }
 
-fn check_note(line: &mut LineParser, container: &'static str) {
+fn check_note(line: &mut BlockParser, container: &'static str) {
     assert_ne!(container, INGREDIENT);
     if !line.extension(Extensions::COMPONENT_NOTE) {
         return;
@@ -631,7 +637,7 @@ fn check_note(line: &mut LineParser, container: &'static str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ast::Item, parser::token_stream::TokenStream};
+    use crate::parser::token_stream::TokenStream;
     use test_case::test_case;
 
     macro_rules! t {
@@ -641,19 +647,18 @@ mod tests {
         ($input:expr, $extensions:expr) => {{
             let input = $input;
             let tokens = TokenStream::new(input).collect::<Vec<_>>();
-            let mut line = LineParser::new(0, &tokens, input, $extensions);
-            let r = step(&mut line, false);
-            (r, line.finish())
+            let mut line = BlockParser::new(0, &tokens, input, $extensions);
+            step(&mut line);
+            let (events, ctx) = line.finish();
+            let [Event::StartStep {..}, items @ .., Event::EndStep { .. }] = events.as_slice() else { panic!() };
+            (Vec::from(items), ctx)
         }};
     }
 
     macro_rules! igr {
         ($item:expr) => {
             match $item {
-                Item::Component(comp) => comp.clone().map(|comp| match comp {
-                    ast::Component::Ingredient(igr) => igr,
-                    _ => panic!(),
-                }),
+                Event::Ingredient(igr) => igr,
                 _ => panic!(),
             }
         };
@@ -693,7 +698,7 @@ mod tests {
     ); "section index")]
     fn intermediate_ref(input: &str) -> (Located<Modifiers>, Located<IntermediateData>) {
         let (s, ctx) = t!(input);
-        let igr = igr!(&s.items[0]);
+        let igr = igr!(&s[0]);
         assert!(ctx.is_empty());
         (igr.modifiers, igr.intermediate_data.unwrap())
     }

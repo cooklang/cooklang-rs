@@ -28,6 +28,7 @@ impl<'a> Text<'a> {
         }
     }
 
+    #[cfg(test)] // only used in tests
     pub(crate) fn from_str(s: &'a str, offset: usize) -> Self {
         let mut t = Self::empty(offset);
         t.append_fragment(TextFragment::new(s, offset));
@@ -45,23 +46,6 @@ impl<'a> Text<'a> {
         self.append_fragment(TextFragment::new(s, offset))
     }
 
-    pub(crate) fn trim_fragments_start(&mut self) {
-        if let Some(last) = self.fragments.first_mut() {
-            last.trim_start();
-            if last.text().is_empty() {
-                self.fragments.remove(0);
-            }
-        }
-    }
-    pub(crate) fn trim_fragments_end(&mut self) {
-        if let Some(last) = self.fragments.last_mut() {
-            last.trim_end();
-            if last.text().is_empty() {
-                self.fragments.pop();
-            }
-        }
-    }
-
     /// Get the span of the original input of the text
     ///
     /// If there are skipped fragments in between, these fragments will be included
@@ -77,23 +61,47 @@ impl<'a> Text<'a> {
     }
 
     /// Get the text of all the fragments concatenated
+    ///
+    /// A soft break is always rendered as a ascii whitespace.
     pub fn text(&self) -> Cow<'a, str> {
         // Contiguous text fragments may be joined together without a copy.
         // but most Text instances will only be one fragment anyways
 
         let mut s = Cow::default();
         for f in &self.fragments {
-            s += f.text;
+            let text = match f.kind {
+                TextFragmentKind::Text => f.text,
+                TextFragmentKind::SoftBreak => " ",
+            };
+            s += text;
         }
         s
     }
 
     /// Get the text trimmed (start and end)
-    pub fn text_trimmed(&self) -> Cow<'a, str> {
+    pub fn text_outer_trimmed(&self) -> Cow<'a, str> {
         match self.text() {
             Cow::Borrowed(s) => Cow::Borrowed(s.trim()),
             Cow::Owned(s) => Cow::Owned(s.trim().to_owned()),
         }
+    }
+
+    /// Get the text trimmed from whitespaces before, after and in between words
+    pub fn text_trimmed(&self) -> Cow<'a, str> {
+        let t = self.text_outer_trimmed();
+
+        if !t.contains("  ") {
+            return t;
+        }
+
+        let mut t = t.into_owned();
+        let mut prev = ' ';
+        t.retain(|c| {
+            let r = c != ' ' || prev != ' ';
+            prev = c;
+            r
+        });
+        Cow::from(t)
     }
 
     /// Checks that the text is not empty or blank, i.e. whitespace does not count
@@ -143,11 +151,30 @@ impl From<Text<'_>> for Span {
 pub struct TextFragment<'a> {
     text: &'a str,
     offset: usize,
+    kind: TextFragmentKind,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+pub enum TextFragmentKind {
+    Text,
+    SoftBreak,
 }
 
 impl<'a> TextFragment<'a> {
     pub(crate) fn new(text: &'a str, offset: usize) -> Self {
-        Self { text, offset }
+        Self {
+            text,
+            offset,
+            kind: TextFragmentKind::Text,
+        }
+    }
+
+    pub(crate) fn soft_break(text: &'a str, offset: usize) -> Self {
+        Self {
+            text,
+            offset,
+            kind: TextFragmentKind::SoftBreak,
+        }
     }
 
     /// Get the inner text
@@ -169,19 +196,6 @@ impl<'a> TextFragment<'a> {
     pub fn end(&self) -> usize {
         self.offset + self.text.len()
     }
-
-    /// Trims start adjusting the span
-    pub(crate) fn trim_start(&mut self) {
-        let old_len = self.text.len();
-        self.text = self.text.trim_start();
-        let new_len = self.text.len();
-        let remove_count = old_len - new_len;
-        self.offset += remove_count;
-    }
-    /// Trim end adjusting the span
-    pub(crate) fn trim_end(&mut self) {
-        self.text = self.text.trim_end();
-    }
 }
 
 impl PartialEq for TextFragment<'_> {
@@ -192,26 +206,14 @@ impl PartialEq for TextFragment<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::TextFragment;
+    use super::Text;
     use test_case::test_case;
 
-    #[test_case(TextFragment::new("text", 0) => TextFragment::new("text", 0); "nothing")]
-    #[test_case(TextFragment::new("text", 14) => TextFragment::new("text", 14); "no trim offset")]
-    #[test_case(TextFragment::new("  text", 0) => TextFragment::new("text", 2); "trim begin")]
-    #[test_case(TextFragment::new("  text", 14) => TextFragment::new("text", 16); "trim middle")]
-    #[test_case(TextFragment::new("text  ", 0) => TextFragment::new("text  ", 0); "no trim end")]
-    fn fragment_trim_start(mut s: TextFragment) -> TextFragment {
-        s.trim_start();
-        s
-    }
-
-    #[test_case(TextFragment::new("text", 0) => TextFragment::new("text", 0); "nothing")]
-    #[test_case(TextFragment::new("text", 14) => TextFragment::new("text", 14); "no trim offset")]
-    #[test_case(TextFragment::new("text  ", 0) => TextFragment::new("text", 0); "trim begin")]
-    #[test_case(TextFragment::new("text  ", 14) => TextFragment::new("text", 14); "trim middle")]
-    #[test_case(TextFragment::new("  text  ", 0) => TextFragment::new("  text", 0); "no trim start")]
-    fn fragment_trim_end(mut s: TextFragment) -> TextFragment {
-        s.trim_end();
-        s
+    #[test_case("a b c" => "a b c"; "no trim")]
+    #[test_case("  a b c  " => "a b c"; "outer trim")]
+    #[test_case("  a    b      c  " => "a b c"; "inner trim")]
+    fn trim_whitespace(t: &str) -> String {
+        let t = Text::from_str(t, 0);
+        t.text_trimmed().into_owned()
     }
 }

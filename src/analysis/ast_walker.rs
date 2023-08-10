@@ -24,7 +24,7 @@ pub struct RecipeContent {
     pub inline_quantities: Vec<Quantity<Value>>,
 }
 
-#[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis", fields(ast_lines = ast.lines.len()))]
+#[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis", fields(ast_lines = ast.blocks.len()))]
 pub fn parse_ast<'a>(
     ast: ast::Ast<'a>,
     extensions: Extensions,
@@ -101,10 +101,10 @@ crate::context::impl_deref_context!(Walker<'_, '_>, AnalysisError, AnalysisWarni
 
 impl<'a, 'r> Walker<'a, 'r> {
     fn ast(mut self, ast: ast::Ast<'a>) -> AnalysisResult {
-        for line in ast.lines {
+        for line in ast.blocks {
             match line {
-                ast::Line::Metadata { key, value } => self.metadata(key, value),
-                ast::Line::Step { is_text, items } => {
+                ast::Block::Metadata { key, value } => self.metadata(key, value),
+                ast::Block::Step { is_text, items } => {
                     let new_step = self.step(is_text, items);
 
                     // If define mode is ingredients, don't add the
@@ -117,7 +117,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                         self.current_section.steps.push(new_step);
                     }
                 }
-                ast::Line::Section { name } => {
+                ast::Block::Section { name } => {
                     self.step_counter = 1;
                     if !self.current_section.is_empty() {
                         self.content.sections.push(self.current_section);
@@ -230,17 +230,32 @@ impl<'a, 'r> Walker<'a, 'r> {
                         value: t.into_owned(),
                     });
                 }
-                ast::Item::Component(c) => {
+
+                ast::Item::Ingredient(..) | ast::Item::Cookware(..) | ast::Item::Timer(..) => {
                     if is_text {
                         self.warn(AnalysisWarning::ComponentInTextMode {
-                            component_span: c.span(),
+                            component_span: item.span(),
                         });
                         continue; // ignore component
                     }
-                    let new_component = self.component(c);
+                    let new_component = match item {
+                        ast::Item::Ingredient(i) => Component {
+                            kind: ComponentKind::IngredientKind,
+                            index: self.ingredient(i),
+                        },
+                        ast::Item::Cookware(c) => Component {
+                            kind: ComponentKind::CookwareKind,
+                            index: self.cookware(c),
+                        },
+                        ast::Item::Timer(t) => Component {
+                            kind: ComponentKind::TimerKind,
+                            index: self.timer(t),
+                        },
+                        _ => unreachable!(),
+                    };
                     new_items.push(Item::ItemComponent {
                         value: new_component,
-                    })
+                    });
                 }
             };
         }
@@ -250,25 +265,6 @@ impl<'a, 'r> Walker<'a, 'r> {
         Step {
             items: new_items,
             number,
-        }
-    }
-
-    fn component(&mut self, component: Box<Located<ast::Component<'a>>>) -> Component {
-        let (inner, span) = component.take_pair();
-
-        match inner {
-            ast::Component::Ingredient(i) => Component {
-                kind: ComponentKind::IngredientKind,
-                index: self.ingredient(Located::new(i, span)),
-            },
-            ast::Component::Cookware(c) => Component {
-                kind: ComponentKind::CookwareKind,
-                index: self.cookware(Located::new(c, span)),
-            },
-            ast::Component::Timer(t) => Component {
-                kind: ComponentKind::TimerKind,
-                index: self.timer(Located::new(t, span)),
-            },
         }
     }
 

@@ -1,10 +1,8 @@
-use crate::{ast, lexer::T};
+use crate::lexer::T;
 
-use super::LineParser;
+use super::{BlockParser, Event};
 
-pub(crate) fn section<'input>(
-    line: &mut LineParser<'_, 'input>,
-) -> Option<Option<ast::Text<'input>>> {
+pub(crate) fn section<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     line.consume(T![=])?;
     line.consume_while(|t| t == T![=]);
     let name_pos = line.current_offset();
@@ -22,14 +20,14 @@ pub(crate) fn section<'input>(
     } else {
         Some(name)
     };
-    Some(name)
+    Some(Event::Section { name })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        parser::{token_stream::TokenStream, LineParser},
+        parser::{token_stream::TokenStream, BlockParser},
         span::Span,
         Extensions,
     };
@@ -57,9 +55,9 @@ mod tests {
     #[test_case("== section -- and a comment" => text!(" section "; 2) ; "in between line comment")]
     fn test_section(input: &'static str) -> Option<(String, Span)> {
         let tokens = TokenStream::new(input).collect::<Vec<_>>();
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        section(&mut line)
-            .expect("failed to parse section")
-            .map(|text| (text.text().into_owned(), text.span()))
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
+        let event = section(&mut line).expect("failed to parse section");
+        let Event::Section { name } = event else { panic!() };
+        name.map(|text| (text.text().into_owned(), text.span()))
     }
 }

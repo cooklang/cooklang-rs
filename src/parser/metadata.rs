@@ -1,15 +1,8 @@
-use crate::{ast, error::label, lexer::T};
+use crate::{error::label, lexer::T};
 
-use super::{LineParser, ParserError, ParserWarning};
+use super::{BlockParser, Event, ParserError, ParserWarning};
 
-pub struct MetadataEntry<'input> {
-    pub key: ast::Text<'input>,
-    pub value: ast::Text<'input>,
-}
-
-pub(crate) fn metadata_entry<'input>(
-    line: &mut LineParser<'_, 'input>,
-) -> Option<MetadataEntry<'input>> {
+pub(crate) fn metadata_entry<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
     line.consume(T![meta])?;
     let key_pos = line.current_offset();
@@ -35,16 +28,14 @@ pub(crate) fn metadata_entry<'input>(
         });
     }
 
-    let entry = MetadataEntry { key, value };
-
-    Some(entry)
+    Some(Event::Metadata { key, value })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        parser::{token_stream::tokens, LineParser},
+        parser::{token_stream::tokens, BlockParser},
         span::Span,
         Extensions,
     };
@@ -53,13 +44,14 @@ mod tests {
     fn basic_metadata_entry() {
         let input = ">> key: value";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.1, word.5];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
         let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text(), " key");
-        assert_eq!(entry.key.span(), Span::new(2, 6));
-        assert_eq!(entry.value.text(), " value");
-        assert_eq!(entry.value.span(), Span::new(7, 13));
+        let (_events, context) = line.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text(), " key");
+        assert_eq!(key.span(), Span::new(2, 6));
+        assert_eq!(value.text(), " value");
+        assert_eq!(value.span(), Span::new(7, 13));
         assert!(context.errors.is_empty());
         assert!(context.warnings.is_empty());
     }
@@ -68,12 +60,13 @@ mod tests {
     fn no_key_metadata_entry() {
         let input = ">>: value";
         let tokens = tokens![meta.2, :.1, ws.1, word.5];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
         let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text(), "");
-        assert_eq!(entry.key.span(), Span::pos(2));
-        assert_eq!(entry.value.text_trimmed(), "value");
+        let (_events, context) = line.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text(), "");
+        assert_eq!(key.span(), Span::pos(2));
+        assert_eq!(value.text_trimmed(), "value");
         assert_eq!(context.errors.len(), 1);
         assert!(context.warnings.is_empty());
     }
@@ -82,23 +75,25 @@ mod tests {
     fn no_val_metadata_entry() {
         let input = ">> key:";
         let tokens = tokens![meta.2, ws.1, word.3, :.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
         let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text_trimmed(), "key");
-        assert_eq!(entry.value.text(), "");
-        assert_eq!(entry.value.span(), Span::pos(7));
+        let (_events, context) = line.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text_trimmed(), "key");
+        assert_eq!(value.text(), "");
+        assert_eq!(value.span(), Span::pos(7));
         assert!(context.errors.is_empty());
         assert_eq!(context.warnings.len(), 1);
 
         let input = ">> key:  ";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.2];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
         let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text_trimmed(), "key");
-        assert_eq!(entry.value.text(), "  ");
-        assert_eq!(entry.value.span(), Span::new(7, 9));
+        let (_events, context) = line.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text_trimmed(), "key");
+        assert_eq!(value.text(), "  ");
+        assert_eq!(value.span(), Span::new(7, 9));
         assert!(context.errors.is_empty());
         assert_eq!(context.warnings.len(), 1);
     }
@@ -107,19 +102,20 @@ mod tests {
     fn empty_metadata_entry() {
         let input = ">>:";
         let tokens = tokens![meta.2, :.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
         let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert!(entry.key.text().is_empty());
-        assert_eq!(entry.key.span(), Span::pos(2));
-        assert!(entry.value.text().is_empty());
-        assert_eq!(entry.value.span(), Span::pos(3));
+        let (_events, context) = line.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert!(key.text().is_empty());
+        assert_eq!(key.span(), Span::pos(2));
+        assert!(value.text().is_empty());
+        assert_eq!(value.span(), Span::pos(3));
         assert_eq!(context.errors.len(), 1);
         assert!(context.warnings.is_empty()); // no warning if error generated
 
         let input = ">> ";
         let tokens = tokens![meta.2, ws.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
         assert!(metadata_entry(&mut line).is_none())
     }
 }

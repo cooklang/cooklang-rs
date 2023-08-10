@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 /// element back to the source file.
 #[derive(Debug, Serialize, Clone)]
 pub struct Ast<'a> {
-    pub lines: Vec<Line<'a>>,
+    pub blocks: Vec<Block<'a>>,
 }
 
 /// Lines that form a recipe.
@@ -27,7 +27,7 @@ pub struct Ast<'a> {
 /// multiple lines when [`MULTILINE_STEPS`](crate::Extensions::MULTILINE_STEPS)
 /// is enabled.
 #[derive(Debug, Serialize, PartialEq, Clone)]
-pub enum Line<'a> {
+pub enum Block<'a> {
     /// Metadata entry
     Metadata { key: Text<'a>, value: Text<'a> },
     /// Recipe step
@@ -48,13 +48,14 @@ pub enum Line<'a> {
     Section { name: Option<Text<'a>> },
 }
 
-/// An item of a [`Line::Step`].
+/// An item of a [`Block::Step`].
 #[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum Item<'a> {
     /// Plain text
     Text(Text<'a>),
-    /// A [`Component`]
-    Component(Box<Located<Component<'a>>>),
+    Ingredient(Located<Ingredient<'a>>),
+    Cookware(Located<Cookware<'a>>),
+    Timer(Located<Timer<'a>>),
 }
 
 impl Item<'_> {
@@ -62,20 +63,11 @@ impl Item<'_> {
     pub fn span(&self) -> Span {
         match self {
             Item::Text(t) => t.span(),
-            Item::Component(c) => c.span(),
+            Item::Ingredient(c) => c.span(),
+            Item::Cookware(c) => c.span(),
+            Item::Timer(c) => c.span(),
         }
     }
-}
-
-/// Step components
-///
-/// Components are the rich part of a step. These are the ingredients, cookware
-/// and timers.
-#[derive(Debug, Serialize, PartialEq, Clone)]
-pub enum Component<'a> {
-    Ingredient(Ingredient<'a>),
-    Cookware(Cookware<'a>),
-    Timer(Timer<'a>),
 }
 
 /// Ingredient [`Component`]

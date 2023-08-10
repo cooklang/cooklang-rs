@@ -11,7 +11,7 @@ use crate::{
     Extensions,
 };
 
-use super::{mt, token_stream::Token, tokens_span, LineParser, ParserError, ParserWarning};
+use super::{mt, token_stream::Token, tokens_span, BlockParser, ParserError, ParserWarning};
 
 pub struct ParsedQuantity<'a> {
     pub quantity: Located<ast::Quantity<'a>>,
@@ -29,7 +29,7 @@ pub fn parse_quantity<'input>(
 ) -> ParsedQuantity<'input> {
     assert!(!tokens.is_empty(), "empty quantity tokens. this is a bug.");
 
-    let mut line = LineParser::new(
+    let mut line = BlockParser::new(
         tokens.first().unwrap().span.start(),
         tokens,
         input,
@@ -143,7 +143,7 @@ pub fn parse_quantity<'input>(
         }
     };
 
-    context.append(&mut line.finish());
+    context.append(&mut line.finish().1);
 
     ParsedQuantity {
         quantity: Located::new(ast::Quantity { value, unit }, tokens_span(tokens)),
@@ -151,7 +151,7 @@ pub fn parse_quantity<'input>(
     }
 }
 
-fn many_values(line: &mut LineParser) -> ast::QuantityValue {
+fn many_values(line: &mut BlockParser) -> ast::QuantityValue {
     let mut values: Vec<Located<Value>> = vec![];
     let mut auto_scale = None;
 
@@ -199,7 +199,7 @@ fn many_values(line: &mut LineParser) -> ast::QuantityValue {
     }
 }
 
-fn parse_value(tokens: &[Token], line: &mut LineParser) -> Located<Value> {
+fn parse_value(tokens: &[Token], line: &mut BlockParser) -> Located<Value> {
     let start = tokens
         .first()
         .map(|t| t.span.start())
@@ -220,7 +220,7 @@ fn parse_value(tokens: &[Token], line: &mut LineParser) -> Located<Value> {
     Located::new(val, span)
 }
 
-fn text_value(tokens: &[Token], offset: usize, line: &mut LineParser) -> Value {
+fn text_value(tokens: &[Token], offset: usize, line: &mut BlockParser) -> Value {
     let text = line.text(offset, tokens);
     if text.is_text_empty() {
         line.error(ParserError::ComponentPartInvalid {
@@ -236,7 +236,7 @@ fn text_value(tokens: &[Token], offset: usize, line: &mut LineParser) -> Value {
     }
 }
 
-fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, ParserError>> {
+fn numeric_value(tokens: &[Token], line: &BlockParser) -> Option<Result<Value, ParserError>> {
     // All the numeric values will be at most 4 tokens
     let filtered_tokens: SmallVec<[Token; 4]> = tokens
         .iter()
@@ -269,13 +269,13 @@ fn numeric_value(tokens: &[Token], line: &LineParser) -> Option<Result<Value, Pa
     Some(r)
 }
 
-fn mixed_num(i: Token, a: Token, b: Token, line: &LineParser) -> Result<f64, ParserError> {
+fn mixed_num(i: Token, a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
     let i = int(i, line)?;
     let f = frac(a, b, line)?;
     Ok(i + f)
 }
 
-fn frac(a: Token, b: Token, line: &LineParser) -> Result<f64, ParserError> {
+fn frac(a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
     let span = Span::new(a.span.start(), b.span.end());
     let a = int(a, line)?;
     let b = int(b, line)?;
@@ -290,14 +290,14 @@ fn frac(a: Token, b: Token, line: &LineParser) -> Result<f64, ParserError> {
 fn range(
     s: Token,
     e: Token,
-    line: &LineParser,
+    line: &BlockParser,
 ) -> Result<std::ops::RangeInclusive<f64>, ParserError> {
     let start = num(s, line)?;
     let end = num(e, line)?;
     Ok(start..=end)
 }
 
-fn num(t: Token, line: &LineParser) -> Result<f64, ParserError> {
+fn num(t: Token, line: &BlockParser) -> Result<f64, ParserError> {
     match t.kind {
         T![int] => int(t, line),
         T![float] => float(t, line),
@@ -305,7 +305,7 @@ fn num(t: Token, line: &LineParser) -> Result<f64, ParserError> {
     }
 }
 
-fn int(tok: Token, line: &LineParser) -> Result<f64, ParserError> {
+fn int(tok: Token, line: &BlockParser) -> Result<f64, ParserError> {
     assert_eq!(tok.kind, T![int]);
     line.as_str(tok)
         .parse::<u32>()
@@ -316,7 +316,7 @@ fn int(tok: Token, line: &LineParser) -> Result<f64, ParserError> {
         })
 }
 
-fn float(tok: Token, line: &LineParser) -> Result<f64, ParserError> {
+fn float(tok: Token, line: &BlockParser) -> Result<f64, ParserError> {
     assert_eq!(tok.kind, T![float]);
     line.as_str(tok)
         .parse::<f64>()
