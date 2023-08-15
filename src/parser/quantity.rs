@@ -1,109 +1,52 @@
 use smallvec::SmallVec;
 
 use crate::{
-    ast,
-    context::{Context, Recover},
-    error::label,
-    lexer::T,
-    located::Located,
-    quantity::Value,
-    span::Span,
+    ast, context::Recover, error::label, lexer::T, located::Located, quantity::Value, span::Span,
     Extensions,
 };
 
-use super::{mt, token_stream::Token, tokens_span, BlockParser, ParserError, ParserWarning};
+use super::{mt, token_stream::Token, tokens_span, BlockParser, ParserError};
 
 pub struct ParsedQuantity<'a> {
     pub quantity: Located<ast::Quantity<'a>>,
     pub unit_separator: Option<Span>,
 }
 
+/// "parent" block parser. This is just to emit error/warnings and get the text. No tokens will be consumed
 /// `tokens` inside '{' '}'. must not be empty
-/// whole input
-/// enabled extensions
-pub fn parse_quantity<'input>(
+pub(crate) fn parse_quantity<'input>(
+    bp: &mut BlockParser<'_, 'input>,
     tokens: &[Token],
-    input: &'input str,
-    extensions: Extensions,
-    context: &mut Context<ParserError, ParserWarning>,
 ) -> ParsedQuantity<'input> {
     assert!(!tokens.is_empty(), "empty quantity tokens. this is a bug.");
 
-    let mut line = BlockParser::new(
+    // create an insolated sub-block for the quantity tokens
+    let mut bp2 = BlockParser::new(
         tokens.first().unwrap().span.start(),
         tokens,
-        input,
-        extensions,
+        bp.input,
+        bp.extensions,
     );
 
-    if line.extension(Extensions::ADVANCED_UNITS)
-        && !tokens
-            .iter()
-            .any(|t| matches!(t.kind, T![|] | T![*] | T![%]))
-    {
-        if let Some((value, unit)) = line.with_recover(|line| {
-            line.ws_comments();
-            let value_tokens = line.consume_while(|t| !matches!(t, T![word]));
+    let advanced = bp2
+        .extension(Extensions::ADVANCED_UNITS)
+        .then(|| bp2.with_recover(parse_advanced_quantity))
+        .flatten();
+    let quantity = advanced.unwrap_or_else(|| parse_regular_quantity(&mut bp2));
 
-            if value_tokens.is_empty() || value_tokens.last().unwrap().kind != T![ws] {
-                return None;
-            }
+    bp.events.append(&mut bp2.events);
 
-            let value_tokens = {
-                // beginning already trimmed
-                let end_pos = value_tokens
-                    .iter()
-                    .rposition(|t| !matches!(t.kind, T![ws] | T![block comment]))
-                    .unwrap(); // ws_comments were already cosumed and then checked non empty
-                &value_tokens[..=end_pos]
-            };
+    quantity
+}
 
-            let value_span = {
-                let start = value_tokens.first().unwrap().span.start();
-                let end = value_tokens.last().unwrap().span.end();
-                Span::new(start, end)
-            };
-
-            let result = numeric_value(value_tokens, line)?;
-            let value = match result {
-                Ok(value) => value,
-                Err(err) => {
-                    line.error(err);
-                    Value::recover()
-                }
-            };
-            let value = Located::new(value, value_span);
-
-            let unit = line.consume_rest();
-            if unit.is_empty() {
-                return None;
-            }
-            let unit = line.text(unit.first().unwrap().span.start(), unit);
-            Some((value, unit))
-        }) {
-            return ParsedQuantity {
-                quantity: Located::new(
-                    ast::Quantity {
-                        value: ast::QuantityValue::Single {
-                            value,
-                            auto_scale: None,
-                        },
-                        unit: Some(unit),
-                    },
-                    tokens_span(tokens),
-                ),
-                unit_separator: None,
-            };
-        }
-    }
-
-    let mut value = many_values(&mut line);
+fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i> {
+    let mut value = many_values(bp);
     let mut unit_separator = None;
-    let unit = match line.peek() {
+    let unit = match bp.peek() {
         T![%] => {
-            let sep = line.bump_any();
+            let sep = bp.bump_any();
             unit_separator = Some(sep.span);
-            let unit = line.consume_rest();
+            let unit = bp.consume_rest();
             if unit
                 .iter()
                 .all(|t| matches!(t.kind, T![ws] | T![block comment]))
@@ -113,7 +56,7 @@ pub fn parse_quantity<'input>(
                 } else {
                     Span::new(sep.span.start(), unit.last().unwrap().span.end())
                 };
-                line.error(ParserError::ComponentPartInvalid {
+                bp.error(ParserError::ComponentPartInvalid {
                     container: "quantity",
                     what: "unit",
                     reason: "is empty",
@@ -125,13 +68,13 @@ pub fn parse_quantity<'input>(
                 });
                 None
             } else {
-                Some(line.text(sep.span.end(), unit))
+                Some(bp.text(sep.span.end(), unit))
             }
         }
         T![eof] => None,
         _ => {
-            line.consume_rest();
-            let text = line.text(line.tokens().first().unwrap().span.start(), line.tokens());
+            bp.consume_rest();
+            let text = bp.text(bp.tokens().first().unwrap().span.start(), bp.tokens());
             let text_val = Value::Text {
                 value: text.text_trimmed().into_owned(),
             };
@@ -143,32 +86,91 @@ pub fn parse_quantity<'input>(
         }
     };
 
-    context.append(&mut line.finish().1);
-
     ParsedQuantity {
-        quantity: Located::new(ast::Quantity { value, unit }, tokens_span(tokens)),
+        quantity: Located::new(ast::Quantity { value, unit }, tokens_span(bp.tokens())),
         unit_separator,
     }
 }
 
-fn many_values(line: &mut BlockParser) -> ast::QuantityValue {
+fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQuantity<'i>> {
+    if bp
+        .tokens()
+        .iter()
+        .any(|t| matches!(t.kind, T![|] | T![*] | T![%]))
+    {
+        return None;
+    }
+
+    bp.ws_comments();
+    let value_tokens = bp.consume_while(|t| !matches!(t, T![word]));
+
+    if value_tokens.is_empty() || value_tokens.last().unwrap().kind != T![ws] {
+        return None;
+    }
+
+    let value_tokens = {
+        // beginning already trimmed
+        let end_pos = value_tokens
+            .iter()
+            .rposition(|t| !matches!(t.kind, T![ws] | T![block comment]))
+            .unwrap(); // ws_comments were already cosumed and then checked non empty
+        &value_tokens[..=end_pos]
+    };
+
+    let value_span = {
+        let start = value_tokens.first().unwrap().span.start();
+        let end = value_tokens.last().unwrap().span.end();
+        Span::new(start, end)
+    };
+
+    let result = numeric_value(value_tokens, bp)?;
+    let value = match result {
+        Ok(value) => value,
+        Err(err) => {
+            bp.error(err);
+            Value::recover()
+        }
+    };
+    let value = Located::new(value, value_span);
+
+    let unit = bp.consume_rest();
+    if unit.is_empty() {
+        return None;
+    }
+    let unit = bp.text(unit.first().unwrap().span.start(), unit);
+    Some(ParsedQuantity {
+        quantity: Located::new(
+            ast::Quantity {
+                value: ast::QuantityValue::Single {
+                    value,
+                    auto_scale: None,
+                },
+                unit: Some(unit),
+            },
+            tokens_span(bp.tokens()),
+        ),
+        unit_separator: None,
+    })
+}
+
+fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
     let mut values: Vec<Located<Value>> = vec![];
     let mut auto_scale = None;
 
     loop {
-        let value_tokens = line.consume_while(|t| !matches!(t, T![|] | T![*] | T![%]));
-        values.push(parse_value(value_tokens, line));
+        let value_tokens = bp.consume_while(|t| !matches!(t, T![|] | T![*] | T![%]));
+        values.push(parse_value(value_tokens, bp));
 
-        match line.peek() {
+        match bp.peek() {
             T![|] => {
-                line.bump_any();
+                bp.bump_any();
             }
             T![*] => {
-                let tok = line.bump_any();
+                let tok = bp.bump_any();
                 if values.len() == 1 {
                     auto_scale = Some(tok.span);
                 } else {
-                    line.error(ParserError::QuantityScalingConflict {
+                    bp.error(ParserError::QuantityScalingConflict {
                         bad_bit: Span::new(values[0].span().end(), tok.span.end()),
                     });
                 }
@@ -185,7 +187,7 @@ fn many_values(line: &mut BlockParser) -> ast::QuantityValue {
         },
         2.. => {
             if let Some(span) = auto_scale {
-                line.error(ParserError::ComponentPartInvalid {
+                bp.error(ParserError::ComponentPartInvalid {
                     container: "quantity",
                     what: "value",
                     reason: "auto scale is not compatible with multiple values",
@@ -199,20 +201,20 @@ fn many_values(line: &mut BlockParser) -> ast::QuantityValue {
     }
 }
 
-fn parse_value(tokens: &[Token], line: &mut BlockParser) -> Located<Value> {
+fn parse_value(tokens: &[Token], bp: &mut BlockParser) -> Located<Value> {
     let start = tokens
         .first()
         .map(|t| t.span.start())
-        .unwrap_or(line.current_offset()); // if empty, use the current offset
-    let end = line.current_offset();
+        .unwrap_or(bp.current_offset()); // if empty, use the current offset
+    let end = bp.current_offset();
     let span = Span::new(start, end);
 
-    let result = numeric_value(tokens, line).unwrap_or_else(|| Ok(text_value(tokens, start, line)));
+    let result = numeric_value(tokens, bp).unwrap_or_else(|| Ok(text_value(tokens, start, bp)));
 
     let val = match result {
         Ok(value) => value,
         Err(err) => {
-            line.error(err);
+            bp.error(err);
             Value::recover()
         }
     };
@@ -220,10 +222,10 @@ fn parse_value(tokens: &[Token], line: &mut BlockParser) -> Located<Value> {
     Located::new(val, span)
 }
 
-fn text_value(tokens: &[Token], offset: usize, line: &mut BlockParser) -> Value {
-    let text = line.text(offset, tokens);
+fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
+    let text = bp.text(offset, tokens);
     if text.is_text_empty() {
-        line.error(ParserError::ComponentPartInvalid {
+        bp.error(ParserError::ComponentPartInvalid {
             container: "quantity",
             what: "value",
             reason: "is empty",
@@ -236,7 +238,7 @@ fn text_value(tokens: &[Token], offset: usize, line: &mut BlockParser) -> Value 
     }
 }
 
-fn numeric_value(tokens: &[Token], line: &BlockParser) -> Option<Result<Value, ParserError>> {
+fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
     // All the numeric values will be at most 4 tokens
     let filtered_tokens: SmallVec<[Token; 4]> = tokens
         .iter()
@@ -246,22 +248,20 @@ fn numeric_value(tokens: &[Token], line: &BlockParser) -> Option<Result<Value, P
 
     let r = match *filtered_tokens.as_slice() {
         // int
-        [t @ mt![int]] => int(t, line).map(|v| Value::Number { value: v }),
+        [t @ mt![int]] => int(t, bp).map(|v| Value::Number { value: v }),
         // float
-        [t @ mt![float]] => float(t, line).map(|v| Value::Number { value: v }),
+        [t @ mt![float]] => float(t, bp).map(|v| Value::Number { value: v }),
         // mixed number
         [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
-            mixed_num(i, a, b, line).map(|v| Value::Number { value: v })
+            mixed_num(i, a, b, bp).map(|v| Value::Number { value: v })
         }
         // frac
-        [a @ mt![int], mt![/], b @ mt![int]] => {
-            frac(a, b, line).map(|v| Value::Number { value: v })
-        }
+        [a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, bp).map(|v| Value::Number { value: v }),
         // range
         [s @ mt![int | float], mt![-], e @ mt![int | float]]
-            if line.extension(Extensions::RANGE_VALUES) =>
+            if bp.extension(Extensions::RANGE_VALUES) =>
         {
-            range(s, e, line).map(|v| Value::Range { value: v })
+            range(s, e, bp).map(|v| Value::Range { value: v })
         }
         // other => text
         _ => return None,
@@ -269,9 +269,9 @@ fn numeric_value(tokens: &[Token], line: &BlockParser) -> Option<Result<Value, P
     Some(r)
 }
 
-fn mixed_num(i: Token, a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
-    let i = int(i, line)?;
-    let f = frac(a, b, line)?;
+fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<f64, ParserError> {
+    let i = int(i, bp)?;
+    let f = frac(a, b, bp)?;
     Ok(i + f)
 }
 
@@ -290,24 +290,25 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
 fn range(
     s: Token,
     e: Token,
-    line: &BlockParser,
+    bp: &BlockParser,
 ) -> Result<std::ops::RangeInclusive<f64>, ParserError> {
-    let start = num(s, line)?;
-    let end = num(e, line)?;
+    let start = num(s, bp)?;
+    let end = num(e, bp)?;
     Ok(start..=end)
 }
 
-fn num(t: Token, line: &BlockParser) -> Result<f64, ParserError> {
+fn num(t: Token, block: &BlockParser) -> Result<f64, ParserError> {
     match t.kind {
-        T![int] => int(t, line),
-        T![float] => float(t, line),
+        T![int] => int(t, block),
+        T![float] => float(t, block),
         _ => panic!("Unexpected num token: {t:?}"),
     }
 }
 
-fn int(tok: Token, line: &BlockParser) -> Result<f64, ParserError> {
+fn int(tok: Token, block: &BlockParser) -> Result<f64, ParserError> {
     assert_eq!(tok.kind, T![int]);
-    line.as_str(tok)
+    block
+        .as_str(tok)
         .parse::<u32>()
         .map(|i| i as f64)
         .map_err(|e| ParserError::ParseInt {
@@ -316,9 +317,9 @@ fn int(tok: Token, line: &BlockParser) -> Result<f64, ParserError> {
         })
 }
 
-fn float(tok: Token, line: &BlockParser) -> Result<f64, ParserError> {
+fn float(tok: Token, bp: &BlockParser) -> Result<f64, ParserError> {
     assert_eq!(tok.kind, T![float]);
-    line.as_str(tok)
+    bp.as_str(tok)
         .parse::<f64>()
         .map_err(|e| ParserError::ParseFloat {
             bad_bit: tok.span,
@@ -340,8 +341,17 @@ mod tests {
         ($input:literal, $extensions:expr) => {{
             let input = $input;
             let tokens = TokenStream::new(input).collect::<Vec<_>>();
-            let mut ctx = Context::default();
-            let q = parse_quantity(&tokens, input, $extensions, &mut ctx);
+            let mut bp = BlockParser::new(0, &[], input, $extensions);
+            let q = parse_quantity(&mut bp, &tokens);
+            let mut ctx = crate::context::Context::<
+                crate::parser::ParserError,
+                crate::parser::ParserWarning,
+            >::default();
+            bp.finish().into_iter().for_each(|ev| match ev {
+                crate::parser::Event::Error(e) => ctx.error(e),
+                crate::parser::Event::Warning(w) => ctx.warn(w),
+                _ => {}
+            });
             (q.quantity.into_inner(), q.unit_separator, ctx)
         }};
     }

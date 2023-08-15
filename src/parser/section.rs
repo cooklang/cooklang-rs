@@ -2,16 +2,16 @@ use crate::lexer::T;
 
 use super::{BlockParser, Event};
 
-pub(crate) fn section<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
-    line.consume(T![=])?;
-    line.consume_while(|t| t == T![=]);
-    let name_pos = line.current_offset();
-    let name_tokens = line.consume_while(|t| t != T![=]);
-    let name = line.text(name_pos, name_tokens);
-    line.consume_while(|t| t == T![=]);
-    line.ws_comments();
+pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+    block.consume(T![=])?;
+    block.consume_while(|t| t == T![=]);
+    let name_pos = block.current_offset();
+    let name_tokens = block.consume_while(|t| t != T![=]);
+    let name = block.text(name_pos, name_tokens);
+    block.consume_while(|t| t == T![=]);
+    block.ws_comments();
 
-    if !line.rest().is_empty() {
+    if !block.rest().is_empty() {
         return None;
     }
 

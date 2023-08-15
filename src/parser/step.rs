@@ -15,56 +15,56 @@ use super::{
     ParserError, ParserWarning,
 };
 
-pub(crate) fn step<'input>(line: &mut BlockParser<'_, 'input>) {
-    let is_text = line.consume(T![>]).is_some();
+pub(crate) fn step<'input>(bp: &mut BlockParser<'_, 'input>) {
+    let is_text = bp.consume(T![>]).is_some();
 
-    let is_empty = line
+    let is_empty = bp
         .tokens()
         .iter()
         .all(|t| matches!(t.kind, T![ws] | T![line comment] | T![block comment]));
     if is_empty {
-        line.consume_rest();
+        bp.consume_rest();
         return;
     }
 
-    line.event(Event::StartStep { is_text });
+    bp.event(Event::StartStep { is_text });
 
     if is_text {
-        let start = line.current_offset();
-        while !line.rest().is_empty() {
-            let _ = line.consume(T![>]);
-            let tokens = line.consume_while(|t| t != T![newline]);
-            let text = line.text(start, tokens);
+        let start = bp.current_offset();
+        while !bp.rest().is_empty() {
+            let _ = bp.consume(T![>]);
+            let tokens = bp.consume_while(|t| t != T![newline]);
+            let text = bp.text(start, tokens);
             if !text.is_text_empty() {
-                line.event(Event::Text(text));
+                bp.event(Event::Text(text));
             }
         }
     } else {
-        while !line.rest().is_empty() {
-            let component = match line.peek() {
-                T![@] => line.with_recover(ingredient),
-                T![#] => line.with_recover(cookware),
-                T![~] => line.with_recover(timer),
+        while !bp.rest().is_empty() {
+            let component = match bp.peek() {
+                T![@] => bp.with_recover(ingredient),
+                T![#] => bp.with_recover(cookware),
+                T![~] => bp.with_recover(timer),
                 _ => None,
             };
             if let Some(ev) = component {
-                line.event(ev)
+                bp.event(ev)
             } else {
-                let start = line.current_offset();
-                let tokens_start = line.tokens_consumed();
-                line.bump_any(); // consume the first token, this avoids entering an infinite loop
-                line.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
-                let tokens_end = line.tokens_consumed();
-                let tokens = &line.tokens()[tokens_start..tokens_end];
-                let text = line.text(start, tokens);
+                let start = bp.current_offset();
+                let tokens_start = bp.tokens_consumed();
+                bp.bump_any(); // consume the first token, this avoids entering an infinite loop
+                bp.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
+                let tokens_end = bp.tokens_consumed();
+                let tokens = &bp.tokens()[tokens_start..tokens_end];
+                let text = bp.text(start, tokens);
                 if !text.fragments().is_empty() {
-                    line.event(Event::Text(text));
+                    bp.event(Event::Text(text));
                 }
             }
         }
     }
 
-    line.event(Event::EndStep { is_text });
+    bp.event(Event::EndStep { is_text });
 }
 
 struct Body<'t> {
@@ -73,8 +73,8 @@ struct Body<'t> {
     quantity: Option<&'t [Token]>,
 }
 
-fn comp_body<'t>(line: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
-    line.with_recover(|line| {
+fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
+    bp.with_recover(|line| {
         let name = line.until(|t| matches!(t, T!['{'] | T![@] | T![#] | T![~]))?;
         let close_span_start = line.consume(T!['{'])?.span.start();
         let quantity = line.until(|t| t == T!['}'])?;
@@ -98,7 +98,7 @@ fn comp_body<'t>(line: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
         }
     })
     .or_else(|| {
-        line.with_recover(|line| {
+        bp.with_recover(|line| {
             let tokens = line.consume_while(|t| matches!(t, T![word] | T![int] | T![float]));
             if tokens.is_empty() {
                 return None;
@@ -112,21 +112,21 @@ fn comp_body<'t>(line: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
     })
 }
 
-fn modifiers<'t>(line: &mut BlockParser<'t, '_>) -> &'t [Token] {
-    if !line.extension(Extensions::COMPONENT_MODIFIERS) {
+fn modifiers<'t>(bp: &mut BlockParser<'t, '_>) -> &'t [Token] {
+    if !bp.extension(Extensions::COMPONENT_MODIFIERS) {
         return &[];
     }
 
-    let start = line.current;
+    let start = bp.current;
     loop {
-        match line.peek() {
+        match bp.peek() {
             T![@] | T![?] | T![+] | T![-] => {
-                line.bump_any();
+                bp.bump_any();
             }
             T![&] => {
-                line.bump_any();
-                if line.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
-                    line.with_recover(|line| {
+                bp.bump_any();
+                if bp.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
+                    bp.with_recover(|line| {
                         line.consume(T!['('])?;
                         let intermediate = line.until(|t| t == T![')'])?;
                         line.bump(T![')']);
@@ -137,13 +137,13 @@ fn modifiers<'t>(line: &mut BlockParser<'t, '_>) -> &'t [Token] {
             _ => break,
         }
     }
-    &line.tokens()[start..line.current]
+    &bp.tokens()[start..bp.current]
 }
 
-fn note<'input>(line: &mut BlockParser<'_, 'input>) -> Option<Text<'input>> {
-    line.extension(Extensions::COMPONENT_NOTE)
+fn note<'input>(bp: &mut BlockParser<'_, 'input>) -> Option<Text<'input>> {
+    bp.extension(Extensions::COMPONENT_NOTE)
         .then(|| {
-            line.with_recover(|line| {
+            bp.with_recover(|line| {
                 line.consume(T!['('])?;
                 let offset = line.current_offset();
                 let note = line.until(|t| t == T![')'])?;
@@ -161,7 +161,7 @@ struct ParsedModifiers {
 
 // Parsing is defered so there are no errors for components that doesn't support modifiers
 fn parse_modifiers(
-    line: &mut BlockParser,
+    bp: &mut BlockParser,
     modifiers_tokens: &[Token],
     modifiers_pos: usize,
 ) -> ParsedModifiers {
@@ -181,8 +181,8 @@ fn parse_modifiers(
             let new_m = match tok.kind {
                 T![@] => Modifiers::RECIPE,
                 T![&] => {
-                    if line.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
-                        intermediate_data = parse_intermediate_ref_data(line, &mut tokens);
+                    if bp.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
+                        intermediate_data = parse_intermediate_ref_data(bp, &mut tokens);
                     }
 
                     Modifiers::REF
@@ -194,9 +194,9 @@ fn parse_modifiers(
             };
 
             if modifiers.contains(new_m) {
-                line.error(ParserError::DuplicateModifiers {
+                bp.error(ParserError::DuplicateModifiers {
                     modifiers_span,
-                    dup: line.as_str(*tok).to_string(),
+                    dup: bp.as_str(*tok).to_string(),
                 });
             } else {
                 modifiers |= new_m;
@@ -211,7 +211,7 @@ fn parse_modifiers(
 }
 
 fn parse_intermediate_ref_data(
-    line: &mut BlockParser,
+    bp: &mut BlockParser,
     tokens: &mut std::slice::Iter<Token>,
 ) -> Option<Located<IntermediateData>> {
     use IntermediateRefMode::*;
@@ -237,7 +237,7 @@ fn parse_intermediate_ref_data(
     let inner_slice = &slice[1..slice.len() - 1];
 
     if inner_slice.is_empty() {
-        line.error(ParserError::ComponentPartInvalid {
+        bp.error(ParserError::ComponentPartInvalid {
             container: CONTAINER,
             what: WHAT,
             reason: "empty",
@@ -261,7 +261,7 @@ fn parse_intermediate_ref_data(
 
         // common errors
         [rel @ mt![~], sec @ mt![=], mt![int]] => {
-            line.error(ParserError::ComponentPartInvalid {
+            bp.error(ParserError::ComponentPartInvalid {
                 container: "modifiers",
                 what: "intermediate reference",
                 reason: "Wrong relative section order",
@@ -274,7 +274,7 @@ fn parse_intermediate_ref_data(
             return None;
         }
         [.., s @ mt![- | +], mt![int]] => {
-            line.error(ParserError::ComponentPartNotAllowed {
+            bp.error(ParserError::ComponentPartNotAllowed {
                 container: "modifiers",
                 what: "intermediate reference sign",
                 to_remove: s.span,
@@ -285,7 +285,7 @@ fn parse_intermediate_ref_data(
             return None;
         }
         _ => {
-            line.error(ParserError::ComponentPartInvalid {
+            bp.error(ParserError::ComponentPartInvalid {
                 container: "modifiers",
                 what: "intermediate reference",
                 reason: "Invalid reference syntax",
@@ -299,10 +299,10 @@ fn parse_intermediate_ref_data(
         }
     };
 
-    let val = match line.as_str(i).parse::<i16>() {
+    let val = match bp.as_str(i).parse::<i16>() {
         Ok(val) => val,
         Err(err) => {
-            line.error(ParserError::ParseInt {
+            bp.error(ParserError::ParseInt {
                 bad_bit: i.span,
                 source: err,
             });
@@ -321,24 +321,24 @@ fn parse_intermediate_ref_data(
 
 fn parse_alias<'input>(
     container: &'static str,
-    line: &mut BlockParser<'_, 'input>,
+    bp: &mut BlockParser<'_, 'input>,
     tokens: &[Token],
     name_offset: usize,
 ) -> (Text<'input>, Option<Text<'input>>) {
-    if let Some(alias_sep) = line
+    if let Some(alias_sep) = bp
         .extension(Extensions::COMPONENT_ALIAS)
         .then(|| tokens.iter().position(|t| t.kind == T![|]))
         .flatten()
     {
         let (name_tokens, alias_tokens) = tokens.split_at(alias_sep);
         let (alias_sep, alias_text_tokens) = alias_tokens.split_first().unwrap();
-        let alias_text = line.text(alias_sep.span.end(), alias_text_tokens);
+        let alias_text = bp.text(alias_sep.span.end(), alias_text_tokens);
         let alias_text = if alias_text_tokens.iter().any(|t| t.kind == T![|]) {
             let bad_bit = Span::new(
                 alias_sep.span.start(),
                 alias_text_tokens.last().unwrap_or(alias_sep).span.end(),
             );
-            line.error(ParserError::ComponentPartInvalid {
+            bp.error(ParserError::ComponentPartInvalid {
                 container,
                 what: "alias",
                 reason: "multiple aliases",
@@ -347,7 +347,7 @@ fn parse_alias<'input>(
             });
             None
         } else if alias_text.is_text_empty() {
-            line.error(ParserError::ComponentPartInvalid {
+            bp.error(ParserError::ComponentPartInvalid {
                 container,
                 what: "alias",
                 reason: "is empty",
@@ -361,9 +361,9 @@ fn parse_alias<'input>(
         } else {
             Some(alias_text)
         };
-        (line.text(name_offset, name_tokens), alias_text)
+        (bp.text(name_offset, name_tokens), alias_text)
     } else {
-        (line.text(name_offset, tokens), None)
+        (bp.text(name_offset, tokens), None)
     }
 }
 
@@ -371,22 +371,22 @@ const INGREDIENT: &str = "ingredient";
 const COOKWARE: &str = "cookware";
 const TIMER: &str = "timer";
 
-fn ingredient<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+fn ingredient<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
-    let start = line.current_offset();
-    line.consume(T![@])?;
-    let modifiers_pos = line.current_offset();
-    let modifiers_tokens = modifiers(line);
-    let name_offset = line.current_offset();
-    let body = comp_body(line)?;
-    let note = note(line);
-    let end = line.current_offset();
+    let start = bp.current_offset();
+    bp.consume(T![@])?;
+    let modifiers_pos = bp.current_offset();
+    let modifiers_tokens = modifiers(bp);
+    let name_offset = bp.current_offset();
+    let body = comp_body(bp)?;
+    let note = note(bp);
+    let end = bp.current_offset();
 
     // Build text(s) and checks
-    let (name, alias) = parse_alias(INGREDIENT, line, body.name, name_offset);
+    let (name, alias) = parse_alias(INGREDIENT, bp, body.name, name_offset);
 
     if name.is_text_empty() {
-        line.error(ParserError::ComponentPartInvalid {
+        bp.error(ParserError::ComponentPartInvalid {
             container: INGREDIENT,
             what: "name",
             reason: "is empty",
@@ -398,11 +398,11 @@ fn ingredient<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     let ParsedModifiers {
         flags: modifiers,
         intermediate_data,
-    } = parse_modifiers(line, modifiers_tokens, modifiers_pos);
+    } = parse_modifiers(bp, modifiers_tokens, modifiers_pos);
 
-    let quantity = body.quantity.map(|tokens| {
-        parse_quantity(tokens, line.input, line.extensions, &mut line.context).quantity
-    });
+    let quantity = body
+        .quantity
+        .map(|tokens| parse_quantity(bp, tokens).quantity);
 
     Some(Event::Ingredient(Located::new(
         ast::Ingredient {
@@ -417,21 +417,21 @@ fn ingredient<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     )))
 }
 
-fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
-    let start = line.current_offset();
-    line.consume(T![#])?;
-    let modifiers_pos = line.current_offset();
-    let modifiers_tokens = modifiers(line);
-    let name_offset = line.current_offset();
-    let body = comp_body(line)?;
-    let note = note(line);
-    let end = line.current_offset();
+    let start = bp.current_offset();
+    bp.consume(T![#])?;
+    let modifiers_pos = bp.current_offset();
+    let modifiers_tokens = modifiers(bp);
+    let name_offset = bp.current_offset();
+    let body = comp_body(bp)?;
+    let note = note(bp);
+    let end = bp.current_offset();
 
     // Errors
-    let (name, alias) = parse_alias(COOKWARE, line, body.name, name_offset);
+    let (name, alias) = parse_alias(COOKWARE, bp, body.name, name_offset);
     if name.is_text_empty() {
-        line.error(ParserError::ComponentPartInvalid {
+        bp.error(ParserError::ComponentPartInvalid {
             container: COOKWARE,
             what: "name",
             reason: "is empty",
@@ -440,14 +440,14 @@ fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         });
     }
     let quantity = body.quantity.map(|tokens| {
-        let q = parse_quantity(tokens, line.input, line.extensions, &mut line.context);
+        let q = parse_quantity(bp, tokens);
         if let Some(unit) = &q.quantity.unit {
             let span = if let Some(sep) = q.unit_separator {
                 Span::new(sep.start(), unit.span().end())
             } else {
                 unit.span()
             };
-            line.error(ParserError::ComponentPartNotAllowed {
+            bp.error(ParserError::ComponentPartNotAllowed {
                 container: COOKWARE,
                 what: "unit in quantity",
                 to_remove: span,
@@ -459,7 +459,7 @@ fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             ..
         } = &q.quantity.value
         {
-            line.error(ParserError::ComponentPartNotAllowed {
+            bp.error(ParserError::ComponentPartNotAllowed {
                 container: COOKWARE,
                 what: "auto scale marker",
                 to_remove: *auto_scale,
@@ -468,8 +468,8 @@ fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         }
         q.quantity.map(|q| q.value)
     });
-    let modifiers = parse_modifiers(line, modifiers_tokens, modifiers_pos);
-    let modifiers = check_intermediate_data(line, modifiers, COOKWARE);
+    let modifiers = parse_modifiers(bp, modifiers_tokens, modifiers_pos);
+    let modifiers = check_intermediate_data(bp, modifiers, COOKWARE);
 
     if modifiers.contains(Modifiers::RECIPE) {
         let pos = modifiers_tokens
@@ -478,7 +478,7 @@ fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             .map(|t| t.span)
             .expect("no recipe token in modifiers with recipe");
 
-        line.error(ParserError::ComponentPartInvalid {
+        bp.error(ParserError::ComponentPartInvalid {
             container: COOKWARE,
             what: "modifiers",
             reason: "recipe modifier not allowed in cookware",
@@ -499,30 +499,30 @@ fn cookware<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     )))
 }
 
-fn timer<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
-    let start = line.current_offset();
-    line.consume(T![~])?;
-    let modifiers_tokens = modifiers(line);
-    let name_offset = line.current_offset();
-    let body = comp_body(line)?;
-    let end = line.current_offset();
+    let start = bp.current_offset();
+    bp.consume(T![~])?;
+    let modifiers_tokens = modifiers(bp);
+    let name_offset = bp.current_offset();
+    let body = comp_body(bp)?;
+    let end = bp.current_offset();
 
     // Errors
-    check_modifiers(line, modifiers_tokens, TIMER);
-    check_alias(line, body.name, TIMER);
-    check_note(line, TIMER);
+    check_modifiers(bp, modifiers_tokens, TIMER);
+    check_alias(bp, body.name, TIMER);
+    check_note(bp, TIMER);
 
-    let name = line.text(name_offset, body.name);
+    let name = bp.text(name_offset, body.name);
 
     let mut quantity = body.quantity.map(|tokens| {
-        let q = parse_quantity(tokens, line.input, line.extensions, &mut line.context);
+        let q = parse_quantity(bp, tokens);
         if let ast::QuantityValue::Single {
             auto_scale: Some(auto_scale),
             ..
         } = &q.quantity.value
         {
-            line.error(ParserError::ComponentPartNotAllowed {
+            bp.error(ParserError::ComponentPartNotAllowed {
                 container: TIMER,
                 what: "auto scale marker",
                 to_remove: *auto_scale,
@@ -530,7 +530,7 @@ fn timer<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             });
         }
         if q.quantity.unit.is_none() {
-            line.error(ParserError::ComponentPartMissing {
+            bp.error(ParserError::ComponentPartMissing {
                 container: TIMER,
                 what: "quantity unit",
                 expected_pos: Span::pos(q.quantity.value.span().end()),
@@ -539,9 +539,9 @@ fn timer<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         q.quantity
     });
 
-    if quantity.is_none() && line.extension(Extensions::TIMER_REQUIRES_TIME) {
+    if quantity.is_none() && bp.extension(Extensions::TIMER_REQUIRES_TIME) {
         let span = body.close.unwrap_or_else(|| Span::pos(name.span().end()));
-        line.error(ParserError::ComponentPartMissing {
+        bp.error(ParserError::ComponentPartMissing {
             container: TIMER,
             what: "quantity",
             expected_pos: span,
@@ -561,7 +561,7 @@ fn timer<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         } else {
             Span::pos(name_offset)
         };
-        line.error(ParserError::ComponentPartMissing {
+        bp.error(ParserError::ComponentPartMissing {
             container: TIMER,
             what: "quantity OR name",
             expected_pos: span,
@@ -575,11 +575,11 @@ fn timer<'i>(line: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     )))
 }
 
-fn check_modifiers(line: &mut BlockParser, modifiers_tokens: &[Token], container: &'static str) {
+fn check_modifiers(bp: &mut BlockParser, modifiers_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
     assert_ne!(container, COOKWARE);
     if !modifiers_tokens.is_empty() {
-        line.error(ParserError::ComponentPartNotAllowed {
+        bp.error(ParserError::ComponentPartNotAllowed {
             container,
             what: "modifiers",
             to_remove: tokens_span(modifiers_tokens),
@@ -589,13 +589,13 @@ fn check_modifiers(line: &mut BlockParser, modifiers_tokens: &[Token], container
 }
 
 fn check_intermediate_data(
-    line: &mut BlockParser,
+    bp: &mut BlockParser,
     parsed_modifiers: ParsedModifiers,
     container: &'static str,
 ) -> Located<Modifiers> {
     assert_ne!(container, INGREDIENT);
     if let Some(inter_data) = parsed_modifiers.intermediate_data {
-        line.error(ParserError::ComponentPartNotAllowed {
+        bp.error(ParserError::ComponentPartNotAllowed {
             container,
             what: "intermediate reference modifier",
             to_remove: inter_data.span(),
@@ -605,14 +605,14 @@ fn check_intermediate_data(
     parsed_modifiers.flags
 }
 
-fn check_alias(line: &mut BlockParser, name_tokens: &[Token], container: &'static str) {
+fn check_alias(bp: &mut BlockParser, name_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
     if let Some(sep) = name_tokens.iter().position(|t| t.kind == T![|]) {
         let to_remove = Span::new(
             name_tokens[sep].span.start(),
             name_tokens.last().unwrap().span.end(),
         );
-        line.error(ParserError::ComponentPartNotAllowed {
+        bp.error(ParserError::ComponentPartNotAllowed {
             container,
             what: "alias",
             to_remove,
@@ -621,13 +621,13 @@ fn check_alias(line: &mut BlockParser, name_tokens: &[Token], container: &'stati
     }
 }
 
-fn check_note(line: &mut BlockParser, container: &'static str) {
+fn check_note(bp: &mut BlockParser, container: &'static str) {
     assert_ne!(container, INGREDIENT);
-    if !line.extension(Extensions::COMPONENT_NOTE) {
+    if !bp.extension(Extensions::COMPONENT_NOTE) {
         return;
     }
 
-    assert!(line
+    assert!(bp
         .with_recover(|line| {
             let start = line.consume(T!['('])?.span.start();
             let _ = line.until(|t| t == T![')'])?;
@@ -646,22 +646,25 @@ fn check_note(line: &mut BlockParser, container: &'static str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::token_stream::TokenStream;
+    use crate::{context::Context, parser::token_stream::TokenStream};
     use test_case::test_case;
 
-    macro_rules! t {
-        ($input:expr) => {
-            t!($input, $crate::Extensions::all())
-        };
-        ($input:expr, $extensions:expr) => {{
-            let input = $input;
-            let tokens = TokenStream::new(input).collect::<Vec<_>>();
-            let mut line = BlockParser::new(0, &tokens, input, $extensions);
-            step(&mut line);
-            let (events, ctx) = line.finish();
-            let [Event::StartStep {..}, items @ .., Event::EndStep { .. }] = events.as_slice() else { panic!() };
-            (Vec::from(items), ctx)
-        }};
+    fn t(input: &str) -> (Vec<Event>, Context<ParserError, ParserWarning>) {
+        let tokens = TokenStream::new(input).collect::<Vec<_>>();
+        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        step(&mut bp);
+        let mut events = Vec::new();
+        let mut ctx = Context::default();
+
+        for ev in bp.finish() {
+            match ev {
+                Event::Error(err) => ctx.error(err),
+                Event::Warning(warn) => ctx.warn(warn),
+                _ => events.push(ev),
+            }
+        }
+        let [Event::StartStep {..}, items @ .., Event::EndStep { .. }] = events.as_slice() else { panic!() };
+        (Vec::from(items), ctx)
     }
 
     macro_rules! igr {
@@ -706,7 +709,7 @@ mod tests {
         }, 2..6)
     ); "section index")]
     fn intermediate_ref(input: &str) -> (Located<Modifiers>, Located<IntermediateData>) {
-        let (s, ctx) = t!(input);
+        let (s, ctx) = t(input);
         let igr = igr!(&s[0]);
         assert!(ctx.is_empty());
         (igr.modifiers, igr.intermediate_data.unwrap())
@@ -718,7 +721,7 @@ mod tests {
     #[test_case("#&(1)name"; "cookware")]
     #[test_case("~&(1){1%min}"; "timer")]
     fn intermediate_ref_errors(input: &str) {
-        let (_, ctx) = t!(input);
+        let (_, ctx) = t(input);
         assert_eq!(ctx.errors.len(), 1);
     }
 }

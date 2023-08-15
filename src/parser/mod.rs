@@ -102,11 +102,7 @@ where
     block: Vec<Token>,
     offset: usize,
     queue: VecDeque<Event<'i>>,
-
-    /// Error and warning context
-    pub(crate) context: Context<ParserError, ParserWarning>,
-    /// Extensions to cooklang language
-    pub(crate) extensions: Extensions,
+    extensions: Extensions,
 }
 
 impl<'input> Parser<'input, TokenStream<'input>> {
@@ -124,7 +120,6 @@ where
             input,
             tokens: tokens.peekable(),
             block: Vec::new(),
-            context: Context::default(),
             extensions,
             offset: 0,
             queue: VecDeque::new(),
@@ -158,7 +153,8 @@ where
                 T![newline] if single_line => break,
                 T![newline] if !single_line => match self.tokens.peek() {
                     Some(mt!(newline)) => {
-                        self.tokens.next();
+                        let t2 = self.tokens.next().unwrap();
+                        self.offset += t2.len();
                         break;
                     }
                     Some(mt![meta | =]) => break,
@@ -174,9 +170,8 @@ where
 
         let mut bp = BlockParser::new(parsed, &self.block, self.input, self.extensions);
         parse_block(&mut bp);
-        let (events, mut context) = bp.finish();
+        let events = bp.finish();
         self.queue.extend(events);
-        self.context.append(&mut context);
 
         Some(())
     }
@@ -217,9 +212,8 @@ where
         if let Some(ev) = metadata_entry(&mut bp) {
             bp.event(ev);
         }
-        let (events, mut context) = bp.finish();
+        let events = bp.finish();
         self.queue.extend(events);
-        self.context.append(&mut context);
 
         Some(())
     }
@@ -302,14 +296,17 @@ pub fn parse_metadata<'input>(
 ) -> PassResult<ast::Ast<'input>, ParserError, ParserWarning> {
     let mut parser = Parser::new(input, Extensions::empty());
     let mut blocks = Vec::new();
+    let mut ctx = Context::default();
     while let Some(ev) = parser.next_metadata() {
         match ev {
             Event::Metadata { key, value } => blocks.push(ast::Block::Metadata { key, value }),
+            Event::Error(e) => ctx.error(e),
+            Event::Warning(w) => ctx.warn(w),
             _ => {}
         }
     }
     let ast = ast::Ast { blocks };
-    parser.context.finish(Some(ast))
+    ctx.finish(Some(ast))
 }
 
 /// get the span for a slice of tokens. panics if the slice is empty

@@ -1,7 +1,6 @@
 use super::{token_stream::Token, Event, ParserError, ParserWarning};
 use crate::{
     ast::{self, TextFragment},
-    context::Context,
     lexer::{TokenKind, T},
     Extensions,
 };
@@ -11,7 +10,6 @@ pub(crate) struct BlockParser<'t, 'i> {
     tokens: &'t [Token],
     pub(crate) current: usize,
     pub(crate) input: &'i str,
-    pub(crate) context: Context<ParserError, ParserWarning>,
     pub(crate) extensions: Extensions,
     pub(crate) events: Vec<Event<'i>>,
 }
@@ -23,27 +21,27 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     /// - input is the whole input str given to the lexer
     pub(crate) fn new(
         base_offset: usize,
-        line: &'t [Token],
+        tokens: &'t [Token],
         input: &'i str,
         extensions: Extensions,
     ) -> Self {
         debug_assert!(
-            line.is_empty()
-                || (line.first().unwrap().span.start() < input.len()
-                    && line.last().unwrap().span.end() <= input.len()),
+            tokens.is_empty()
+                || (tokens.first().unwrap().span.start() < input.len()
+                    && tokens.last().unwrap().span.end() <= input.len()),
             "tokens out of input bounds"
         );
         debug_assert!(
-            line.windows(2)
+            tokens
+                .windows(2)
                 .all(|w| w[0].span.end() == w[1].span.start()),
             "tokens are not adjacent"
         );
         Self {
             base_offset,
-            tokens: line,
+            tokens,
             current: 0,
             input,
-            context: Context::default(),
             extensions,
             events: Vec::default(),
         }
@@ -53,17 +51,16 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         self.events.push(ev);
     }
 
-    /// Finish parsing the line, this will return the error/warning
-    /// context used in the line.
+    /// Finish parsing the line, this will return the events generated
     ///
-    /// Panics if is inside a [Self::with_recover] or if any token is left.
-    pub(crate) fn finish(self) -> (Vec<Event<'i>>, Context<ParserError, ParserWarning>) {
+    /// Panics if any token is left.
+    pub(crate) fn finish(self) -> Vec<Event<'i>> {
         assert_eq!(
             self.current,
             self.tokens.len(),
-            "Line tokens not parsed. this is a bug"
+            "Block tokens not parsed. this is a bug"
         );
-        (self.events, self.context)
+        self.events
     }
 
     pub(crate) fn extension(&self, ext: Extensions) -> bool {
@@ -108,7 +105,7 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         }
         let mut start = tokens[0].span.start();
         let mut end = start;
-        assert_eq!(offset, start);
+        assert_eq!(offset, start, "Offset of {:?} must be {offset}", tokens[0]);
 
         for token in tokens {
             match token.kind {
@@ -244,9 +241,9 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     }
 
     pub(crate) fn error(&mut self, error: ParserError) {
-        self.context.error(error);
+        self.event(Event::Error(error))
     }
     pub(crate) fn warn(&mut self, warn: ParserWarning) {
-        self.context.warn(warn)
+        self.event(Event::Warning(warn))
     }
 }

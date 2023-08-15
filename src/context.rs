@@ -22,11 +22,6 @@ impl<E, W> Context<E, W> {
         self.warnings.push(w.into());
     }
 
-    pub fn append(&mut self, other: &mut Self) {
-        self.errors.append(&mut other.errors);
-        self.warnings.append(&mut other.warnings);
-    }
-
     #[allow(unused)] // currently only used in tests
     pub fn is_empty(&self) -> bool {
         self.errors.is_empty() && self.warnings.is_empty()
