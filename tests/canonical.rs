@@ -1,9 +1,8 @@
 //! Cooklang canonical tests https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 
 use cooklang::{
-    model::ComponentKind,
     quantity::{ScalableValue, Value},
-    Component, Converter, CooklangParser, Extensions, Item, ScalableRecipe, Step,
+    Converter, CooklangParser, Extensions, Item, ScalableRecipe, Step,
 };
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -100,13 +99,7 @@ impl TestStepItem {
     fn from_cooklang_item(value: Item, recipe: &cooklang::ScalableRecipe) -> Self {
         match value {
             Item::Text { value } => Self::Text { value },
-            Item::ItemComponent {
-                value:
-                    Component {
-                        kind: ComponentKind::IngredientKind,
-                        index,
-                    },
-            } => {
+            Item::ItemIngredient { index } => {
                 let i = &recipe.ingredients[index];
                 assert!(i.relation.is_definition());
                 assert!(i.relation.referenced_from().is_empty());
@@ -129,13 +122,7 @@ impl TestStepItem {
                     units,
                 }
             }
-            Item::ItemComponent {
-                value:
-                    Component {
-                        kind: ComponentKind::CookwareKind,
-                        index,
-                    },
-            } => {
+            Item::ItemCookware { index } => {
                 let i = &recipe.cookware[index];
                 assert!(i.relation.is_definition());
                 assert!(i.relation.referenced_from().is_empty());
@@ -152,13 +139,7 @@ impl TestStepItem {
                     quantity,
                 }
             }
-            Item::ItemComponent {
-                value:
-                    Component {
-                        kind: ComponentKind::TimerKind,
-                        index,
-                    },
-            } => {
+            Item::ItemTimer { index } => {
                 let i = &recipe.timers[index];
                 let quantity = i
                     .quantity

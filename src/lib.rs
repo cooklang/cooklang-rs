@@ -228,24 +228,24 @@ impl CooklangParser {
         recipe_name: &str,
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
-        let mut r = parser::parse(input, self.extensions).into_context_result();
-        if !r.is_valid() {
-            return r.discard_output();
-        }
-        let ast = r.take_output().unwrap();
-        analysis::parse_ast(ast, self.extensions, &self.converter, recipe_ref_checker)
-            .into_context_result()
-            .merge(r)
-            .map(|c| Recipe {
-                name: recipe_name.to_string(),
-                metadata: c.metadata,
-                sections: c.sections,
-                ingredients: c.ingredients,
-                cookware: c.cookware,
-                timers: c.timers,
-                inline_quantities: c.inline_quantities,
-                data: (),
-            })
+        let mut parser = parser::Parser::new(input, self.extensions);
+        let result = analysis::parse_events(
+            &mut parser,
+            self.extensions,
+            &self.converter,
+            recipe_ref_checker,
+        );
+
+        result.map(|c| Recipe {
+            name: recipe_name.to_string(),
+            metadata: c.metadata,
+            sections: c.sections,
+            ingredients: c.ingredients,
+            cookware: c.cookware,
+            timers: c.timers,
+            inline_quantities: c.inline_quantities,
+            data: (),
+        })
     }
 
     /// Parse only the metadata of a recipe
@@ -253,14 +253,9 @@ impl CooklangParser {
     /// This is a bit faster than [`Self::parse`] if you only want the metadata
     #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
-        let mut r = parser::parse_metadata(input).into_context_result();
-        if !r.is_valid() {
-            return r.discard_output();
-        }
-        let ast = r.take_output().unwrap();
-        analysis::parse_ast(ast, Extensions::empty(), &self.converter, None)
-            .into_context_result()
-            .merge(r)
+        let mut parser = parser::Parser::new(input, self.extensions);
+        let meta_events = std::iter::from_fn(|| parser.next_metadata());
+        analysis::parse_events(meta_events, Extensions::empty(), &self.converter, None)
             .map(|c| c.metadata)
     }
 }

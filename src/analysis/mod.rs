@@ -2,16 +2,16 @@ use std::borrow::Cow;
 
 use thiserror::Error;
 
-use crate::error::PassResult;
+use crate::error::{CooklangError, CooklangWarning, PassResult};
 use crate::span::Span;
 use crate::{error::RichError, located::Located, metadata::MetadataError};
 
 mod ast_walker;
 
-pub use ast_walker::parse_ast;
+pub use ast_walker::parse_events;
 pub use ast_walker::RecipeContent;
 
-pub type AnalysisResult = PassResult<RecipeContent, AnalysisError, AnalysisWarning>;
+pub type AnalysisResult = PassResult<RecipeContent, CooklangError, CooklangWarning>;
 
 #[derive(Debug, Error)]
 pub enum AnalysisError {

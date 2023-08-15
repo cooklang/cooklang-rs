@@ -18,6 +18,15 @@ use super::{
 pub(crate) fn step<'input>(line: &mut BlockParser<'_, 'input>) {
     let is_text = line.consume(T![>]).is_some();
 
+    let is_empty = line
+        .tokens()
+        .iter()
+        .all(|t| matches!(t.kind, T![ws] | T![line comment] | T![block comment]));
+    if is_empty {
+        line.consume_rest();
+        return;
+    }
+
     line.event(Event::StartStep { is_text });
 
     if is_text {

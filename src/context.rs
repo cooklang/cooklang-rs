@@ -14,12 +14,12 @@ impl<E, W> Default for Context<E, W> {
 }
 
 impl<E, W> Context<E, W> {
-    pub fn error(&mut self, e: E) {
-        self.errors.push(e);
+    pub fn error(&mut self, e: impl Into<E>) {
+        self.errors.push(e.into());
     }
 
-    pub fn warn(&mut self, w: W) {
-        self.warnings.push(w);
+    pub fn warn(&mut self, w: impl Into<W>) {
+        self.warnings.push(w.into());
     }
 
     pub fn append(&mut self, other: &mut Self) {
@@ -36,25 +36,6 @@ impl<E, W> Context<E, W> {
         PassResult::new(output, self.warnings, self.errors)
     }
 }
-
-macro_rules! impl_deref_context {
-    ($t:ty, $e:ty, $w:ty) => {
-        impl std::ops::Deref for $t {
-            type Target = Context<$e, $w>;
-
-            fn deref(&self) -> &Self::Target {
-                &self.context
-            }
-        }
-
-        impl std::ops::DerefMut for $t {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.context
-            }
-        }
-    };
-}
-pub(crate) use impl_deref_context;
 
 use crate::error::PassResult;
 

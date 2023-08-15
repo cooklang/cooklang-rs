@@ -6,8 +6,10 @@ use regex::Regex;
 use crate::ast::{self, IntermediateData, Modifiers, Text};
 use crate::context::Context;
 use crate::convert::{Converter, PhysicalQuantity};
+use crate::error::{CooklangError, CooklangWarning};
 use crate::located::Located;
 use crate::metadata::Metadata;
+use crate::parser::Event;
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
 use crate::{model::*, Extensions, RecipeRefChecker};
@@ -24,26 +26,26 @@ pub struct RecipeContent {
     pub inline_quantities: Vec<Quantity<Value>>,
 }
 
-#[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis", fields(ast_lines = ast.blocks.len()))]
-pub fn parse_ast<'a>(
-    ast: ast::Ast<'a>,
+#[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
+pub fn parse_events<'i>(
+    events: impl Iterator<Item = Event<'i>>,
     extensions: Extensions,
     converter: &Converter,
     recipe_ref_checker: Option<RecipeRefChecker>,
 ) -> AnalysisResult {
-    let mut context = Context::default();
+    let mut ctx = Context::default();
     let temperature_regex = extensions
         .contains(Extensions::TEMPERATURE)
         .then(|| match converter.temperature_regex() {
             Ok(re) => Some(re),
             Err(source) => {
-                context.warn(AnalysisWarning::TemperatureRegexCompile { source });
+                ctx.warn(AnalysisWarning::TemperatureRegexCompile { source });
                 None
             }
         })
         .flatten();
 
-    let walker = Walker {
+    let col = RecipeCollector {
         extensions,
         temperature_regex,
         converter,
@@ -55,16 +57,16 @@ pub fn parse_ast<'a>(
         define_mode: DefineMode::All,
         duplicate_mode: DuplicateMode::New,
         auto_scale_ingredients: false,
-        context,
+        ctx,
 
         ingredient_locations: Default::default(),
         metadata_locations: Default::default(),
         step_counter: 1,
     };
-    walker.ast(ast)
+    col.ast(events)
 }
 
-struct Walker<'a, 'c> {
+struct RecipeCollector<'i, 'c> {
     extensions: Extensions,
     temperature_regex: Option<&'c Regex>,
     converter: &'c Converter,
@@ -76,10 +78,10 @@ struct Walker<'a, 'c> {
     define_mode: DefineMode,
     duplicate_mode: DuplicateMode,
     auto_scale_ingredients: bool,
-    context: Context<AnalysisError, AnalysisWarning>,
+    ctx: Context<CooklangError, CooklangWarning>,
 
-    ingredient_locations: Vec<Located<ast::Ingredient<'a>>>,
-    metadata_locations: HashMap<Cow<'a, str>, (Text<'a>, Text<'a>)>,
+    ingredient_locations: Vec<Located<ast::Ingredient<'i>>>,
+    metadata_locations: HashMap<Cow<'i, str>, (Text<'i>, Text<'i>)>,
     step_counter: u32,
 }
 
@@ -97,16 +99,24 @@ enum DuplicateMode {
     Reference,
 }
 
-crate::context::impl_deref_context!(Walker<'_, '_>, AnalysisError, AnalysisWarning);
-
-impl<'a, 'r> Walker<'a, 'r> {
-    fn ast(mut self, ast: ast::Ast<'a>) -> AnalysisResult {
-        for line in ast.blocks {
-            match line {
-                ast::Block::Metadata { key, value } => self.metadata(key, value),
-                ast::Block::Step { is_text, items } => {
+impl<'i, 'c> RecipeCollector<'i, 'c> {
+    fn ast(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
+        let mut items = Vec::new();
+        let events = events.by_ref();
+        while let Some(event) = events.next() {
+            match event {
+                Event::Metadata { key, value } => self.metadata(key, value),
+                Event::Section { name } => {
+                    self.step_counter = 1;
+                    if !self.current_section.is_empty() {
+                        self.content.sections.push(self.current_section);
+                    }
+                    self.current_section =
+                        Section::new(name.map(|t| t.text_trimmed().into_owned()));
+                }
+                Event::StartStep { .. } => items.clear(),
+                Event::EndStep { is_text } => {
                     let new_step = self.step(is_text, items);
-
                     // If define mode is ingredients, don't add the
                     // step to the section. The components should have been
                     // added to their lists
@@ -116,24 +126,42 @@ impl<'a, 'r> Walker<'a, 'r> {
                         }
                         self.current_section.steps.push(new_step);
                     }
+                    items = Vec::new();
                 }
-                ast::Block::Section { name } => {
-                    self.step_counter = 1;
-                    if !self.current_section.is_empty() {
-                        self.content.sections.push(self.current_section);
-                    }
-                    self.current_section =
-                        Section::new(name.map(|t| t.text_trimmed().into_owned()));
+                item @ (Event::Text(_)
+                | Event::Ingredient(_)
+                | Event::Cookware(_)
+                | Event::Timer(_)) => items.push(item),
+
+                Event::Error(e) => {
+                    // on a parser error, collect all other parser errors and
+                    // warnings
+                    self.ctx.error(e);
+                    events.for_each(|e| match e {
+                        Event::Error(e) => self.ctx.error(e),
+                        Event::Warning(w) => self.ctx.warn(w),
+                        _ => {}
+                    });
+                    // discard non parser errors/warnings
+                    self.ctx
+                        .errors
+                        .retain(|e| matches!(e, CooklangError::Parser(_)));
+                    self.ctx
+                        .warnings
+                        .retain(|e| matches!(e, CooklangWarning::Parser(_)));
+                    // return no output
+                    return self.ctx.finish(None);
                 }
+                Event::Warning(w) => self.ctx.warn(w),
             }
         }
         if !self.current_section.is_empty() {
             self.content.sections.push(self.current_section);
         }
-        self.context.finish(Some(self.content))
+        self.ctx.finish(Some(self.content))
     }
 
-    fn metadata(&mut self, key: Text<'a>, value: Text<'a>) {
+    fn metadata(&mut self, key: Text<'i>, value: Text<'i>) {
         self.metadata_locations
             .insert(key.text_trimmed(), (key.clone(), value.clone()));
 
@@ -156,19 +184,21 @@ impl<'a, 'r> Walker<'a, 'r> {
                     "components" | "ingredients" => self.define_mode = DefineMode::Components,
                     "steps" => self.define_mode = DefineMode::Steps,
                     "text" => self.define_mode = DefineMode::Text,
-                    _ => self.error(invalid_value(vec!["all", "components", "steps", "text"])),
+                    _ => self
+                        .ctx
+                        .error(invalid_value(vec!["all", "components", "steps", "text"])),
                 },
                 "duplicate" => match value_t.as_ref() {
                     "new" | "default" => self.duplicate_mode = DuplicateMode::New,
                     "reference" | "ref" => self.duplicate_mode = DuplicateMode::Reference,
-                    _ => self.error(invalid_value(vec!["new", "reference"])),
+                    _ => self.ctx.error(invalid_value(vec!["new", "reference"])),
                 },
                 "auto scale" | "auto_scale" => match value_t.as_ref() {
                     "true" => self.auto_scale_ingredients = true,
                     "false" | "default" => self.auto_scale_ingredients = false,
-                    _ => self.error(invalid_value(vec!["true", "false"])),
+                    _ => self.ctx.error(invalid_value(vec!["true", "false"])),
                 },
-                _ => self.warn(AnalysisWarning::UnknownSpecialMetadataKey {
+                _ => self.ctx.warn(AnalysisWarning::UnknownSpecialMetadataKey {
                     key: key.located_string_trimmed(),
                 }),
             }
@@ -177,7 +207,7 @@ impl<'a, 'r> Walker<'a, 'r> {
             .metadata
             .insert(key_t.into_owned(), value_t.into_owned())
         {
-            self.warn(AnalysisWarning::InvalidMetadataValue {
+            self.ctx.warn(AnalysisWarning::InvalidMetadataValue {
                 key: key.located_string_trimmed(),
                 value: value.located_string_trimmed(),
                 source: warn,
@@ -185,21 +215,21 @@ impl<'a, 'r> Walker<'a, 'r> {
         }
     }
 
-    fn step(&mut self, is_text: bool, items: Vec<ast::Item<'a>>) -> Step {
+    fn step(&mut self, is_text: bool, items: Vec<Event<'i>>) -> Step {
         let mut new_items = Vec::new();
 
         let is_text = is_text || self.define_mode == DefineMode::Text;
 
         for item in items {
             match item {
-                ast::Item::Text(text) => {
+                Event::Text(text) => {
                     let t = text.text();
                     if self.define_mode == DefineMode::Components {
                         // only issue warnings for alphanumeric characters
                         // so that the user can format the text with spaces,
                         // hypens or whatever.
                         if t.contains(|c: char| c.is_alphanumeric()) {
-                            self.warn(AnalysisWarning::TextDefiningIngredients {
+                            self.ctx.warn(AnalysisWarning::TextDefiningIngredients {
                                 text_span: text.span(),
                             });
                         }
@@ -231,32 +261,33 @@ impl<'a, 'r> Walker<'a, 'r> {
                     });
                 }
 
-                ast::Item::Ingredient(..) | ast::Item::Cookware(..) | ast::Item::Timer(..) => {
+                Event::Ingredient(..) | Event::Cookware(..) | Event::Timer(..) => {
                     if is_text {
-                        self.warn(AnalysisWarning::ComponentInTextMode {
-                            component_span: item.span(),
+                        self.ctx.warn(AnalysisWarning::ComponentInTextMode {
+                            component_span: match item {
+                                Event::Ingredient(i) => i.span(),
+                                Event::Cookware(c) => c.span(),
+                                Event::Timer(t) => t.span(),
+                                _ => unreachable!(),
+                            },
                         });
                         continue; // ignore component
                     }
                     let new_component = match item {
-                        ast::Item::Ingredient(i) => Component {
-                            kind: ComponentKind::IngredientKind,
+                        Event::Ingredient(i) => Item::ItemIngredient {
                             index: self.ingredient(i),
                         },
-                        ast::Item::Cookware(c) => Component {
-                            kind: ComponentKind::CookwareKind,
+                        Event::Cookware(c) => Item::ItemCookware {
                             index: self.cookware(c),
                         },
-                        ast::Item::Timer(t) => Component {
-                            kind: ComponentKind::TimerKind,
+                        Event::Timer(t) => Item::ItemTimer {
                             index: self.timer(t),
                         },
                         _ => unreachable!(),
                     };
-                    new_items.push(Item::ItemComponent {
-                        value: new_component,
-                    });
+                    new_items.push(new_component);
                 }
+                _ => unreachable!(),
             };
         }
 
@@ -268,7 +299,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         }
     }
 
-    fn ingredient(&mut self, ingredient: Located<ast::Ingredient<'a>>) -> usize {
+    fn ingredient(&mut self, ingredient: Located<ast::Ingredient<'i>>) -> usize {
         let located_ingredient = ingredient.clone();
         let (ingredient, location) = ingredient.take_pair();
 
@@ -291,7 +322,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     assert!(new_igr.modifiers().contains(Modifiers::REF));
                     let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
                     if new_igr.modifiers().intersects(invalid_modifiers) {
-                        self.error(AnalysisError::InvalidIntermediateReferece {
+                        self.ctx.error(AnalysisError::InvalidIntermediateReferece {
                             reference_span: ingredient.modifiers.span(),
                             reason: "Invalid combination of modifiers",
                             help: format!(
@@ -302,7 +333,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                         })
                     }
                 }
-                Err(error) => self.error(error),
+                Err(error) => self.ctx.error(error),
             }
         } else if let Some((references_to, implicit)) =
             self.resolve_reference(&mut new_igr, location, located_ingredient.modifiers.span())
@@ -326,7 +357,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                 && !referenced.defined_in_step
             {
                 let definition_span = self.ingredient_locations[references_to].span();
-                self.context
+                self.ctx
                     .error(AnalysisError::ConflictingReferenceQuantities {
                         ingredient_name: new_igr.name.to_string(),
                         definition_span,
@@ -359,18 +390,15 @@ impl<'a, 'r> Walker<'a, 'r> {
                                 .as_ref()
                                 .map(|l| l.span())
                                 .unwrap_or(new_q_loc.span());
-                            self.context.warn(AnalysisWarning::IncompatibleUnits {
-                                a,
-                                b,
-                                source: e,
-                            });
+                            self.ctx
+                                .warn(AnalysisWarning::IncompatibleUnits { a, b, source: e });
                         }
                     }
                 }
             }
 
             if let Some(note) = &located_ingredient.note {
-                self.context
+                self.ctx
                     .error(AnalysisError::ComponentPartNotAllowedInReference {
                         container: "ingredient",
                         what: "note",
@@ -383,7 +411,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                 // a text value can't be processed when calculating the total sum of
                 // all ingredient references. valid, but not optimal
                 if quantity.value.is_text() {
-                    self.warn(AnalysisWarning::TextValueInReference {
+                    self.ctx.warn(AnalysisWarning::TextValueInReference {
                         quantity_span: ingredient.quantity.unwrap().span(),
                     });
                 }
@@ -397,7 +425,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         {
             if let Some(checker) = &self.recipe_ref_checker {
                 if !(*checker)(&new_igr.name) {
-                    self.warn(AnalysisWarning::RecipeNotFound {
+                    self.ctx.warn(AnalysisWarning::RecipeNotFound {
                         ref_span: location,
                         name: new_igr.name.clone(),
                     });
@@ -519,7 +547,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         Ok(relation)
     }
 
-    fn cookware(&mut self, cookware: Located<ast::Cookware<'a>>) -> usize {
+    fn cookware(&mut self, cookware: Located<ast::Cookware<'i>>) -> usize {
         let located_cookware = cookware.clone();
         let (cookware, location) = cookware.take_pair();
 
@@ -538,21 +566,23 @@ impl<'a, 'r> Walker<'a, 'r> {
             self.resolve_reference(&mut new_cw, location, located_cookware.modifiers.span())
         {
             if let Some(note) = &located_cookware.note {
-                self.error(AnalysisError::ComponentPartNotAllowedInReference {
-                    container: "cookware",
-                    what: "note",
-                    to_remove: note.span(),
-                    implicit,
-                });
+                self.ctx
+                    .error(AnalysisError::ComponentPartNotAllowedInReference {
+                        container: "cookware",
+                        what: "note",
+                        to_remove: note.span(),
+                        implicit,
+                    });
             }
 
             if let Some(q) = &located_cookware.quantity {
-                self.error(AnalysisError::ComponentPartNotAllowedInReference {
-                    container: "cookware",
-                    what: "quantity",
-                    to_remove: q.span(),
-                    implicit,
-                });
+                self.ctx
+                    .error(AnalysisError::ComponentPartNotAllowedInReference {
+                        container: "cookware",
+                        what: "quantity",
+                        to_remove: q.span(),
+                        implicit,
+                    });
             }
 
             Cookware::set_referenced_from(&mut self.content.cookware, references_to);
@@ -562,7 +592,7 @@ impl<'a, 'r> Walker<'a, 'r> {
         self.content.cookware.len() - 1
     }
 
-    fn timer(&mut self, timer: Located<ast::Timer<'a>>) -> usize {
+    fn timer(&mut self, timer: Located<ast::Timer<'i>>) -> usize {
         let located_timer = timer.clone();
         let (timer, span) = timer.take_pair();
         let quantity = timer.quantity.map(|q| {
@@ -572,7 +602,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     match unit.unit_info_or_parse(self.converter) {
                         UnitInfo::Known(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
-                                self.error(AnalysisError::BadTimerUnit {
+                                self.ctx.error(AnalysisError::BadTimerUnit {
                                     unit: Box::new(unit.as_ref().clone()),
                                     timer_span: located_timer
                                         .quantity
@@ -585,7 +615,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                                 })
                             }
                         }
-                        UnitInfo::Unknown => self.error(AnalysisError::UnknownTimerUnit {
+                        UnitInfo::Unknown => self.ctx.error(AnalysisError::UnknownTimerUnit {
                             unit: unit.text().to_string(),
                             timer_span: span,
                         }),
@@ -606,7 +636,7 @@ impl<'a, 'r> Walker<'a, 'r> {
 
     fn quantity(
         &mut self,
-        quantity: Located<ast::Quantity<'a>>,
+        quantity: Located<ast::Quantity<'i>>,
         is_ingredient: bool,
     ) -> Quantity<ScalableValue> {
         let ast::Quantity { value, unit, .. } = quantity.into_inner();
@@ -622,7 +652,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                 value,
                 auto_scale: Some(auto_scale_marker),
             } => {
-                self.error(AnalysisError::ScaleTextValue {
+                self.ctx.error(AnalysisError::ScaleTextValue {
                     value_span: value.span(),
                     auto_scale_marker: *auto_scale_marker,
                 });
@@ -634,20 +664,19 @@ impl<'a, 'r> Walker<'a, 'r> {
                         .get("servings")
                         .map(|(_, value)| value.span());
                     if s.len() != v.len() {
-                        self.context
-                            .error(AnalysisError::ScalableValueManyConflict {
-                                reason: format!(
-                                    "{} servings defined but {} values in the quantity",
-                                    s.len(),
-                                    v.len()
-                                )
-                                .into(),
-                                value_span: value.span(),
-                                servings_meta_span,
-                            });
+                        self.ctx.error(AnalysisError::ScalableValueManyConflict {
+                            reason: format!(
+                                "{} servings defined but {} values in the quantity",
+                                s.len(),
+                                v.len()
+                            )
+                            .into(),
+                            value_span: value.span(),
+                            servings_meta_span,
+                        });
                     }
                 } else {
-                    self.error(AnalysisError::ScalableValueManyConflict {
+                    self.ctx.error(AnalysisError::ScalableValueManyConflict {
                         reason: format!("no servings defined but {} values in quantity", v.len())
                             .into(),
                         value_span: value.span(),
@@ -666,7 +695,7 @@ impl<'a, 'r> Walker<'a, 'r> {
                     v = ScalableValue::Linear { value }
                 }
                 ScalableValue::Linear { .. } => {
-                    self.warn(AnalysisWarning::RedundantAutoScaleMarker {
+                    self.ctx.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),
                     });
                 }
@@ -695,13 +724,13 @@ impl<'a, 'r> Walker<'a, 'r> {
             && new.modifiers().contains(Modifiers::REF)
             && !new.modifiers().contains(Modifiers::NEW)
         {
-            self.warn(AnalysisWarning::RedundantReferenceModifier {
+            self.ctx.warn(AnalysisWarning::RedundantReferenceModifier {
                 modifiers: Located::new(*new.modifiers(), modifiers_location),
             });
         }
 
         if new.modifiers().contains(Modifiers::NEW | Modifiers::REF) {
-            self.context
+            self.ctx
                 .error(AnalysisError::ConflictingModifiersInReference {
                     modifiers: Located::new(*new.modifiers(), modifiers_location),
                     conflict: *new.modifiers(),
@@ -741,16 +770,17 @@ impl<'a, 'r> Walker<'a, 'r> {
                 new.set_reference(references_to);
 
                 if !conflict.is_empty() {
-                    self.error(AnalysisError::ConflictingModifiersInReference {
-                        modifiers: Located::new(*new.modifiers(), modifiers_location),
-                        conflict,
-                        implicit,
-                    });
+                    self.ctx
+                        .error(AnalysisError::ConflictingModifiersInReference {
+                            modifiers: Located::new(*new.modifiers(), modifiers_location),
+                            conflict,
+                            implicit,
+                        });
                 }
 
                 return Some((references_to, implicit));
             } else {
-                self.error(AnalysisError::ReferenceNotFound {
+                self.ctx.error(AnalysisError::ReferenceNotFound {
                     name: new.name().to_string(),
                     reference_span: location,
                 });

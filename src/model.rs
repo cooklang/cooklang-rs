@@ -120,8 +120,12 @@ pub enum Item {
     /// Just plain text
     Text { value: String },
     /// A [`Component`]
-    #[serde(rename = "component")] // UniFFI
-    ItemComponent { value: Component },
+    #[serde(rename = "ingredient")] // UniFFI
+    ItemIngredient { index: usize },
+    #[serde(rename = "cookware")] // UniFFI
+    ItemCookware { index: usize },
+    #[serde(rename = "timer")] // UniFFI
+    ItemTimer { index: usize },
     /// An inline quantity.
     ///
     /// The number inside is an index into [`Recipe::inline_quantities`].
@@ -433,24 +437,4 @@ pub struct Timer<V: QuantityValue = Value> {
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
     /// extension is enabled, this is guaranteed to be [`Some`].
     pub quantity: Option<Quantity<V>>,
-}
-
-/// A component reference
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-pub struct Component {
-    /// What kind of component is
-    pub kind: ComponentKind,
-    /// The index in the corresponding vec in the [`Recipe`] struct.
-    pub index: usize,
-}
-
-/// Component kind used in [`Component`]
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Copy)]
-pub enum ComponentKind {
-    #[serde(rename = "ingredient")]
-    IngredientKind,
-    #[serde(rename = "cookware")]
-    CookwareKind,
-    #[serde(rename = "timer")]
-    TimerKind,
 }
