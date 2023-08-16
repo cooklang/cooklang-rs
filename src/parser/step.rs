@@ -18,10 +18,12 @@ use super::{
 pub(crate) fn step<'input>(bp: &mut BlockParser<'_, 'input>) {
     let is_text = bp.consume(T![>]).is_some();
 
-    let is_empty = bp
-        .tokens()
-        .iter()
-        .all(|t| matches!(t.kind, T![ws] | T![line comment] | T![block comment]));
+    let is_empty = bp.tokens().iter().all(|t| {
+        matches!(
+            t.kind,
+            T![ws] | T![line comment] | T![block comment] | T![newline]
+        )
+    });
     if is_empty {
         bp.consume_rest();
         return;

@@ -87,3 +87,57 @@ fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
         .collect();
     numbers
 }
+
+#[test]
+fn empty_not_empty() {
+    let input = indoc! {r#"
+        -- "empty" recipe
+
+           -- with spaces
+
+        -- that should actually be empty 
+            -- and not produce empty steps   
+        
+        [- not even this -]
+    "#};
+
+    // should be the same with multiline and without
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections.is_empty());
+
+    let parser = CooklangParser::new(
+        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Default::default(),
+    );
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections.is_empty());
+}
+
+#[test]
+fn empty_steps() {
+    let input = indoc! {r#"
+        == Section name to force the section ==
+
+        -- "empty" recipe
+
+           -- with spaces
+
+        -- that should actually be empty 
+            -- and not produce empty steps   
+        
+        [- not even this -]
+    "#};
+
+    // should be the same with multiline and without
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections[0].steps.is_empty());
+
+    let parser = CooklangParser::new(
+        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Default::default(),
+    );
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections[0].steps.is_empty());
+}
