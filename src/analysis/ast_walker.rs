@@ -244,7 +244,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                                 });
                             }
                             new_items.push(Item::InlineQuantity {
-                                value: self.content.inline_quantities.len(),
+                                index: self.content.inline_quantities.len(),
                             });
                             self.content.inline_quantities.push(temperature);
                             if !after.is_empty() {

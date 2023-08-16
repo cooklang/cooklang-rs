@@ -129,7 +129,7 @@ pub enum Item {
     /// An inline quantity.
     ///
     /// The number inside is an index into [`Recipe::inline_quantities`].
-    InlineQuantity { value: usize },
+    InlineQuantity { index: usize },
 }
 
 /// A recipe ingredient
