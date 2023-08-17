@@ -77,6 +77,7 @@ pub mod scale;
 pub mod span;
 
 mod analysis;
+mod bindings;
 mod context;
 mod lexer;
 
@@ -84,6 +85,7 @@ use bitflags::bitflags;
 
 use error::{CooklangError, CooklangWarning, PassResult};
 
+pub use bindings::*;
 pub use convert::Converter;
 pub use located::Located;
 pub use metadata::Metadata;

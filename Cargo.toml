@@ -11,6 +11,7 @@ repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 
 [dependencies]
+anyhow = "1.0"
 bitflags = { version = "2", features = ["serde"] }
 regex = "1"
 serde = { version = "1", features = ["derive", "rc"] }
@@ -30,6 +31,7 @@ ariadne = "0.3"
 either = "1.8"
 finl_unicode = { version = "1.2", features = ["categories"], default-features = false }
 smallvec = { version = "1", features = ["serde"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", branch = "main" }
 
 [dev-dependencies]
 serde_json = "1"
@@ -37,6 +39,14 @@ serde_yaml = "0.9"
 criterion = "0.5"
 test-case = "=3.1.0"
 indoc = "2.0.3"
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", features = ["bindgen-tests"], branch = "main" }
+
+[build-dependencies]
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", features= ["build"], branch = "main" }
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "cooklang"
 
 [features]
 default = ["bundled_units", "aisle"]
@@ -46,3 +56,9 @@ aisle = ["dep:pest", "dep:pest_derive"]
 [[bench]]
 name = "parse"
 harness = false
+
+[[bin]]
+# workaround: https://mozilla.github.io/uniffi-rs/tutorial/foreign_language_bindings.html#creating-the-bindgen-binary
+# This can be whatever name makes sense for your project, but the rest of this tutorial assumes uniffi-bindgen.
+name = "uniffi-bindgen"
+path = "src/uniffi-bindgen.rs"
