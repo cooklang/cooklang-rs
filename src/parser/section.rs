@@ -55,7 +55,7 @@ mod tests {
     #[test_case("== section -- and a comment" => text!(" section "; 2) ; "in between line comment")]
     fn test_section(input: &'static str) -> Option<(String, Span)> {
         let tokens = TokenStream::new(input).collect::<Vec<_>>();
-        let mut line = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut line = BlockParser::new(&tokens, input, Extensions::all());
         let event = section(&mut line).expect("failed to parse section");
         let Event::Section { name } = event else { panic!() };
         name.map(|text| (text.text().into_owned(), text.span()))

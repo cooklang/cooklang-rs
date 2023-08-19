@@ -141,3 +141,17 @@ fn empty_steps() {
     let r = parser.parse(input, "test").take_output().unwrap();
     assert!(r.sections[0].steps.is_empty());
 }
+
+#[test]
+fn whitespace_line_block_separator() {
+    let input = indoc! {r#"
+        a step
+                 
+        another
+    "#};
+
+    // should be the same with multiline and without
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert_eq!(r.sections[0].steps.len(), 2);
+}

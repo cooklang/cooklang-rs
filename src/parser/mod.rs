@@ -100,7 +100,6 @@ where
     input: &'i str,
     tokens: std::iter::Peekable<T>,
     block: Vec<Token>,
-    offset: usize,
     queue: VecDeque<Event<'i>>,
     extensions: Extensions,
 }
@@ -121,54 +120,90 @@ where
             tokens: tokens.peekable(),
             block: Vec::new(),
             extensions,
-            offset: 0,
             queue: VecDeque::new(),
         }
     }
+}
+
+fn is_empty_token(tok: &Token) -> bool {
+    matches!(
+        tok.kind,
+        T![ws] | T![block comment] | T![line comment] | T![newline]
+    )
+}
+
+fn is_line_empty(line: &[Token]) -> bool {
+    line.iter().all(is_empty_token)
+}
+
+fn is_single_line_marker(first: Option<&Token>) -> bool {
+    matches!(first, Some(mt![meta | =]))
 }
 
 impl<'i, I> Parser<'i, I>
 where
     I: Iterator<Item = Token>,
 {
+    fn pull_line(&mut self) -> Option<&[Token]> {
+        let last_line_end = self.block.len();
+        while let Some(tok) = self.tokens.next() {
+            self.block.push(tok);
+            if tok.kind == T![newline] {
+                break;
+            }
+        }
+        let line = &self.block[last_line_end..];
+        (!line.is_empty()).then_some(line)
+    }
+
     /// Advances a block. Store the tokens, newline/eof excluded.
     pub(crate) fn next_block(&mut self) -> Option<()> {
         self.block.clear();
+        let multiline_ext = self.extensions.contains(Extensions::MULTILINE_STEPS);
 
-        // eat empty lines
-        while let Some(t @ mt![newline]) = self.tokens.peek() {
-            self.offset += t.len();
-            self.tokens.next();
+        // start and end are used to track the "non empty" part of the block
+        let mut start = 0;
+        let mut end;
+
+        let mut current_line = self.pull_line()?;
+
+        // Eat empty lines
+        while is_line_empty(current_line) {
+            start = self.block.len();
+            current_line = self.pull_line()?;
         }
 
-        let first = self.tokens.peek()?;
-        let multiline = self.extensions.contains(Extensions::MULTILINE_STEPS);
-        let single_line = !multiline || matches!(first, mt![meta | =]);
-
-        let parsed = self.offset;
-        while let Some(tok) = self.tokens.next() {
-            self.offset += tok.len();
-            match tok.kind {
-                T![eof] => break,
-                T![newline] if single_line => break,
-                T![newline] if !single_line => match self.tokens.peek() {
-                    Some(mt!(newline)) => {
-                        let t2 = self.tokens.next().unwrap();
-                        self.offset += t2.len();
-                        break;
-                    }
-                    Some(mt![meta | =]) => break,
-                    _ => self.block.push(tok),
-                },
-                _ => self.block.push(tok),
+        // Check if more lines have to be consumed
+        let multiline = multiline_ext && !is_single_line_marker(current_line.first());
+        end = self.block.len();
+        if multiline {
+            loop {
+                if is_single_line_marker(self.tokens.peek()) {
+                    break;
+                }
+                match self.pull_line() {
+                    None => break,
+                    Some(line) if is_line_empty(line) => break,
+                    _ => {}
+                }
+                end = self.block.len();
             }
         }
 
-        if self.block.is_empty() {
+        // trim trailing newline
+        while let mt![newline] = self.block[end - 1] {
+            if end <= start {
+                break;
+            }
+            end -= 1;
+        }
+        // trim empty lines
+        let trimmed_block = &self.block[start..end];
+        if trimmed_block.is_empty() {
             return None;
         }
 
-        let mut bp = BlockParser::new(parsed, &self.block, self.input, self.extensions);
+        let mut bp = BlockParser::new(trimmed_block, self.input, self.extensions);
         parse_block(&mut bp);
         let events = bp.finish();
         self.queue.extend(events);
@@ -179,18 +214,10 @@ where
     fn next_metadata_block(&mut self) -> Option<()> {
         self.block.clear();
 
-        // eat empty lines
-        while let Some(t @ mt![newline]) = self.tokens.peek() {
-            self.offset += t.len();
-            self.tokens.next();
-        }
-
         let mut last = T![newline];
         let mut in_meta = false;
 
-        let parsed = self.offset;
         while let Some(tok) = self.tokens.next() {
-            self.offset += tok.len();
             if in_meta {
                 if tok.kind == T![newline] {
                     break;
@@ -204,11 +231,11 @@ where
             last = tok.kind;
         }
 
-        if !in_meta || self.block.is_empty() {
+        if self.block.is_empty() {
             return None;
         }
 
-        let mut bp = BlockParser::new(parsed, &self.block, self.input, self.extensions);
+        let mut bp = BlockParser::new(&self.block, self.input, self.extensions);
         if let Some(ev) = metadata_entry(&mut bp) {
             bp.event(ev);
         }

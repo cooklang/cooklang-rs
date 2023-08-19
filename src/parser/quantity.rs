@@ -21,12 +21,7 @@ pub(crate) fn parse_quantity<'input>(
     assert!(!tokens.is_empty(), "empty quantity tokens. this is a bug.");
 
     // create an insolated sub-block for the quantity tokens
-    let mut bp2 = BlockParser::new(
-        tokens.first().unwrap().span.start(),
-        tokens,
-        bp.input,
-        bp.extensions,
-    );
+    let mut bp2 = BlockParser::new(tokens, bp.input, bp.extensions);
 
     let advanced = bp2
         .extension(Extensions::ADVANCED_UNITS)
@@ -341,8 +336,9 @@ mod tests {
         ($input:literal, $extensions:expr) => {{
             let input = $input;
             let tokens = TokenStream::new(input).collect::<Vec<_>>();
-            let mut bp = BlockParser::new(0, &[], input, $extensions);
+            let mut bp = BlockParser::new(&tokens, input, $extensions);
             let q = parse_quantity(&mut bp, &tokens);
+            bp.consume_rest();
             let mut ctx = crate::context::Context::<
                 crate::parser::ParserError,
                 crate::parser::ParserWarning,

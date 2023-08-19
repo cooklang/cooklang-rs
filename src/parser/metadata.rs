@@ -44,7 +44,7 @@ mod tests {
     fn basic_metadata_entry() {
         let input = ">> key: value";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.1, word.5];
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         let events = bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
@@ -59,7 +59,7 @@ mod tests {
     fn no_key_metadata_entry() {
         let input = ">>: value";
         let tokens = tokens![meta.2, :.1, ws.1, word.5];
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         let events = bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
@@ -74,7 +74,7 @@ mod tests {
     fn no_val_metadata_entry() {
         let input = ">> key:";
         let tokens = tokens![meta.2, ws.1, word.3, :.1];
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         let events = bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
@@ -86,7 +86,7 @@ mod tests {
 
         let input = ">> key:  ";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.2];
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         let events = bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
@@ -101,7 +101,7 @@ mod tests {
     fn empty_metadata_entry() {
         let input = ">>:";
         let tokens = tokens![meta.2, :.1];
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         let events = bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
@@ -114,7 +114,7 @@ mod tests {
 
         let input = ">> ";
         let tokens = tokens![meta.2, ws.1];
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         assert!(metadata_entry(&mut bp).is_none())
     }
 }

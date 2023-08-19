@@ -6,7 +6,6 @@ use crate::{
 };
 
 pub(crate) struct BlockParser<'t, 'i> {
-    base_offset: usize,
     tokens: &'t [Token],
     pub(crate) current: usize,
     pub(crate) input: &'i str,
@@ -19,16 +18,11 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     /// - tokens must be adjacent (checked in debug)
     /// - slices's tokens's span must refer to the input (checked in debug)
     /// - input is the whole input str given to the lexer
-    pub(crate) fn new(
-        base_offset: usize,
-        tokens: &'t [Token],
-        input: &'i str,
-        extensions: Extensions,
-    ) -> Self {
+    pub(crate) fn new(tokens: &'t [Token], input: &'i str, extensions: Extensions) -> Self {
+        assert!(!tokens.is_empty());
         debug_assert!(
-            tokens.is_empty()
-                || (tokens.first().unwrap().span.start() < input.len()
-                    && tokens.last().unwrap().span.end() <= input.len()),
+            tokens.first().unwrap().span.start() < input.len()
+                && tokens.last().unwrap().span.end() <= input.len(),
             "tokens out of input bounds"
         );
         debug_assert!(
@@ -38,13 +32,16 @@ impl<'t, 'i> BlockParser<'t, 'i> {
             "tokens are not adjacent"
         );
         Self {
-            base_offset,
             tokens,
             current: 0,
             input,
             extensions,
             events: Vec::default(),
         }
+    }
+
+    fn base_offset(&self) -> usize {
+        self.tokens.first().unwrap().span.start()
     }
 
     pub(crate) fn event(&mut self, ev: Event<'i>) {
@@ -141,7 +138,7 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         self.parsed()
             .last()
             .map(|t| t.span.end())
-            .unwrap_or(self.base_offset)
+            .unwrap_or(self.base_offset())
     }
 
     pub(crate) fn tokens_consumed(&self) -> usize {

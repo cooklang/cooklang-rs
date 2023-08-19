@@ -653,7 +653,7 @@ mod tests {
 
     fn t(input: &str) -> (Vec<Event>, Context<ParserError, ParserWarning>) {
         let tokens = TokenStream::new(input).collect::<Vec<_>>();
-        let mut bp = BlockParser::new(0, &tokens, input, Extensions::all());
+        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
         step(&mut bp);
         let mut events = Vec::new();
         let mut ctx = Context::default();
