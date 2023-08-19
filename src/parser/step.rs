@@ -647,25 +647,29 @@ fn check_note(bp: &mut BlockParser, container: &'static str) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::{context::Context, parser::token_stream::TokenStream};
     use test_case::test_case;
 
     fn t(input: &str) -> (Vec<Event>, Context<ParserError, ParserWarning>) {
         let tokens = TokenStream::new(input).collect::<Vec<_>>();
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         step(&mut bp);
-        let mut events = Vec::new();
+        bp.finish();
+        let mut other = Vec::new();
         let mut ctx = Context::default();
 
-        for ev in bp.finish() {
+        for ev in events {
             match ev {
                 Event::Error(err) => ctx.error(err),
                 Event::Warning(warn) => ctx.warn(warn),
-                _ => events.push(ev),
+                _ => other.push(ev),
             }
         }
-        let [Event::StartStep {..}, items @ .., Event::EndStep { .. }] = events.as_slice() else { panic!() };
+        let [Event::StartStep {..}, items @ .., Event::EndStep { .. }] = other.as_slice() else { panic!() };
         (Vec::from(items), ctx)
     }
 

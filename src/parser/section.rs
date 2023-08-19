@@ -25,6 +25,8 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::{
         parser::{token_stream::TokenStream, BlockParser},
@@ -55,8 +57,11 @@ mod tests {
     #[test_case("== section -- and a comment" => text!(" section "; 2) ; "in between line comment")]
     fn test_section(input: &'static str) -> Option<(String, Span)> {
         let tokens = TokenStream::new(input).collect::<Vec<_>>();
-        let mut line = BlockParser::new(&tokens, input, Extensions::all());
-        let event = section(&mut line).expect("failed to parse section");
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let event = section(&mut bp).expect("failed to parse section");
+        bp.finish();
+        assert!(events.is_empty());
         let Event::Section { name } = event else { panic!() };
         name.map(|text| (text.text().into_owned(), text.span()))
     }

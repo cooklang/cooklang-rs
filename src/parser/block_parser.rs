@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use super::{token_stream::Token, Event, ParserError, ParserWarning};
 use crate::{
     ast::{self, TextFragment},
@@ -10,7 +12,7 @@ pub(crate) struct BlockParser<'t, 'i> {
     pub(crate) current: usize,
     pub(crate) input: &'i str,
     pub(crate) extensions: Extensions,
-    pub(crate) events: Vec<Event<'i>>,
+    pub(crate) events: &'t mut VecDeque<Event<'i>>,
 }
 
 impl<'t, 'i> BlockParser<'t, 'i> {
@@ -18,7 +20,12 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     /// - tokens must be adjacent (checked in debug)
     /// - slices's tokens's span must refer to the input (checked in debug)
     /// - input is the whole input str given to the lexer
-    pub(crate) fn new(tokens: &'t [Token], input: &'i str, extensions: Extensions) -> Self {
+    pub(crate) fn new(
+        tokens: &'t [Token],
+        input: &'i str,
+        events: &'t mut VecDeque<Event<'i>>,
+        extensions: Extensions,
+    ) -> Self {
         assert!(!tokens.is_empty());
         debug_assert!(
             tokens.first().unwrap().span.start() < input.len()
@@ -36,7 +43,7 @@ impl<'t, 'i> BlockParser<'t, 'i> {
             current: 0,
             input,
             extensions,
-            events: Vec::default(),
+            events,
         }
     }
 
@@ -45,19 +52,18 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     }
 
     pub(crate) fn event(&mut self, ev: Event<'i>) {
-        self.events.push(ev);
+        self.events.push_back(ev);
     }
 
-    /// Finish parsing the line, this will return the events generated
+    /// Finish parsing the line assertions
     ///
     /// Panics if any token is left.
-    pub(crate) fn finish(self) -> Vec<Event<'i>> {
+    pub(crate) fn finish(self) {
         assert_eq!(
             self.current,
             self.tokens.len(),
             "Block tokens not parsed. this is a bug"
         );
-        self.events
     }
 
     pub(crate) fn extension(&self, ext: Extensions) -> bool {

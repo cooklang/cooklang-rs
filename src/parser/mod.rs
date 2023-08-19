@@ -203,10 +203,9 @@ where
             return None;
         }
 
-        let mut bp = BlockParser::new(trimmed_block, self.input, self.extensions);
+        let mut bp = BlockParser::new(trimmed_block, self.input, &mut self.queue, self.extensions);
         parse_block(&mut bp);
-        let events = bp.finish();
-        self.queue.extend(events);
+        bp.finish();
 
         Some(())
     }
@@ -235,12 +234,11 @@ where
             return None;
         }
 
-        let mut bp = BlockParser::new(&self.block, self.input, self.extensions);
+        let mut bp = BlockParser::new(&self.block, self.input, &mut self.queue, self.extensions);
         if let Some(ev) = metadata_entry(&mut bp) {
             bp.event(ev);
         }
-        let events = bp.finish();
-        self.queue.extend(events);
+        bp.finish();
 
         Some(())
     }

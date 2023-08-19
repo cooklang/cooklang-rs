@@ -33,6 +33,8 @@ pub(crate) fn metadata_entry<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Even
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::{
         parser::{token_stream::tokens, BlockParser},
@@ -44,9 +46,10 @@ mod tests {
     fn basic_metadata_entry() {
         let input = ">> key: value";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.1, word.5];
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
-        let events = bp.finish();
+        bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
         assert_eq!(key.text(), " key");
         assert_eq!(key.span(), Span::new(2, 6));
@@ -59,9 +62,10 @@ mod tests {
     fn no_key_metadata_entry() {
         let input = ">>: value";
         let tokens = tokens![meta.2, :.1, ws.1, word.5];
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
-        let events = bp.finish();
+        bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
         assert_eq!(key.text(), "");
         assert_eq!(key.span(), Span::pos(2));
@@ -74,9 +78,10 @@ mod tests {
     fn no_val_metadata_entry() {
         let input = ">> key:";
         let tokens = tokens![meta.2, ws.1, word.3, :.1];
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
-        let events = bp.finish();
+        bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
         assert_eq!(key.text_trimmed(), "key");
         assert_eq!(value.text(), "");
@@ -86,9 +91,10 @@ mod tests {
 
         let input = ">> key:  ";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.2];
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
-        let events = bp.finish();
+        bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
         assert_eq!(key.text_trimmed(), "key");
         assert_eq!(value.text(), "  ");
@@ -101,9 +107,10 @@ mod tests {
     fn empty_metadata_entry() {
         let input = ">>:";
         let tokens = tokens![meta.2, :.1];
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
-        let events = bp.finish();
+        bp.finish();
         let Event::Metadata { key, value } = entry else { panic!() };
         assert!(key.text().is_empty());
         assert_eq!(key.span(), Span::pos(2));
@@ -114,7 +121,8 @@ mod tests {
 
         let input = ">> ";
         let tokens = tokens![meta.2, ws.1];
-        let mut bp = BlockParser::new(&tokens, input, Extensions::all());
-        assert!(metadata_entry(&mut bp).is_none())
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        assert!(metadata_entry(&mut bp).is_none());
     }
 }
