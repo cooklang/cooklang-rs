@@ -93,7 +93,7 @@ pub enum Event<'i> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Parser<'i, T>
+pub struct Parser<'i, T>
 where
     T: Iterator<Item = Token>,
 {
@@ -107,6 +107,10 @@ where
 impl<'input> Parser<'input, TokenStream<'input>> {
     pub fn new(input: &'input str, extensions: Extensions) -> Self {
         Self::new_from_token_iter(input, extensions, TokenStream::new(input))
+    }
+
+    pub fn into_meta_iter(mut self) -> impl Iterator<Item = Event<'input>> {
+        std::iter::from_fn(move || self.next_metadata())
     }
 }
 
@@ -278,16 +282,14 @@ fn parse_block(line: &mut BlockParser) {
 }
 
 /// Parse a recipe into an [`Ast`](ast::Ast)
-#[tracing::instrument(level = "debug", skip_all, fields(len = input.len()))]
-pub fn parse<'input>(
-    input: &'input str,
-    extensions: Extensions,
+#[tracing::instrument(level = "debug", skip_all)]
+pub fn build_ast<'input>(
+    events: impl Iterator<Item = Event<'input>>,
 ) -> PassResult<ast::Ast<'input>, ParserError, ParserWarning> {
-    let mut parser = Parser::new(input, extensions);
     let mut blocks = Vec::new();
     let mut items = Vec::new();
     let mut ctx = Context::default();
-    for event in parser.by_ref() {
+    for event in events {
         match event {
             Event::Metadata { key, value } => blocks.push(ast::Block::Metadata { key, value }),
             Event::Section { name } => blocks.push(ast::Block::Section { name }),
@@ -306,28 +308,6 @@ pub fn parse<'input>(
             Event::Timer(c) => items.push(ast::Item::Timer(c)),
             Event::Error(e) => ctx.error(e),
             Event::Warning(w) => ctx.warn(w),
-        }
-    }
-    let ast = ast::Ast { blocks };
-    ctx.finish(Some(ast))
-}
-
-/// Parse only the recipe metadata into an [`Ast`](ast::Ast).
-///
-/// This will skip every line that is not metadata. Is faster than [`parse`].
-#[tracing::instrument(level = "debug", skip_all, fields(len = input.len()))]
-pub fn parse_metadata<'input>(
-    input: &'input str,
-) -> PassResult<ast::Ast<'input>, ParserError, ParserWarning> {
-    let mut parser = Parser::new(input, Extensions::empty());
-    let mut blocks = Vec::new();
-    let mut ctx = Context::default();
-    while let Some(ev) = parser.next_metadata() {
-        match ev {
-            Event::Metadata { key, value } => blocks.push(ast::Block::Metadata { key, value }),
-            Event::Error(e) => ctx.error(e),
-            Event::Warning(w) => ctx.warn(w),
-            _ => {}
         }
     }
     let ast = ast::Ast { blocks };
@@ -490,31 +470,32 @@ impl RichError for ParserWarning {
 
 #[cfg(test)]
 mod tests {
+    use indoc::indoc;
+
     use super::*;
     use crate::ast::*;
 
     #[test]
     fn just_metadata() {
-        let (ast, warn, err) = parse_metadata(
-            r#">> entry: true
-a test @step @salt{1%mg} more text
-a test @step @salt{1%mg} more text
-a test @step @salt{1%mg} more text
->> entry2: uwu
-a test @step @salt{1%mg} more text
-"#,
-        )
-        .into_tuple();
-        assert!(warn.is_empty());
-        assert!(err.is_empty());
+        let parser = Parser::new(
+            indoc! {r#">> entry: true
+        a test @step @salt{1%mg} more text
+        a test @step @salt{1%mg} more text
+        a test @step @salt{1%mg} more text
+        >> entry2: uwu
+        a test @step @salt{1%mg} more text
+        "#},
+            Extensions::empty(),
+        );
+        let events = parser.into_meta_iter().collect::<Vec<_>>();
         assert_eq!(
-            ast.unwrap().blocks,
+            events,
             vec![
-                Block::Metadata {
+                Event::Metadata {
                     key: Text::from_str(" entry", 2),
                     value: Text::from_str(" true", 10)
                 },
-                Block::Metadata {
+                Event::Metadata {
                     key: Text::from_str(" entry2", 126),
                     value: Text::from_str(" uwu", 134)
                 },
@@ -524,11 +505,11 @@ a test @step @salt{1%mg} more text
 
     #[test]
     fn multiline_spaces() {
-        let (ast, warn, err) = parse(
+        let parser = Parser::new(
             "  This is a step           -- comment\n and this line continues  -- another comment",
             Extensions::MULTILINE_STEPS,
-        )
-        .into_tuple();
+        );
+        let (ast, warn, err) = build_ast(parser).into_tuple();
 
         // Only whitespace between line should be trimmed
         assert!(warn.is_empty());

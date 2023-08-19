@@ -119,7 +119,6 @@ impl Step {
 pub enum Item {
     /// Just plain text
     Text { value: String },
-    /// A [`Component`]
     #[serde(rename = "ingredient")] // UniFFI
     ItemIngredient { index: usize },
     #[serde(rename = "cookware")] // UniFFI

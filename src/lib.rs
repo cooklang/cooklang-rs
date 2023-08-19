@@ -253,8 +253,8 @@ impl CooklangParser {
     /// This is a bit faster than [`Self::parse`] if you only want the metadata
     #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
-        let mut parser = parser::Parser::new(input, self.extensions);
-        let meta_events = std::iter::from_fn(|| parser.next_metadata());
+        let parser = parser::Parser::new(input, self.extensions);
+        let meta_events = parser.into_meta_iter();
         analysis::parse_events(meta_events, Extensions::empty(), &self.converter, None)
             .map(|c| c.metadata)
     }
