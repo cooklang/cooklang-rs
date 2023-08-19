@@ -146,7 +146,7 @@ where
 {
     fn pull_line(&mut self) -> Option<&[Token]> {
         let last_line_end = self.block.len();
-        while let Some(tok) = self.tokens.next() {
+        for tok in self.tokens.by_ref() {
             self.block.push(tok);
             if tok.kind == T![newline] {
                 break;
@@ -216,7 +216,7 @@ where
         let mut last = T![newline];
         let mut in_meta = false;
 
-        while let Some(tok) = self.tokens.next() {
+        for tok in self.tokens.by_ref() {
             if in_meta {
                 if tok.kind == T![newline] {
                     break;
@@ -296,7 +296,7 @@ pub fn parse<'input>(
                 if !items.is_empty() {
                     blocks.push(ast::Block::Step {
                         is_text,
-                        items: std::mem::replace(&mut items, Vec::new()),
+                        items: std::mem::take(&mut items),
                     })
                 }
             }

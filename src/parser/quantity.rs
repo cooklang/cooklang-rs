@@ -27,9 +27,9 @@ pub(crate) fn parse_quantity<'input>(
         .extension(Extensions::ADVANCED_UNITS)
         .then(|| bp2.with_recover(parse_advanced_quantity))
         .flatten();
-    let quantity = advanced.unwrap_or_else(|| parse_regular_quantity(&mut bp2));
+    
 
-    quantity
+    advanced.unwrap_or_else(|| parse_regular_quantity(&mut bp2))
 }
 
 fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i> {

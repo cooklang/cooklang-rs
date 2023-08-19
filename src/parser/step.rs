@@ -15,7 +15,7 @@ use super::{
     ParserError, ParserWarning,
 };
 
-pub(crate) fn step<'input>(bp: &mut BlockParser<'_, 'input>) {
+pub(crate) fn step(bp: &mut BlockParser<'_, '_>) {
     let is_text = bp.consume(T![>]).is_some();
 
     let is_empty = bp.tokens().iter().all(|t| {
