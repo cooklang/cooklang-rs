@@ -379,7 +379,7 @@ impl Scale for Timer<ScalableValue> {
 }
 
 impl ScaledRecipe {
-    /// Get the [ScaledData] from a recipe after scaling.
+    /// Get the [`ScaledData`] from a recipe after scaling.
     ///
     /// Returns [`None`] if it was [`default scaled`](ScalableRecipe::default_scale).
     pub fn scaled_data(&self) -> Option<&ScaledData> {

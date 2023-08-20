@@ -72,7 +72,7 @@ impl Item<'_> {
     }
 }
 
-/// Ingredient [`Component`]
+/// Ingredient [`Item`]
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Ingredient<'a> {
     /// Ingredient modifiers
@@ -90,7 +90,7 @@ pub struct Ingredient<'a> {
     pub note: Option<Text<'a>>,
 }
 
-/// Cookware [`Component`]
+/// Cookware [`Item`]
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Cookware<'a> {
     /// Cookware modifiers
@@ -106,7 +106,7 @@ pub struct Cookware<'a> {
     pub note: Option<Text<'a>>,
 }
 
-/// Timer [`Component`]
+/// Timer [`Item`]
 ///
 /// At least one of the fields is guaranteed to be [`Some`].
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -117,7 +117,7 @@ pub struct Timer<'a> {
     pub quantity: Option<Located<Quantity<'a>>>,
 }
 
-/// Quantity used in [components](Component)
+/// Quantity used in [items](Item)
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Quantity<'a> {
     /// Value or values

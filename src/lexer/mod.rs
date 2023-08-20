@@ -262,7 +262,7 @@ impl Cursor<'_> {
     }
 }
 
-/// Shorthand macro for [TokenKind]
+/// Shorthand macro for [`TokenKind`]
 macro_rules! T {
     [+] => {
         $crate::lexer::TokenKind::Plus

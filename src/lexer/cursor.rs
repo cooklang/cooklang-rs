@@ -25,8 +25,8 @@ impl<'a> Cursor<'a> {
         self.prev
     }
 
-    /// Peeks the next char. If none, [EOF_CHAR] is returned. But EOF should
-    /// be checked with [Self::is_eof].
+    /// Peeks the next char. If none, [`EOF_CHAR`] is returned. But EOF should
+    /// be checked with [`Self::is_eof`].
     pub(crate) fn first(&self) -> char {
         // cloning chars is cheap as it's only a view into memory
         self.chars.clone().next().unwrap_or(EOF_CHAR)

@@ -118,16 +118,16 @@ impl IngredientList {
 
     /// Add the ingredients from a recipe to the list.
     ///
-    /// This is a convenience method instead of manually calling [IngredientList::add_ingredient]
+    /// This is a convenience method instead of manually calling [`IngredientList::add_ingredient`]
     /// for each one.
     ///
-    /// Only ingredients for which [should_be_listed](crate::ast::Modifiers::should_be_listed)
+    /// Only ingredients for which [`should_be_listed`](crate::ast::Modifiers::should_be_listed)
     /// is true are added.
     ///
     /// Scaling outcomes are ignored, but logged with [tracing] if they are an
     /// error.
     ///
-    /// Ingredients are listed based on their [display_name](crate::model::Ingredient::display_name).
+    /// Ingredients are listed based on their [`display_name`](crate::model::Ingredient::display_name).
     pub fn add_recipe(&mut self, recipe: &ScaledRecipe, converter: &Converter) {
         for entry in recipe.group_ingredients(converter) {
             let GroupedIngredient {
@@ -205,7 +205,7 @@ impl IntoIterator for IngredientList {
 
 /// Ingredient list split into categories.
 ///
-/// Obtained from [IngredientList::categorize].
+/// Obtained from [`IngredientList::categorize`].
 #[derive(Debug, Default)]
 pub struct CategorizedIngredientList {
     /// One ingredient list per category
@@ -217,7 +217,7 @@ pub struct CategorizedIngredientList {
 }
 
 impl CategorizedIngredientList {
-    /// Iterate over all categories sorted by their name. If [Self::other] is
+    /// Iterate over all categories sorted by their name. If [`Self::other`] is
     /// not empty, adds an `"other"` category at the end.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &IngredientList)> {
         CategorizedIter {
@@ -227,7 +227,7 @@ impl CategorizedIngredientList {
     }
 }
 
-/// See [CategorizedIngredientList::iter]
+/// See [`CategorizedIngredientList::iter`]
 pub struct CategorizedIter<'a> {
     categories: std::collections::btree_map::Iter<'a, String, IngredientList>,
     other: Option<&'a IngredientList>,
@@ -254,7 +254,7 @@ impl IntoIterator for CategorizedIngredientList {
 
     type IntoIter = CategorizedIntoIter;
 
-    /// Iterate over all categories sorted by their name. If [Self::other] is
+    /// Iterate over all categories sorted by their name. If [`Self::other`] is
     /// not empty, adds an `"other"` category at the end.
     fn into_iter(self) -> Self::IntoIter {
         CategorizedIntoIter {
@@ -264,7 +264,7 @@ impl IntoIterator for CategorizedIngredientList {
     }
 }
 
-/// See [CategorizedIngredientList::into_iter]
+/// See [`CategorizedIngredientList::into_iter`]
 pub struct CategorizedIntoIter {
     categories: std::collections::btree_map::IntoIter<String, IngredientList>,
     other: Option<IngredientList>,

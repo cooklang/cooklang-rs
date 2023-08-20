@@ -102,7 +102,7 @@ impl Converter {
         self.all_units.len()
     }
 
-    /// Get a detailed count of the known units. See [UnitCount].
+    /// Get a detailed count of the known units. See [`UnitCount`].
     pub fn unit_count_detailed(&self) -> UnitCount {
         UnitCount::new(self)
     }
@@ -171,7 +171,7 @@ pub(crate) type UnitQuantityIndex = EnumMap<PhysicalQuantity, Vec<usize>>;
 ///
 /// Conversion will be `val * [Self::ratio] + [Self::difference]`
 ///
-/// It implements [Display](std::fmt::Display). It will use [Self::symbol] or,
+/// It implements [Display](std::fmt::Display). It will use [`Self::symbol`] or,
 /// if alternate (`#`) is given, it will try the first name.
 #[derive(Debug, Clone, Serialize)]
 pub struct Unit {
@@ -455,7 +455,7 @@ impl BestConversions {
     }
 }
 
-/// Input value for [Converter::convert]
+/// Input value for [`Converter::convert`]
 #[derive(PartialEq, Clone, Debug)]
 pub enum ConvertValue {
     Number(f64),
@@ -464,7 +464,7 @@ pub enum ConvertValue {
     Range(RangeInclusive<f64>),
 }
 
-/// Input unit for [Converter::convert]
+/// Input unit for [`Converter::convert`]
 #[derive(Debug, Clone, Copy)]
 pub enum ConvertUnit<'a> {
     /// A unit directly
@@ -477,7 +477,7 @@ pub enum ConvertUnit<'a> {
     Key(&'a str),
 }
 
-/// Input target for [Converter::convert]
+/// Input target for [`Converter::convert`]
 #[derive(Debug, Clone, Copy)]
 pub enum ConvertTo<'a> {
     SameSystem,

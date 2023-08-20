@@ -339,7 +339,7 @@ pub struct IngredientRelation {
 
 /// Target an ingredient reference references to
 ///
-/// This is obtained from [IngredientRelation::references_to]
+/// This is obtained from [`IngredientRelation::references_to`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
@@ -387,9 +387,9 @@ impl IngredientRelation {
 
     /// Get the index the relation refrences to and the target
     ///
-    /// If the [INTERMEDIATE_INGREDIENTS](crate::Extensions::INTERMEDIATE_INGREDIENTS)
+    /// If the [`INTERMEDIATE_INGREDIENTS`](crate::Extensions::INTERMEDIATE_INGREDIENTS)
     /// extension is disabled, the target will always be
-    /// [IngredientReferenceTarget::IngredientTarget].
+    /// [`IngredientReferenceTarget::IngredientTarget`].
     pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {
         self.relation
             .references_to()

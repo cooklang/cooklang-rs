@@ -50,7 +50,7 @@
 //!   a [`ScaledRecipe`].
 //! - Only [`ScaledRecipe`] can be [`convert`](ScaledRecipe::convert)ed.
 
-#![deny(rustdoc::broken_intra_doc_links)]
+#![warn(rustdoc::broken_intra_doc_links, clippy::doc_markdown)]
 
 #[cfg(doc)]
 pub mod _extensions {
@@ -71,6 +71,7 @@ pub mod _features {
 
 #[cfg(feature = "aisle")]
 pub mod aisle;
+pub mod analysis;
 pub mod ast;
 pub mod convert;
 pub mod error;
@@ -83,7 +84,6 @@ pub mod quantity;
 pub mod scale;
 pub mod span;
 
-mod analysis;
 mod context;
 mod lexer;
 
@@ -228,7 +228,7 @@ impl CooklangParser {
         recipe_name: &str,
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
-        let mut parser = parser::Parser::new(input, self.extensions);
+        let mut parser = parser::PullParser::new(input, self.extensions);
         let result = analysis::parse_events(
             &mut parser,
             self.extensions,
@@ -253,7 +253,7 @@ impl CooklangParser {
     /// This is a bit faster than [`Self::parse`] if you only want the metadata
     #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
-        let parser = parser::Parser::new(input, self.extensions);
+        let parser = parser::PullParser::new(input, self.extensions);
         let meta_events = parser.into_meta_iter();
         analysis::parse_events(meta_events, Extensions::empty(), &self.converter, None)
             .map(|c| c.metadata)

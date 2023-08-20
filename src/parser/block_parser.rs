@@ -194,13 +194,13 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         }
     }
 
-    /// Same as [Self::next_token] but panics if there are no more tokens.
+    /// Same as [`Self::next_token`] but panics if there are no more tokens.
     pub(crate) fn bump_any(&mut self) -> Token {
         self.next_token()
             .expect("Expected token, but there was none")
     }
 
-    /// Call [Self::next_token] but panics if the next token is not `expected`.
+    /// Call [`Self::next_token`] but panics if the next token is not `expected`.
     pub(crate) fn bump(&mut self, expected: TokenKind) -> Token {
         let token = self.bump_any();
         assert_eq!(
@@ -233,7 +233,7 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         self.consume_while(|t| matches!(t, T![ws] | T![line comment] | T![block comment]))
     }
 
-    /// Call [Self::next_token] if the next token is `expected`.
+    /// Call [`Self::next_token`] if the next token is `expected`.
     #[must_use]
     pub(crate) fn consume(&mut self, expected: TokenKind) -> Option<Token> {
         if self.at(expected) {
