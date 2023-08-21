@@ -1,8 +1,12 @@
-use crate::lexer::T;
+use crate::{lexer::T, Extensions};
 
 use super::{BlockParser, Event};
 
 pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+    if !block.extension(Extensions::SECTIONS) {
+        return None;
+    }
+
     block.consume(T![=])?;
     block.consume_while(|t| t == T![=]);
     let name_pos = block.current_offset();
