@@ -46,3 +46,6 @@ aisle = ["dep:pest", "dep:pest_derive"]
 [[bench]]
 name = "parse"
 harness = false
+
+[workspace]
+members = [".", "playground"]
