@@ -89,6 +89,17 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         r
     }
 
+    /// Returns the slice of tokens consumed inside the given function
+    pub(crate) fn capture_slice<F>(&mut self, f: F) -> &'t [Token]
+    where
+        F: FnOnce(&mut Self),
+    {
+        let start = self.current;
+        f(self);
+        let end = self.current;
+        &self.tokens[start..end]
+    }
+
     /// Gets a token's matching str from the input
     pub(crate) fn as_str(&self, token: Token) -> &'i str {
         &self.input[token.span.range()]
@@ -145,10 +156,6 @@ impl<'t, 'i> BlockParser<'t, 'i> {
             .last()
             .map(|t| t.span.end())
             .unwrap_or(self.base_offset())
-    }
-
-    pub(crate) fn tokens_consumed(&self) -> usize {
-        self.current
     }
 
     pub(crate) fn tokens(&self) -> &'t [Token] {
