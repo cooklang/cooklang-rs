@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Debug};
 
 use serde::Serialize;
 use smallvec::SmallVec;
@@ -11,7 +11,7 @@ use crate::{located::Located, span::Span};
 ///
 /// This implemets [`PartialEq`] and it will return true if the text matches, it
 /// ignores the location.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Text<'a> {
     /// A starting offset is needed if there are no fragments
     offset: usize,
@@ -131,6 +131,16 @@ impl std::fmt::Display for Text<'_> {
     }
 }
 
+impl std::fmt::Debug for Text<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.fragments.len() {
+            0 => write!(f, "<empty> @ {}", self.offset),
+            1 => self.fragments[0].fmt(f),
+            _ => f.debug_list().entries(&self.fragments).finish(),
+        }
+    }
+}
+
 impl PartialEq for Text<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.fragments == other.fragments
@@ -147,7 +157,7 @@ impl From<Text<'_>> for Span {
 ///
 /// This implemets [`PartialEq`] and it will return true if the text matches, it
 /// ignores the location.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize)]
 pub struct TextFragment<'a> {
     text: &'a str,
     offset: usize,
@@ -195,6 +205,16 @@ impl<'a> TextFragment<'a> {
     /// End offset (not included) of the fragment
     pub fn end(&self) -> usize {
         self.offset + self.text.len()
+    }
+}
+
+impl Debug for TextFragment<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.kind {
+            TextFragmentKind::Text => write!(f, "{:?}", self.text),
+            TextFragmentKind::SoftBreak => write!(f, "SoftBreak({:?})", self.text),
+        }?;
+        write!(f, " @ {}", self.offset)
     }
 }
 

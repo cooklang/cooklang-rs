@@ -6,7 +6,7 @@ use std::ops::{Deref, Range};
 ///
 /// The offsets are zero-indexed charactere offsets from the beginning of the source
 /// code.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Span {
     start: usize,
     end: usize,
@@ -47,6 +47,12 @@ impl Span {
     /// Check if the span is empty
     pub fn is_empty(&self) -> bool {
         self.start == self.end
+    }
+}
+
+impl std::fmt::Debug for Span {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}..{}", self.start, self.end)
     }
 }
 
