@@ -40,7 +40,7 @@
       width: 50%;
     }
 
-    pre,
+    .codeblock,
     #editor {
       border: 1px solid;
     }
@@ -61,13 +61,16 @@
     }
 
     pre {
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .codeblock {
       overflow-y: scroll;
       overflow-x: auto;
       padding: 1rem;
       background-color: #f0f0f0;
       font-size: 14px;
       margin: 0;
-      font-family: "JetBrains Mono", monospace;
     }
 
     pre#errors {
@@ -121,8 +124,15 @@
   <main>
     <h1>cooklang-rs playground</h1>
 
+
     <div id="controls">
       <div class="inline">
+        <div>
+          <a href="https://github.com/cooklang/cooklang-rs">Repo</a> |
+          <strong>Version:</strong>
+          <pre style="display: inline;" id="version">[loading]</pre> |
+        </div>
+
         <select id="parserSelect">
           <option value="full" selected>Full parse</option>
           <option value="events">Events</option>
@@ -148,10 +158,10 @@
     <div class="code-panes">
       <div id="editor"></div>
       <div class="output-pane">
-        <pre id="output"></pre>
+        <pre class="codeblock" id="output"></pre>
         <details id="errors-details">
           <summary>Errors and warnings</summary>
-          <pre id="errors"></pre>
+          <pre class="codeblock" id="errors"></pre>
         </details>
       </div>
     </div>
@@ -164,6 +174,7 @@
       parse_ast,
       set_extensions,
       get_extensions,
+      version
     } from "./pkg/cooklang_playground.js";
 
     async function run() {
@@ -184,6 +195,7 @@
       const elapsed = document.getElementById("elapsed");
       const parserSelect = document.getElementById("parserSelect");
       const jsonCheckbox = document.getElementById("json");
+      document.getElementById("version").textContent = version();
       let initalExtensions;
 
       const search = new URLSearchParams(window.location.search);
