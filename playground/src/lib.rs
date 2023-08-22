@@ -10,6 +10,11 @@ static EXTENSIONS: Mutex<Extensions> = Mutex::new(Extensions::all());
 static COOKLANG_PARSER: Mutex<Option<CooklangParser>> = Mutex::new(None);
 
 #[wasm_bindgen]
+pub fn version() -> String {
+    include_str!(concat!(env!("OUT_DIR"), "/version")).to_string()
+}
+
+#[wasm_bindgen]
 pub fn set_extensions(bits: u32) {
     let extensions = Extensions::from_bits_truncate(bits);
     *EXTENSIONS.lock().unwrap() = extensions;
