@@ -52,6 +52,7 @@ name = "cooklang"
 default = ["bundled_units", "aisle"]
 bundled_units = ["dep:toml"]
 aisle = ["dep:pest", "dep:pest_derive"]
+bindings = []
 
 [[bench]]
 name = "parse"
@@ -62,3 +63,4 @@ harness = false
 # This can be whatever name makes sense for your project, but the rest of this tutorial assumes uniffi-bindgen.
 name = "uniffi-bindgen"
 path = "src/uniffi-bindgen.rs"
+required-features = ["bindings", "uniffi/cli"]

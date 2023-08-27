@@ -1,73 +1,140 @@
-use crate::*;
+// use crate::*;
+use crate::analysis::*;
+use crate::parser::{parse as rust_parser};
+use crate::model::{ComponentKind, Component, Item as ModelItem};
+// use crate::CooklangParser;
+use crate::Converter;
+use crate::Extensions;
+// use analysis::;
 
 
-
-#[derive(uniffi::Record)]
+#[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
-    name: String
+    steps: Vec<Step>,
 }
 
+#[derive(uniffi::Record, Debug)]
+struct Step {
+    items: Vec<Item>
+}
 
-#[derive(uniffi::Record)]
-pub struct Ingredient {
-    name: String,
+#[derive(uniffi::Record, Debug, PartialEq)]
+struct Amount {
     quantity: String,
-    units: String,
+    units: String
 }
 
-#[uniffi::export]
-pub fn parse(input: String, recipe_name: String) -> CooklangRecipe {
-    let parser = CooklangParser::new(Extensions::empty(), Converter::empty());
+#[derive(uniffi::Enum, Debug, PartialEq)]
+enum Item {
+    Text { value: String },
+    Ingredient { name: String, amount: Amount },
+    Cookware { name: String },
+    Timer { name: String },
+}
 
-    let ast = parser::parse(&input, parser.extensions).take_output().unwrap();
-    let result = analysis::parse_ast(ast, parser.extensions, &parser.converter, None)
-        .take_output()
-        .unwrap();
+fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
+     match item {
+        ModelItem::Text { value } => Item::Text { value },
+        ModelItem::ItemComponent { value } => {
+            let Component { index, kind } = value;
 
-    CooklangRecipe {
-            name: recipe_name.to_string(),
-            // metadata: result.metadata,
-            // sections: result.sections,
-            ingredients: result.ingredients,
-            // cookware: result.cookware,
-            // timers: result.timers,
-            // inline_quantities: result.inline_quantities,
-            // data: (),
+            match kind {
+                ComponentKind::IngredientKind => {
+                    let igredient = &recipe.ingredients[index];
+                    let mut q: String = "".to_string();
+                    let mut u: String = "".to_string();
+
+                    if let Some(quantity) = &igredient.quantity {
+                        q = quantity.value.to_string();
+
+                        // if Some(unit) = quantity.unit {
+                        //     q = match unit {
+                        //         QuantityValue::Fixed { value } =>
+                        //     }
+                        // }
+                    }
+                    let amount = Amount { quantity: q, units: u };
+
+                    Item::Ingredient { name: igredient.name.clone(), amount: amount }
+                }
+
+                ComponentKind::CookwareKind => {
+                    let cookware = &recipe.cookware[index];
+                    Item::Cookware { name: cookware.name.clone() }
+                }
+
+                ComponentKind::TimerKind => {
+                    let timer = &recipe.timers[index];
+
+                    if let Some(name) = &timer.name {
+                        Item::Timer { name: name.to_string() }
+                    } else {
+                        Item::Timer { name: "".to_string() }
+                    }
+                    // if let Some(quantity) = &t.quantity {
+
+                    // }
+                }
+            }
+        },
+        _ => Item::Text { value: "".to_string() }
     }
 }
 
-// type UT = crate::UniFfiTag;
+fn dumb_down_recipe(recipe: &RecipeContent) -> CooklangRecipe {
+    let steps = recipe.sections.clone().into_iter().map(|section|
+        section.steps.into_iter().map(|step|
+            Step { items: step.items.into_iter().map(|item| into_item(item, &recipe)).collect() }
+        )
+    ).flatten().collect();
 
+    CooklangRecipe {
+            // metadata: result.metadata,
+            steps: steps,
+            // ingredients: result.ingredients,
+            // cookware: result.cookware,
+            // timers: result.timers,
+    }
+}
 
-// unsafe impl FfiConverter<UT> for Recipe {
-//     ffi_converter_rust_buffer_lift_and_lower!(UT);
-//     ffi_converter_default_return!(UT);
+#[uniffi::export]
+pub fn parse(input: String) -> CooklangRecipe {
+    let extensions = Extensions::empty();
+    let converter = Converter::empty();
 
-//     fn write(obj: Recipe, buf: &mut Vec<u8>) {
+    let ast = rust_parser(&input, extensions).take_output().unwrap();
+    let result = parse_ast(ast, extensions, &converter, None)
+        .take_output()
+        .unwrap();
 
-//     }
-
-//     fn try_read(buf: &mut &[u8]) -> anyhow::Result<Recipe> {
-//         Ok(Recipe {})
-//     }
-
-//     const TYPE_ID_META: MetadataBuffer = MetadataBuffer::from_code(metadata::codes::TYPE_INTERFACE);
-// }
-
-
-// unsafe impl FfiConverter<UT> for &str {
-//     ffi_converter_rust_buffer_lift_and_lower!(UT);
-//     ffi_converter_default_return!(UT);
-
-//     fn write(obj: &str, buf: &mut Vec<u8>) {
-
-//     }
-
-//     fn try_read(buf: &mut &[u8]) -> anyhow::Result<&str> {
-//         Ok()
-//     }
-
-//     const TYPE_ID_META: MetadataBuffer = MetadataBuffer::from_code(metadata::codes::TYPE_STRING);
-// }
+    dumb_down_recipe(&result)
+}
 
 uniffi::setup_scaffolding!();
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn just_kidding() {
+        let recipe = crate::bindings::parse(
+            r#"
+a test @step @salt{1%mg} more text
+"#.to_string(),
+        );
+
+        assert_eq!(
+            recipe.steps.into_iter().nth(0).unwrap().items,
+            vec![
+                Item::Text { value: "a test ".to_string() },
+                Item::Ingredient { name: "step".to_string(), amount: Amount { quantity: "".to_string(), units: "".to_string() } },
+                Item::Text { value: " ".to_string() },
+                Item::Ingredient { name: "salt".to_string(), amount: Amount { quantity: "1".to_string(), units: "".to_string() } },
+                Item::Text { value: " more text".to_string() }
+            ]
+        );
+    }
+}
+
