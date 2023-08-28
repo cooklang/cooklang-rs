@@ -1,4 +1,4 @@
-use cooklang::{CooklangParser, Extensions};
+use cooklang::{CooklangParser, Extensions, Item};
 use indoc::indoc;
 use test_case::test_case;
 
@@ -170,4 +170,32 @@ fn single_line_no_separator() {
     assert_eq!(r.sections[0].steps.len(), 2);
     assert_eq!(r.sections[1].steps.len(), 0);
     assert_eq!(r.metadata.map.len(), 1);
+}
+
+#[test]
+fn multiple_temperatures() {
+    let input = "text 2ºC more text 150 F end text";
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert_eq!(r.inline_quantities.len(), 2);
+    assert_eq!(r.inline_quantities[0].value, 2.0.into());
+    assert_eq!(r.inline_quantities[0].unit_text(), Some("ºC"));
+    assert_eq!(r.inline_quantities[1].value, 150.0.into());
+    assert_eq!(r.inline_quantities[1].unit_text(), Some("F"));
+    assert_eq!(
+        r.sections[0].steps[0].items,
+        vec![
+            Item::Text {
+                value: "text ".into()
+            },
+            Item::InlineQuantity { index: 0 },
+            Item::Text {
+                value: " more text ".into()
+            },
+            Item::InlineQuantity { index: 1 },
+            Item::Text {
+                value: " end text".into()
+            }
+        ]
+    );
 }

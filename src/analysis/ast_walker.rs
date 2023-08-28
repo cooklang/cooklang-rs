@@ -236,29 +236,37 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         continue; // ignore text
                     }
 
+                    // it's only some if the extension is enabled
                     if let Some(re) = &self.temperature_regex {
-                        if let Some((before, temperature, after)) = find_temperature(&t, re) {
+                        debug_assert!(self.extensions.contains(Extensions::TEMPERATURE));
+
+                        let mut haystack = t.as_ref();
+                        while let Some((before, temperature, after)) =
+                            find_temperature(haystack, re)
+                        {
                             if !before.is_empty() {
                                 new_items.push(Item::Text {
                                     value: before.to_string(),
                                 });
                             }
+
                             new_items.push(Item::InlineQuantity {
                                 index: self.content.inline_quantities.len(),
                             });
                             self.content.inline_quantities.push(temperature);
-                            if !after.is_empty() {
-                                new_items.push(Item::Text {
-                                    value: after.to_string(),
-                                });
-                            }
-                            continue;
-                        }
-                    }
 
-                    new_items.push(Item::Text {
-                        value: t.into_owned(),
-                    });
+                            haystack = after;
+                        }
+                        if !haystack.is_empty() {
+                            new_items.push(Item::Text {
+                                value: haystack.to_string(),
+                            });
+                        }
+                    } else {
+                        new_items.push(Item::Text {
+                            value: t.into_owned(),
+                        });
+                    }
                 }
 
                 Event::Ingredient(..) | Event::Cookware(..) | Event::Timer(..) => {
@@ -868,7 +876,9 @@ impl RefComponent for Cookware<ScalableValue> {
 }
 
 fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<Value>, &'a str)> {
-    let Some(caps) = re.captures(text) else { return None; };
+    let Some(caps) = re.captures(text) else {
+        return None;
+    };
 
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
