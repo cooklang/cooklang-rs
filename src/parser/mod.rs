@@ -155,28 +155,43 @@ fn is_empty_token(tok: &Token) -> bool {
     )
 }
 
-fn is_line_empty(line: &[Token]) -> bool {
-    line.iter().all(is_empty_token)
-}
-
 fn is_single_line_marker(first: Option<&Token>) -> bool {
     matches!(first, Some(mt![meta | =]))
+}
+
+struct LineInfo {
+    is_empty: bool,
+    is_single_line: bool,
 }
 
 impl<'i, T> PullParser<'i, T>
 where
     T: Iterator<Item = Token>,
 {
-    fn pull_line(&mut self) -> Option<&[Token]> {
-        let last_line_end = self.block.len();
+    fn pull_line(&mut self) -> Option<LineInfo> {
+        let mut is_empty = true;
+        let mut no_tokens = true;
+        let is_single_line = is_single_line_marker(self.tokens.peek());
         for tok in self.tokens.by_ref() {
             self.block.push(tok);
+            no_tokens = false;
+
+            if !is_empty_token(&tok) {
+                is_empty = false;
+            }
+
             if tok.kind == T![newline] {
                 break;
             }
         }
-        let line = &self.block[last_line_end..];
-        (!line.is_empty()).then_some(line)
+        if no_tokens {
+            None
+        } else {
+            Some(LineInfo {
+                is_empty,
+                is_single_line,
+            })
+        }
     }
 
     /// Advances a block. Store the tokens, newline/eof excluded.
@@ -191,13 +206,13 @@ where
         let mut current_line = self.pull_line()?;
 
         // Eat empty lines
-        while is_line_empty(current_line) {
+        while current_line.is_empty {
             start = self.block.len();
             current_line = self.pull_line()?;
         }
 
         // Check if more lines have to be consumed
-        let multiline = multiline_ext && !is_single_line_marker(current_line.first());
+        let multiline = multiline_ext && !current_line.is_single_line;
         end = self.block.len();
         if multiline {
             loop {
@@ -206,7 +221,7 @@ where
                 }
                 match self.pull_line() {
                     None => break,
-                    Some(line) if is_line_empty(line) => break,
+                    Some(line) if line.is_empty => break,
                     _ => {}
                 }
                 end = self.block.len();
@@ -236,25 +251,23 @@ where
     fn next_metadata_block(&mut self) -> Option<()> {
         self.block.clear();
 
+        // eat until meta is found
         let mut last = T![newline];
-        let mut in_meta = false;
-
-        for tok in self.tokens.by_ref() {
-            if in_meta {
-                if tok.kind == T![newline] {
-                    break;
-                } else {
-                    self.block.push(tok);
-                }
-            } else if tok.kind == T![meta] && last == T![newline] {
-                self.block.push(tok);
-                in_meta = true;
+        loop {
+            let curr = self.tokens.peek()?.kind;
+            if last == T![newline] && curr == T![meta] {
+                break;
             }
-            last = tok.kind;
+            self.tokens.next();
+            last = curr;
         }
 
-        if self.block.is_empty() {
-            return None;
+        // eat until newline or end
+        for tok in self.tokens.by_ref() {
+            if tok.kind == T![newline] {
+                break;
+            }
+            self.block.push(tok);
         }
 
         let mut bp = BlockParser::new(&self.block, self.input, &mut self.queue, self.extensions);
@@ -267,8 +280,10 @@ where
     }
 
     pub(crate) fn next_metadata(&mut self) -> Option<Event<'i>> {
-        self.next_metadata_block()?;
-        self.queue.pop_front()
+        self.queue.pop_front().or_else(|| {
+            self.next_metadata_block()?;
+            self.next_metadata()
+        })
     }
 }
 

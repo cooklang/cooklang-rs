@@ -155,3 +155,19 @@ fn whitespace_line_block_separator() {
     let r = parser.parse(input, "test").take_output().unwrap();
     assert_eq!(r.sections[0].steps.len(), 2);
 }
+
+#[test]
+fn single_line_no_separator() {
+    let input = indoc! {r#"
+        a step
+        >> meta: val
+        another step
+        = section
+    "#};
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert_eq!(r.sections.len(), 2);
+    assert_eq!(r.sections[0].steps.len(), 2);
+    assert_eq!(r.sections[1].steps.len(), 0);
+    assert_eq!(r.metadata.map.len(), 1);
+}
