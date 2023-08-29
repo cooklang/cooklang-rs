@@ -1,15 +1,14 @@
 // use crate::*;
 use crate::analysis::*;
-use crate::parser::{parse as canonical_parse};
-use crate::model::{ComponentKind, Component, Item as ModelItem};
+use crate::model::{Component, ComponentKind, Item as ModelItem};
+use crate::parser::parse as canonical_parse;
 use crate::Converter;
 use crate::Extensions;
 use std::collections::HashMap;
 
-
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
-    metadata: HashMap<String,String>,
+    metadata: HashMap<String, String>,
     steps: Vec<Step>,
     ingredients: Vec<Item>,
     cookware: Vec<Item>,
@@ -17,13 +16,13 @@ pub struct CooklangRecipe {
 
 #[derive(uniffi::Record, Debug)]
 struct Step {
-    items: Vec<Item>
+    items: Vec<Item>,
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
 struct Amount {
     quantity: String,
-    units: String
+    units: String,
 }
 
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
@@ -35,7 +34,7 @@ enum Item {
 }
 
 fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
-     match item {
+    match item {
         ModelItem::Text { value } => Item::Text { value },
         ModelItem::ItemComponent { value } => {
             let Component { index, kind } = value;
@@ -55,35 +54,49 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
                         //     }
                         // }
                     }
-                    let amount = Amount { quantity: q, units: u };
+                    let amount = Amount {
+                        quantity: q,
+                        units: u,
+                    };
 
-                    Item::Ingredient { name: igredient.name.clone(), amount: amount }
+                    Item::Ingredient {
+                        name: igredient.name.clone(),
+                        amount: amount,
+                    }
                 }
 
                 ComponentKind::CookwareKind => {
                     let cookware = &recipe.cookware[index];
-                    Item::Cookware { name: cookware.name.clone() }
+                    Item::Cookware {
+                        name: cookware.name.clone(),
+                    }
                 }
 
                 ComponentKind::TimerKind => {
                     let timer = &recipe.timers[index];
 
                     if let Some(name) = &timer.name {
-                        Item::Timer { name: name.to_string() }
+                        Item::Timer {
+                            name: name.to_string(),
+                        }
                     } else {
-                        Item::Timer { name: "".to_string() }
+                        Item::Timer {
+                            name: "".to_string(),
+                        }
                     }
                     // if let Some(quantity) = &t.quantity {
 
                     // }
                 }
             }
+        }
+        _ => Item::Text {
+            value: "".to_string(),
         },
-        _ => Item::Text { value: "".to_string() }
     }
 }
 
-fn dumb_down_recipe(recipe: &RecipeContent) -> CooklangRecipe {
+fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
     let mut metadata = HashMap::new();
     let mut steps: Vec<Step> = Vec::new();
     let mut ingredients: Vec<Item> = Vec::new();
@@ -93,19 +106,21 @@ fn dumb_down_recipe(recipe: &RecipeContent) -> CooklangRecipe {
     (&recipe.sections).iter().for_each(|section| {
         (&section.steps).iter().for_each(|step| {
             (&step.items).iter().for_each(|item| {
-                    let i = into_item(item.clone(), &recipe);
+                let i = into_item(item.clone(), &recipe);
 
-                    match i {
-                        Item::Ingredient { name: _, amount: _ } => ingredients.push(i.clone()),
-                        Item::Cookware { name: _ } => cookware.push(i.clone()),
-                        _ => (),
-                    };
+                match i {
+                    Item::Ingredient { name: _, amount: _ } => ingredients.push(i.clone()),
+                    Item::Cookware { name: _ } => cookware.push(i.clone()),
+                    _ => (),
+                };
 
-                    items.push(i);
+                items.push(i);
             });
             // TODO: think how to make it faster as we probably
             // can switch items content into the step without cloning it
-            steps.push(Step { items: items.clone() });
+            steps.push(Step {
+                items: items.clone(),
+            });
             items.clear();
         })
     });
@@ -115,10 +130,10 @@ fn dumb_down_recipe(recipe: &RecipeContent) -> CooklangRecipe {
     });
 
     CooklangRecipe {
-            metadata: metadata,
-            steps: steps,
-            ingredients: ingredients,
-            cookware: cookware,
+        metadata: metadata,
+        steps: steps,
+        ingredients: ingredients,
+        cookware: cookware,
     }
 }
 
@@ -132,11 +147,10 @@ pub fn parse(input: String) -> CooklangRecipe {
         .take_output()
         .unwrap();
 
-    dumb_down_recipe(&result)
+    simplify_recipe_data(&result)
 }
 
 uniffi::setup_scaffolding!();
-
 
 #[cfg(test)]
 mod tests {
@@ -147,19 +161,37 @@ mod tests {
         let recipe = crate::bindings::parse(
             r#"
 a test @step @salt{1%mg} more text
-"#.to_string(),
+"#
+            .to_string(),
         );
 
         assert_eq!(
             recipe.steps.into_iter().nth(0).unwrap().items,
             vec![
-                Item::Text { value: "a test ".to_string() },
-                Item::Ingredient { name: "step".to_string(), amount: Amount { quantity: "".to_string(), units: "".to_string() } },
-                Item::Text { value: " ".to_string() },
-                Item::Ingredient { name: "salt".to_string(), amount: Amount { quantity: "1".to_string(), units: "".to_string() } },
-                Item::Text { value: " more text".to_string() }
+                Item::Text {
+                    value: "a test ".to_string()
+                },
+                Item::Ingredient {
+                    name: "step".to_string(),
+                    amount: Amount {
+                        quantity: "".to_string(),
+                        units: "".to_string()
+                    }
+                },
+                Item::Text {
+                    value: " ".to_string()
+                },
+                Item::Ingredient {
+                    name: "salt".to_string(),
+                    amount: Amount {
+                        quantity: "1".to_string(),
+                        units: "".to_string()
+                    }
+                },
+                Item::Text {
+                    value: " more text".to_string()
+                }
             ]
         );
     }
 }
-
