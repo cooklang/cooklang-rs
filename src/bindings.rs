@@ -1,8 +1,10 @@
 // use crate::*;
 use crate::analysis::*;
 use crate::model::{Component, ComponentKind, Item as ModelItem};
-use crate::quantity::{QuantityValue, Value as ModelValue};
 use crate::parser::parse as canonical_parse;
+use crate::quantity::{
+    Quantity as ModelQuantity, QuantityValue as ModelQuantityValue, Value as ModelValue,
+};
 use crate::Converter;
 use crate::Extensions;
 use std::collections::HashMap;
@@ -22,10 +24,21 @@ struct Step {
 
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
 enum Item {
-    Text { value: String },
-    Ingredient { name: String, amount: Option<Amount> },
-    Cookware { name: String, amount: Option<Amount> },
-    Timer { name: Option<String>, amount: Option<Amount> },
+    Text {
+        value: String,
+    },
+    Ingredient {
+        name: String,
+        amount: Option<Amount>,
+    },
+    Cookware {
+        name: String,
+        amount: Option<Amount>,
+    },
+    Timer {
+        name: Option<String>,
+        amount: Option<Amount>,
+    },
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
@@ -41,6 +54,56 @@ enum Value {
     Text { value: String },
 }
 
+trait Amountable {
+    fn extract_amount(&self) -> Amount;
+}
+
+impl Amountable for ModelQuantity {
+    fn extract_amount(&self) -> Amount {
+        let quantity = extract_quantity(&self.value);
+
+        let units = if let Some(u) = &self.unit {
+            Some(u.to_string())
+        } else {
+            None
+        };
+
+        Amount { quantity, units }
+    }
+}
+
+impl Amountable for ModelQuantityValue {
+    fn extract_amount(&self) -> Amount {
+        let quantity = extract_quantity(&self);
+
+        Amount {
+            quantity,
+            units: None,
+        }
+    }
+}
+
+fn extract_quantity(value: &ModelQuantityValue) -> Value {
+    match value {
+        ModelQuantityValue::Fixed { value } => extract_value(value),
+        ModelQuantityValue::Linear { value } => extract_value(value),
+        ModelQuantityValue::ByServings { values } => extract_value(values.first().unwrap()),
+    }
+}
+
+fn extract_value(value: &ModelValue) -> Value {
+    match value {
+        ModelValue::Number { value } => Value::Number { value: *value },
+        ModelValue::Range { value } => Value::Range {
+            start: *value.start(),
+            end: *value.end(),
+        },
+        ModelValue::Text { value } => Value::Text {
+            value: value.to_string(),
+        },
+    }
+}
+
 fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
@@ -49,84 +112,48 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
 
             match kind {
                 ComponentKind::IngredientKind => {
-                    let igredient = &recipe.ingredients[index];
-                    let amount: Option<Amount>;
-
-                    let amount = if let Some(q) = &igredient.quantity {
-                        let quantity = match &q.value {
-                            // TODO remove duplication
-                            QuantityValue::Fixed { value } => {
-                                match value {
-                                    ModelValue::Number { value } => Value::Number { value: *value },
-                                    ModelValue::Range { value } => Value::Range { start: *value.start(), end: *value.end() },
-                                    ModelValue::Text { value } => Value::Text { value: value.to_string() },
-                                }
-                            },
-                            QuantityValue::Linear { value } => {
-                                match value {
-                                    ModelValue::Number { value } => Value::Number { value: *value },
-                                    ModelValue::Range { value } => Value::Range { start: *value.start(), end: *value.end() },
-                                    ModelValue::Text { value } => Value::Text { value: value.to_string() },
-                                }
-                            },
-                            QuantityValue::ByServings { values } => {
-                                match values.first().unwrap() {
-                                    ModelValue::Number { value } => Value::Number { value: *value },
-                                    ModelValue::Range { value } => Value::Range { start: *value.start(), end: *value.end() },
-                                    ModelValue::Text { value } => Value::Text { value: value.to_string() },
-                                }
-                            }
-                        };
-
-                        let units = if let Some(u) = &q.unit {
-                            Some(u.to_string())
-                        } else {
-                            None
-                        };
-
-                        Some(Amount {
-                            quantity: quantity,
-                            units: units,
-                        })
-                    } else {
-                        None
-                    };
+                    let ingredient = &recipe.ingredients[index];
 
                     Item::Ingredient {
-                        name: igredient.name.clone(),
-                        amount: amount,
+                        name: ingredient.name.clone(),
+                        amount: if let Some(q) = &ingredient.quantity {
+                            Some(q.extract_amount())
+                        } else {
+                            None
+                        },
                     }
                 }
 
-                // TODO amount
                 ComponentKind::CookwareKind => {
                     let cookware = &recipe.cookware[index];
                     Item::Cookware {
                         name: cookware.name.clone(),
-                        amount: None,
+                        amount: if let Some(q) = &cookware.quantity {
+                            Some(q.extract_amount())
+                        } else {
+                            None
+                        },
                     }
                 }
 
-                // TODO amount
                 ComponentKind::TimerKind => {
                     let timer = &recipe.timers[index];
 
-                    if let Some(name) = &timer.name {
-                        Item::Timer {
-                            name: Some(name.to_string()),
-                            amount: None,
-                        }
-                    } else {
-                        Item::Timer {
-                            name: None,
-                            amount: None,
-                        }
+                    Item::Timer {
+                        name: timer.name.clone(),
+                        amount: if let Some(q) = &timer.quantity {
+                            Some(q.extract_amount())
+                        } else {
+                            None
+                        },
                     }
-
                 }
             }
         }
-        ModelItem::InlineQuantity { .. } => Item::Text { value: "".to_string(),},
+        // returning an empty block of text as it's not supported by the spec
+        ModelItem::InlineQuantity { .. } => Item::Text {
+            value: "".to_string(),
+        },
     }
 }
 
@@ -145,16 +172,18 @@ fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
                 match i {
                     Item::Ingredient { .. } => ingredients.push(i.clone()),
                     Item::Cookware { .. } => cookware.push(i.clone()),
+                    // don't need anything if timer or text
                     _ => (),
                 };
 
                 items.push(i);
             });
             // TODO: think how to make it faster as we probably
-            // can switch items content into the step without cloning it
+            // can switch items content directly into the step object without cloning it
             steps.push(Step {
                 items: items.clone(),
             });
+
             items.clear();
         })
     });
@@ -164,10 +193,10 @@ fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
     });
 
     CooklangRecipe {
-        metadata: metadata,
-        steps: steps,
-        ingredients: ingredients,
-        cookware: cookware,
+        metadata,
+        steps,
+        ingredients,
+        cookware,
     }
 }
 
