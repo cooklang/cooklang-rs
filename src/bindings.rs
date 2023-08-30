@@ -1,6 +1,7 @@
 // use crate::*;
 use crate::analysis::*;
 use crate::model::{Component, ComponentKind, Item as ModelItem};
+use crate::quantity::{QuantityValue, Value as ModelValue};
 use crate::parser::parse as canonical_parse;
 use crate::Converter;
 use crate::Extensions;
@@ -19,18 +20,25 @@ struct Step {
     items: Vec<Item>,
 }
 
-#[derive(uniffi::Record, Debug, Clone, PartialEq)]
-struct Amount {
-    quantity: String,
-    units: String,
-}
-
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
 enum Item {
     Text { value: String },
-    Ingredient { name: String, amount: Amount },
-    Cookware { name: String },
-    Timer { name: String },
+    Ingredient { name: String, amount: Option<Amount> },
+    Cookware { name: String, amount: Option<Amount> },
+    Timer { name: Option<String>, amount: Option<Amount> },
+}
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+struct Amount {
+    quantity: Value,
+    units: Option<String>,
+}
+
+#[derive(uniffi::Enum, Debug, Clone, PartialEq)]
+enum Value {
+    Number { value: f64 },
+    Range { start: f64, end: f64 },
+    Text { value: String },
 }
 
 fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
@@ -42,21 +50,46 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
             match kind {
                 ComponentKind::IngredientKind => {
                     let igredient = &recipe.ingredients[index];
-                    let mut q: String = "".to_string();
-                    let u: String = "".to_string();
+                    let amount: Option<Amount>;
 
-                    if let Some(quantity) = &igredient.quantity {
-                        q = quantity.value.to_string();
+                    let amount = if let Some(q) = &igredient.quantity {
+                        let quantity = match &q.value {
+                            // TODO remove duplication
+                            QuantityValue::Fixed { value } => {
+                                match value {
+                                    ModelValue::Number { value } => Value::Number { value: *value },
+                                    ModelValue::Range { value } => Value::Range { start: *value.start(), end: *value.end() },
+                                    ModelValue::Text { value } => Value::Text { value: value.to_string() },
+                                }
+                            },
+                            QuantityValue::Linear { value } => {
+                                match value {
+                                    ModelValue::Number { value } => Value::Number { value: *value },
+                                    ModelValue::Range { value } => Value::Range { start: *value.start(), end: *value.end() },
+                                    ModelValue::Text { value } => Value::Text { value: value.to_string() },
+                                }
+                            },
+                            QuantityValue::ByServings { values } => {
+                                match values.first().unwrap() {
+                                    ModelValue::Number { value } => Value::Number { value: *value },
+                                    ModelValue::Range { value } => Value::Range { start: *value.start(), end: *value.end() },
+                                    ModelValue::Text { value } => Value::Text { value: value.to_string() },
+                                }
+                            }
+                        };
 
-                        // if Some(unit) = quantity.unit {
-                        //     q = match unit {
-                        //         QuantityValue::Fixed { value } =>
-                        //     }
-                        // }
-                    }
-                    let amount = Amount {
-                        quantity: q,
-                        units: u,
+                        let units = if let Some(u) = &q.unit {
+                            Some(u.to_string())
+                        } else {
+                            None
+                        };
+
+                        Some(Amount {
+                            quantity: quantity,
+                            units: units,
+                        })
+                    } else {
+                        None
                     };
 
                     Item::Ingredient {
@@ -65,34 +98,35 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
                     }
                 }
 
+                // TODO amount
                 ComponentKind::CookwareKind => {
                     let cookware = &recipe.cookware[index];
                     Item::Cookware {
                         name: cookware.name.clone(),
+                        amount: None,
                     }
                 }
 
+                // TODO amount
                 ComponentKind::TimerKind => {
                     let timer = &recipe.timers[index];
 
                     if let Some(name) = &timer.name {
                         Item::Timer {
-                            name: name.to_string(),
+                            name: Some(name.to_string()),
+                            amount: None,
                         }
                     } else {
                         Item::Timer {
-                            name: "".to_string(),
+                            name: None,
+                            amount: None,
                         }
                     }
-                    // if let Some(quantity) = &t.quantity {
 
-                    // }
                 }
             }
         }
-        _ => Item::Text {
-            value: "".to_string(),
-        },
+        ModelItem::InlineQuantity { .. } => Item::Text { value: "".to_string(),},
     }
 }
 
@@ -109,8 +143,8 @@ fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
                 let i = into_item(item.clone(), &recipe);
 
                 match i {
-                    Item::Ingredient { name: _, amount: _ } => ingredients.push(i.clone()),
-                    Item::Cookware { name: _ } => cookware.push(i.clone()),
+                    Item::Ingredient { .. } => ingredients.push(i.clone()),
+                    Item::Cookware { .. } => cookware.push(i.clone()),
                     _ => (),
                 };
 
