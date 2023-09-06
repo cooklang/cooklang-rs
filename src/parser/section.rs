@@ -1,19 +1,21 @@
-use crate::{ast, lexer::T};
+use crate::{lexer::T, Extensions};
 
-use super::LineParser;
+use super::{BlockParser, Event};
 
-pub(crate) fn section<'input>(
-    line: &mut LineParser<'_, 'input>,
-) -> Option<Option<ast::Text<'input>>> {
-    line.consume(T![=])?;
-    line.consume_while(|t| t == T![=]);
-    let name_pos = line.current_offset();
-    let name_tokens = line.consume_while(|t| t != T![=]);
-    let name = line.text(name_pos, name_tokens);
-    line.consume_while(|t| t == T![=]);
-    line.ws_comments();
+pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+    if !block.extension(Extensions::SECTIONS) {
+        return None;
+    }
 
-    if !line.rest().is_empty() {
+    block.consume(T![=])?;
+    block.consume_while(|t| t == T![=]);
+    let name_pos = block.current_offset();
+    let name_tokens = block.consume_while(|t| t != T![=]);
+    let name = block.text(name_pos, name_tokens);
+    block.consume_while(|t| t == T![=]);
+    block.ws_comments();
+
+    if !block.rest().is_empty() {
         return None;
     }
 
@@ -22,14 +24,16 @@ pub(crate) fn section<'input>(
     } else {
         Some(name)
     };
-    Some(name)
+    Some(Event::Section { name })
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::{
-        parser::{token_stream::TokenStream, LineParser},
+        parser::{token_stream::TokenStream, BlockParser},
         span::Span,
         Extensions,
     };
@@ -57,9 +61,12 @@ mod tests {
     #[test_case("== section -- and a comment" => text!(" section "; 2) ; "in between line comment")]
     fn test_section(input: &'static str) -> Option<(String, Span)> {
         let tokens = TokenStream::new(input).collect::<Vec<_>>();
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        section(&mut line)
-            .expect("failed to parse section")
-            .map(|text| (text.text().into_owned(), text.span()))
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let event = section(&mut bp).expect("failed to parse section");
+        bp.finish();
+        assert!(events.is_empty());
+        let Event::Section { name } = event else { panic!() };
+        name.map(|text| (text.text().into_owned(), text.span()))
     }
 }

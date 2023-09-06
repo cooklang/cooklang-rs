@@ -1,7 +1,7 @@
 //! Utility to add location information to any type
 
 use std::{
-    fmt::Display,
+    fmt::{Debug, Display},
     ops::{Deref, DerefMut, Range},
 };
 
@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::{context::Recover, span::Span};
 
 /// Wrapper type that adds location information to another
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(PartialEq, Serialize)]
 pub struct Located<T> {
     inner: T,
     span: Span,
@@ -75,6 +75,17 @@ where
             inner: self.inner.clone(),
             span: self.span,
         }
+    }
+}
+
+impl<T> Debug for Located<T>
+where
+    T: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)?;
+        f.write_str(" @ ")?;
+        self.span.fmt(f)
     }
 }
 

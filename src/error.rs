@@ -295,34 +295,6 @@ impl<T, E, W> PassResult<T, E, W> {
         (self.output, self.warnings, self.errors)
     }
 
-    pub(crate) fn into_context_result<E2, W2>(self) -> PassResult<T, E2, W2>
-    where
-        E2: From<E>,
-        W2: From<W>,
-    {
-        PassResult {
-            output: self.output,
-            errors: self.errors.into_iter().map(Into::into).collect(),
-            warnings: self.warnings.into_iter().map(Into::into).collect(),
-        }
-    }
-
-    pub(crate) fn discard_output<T2>(self) -> PassResult<T2, E, W> {
-        PassResult {
-            output: None,
-            warnings: self.warnings,
-            errors: self.errors,
-        }
-    }
-
-    pub(crate) fn merge<T2>(mut self, mut other: PassResult<T2, E, W>) -> Self {
-        other.errors.append(&mut self.errors);
-        other.warnings.append(&mut self.warnings);
-        self.errors = other.errors;
-        self.warnings = other.warnings;
-        self
-    }
-
     /// Map the inner output
     pub fn map<F, O>(self, f: F) -> PassResult<O, E, W>
     where

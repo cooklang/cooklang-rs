@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cooklang playground</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.min.js"
+    integrity="sha512-b50cBUHAI9jUOcKkDpgiY5pLMlX+WLLr7S6pV841OmBFv+x6efFs3QMxRs7ggJPxLAhrgIejeVovT/JuDYCM0A=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: "Noto Sans", sans-serif;
+    }
+
+    h1 {
+      margin-inline: 2rem;
+      margin-block: 0;
+    }
+
+    .code-panes {
+      display: flex;
+      height: 85vh;
+      gap: 1rem;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .code-panes>* {
+      flex: 1;
+      width: 50%;
+    }
+
+    .codeblock,
+    #editor {
+      border: 1px solid;
+    }
+
+    .output-pane {
+      display: flex;
+      gap: 0.5rem;
+      flex-direction: column;
+    }
+
+    #output {
+      flex-grow: 2;
+      flex-shrink: 1;
+    }
+
+    #errors-details {
+      flex-shrink: 1;
+    }
+
+    pre {
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .codeblock {
+      overflow-y: scroll;
+      overflow-x: auto;
+      padding: 1rem;
+      background-color: #f0f0f0;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    pre#errors {
+      background-color: #151715;
+      color: white;
+      max-height: 45vh;
+    }
+
+    #controls {
+      margin-inline: 1rem;
+    }
+
+    #controls .inline {
+      display: flex;
+      gap: 1rem;
+      align-items: baseline;
+      justify-content: flex-end;
+    }
+
+    #extra fieldset {
+      width: fit-content;
+    }
+
+    details {
+      padding: 0.5em 0.5em 0;
+    }
+
+    summary {
+      font-weight: bold;
+      margin: -0.5em -0.5em 0;
+      padding: 0.5em;
+    }
+
+    details[open] {
+      padding: 0.5em;
+    }
+
+    .narrow {
+      margin-left: auto;
+      width: fit-content;
+      text-align: end;
+    }
+
+    fieldset {
+      text-align: start;
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>cooklang-rs playground</h1>
+
+
+    <div id="controls">
+      <div class="inline">
+        <div>
+          <a href="https://github.com/cooklang/cooklang-rs">Repo</a> |
+          <strong>Version:</strong>
+          <pre style="display: inline;" id="version">[loading]</pre> |
+        </div>
+
+        <select id="parserSelect">
+          <option value="full" selected>Full parse</option>
+          <option value="events">Events</option>
+          <option value="ast">AST</option>
+        </select>
+        <div>
+          <input type="checkbox" name="json" id="json" />
+          <label for="json">JSON output</label>
+        </div>
+      </div>
+      <div class="narrow">
+        <details id="extra">
+          <summary>More options</summary>
+
+          <fieldset>
+            <legend>Extensions</legend>
+            <div id="extensions-container"></div>
+          </fieldset>
+        </details>
+      </div>
+    </div>
+
+    <div class="code-panes">
+      <div id="editor"></div>
+      <div class="output-pane">
+        <pre class="codeblock" id="output"></pre>
+        <details id="errors-details">
+          <summary>Errors and warnings</summary>
+          <pre class="codeblock" id="errors"></pre>
+        </details>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import init, {
+      parse_events,
+      parse_full,
+      parse_ast,
+      set_extensions,
+      get_extensions,
+      version
+    } from "./pkg/cooklang_playground.js";
+
+    async function run() {
+      await init();
+
+      const editor = ace.edit("editor", {
+        wrap: true,
+        printMargin: false,
+        fontSize: 16,
+        fontFamily: "Jetbrains Mono",
+        placeholder: "Write your recipe here",
+      });
+      const input = window.sessionStorage.getItem("input") ?? "Write your @recipe here!";
+      editor.setValue(input);
+      const output = document.getElementById("output");
+      const errors = document.getElementById("errors");
+      const errorsDetails = document.getElementById("errors-details");
+      const elapsed = document.getElementById("elapsed");
+      const parserSelect = document.getElementById("parserSelect");
+      const jsonCheckbox = document.getElementById("json");
+      document.getElementById("version").textContent = version();
+      let initalExtensions;
+
+      const search = new URLSearchParams(window.location.search);
+      if (search.has("mode")) {
+        parserSelect.value = search.get("mode");
+      }
+      if (search.has("json")) {
+        jsonCheckbox.checked = search.get("json") === "true";
+      }
+      if (search.has("extensions")) {
+        initalExtensions = Number(search.get("extensions"));
+      } else {
+        initalExtensions = get_extensions();
+      }
+
+      function parse() {
+        const input = editor.getValue();
+        window.sessionStorage.setItem("input", input);
+        switch (parserSelect.value) {
+          case "full": {
+            const { value, error } = parse_full(input, jsonCheckbox.checked);
+            output.textContent = value;
+            errors.innerHTML = error;
+            if (error.length > 0) {
+              errorsDetails.open = true;
+            }
+            break;
+          }
+          case "events": {
+            const events = parse_events(input);
+            output.textContent = events;
+            errors.innerHTML = "";
+            break;
+          }
+          case "ast": {
+            const { value, error } = parse_ast(input, jsonCheckbox.checked);
+            output.textContent = value;
+            errors.innerHTML = error;
+            if (error.length > 0) {
+              errorsDetails.open = true;
+            }
+            break;
+          }
+        }
+      }
+
+      parse();
+      editor.on("change", debounce(parse, 100));
+      parserSelect.addEventListener("change", (ev) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set("mode", ev.target.value);
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + "?" + params.toString()
+        );
+        parse();
+      });
+      jsonCheckbox.addEventListener("change", (ev) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set("json", ev.target.checked);
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + "?" + params.toString()
+        );
+        parse()
+      })
+
+      const extensionsContainer = document.getElementById("extensions-container");
+      const extensions = [
+        "MULTILINE_STEPS",
+        "COMPONENT_MODIFIERS",
+        "COMPONENT_NOTE",
+        "COMPONENT_ALIAS",
+        "SECTIONS",
+        "ADVANCED_UNITS",
+        "MODES",
+        "TEMPERATURE",
+        "TEXT_STEPS",
+        "RANGE_VALUES",
+        "TIMER_REQUIRES_TIME",
+        "INTERMEDIATE_INGREDIENTS",
+      ].forEach((e, i) => {
+        let bits = 1 << i;
+        if (i == 11) {
+          bits |= 1 << 1;
+        }
+        const elem = document.createElement("input");
+        elem.setAttribute("type", "checkbox");
+        elem.setAttribute("id", e);
+        elem.setAttribute("data-ext-bits", bits);
+        elem.checked = (initalExtensions & bits) === bits;
+        const label = document.createElement("label");
+        label.setAttribute("for", e);
+        label.textContent = e;
+        const container = document.createElement("div");
+        container.appendChild(elem);
+        container.appendChild(label);
+        extensionsContainer.appendChild(container);
+
+        elem.addEventListener("change", updateExtensions);
+      });
+      function updateExtensions() {
+        let e = 0;
+        document.querySelectorAll("[data-ext-bits]:checked").forEach(elem => {
+          const bits = Number(elem.getAttribute("data-ext-bits"));
+          e |= bits;
+        });
+        console.log(e);
+        set_extensions(e);
+
+        const params = new URLSearchParams(window.location.search);
+        params.set("extensions", e);
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + "?" + params.toString()
+        );
+        parse();
+      }
+
+      editor.focus();
+    }
+
+    function debounce(fn, delay) {
+      let timer = null;
+      let first = true;
+      return () => {
+        if (first) {
+          fn();
+          first = false;
+        } else {
+          clearTimeout(timer);
+          timer = setTimeout(fn, delay);
+        }
+      };
+    }
+
+    run();
+  </script>
+</body>
+
+</html>

@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    quantity::{Quantity, QuantityValue, Value},
-    Recipe, UnitInfo,
+    quantity::{Quantity, ScaledQuantity, Value},
+    ScaledRecipe, UnitInfo,
 };
 
 pub use builder::{ConverterBuilder, ConverterBuilderError};
@@ -102,7 +102,7 @@ impl Converter {
         self.all_units.len()
     }
 
-    /// Get a detailed count of the known units. See [UnitCount].
+    /// Get a detailed count of the known units. See [`UnitCount`].
     pub fn unit_count_detailed(&self) -> UnitCount {
         UnitCount::new(self)
     }
@@ -171,7 +171,7 @@ pub(crate) type UnitQuantityIndex = EnumMap<PhysicalQuantity, Vec<usize>>;
 ///
 /// Conversion will be `val * [Self::ratio] + [Self::difference]`
 ///
-/// It implements [Display](std::fmt::Display). It will use [Self::symbol] or,
+/// It implements [Display](std::fmt::Display). It will use [`Self::symbol`] or,
 /// if alternate (`#`) is given, it will try the first name.
 #[derive(Debug, Clone, Serialize)]
 pub struct Unit {
@@ -279,69 +279,37 @@ pub enum PhysicalQuantity {
     Time,
 }
 
-impl Converter {
-    /// Convert a [Quantity]
-    ///
-    /// Just a convenience method of calling [Self::convert2]
-    pub fn convert<'t>(
-        &self,
-        from: &Quantity,
-        to: impl Into<ConvertTo<'t>>,
-    ) -> Result<Quantity, ConvertError> {
-        let to = to.into();
-        self.convert_(from, to)
+impl ScaledQuantity {
+    pub fn convert<'a>(
+        &mut self,
+        to: impl Into<ConvertTo<'a>>,
+        converter: &Converter,
+    ) -> Result<(), ConvertError> {
+        self.convert_impl(to.into(), converter)
     }
 
-    fn convert_(&self, from: &Quantity, to: ConvertTo) -> Result<Quantity, ConvertError> {
-        let unit_info = from.unit().map(|u| u.unit_info_or_parse(self));
+    fn convert_impl(&mut self, to: ConvertTo, converter: &Converter) -> Result<(), ConvertError> {
+        let unit_info = self.unit().map(|u| u.unit_info_or_parse(converter));
         let unit = match unit_info {
             Some(UnitInfo::Known(ref u)) => ConvertUnit::Unit(u),
             Some(UnitInfo::Unknown) => {
                 return Err(ConvertError::UnknownUnit(UnknownUnit(
-                    from.unit_text().unwrap().to_string(),
+                    self.unit_text().unwrap().to_string(),
                 )))
             }
-            None => return Err(ConvertError::NoUnit(from.clone())),
+            None => return Err(ConvertError::NoUnit(self.clone())),
         };
+        let value = self.value.clone().try_into()?;
 
-        let (value, unit) = match &from.value {
-            QuantityValue::Fixed { value } => {
-                let (value, unit) = self.convert2(value.try_into()?, unit, to)?;
-                let q_value = QuantityValue::Fixed {
-                    value: value.into(),
-                };
-                (q_value, unit)
-            }
-            QuantityValue::Linear { value } => {
-                let (value, unit) = self.convert2(value.try_into()?, unit, to)?;
-                let q_value = QuantityValue::Linear {
-                    value: value.into(),
-                };
-                (q_value, unit)
-            }
-            QuantityValue::ByServings { values } => {
-                let mut new_values = Vec::with_capacity(values.len());
-                let mut new_unit = None;
-                for v in values {
-                    let (value, unit) = self.convert2(v.try_into()?, unit, to)?;
-                    new_values.push(value.into());
-                    new_unit = Some(unit);
-                }
-                let q_value = QuantityValue::ByServings { values: new_values };
-                let unit = new_unit.expect("QuantityValue::ByServings empty");
-                (q_value, unit)
-            }
-        };
-
-        Ok(Quantity::with_known_unit(
-            value,
-            unit.to_string(),
-            Some(unit),
-        ))
+        let (new_value, new_unit) = converter.convert(value, unit, to)?;
+        *self = Quantity::with_known_unit(new_value.into(), new_unit);
+        Ok(())
     }
+}
 
+impl Converter {
     /// Perform a conversion
-    pub fn convert2(
+    pub fn convert(
         &self,
         value: ConvertValue,
         unit: ConvertUnit,
@@ -487,7 +455,7 @@ impl BestConversions {
     }
 }
 
-/// Input value for [Converter::convert]
+/// Input value for [`Converter::convert`]
 #[derive(PartialEq, Clone, Debug)]
 pub enum ConvertValue {
     Number(f64),
@@ -496,7 +464,7 @@ pub enum ConvertValue {
     Range(RangeInclusive<f64>),
 }
 
-/// Input unit for [Converter::convert]
+/// Input unit for [`Converter::convert`]
 #[derive(Debug, Clone, Copy)]
 pub enum ConvertUnit<'a> {
     /// A unit directly
@@ -509,7 +477,7 @@ pub enum ConvertUnit<'a> {
     Key(&'a str),
 }
 
-/// Input target for [Converter::convert]
+/// Input target for [`Converter::convert`]
 #[derive(Debug, Clone, Copy)]
 pub enum ConvertTo<'a> {
     SameSystem,
@@ -579,13 +547,13 @@ impl From<ConvertValue> for Value {
     }
 }
 
-impl TryFrom<&Value> for ConvertValue {
+impl TryFrom<Value> for ConvertValue {
     type Error = ConvertError;
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
         let value = match value {
-            Value::Number { value: n } => ConvertValue::Number(*n),
-            Value::Range { value: r } => ConvertValue::Range(r.clone()),
-            Value::Text { value: t } => return Err(ConvertError::TextValue(t.to_string())),
+            Value::Number { value: n } => ConvertValue::Number(n),
+            Value::Range { value: r } => ConvertValue::Range(r),
+            Value::Text { value: t } => return Err(ConvertError::TextValue(t)),
         };
         Ok(value)
     }
@@ -620,8 +588,8 @@ impl PartialOrd<Self> for ConvertValue {
 /// Errors from converting
 #[derive(Debug, Error)]
 pub enum ConvertError {
-    #[error("Tried to convert a value with no unit: {0}")]
-    NoUnit(Quantity),
+    #[error("Tried to convert a value with no unit")]
+    NoUnit(ScaledQuantity),
 
     #[error("Tried to convert a text value: {0}")]
     TextValue(String),
@@ -700,8 +668,8 @@ impl UnitCount {
     }
 }
 
-impl<D> Recipe<D> {
-    /// Convert a [Recipe] to another [System] in place.
+impl ScaledRecipe {
+    /// Convert a [`ScaledRecipe`] to another [`System`] in place.
     ///
     /// When an error occurs, it is stored and the quantity stays the same.
     ///
@@ -710,9 +678,12 @@ impl<D> Recipe<D> {
     pub fn convert(&mut self, to: System, converter: &Converter) -> Vec<ConvertError> {
         let mut errors = Vec::new();
 
-        let mut conv = |q: &mut Quantity| match converter.convert(q, to) {
-            Ok(cq) => *q = cq,
-            Err(e) => errors.push(e),
+        let to = ConvertTo::from(to);
+
+        let mut conv = |q: &mut ScaledQuantity| {
+            if let Err(e) = q.convert(to, converter) {
+                errors.push(e)
+            }
         };
 
         for igr in &mut self.ingredients {

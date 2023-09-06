@@ -1,0 +1,40 @@
+name: Playground
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deploy-playground:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup wasm-pack
+        uses: jetli/wasm-pack-action@v0.4.0
+        with:
+          version: "latest"
+
+      - name: Git describe
+        id: ghd
+        uses: proudust/gh-describe@v1
+
+      - name: Build
+        run: |
+          cd playground
+          wasm-pack build --target web --release --no-pack --no-typescript
+          rm pkg/.gitignore
+        env:
+          BUILD_COOKLANG_RS_VERSION: ${{ steps.ghd.outputs.tag }}
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./playground
+          exclude_assets: ".github,src,Cargo.toml"

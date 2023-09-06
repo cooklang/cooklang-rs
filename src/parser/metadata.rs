@@ -1,28 +1,21 @@
-use crate::{ast, error::label, lexer::T};
+use crate::{error::label, lexer::T};
 
-use super::{LineParser, ParserError, ParserWarning};
+use super::{BlockParser, Event, ParserError, ParserWarning};
 
-pub struct MetadataEntry<'input> {
-    pub key: ast::Text<'input>,
-    pub value: ast::Text<'input>,
-}
-
-pub(crate) fn metadata_entry<'input>(
-    line: &mut LineParser<'_, 'input>,
-) -> Option<MetadataEntry<'input>> {
+pub(crate) fn metadata_entry<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
-    line.consume(T![meta])?;
-    let key_pos = line.current_offset();
-    let key_tokens = line.until(|t| t == T![:])?;
-    let key = line.text(key_pos, key_tokens);
-    line.bump(T![:]);
-    let value_pos = line.current_offset();
-    let value_tokens = line.consume_rest();
-    let value = line.text(value_pos, value_tokens);
+    block.consume(T![meta])?;
+    let key_pos = block.current_offset();
+    let key_tokens = block.until(|t| t == T![:])?;
+    let key = block.text(key_pos, key_tokens);
+    block.bump(T![:]);
+    let value_pos = block.current_offset();
+    let value_tokens = block.consume_rest();
+    let value = block.text(value_pos, value_tokens);
 
     // Checks
     if key.is_text_empty() {
-        line.error(ParserError::ComponentPartInvalid {
+        block.error(ParserError::ComponentPartInvalid {
             container: "metadata entry",
             what: "key",
             reason: "is empty",
@@ -30,21 +23,21 @@ pub(crate) fn metadata_entry<'input>(
             help: None,
         });
     } else if value.is_text_empty() {
-        line.warn(ParserWarning::EmptyMetadataValue {
+        block.warn(ParserWarning::EmptyMetadataValue {
             key: key.located_string_trimmed(),
         });
     }
 
-    let entry = MetadataEntry { key, value };
-
-    Some(entry)
+    Some(Event::Metadata { key, value })
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::VecDeque;
+
     use super::*;
     use crate::{
-        parser::{token_stream::tokens, LineParser},
+        parser::{token_stream::tokens, BlockParser},
         span::Span,
         Extensions,
     };
@@ -53,73 +46,83 @@ mod tests {
     fn basic_metadata_entry() {
         let input = ">> key: value";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.1, word.5];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text(), " key");
-        assert_eq!(entry.key.span(), Span::new(2, 6));
-        assert_eq!(entry.value.text(), " value");
-        assert_eq!(entry.value.span(), Span::new(7, 13));
-        assert!(context.errors.is_empty());
-        assert!(context.warnings.is_empty());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let entry = metadata_entry(&mut bp).unwrap();
+        bp.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text(), " key");
+        assert_eq!(key.span(), Span::new(2, 6));
+        assert_eq!(value.text(), " value");
+        assert_eq!(value.span(), Span::new(7, 13));
+        assert!(events.is_empty());
     }
 
     #[test]
     fn no_key_metadata_entry() {
         let input = ">>: value";
         let tokens = tokens![meta.2, :.1, ws.1, word.5];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text(), "");
-        assert_eq!(entry.key.span(), Span::pos(2));
-        assert_eq!(entry.value.text_trimmed(), "value");
-        assert_eq!(context.errors.len(), 1);
-        assert!(context.warnings.is_empty());
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let entry = metadata_entry(&mut bp).unwrap();
+        bp.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text(), "");
+        assert_eq!(key.span(), Span::pos(2));
+        assert_eq!(value.text_trimmed(), "value");
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], Event::Error(_)));
     }
 
     #[test]
     fn no_val_metadata_entry() {
         let input = ">> key:";
         let tokens = tokens![meta.2, ws.1, word.3, :.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text_trimmed(), "key");
-        assert_eq!(entry.value.text(), "");
-        assert_eq!(entry.value.span(), Span::pos(7));
-        assert!(context.errors.is_empty());
-        assert_eq!(context.warnings.len(), 1);
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let entry = metadata_entry(&mut bp).unwrap();
+        bp.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text_trimmed(), "key");
+        assert_eq!(value.text(), "");
+        assert_eq!(value.span(), Span::pos(7));
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], Event::Warning(_)));
 
         let input = ">> key:  ";
         let tokens = tokens![meta.2, ws.1, word.3, :.1, ws.2];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert_eq!(entry.key.text_trimmed(), "key");
-        assert_eq!(entry.value.text(), "  ");
-        assert_eq!(entry.value.span(), Span::new(7, 9));
-        assert!(context.errors.is_empty());
-        assert_eq!(context.warnings.len(), 1);
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let entry = metadata_entry(&mut bp).unwrap();
+        bp.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert_eq!(key.text_trimmed(), "key");
+        assert_eq!(value.text(), "  ");
+        assert_eq!(value.span(), Span::new(7, 9));
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], Event::Warning(_)));
     }
 
     #[test]
     fn empty_metadata_entry() {
         let input = ">>:";
         let tokens = tokens![meta.2, :.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        let entry = metadata_entry(&mut line).unwrap();
-        let context = line.finish();
-        assert!(entry.key.text().is_empty());
-        assert_eq!(entry.key.span(), Span::pos(2));
-        assert!(entry.value.text().is_empty());
-        assert_eq!(entry.value.span(), Span::pos(3));
-        assert_eq!(context.errors.len(), 1);
-        assert!(context.warnings.is_empty()); // no warning if error generated
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        let entry = metadata_entry(&mut bp).unwrap();
+        bp.finish();
+        let Event::Metadata { key, value } = entry else { panic!() };
+        assert!(key.text().is_empty());
+        assert_eq!(key.span(), Span::pos(2));
+        assert!(value.text().is_empty());
+        assert_eq!(value.span(), Span::pos(3));
+        assert_eq!(events.len(), 1); // no warning if error generated
+        assert!(matches!(events[0], Event::Error(_)));
 
         let input = ">> ";
         let tokens = tokens![meta.2, ws.1];
-        let mut line = LineParser::new(0, &tokens, input, Extensions::all());
-        assert!(metadata_entry(&mut line).is_none())
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
+        assert!(metadata_entry(&mut bp).is_none());
     }
 }

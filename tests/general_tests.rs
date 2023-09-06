@@ -1,4 +1,4 @@
-use cooklang::{CooklangParser, Extensions};
+use cooklang::{CooklangParser, Extensions, Item};
 use indoc::indoc;
 use test_case::test_case;
 
@@ -86,4 +86,116 @@ fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
         .map(|sect| sect.steps.into_iter().map(|stp| stp.number).collect())
         .collect();
     numbers
+}
+
+#[test]
+fn empty_not_empty() {
+    let input = indoc! {r#"
+        -- "empty" recipe
+
+           -- with spaces
+
+        -- that should actually be empty 
+            -- and not produce empty steps   
+        
+        [- not even this -]
+    "#};
+
+    // should be the same with multiline and without
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections.is_empty());
+
+    let parser = CooklangParser::new(
+        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Default::default(),
+    );
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections.is_empty());
+}
+
+#[test]
+fn empty_steps() {
+    let input = indoc! {r#"
+        == Section name to force the section ==
+
+        -- "empty" recipe
+
+           -- with spaces
+
+        -- that should actually be empty 
+            -- and not produce empty steps   
+        
+        [- not even this -]
+    "#};
+
+    // should be the same with multiline and without
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections[0].steps.is_empty());
+
+    let parser = CooklangParser::new(
+        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Default::default(),
+    );
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert!(r.sections[0].steps.is_empty());
+}
+
+#[test]
+fn whitespace_line_block_separator() {
+    let input = indoc! {r#"
+        a step
+                 
+        another
+    "#};
+
+    // should be the same with multiline and without
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert_eq!(r.sections[0].steps.len(), 2);
+}
+
+#[test]
+fn single_line_no_separator() {
+    let input = indoc! {r#"
+        a step
+        >> meta: val
+        another step
+        = section
+    "#};
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert_eq!(r.sections.len(), 2);
+    assert_eq!(r.sections[0].steps.len(), 2);
+    assert_eq!(r.sections[1].steps.len(), 0);
+    assert_eq!(r.metadata.map.len(), 1);
+}
+
+#[test]
+fn multiple_temperatures() {
+    let input = "text 2ºC more text 150 F end text";
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
+    let r = parser.parse(input, "test").take_output().unwrap();
+    assert_eq!(r.inline_quantities.len(), 2);
+    assert_eq!(r.inline_quantities[0].value, 2.0.into());
+    assert_eq!(r.inline_quantities[0].unit_text(), Some("ºC"));
+    assert_eq!(r.inline_quantities[1].value, 150.0.into());
+    assert_eq!(r.inline_quantities[1].unit_text(), Some("F"));
+    assert_eq!(
+        r.sections[0].steps[0].items,
+        vec![
+            Item::Text {
+                value: "text ".into()
+            },
+            Item::InlineQuantity { index: 0 },
+            Item::Text {
+                value: " more text ".into()
+            },
+            Item::InlineQuantity { index: 1 },
+            Item::Text {
+                value: " end text".into()
+            }
+        ]
+    );
 }

@@ -5,8 +5,8 @@ use thiserror::Error;
 
 use crate::{
     convert::Converter,
-    quantity::{QuantityValue, TextValueError, Value},
-    Recipe, ScaledRecipe,
+    quantity::{ScalableQuantity, ScalableValue, ScaledQuantity, TextValueError, Value},
+    Cookware, Ingredient, Quantity, ScalableRecipe, ScaledRecipe, Timer,
 };
 
 /// Configures the scaling target
@@ -41,7 +41,7 @@ impl ScaleTarget {
         self.target as f64 / self.base as f64
     }
 
-    /// Get the index into a [`QuantityValue::ByServings`]
+    /// Get the index into a [`ScalableValue::ByServings`]
     pub fn index(&self) -> Option<usize> {
         self.index
     }
@@ -99,14 +99,14 @@ pub enum ScaleError {
 
     #[error("Value not scalable: {reason}")]
     NotScalable {
-        value: QuantityValue,
+        value: ScalableValue,
         reason: &'static str,
     },
 
     #[error("Value scaling not defined for target servings")]
     NotDefined {
         target: ScaleTarget,
-        value: QuantityValue,
+        value: ScalableValue,
     },
 
     /// There has been an error but it can't be determined
@@ -118,12 +118,12 @@ pub enum ScaleError {
     UndefinedError,
 }
 
-impl Recipe {
+impl ScalableRecipe {
     /// Scale a recipe
     ///
     /// Note that this returns a [`ScaledRecipe`] wich doesn't implement this
     /// method. A recipe can only be scaled once.
-    pub fn scale(mut self, target: u32, converter: &Converter) -> ScaledRecipe {
+    pub fn scale(self, target: u32, converter: &Converter) -> ScaledRecipe {
         let target = if let Some(servings) = self.metadata.servings.as_ref() {
             let base = servings.first().copied().unwrap_or(1);
             ScaleTarget::new(base, target, servings)
@@ -134,33 +134,48 @@ impl Recipe {
         if target.index() == Some(0) {
             return self.default_scale();
         }
-        let ingredients = scale_many(target, &mut self.ingredients, |igr| {
-            igr.quantity.as_mut().map(|q| &mut q.value)
-        });
-        self.ingredients.iter_mut().for_each(|i| {
-            if let Some(q) = &mut i.quantity {
-                let _ = q.fit(converter);
-            }
-        });
-        let cookware = scale_many(target, &mut self.cookware, |ck| ck.quantity.as_mut());
-        let timers = scale_many(target, &mut self.timers, |tm| {
-            tm.quantity.as_mut().map(|q| &mut q.value)
-        });
+
+        let (ingredients, ingredient_outcomes): (Vec<_>, Vec<_>) = self
+            .ingredients
+            .into_iter()
+            .map(|i| i.scale(target))
+            .map(|(mut i, o)| {
+                if let Some(q) = &mut i.quantity {
+                    let _ = q.fit(converter);
+                }
+                (i, o)
+            })
+            .unzip();
+
+        let (cookware, cookware_outcomes): (Vec<_>, Vec<_>) =
+            self.cookware.into_iter().map(|c| c.scale(target)).unzip();
+
+        let (timers, timer_outcomes): (Vec<_>, Vec<_>) = self
+            .timers
+            .into_iter()
+            .map(|c| c.scale(target))
+            .map(|(mut t, o)| {
+                if let Some(q) = &mut t.quantity {
+                    let _ = q.fit(converter);
+                }
+                (t, o)
+            })
+            .unzip();
 
         let data = ScaledData {
             target,
-            ingredients,
-            cookware,
-            timers,
+            ingredients: ingredient_outcomes,
+            cookware: cookware_outcomes,
+            timers: timer_outcomes,
         };
 
         ScaledRecipe {
             name: self.name,
             metadata: self.metadata,
             sections: self.sections,
-            ingredients: self.ingredients,
-            cookware: self.cookware,
-            timers: self.timers,
+            ingredients,
+            cookware,
+            timers,
             inline_quantities: self.inline_quantities,
             data: Scaled::Scaled(data),
         }
@@ -169,33 +184,204 @@ impl Recipe {
     /// Scale the recipe to the default values
     ///
     /// The default values are the ones written in the recipe and the first one
-    /// in [`QuantityValue::ByServings`].
-    pub fn default_scale(mut self) -> ScaledRecipe {
-        default_scale_many(&mut self.ingredients, |igr| {
-            igr.quantity.as_mut().map(|q| &mut q.value)
-        });
-        default_scale_many(&mut self.cookware, |ck| ck.quantity.as_mut());
-        default_scale_many(&mut self.timers, |tm| {
-            tm.quantity.as_mut().map(|q| &mut q.value)
-        });
+    /// in [`ScalableValue::ByServings`].
+    pub fn default_scale(self) -> ScaledRecipe {
+        let ingredients = self
+            .ingredients
+            .into_iter()
+            .map(Scale::default_scale)
+            .collect();
+        let cookware = self
+            .cookware
+            .into_iter()
+            .map(Scale::default_scale)
+            .collect();
+        let timers = self.timers.into_iter().map(Scale::default_scale).collect();
 
         ScaledRecipe {
             name: self.name,
             metadata: self.metadata,
             sections: self.sections,
-            ingredients: self.ingredients,
-            cookware: self.cookware,
-            timers: self.timers,
+            ingredients,
+            cookware,
+            timers,
             inline_quantities: self.inline_quantities,
             data: Scaled::DefaultScaling,
         }
     }
 }
 
+trait Scale: Sized {
+    type Output;
+
+    fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome);
+    fn default_scale(self) -> Self::Output;
+}
+
+impl Scale for ScalableValue {
+    type Output = Value;
+
+    fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome) {
+        match self {
+            Self::Fixed { value } => (value, ScaleOutcome::Fixed),
+            Self::Linear { value } => match linear_scale(value.clone(), target.factor()) {
+                Ok(v) => (v, ScaleOutcome::Scaled),
+                Err(e) => (value, ScaleOutcome::Error(e)),
+            },
+            Self::ByServings { ref values } => {
+                if let Some(index) = target.index {
+                    let value = match values.get(index) {
+                        Some(v) => v,
+                        None => {
+                            let value = self.clone();
+                            return (
+                                self.default_scale(),
+                                ScaleOutcome::Error(ScaleError::NotDefined { target, value }),
+                            );
+                        }
+                    };
+                    (value.clone(), ScaleOutcome::Scaled)
+                } else {
+                    let value = self.clone();
+                    (
+                        self.default_scale(),
+                        ScaleOutcome::Error(ScaleError::NotScalable {
+                            value,
+                            reason:
+                                "tried to scale a value linearly when it has the scaling defined",
+                        }),
+                    )
+                }
+            }
+        }
+    }
+
+    fn default_scale(self) -> Self::Output {
+        match self {
+            Self::Fixed { value } => value,
+            Self::Linear { value } => value,
+            Self::ByServings { values } => values
+                .first()
+                .expect("scalable value servings list empty")
+                .clone(),
+        }
+    }
+}
+
+fn linear_scale(value: Value, factor: f64) -> Result<Value, ScaleError> {
+    match value {
+        Value::Number { value: n } => Ok(Value::Number { value: n * factor }),
+        Value::Range { value: r } => Ok(Value::Range {
+            value: r.start() * factor..=r.end() * factor,
+        }),
+        v @ Value::Text { value: _ } => Err(TextValueError(v).into()),
+    }
+}
+
+impl Scale for ScalableQuantity {
+    type Output = ScaledQuantity;
+
+    fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome) {
+        let Self { value, unit } = self;
+        let (value, outcome) = value.scale(target);
+        let scaled = ScaledQuantity { value, unit };
+        (scaled, outcome)
+    }
+
+    fn default_scale(self) -> Self::Output {
+        let Self { value, unit } = self;
+        Self::Output {
+            value: value.default_scale(),
+            unit,
+        }
+    }
+}
+
+impl Scale for Ingredient<ScalableValue> {
+    type Output = Ingredient<Value>;
+
+    fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome) {
+        let (quantity, outcome) = self.quantity.map(|q| q.scale(target)).unzip();
+        let outcome = outcome.unwrap_or(ScaleOutcome::NoQuantity);
+        let scaled = Ingredient {
+            name: self.name,
+            alias: self.alias,
+            quantity,
+            note: self.note,
+            relation: self.relation,
+            modifiers: self.modifiers,
+            defined_in_step: self.defined_in_step,
+        };
+        (scaled, outcome)
+    }
+
+    fn default_scale(self) -> Self::Output {
+        Ingredient {
+            name: self.name,
+            alias: self.alias,
+            quantity: self.quantity.map(Quantity::default_scale),
+            note: self.note,
+            relation: self.relation,
+            modifiers: self.modifiers,
+            defined_in_step: self.defined_in_step,
+        }
+    }
+}
+
+impl Scale for Cookware<ScalableValue> {
+    type Output = Cookware<Value>;
+
+    fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome) {
+        let (quantity, outcome) = self.quantity.map(|q| q.scale(target)).unzip();
+        let outcome = outcome.unwrap_or(ScaleOutcome::NoQuantity);
+        let scaled = Cookware {
+            name: self.name,
+            alias: self.alias,
+            quantity,
+            note: self.note,
+            relation: self.relation,
+            modifiers: self.modifiers,
+        };
+        (scaled, outcome)
+    }
+
+    fn default_scale(self) -> Self::Output {
+        Cookware {
+            name: self.name,
+            alias: self.alias,
+            quantity: self.quantity.map(ScalableValue::default_scale),
+            note: self.note,
+            relation: self.relation,
+            modifiers: self.modifiers,
+        }
+    }
+}
+
+impl Scale for Timer<ScalableValue> {
+    type Output = Timer<Value>;
+
+    fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome) {
+        let (quantity, outcome) = self.quantity.map(|q| q.scale(target)).unzip();
+        let outcome = outcome.unwrap_or(ScaleOutcome::NoQuantity);
+        let scaled = Timer {
+            name: self.name,
+            quantity,
+        };
+        (scaled, outcome)
+    }
+
+    fn default_scale(self) -> Self::Output {
+        Timer {
+            name: self.name,
+            quantity: self.quantity.map(Quantity::default_scale),
+        }
+    }
+}
+
 impl ScaledRecipe {
-    /// Get the [ScaledData] from a recipe after scaling.
+    /// Get the [`ScaledData`] from a recipe after scaling.
     ///
-    /// Returns [`None`] if it was [`default scaled`](Recipe::default_scale).
+    /// Returns [`None`] if it was [`default scaled`](ScalableRecipe::default_scale).
     pub fn scaled_data(&self) -> Option<&ScaledData> {
         if let Scaled::Scaled(data) = &self.data {
             Some(data)
@@ -207,87 +393,5 @@ impl ScaledRecipe {
     /// Shorthand to check if [`Self::scaled_data`] is [`Scaled::DefaultScaling`].
     pub fn is_default_scaled(&self) -> bool {
         matches!(self.data, Scaled::DefaultScaling)
-    }
-}
-
-fn scale_many<'a, T: 'a>(
-    target: ScaleTarget,
-    components: &mut [T],
-    extract: impl Fn(&mut T) -> Option<&mut QuantityValue>,
-) -> Vec<ScaleOutcome> {
-    let mut outcomes = Vec::with_capacity(components.len());
-    for c in components {
-        if let Some(value) = extract(c) {
-            match value.clone().scale(target) {
-                // ? Unnecesary clone maybe
-                Ok((v, o)) => {
-                    *value = v;
-                    outcomes.push(o);
-                }
-                Err(e) => outcomes.push(ScaleOutcome::Error(e)),
-            }
-        } else {
-            outcomes.push(ScaleOutcome::NoQuantity);
-        }
-    }
-    outcomes
-}
-
-fn default_scale_many<'a, T: 'a>(
-    components: &mut [T],
-    extract: impl Fn(&mut T) -> Option<&mut QuantityValue>,
-) {
-    for c in components {
-        if let Some(value) = extract(c) {
-            *value = value.clone().default_scale();
-        }
-    }
-}
-
-impl QuantityValue {
-    fn scale(self, target: ScaleTarget) -> Result<(QuantityValue, ScaleOutcome), ScaleError> {
-        let (value, outcome) = match self {
-            Self::Fixed { value } => (value, ScaleOutcome::Fixed),
-            Self::Linear { value } => (value.scale(target.factor())?, ScaleOutcome::Scaled),
-            Self::ByServings { ref values } => {
-                if let Some(index) = target.index {
-                    let Some(value) = values.get(index) else {
-                        return Err(ScaleError::NotDefined { target, value: self });
-                    };
-                    (value.clone(), ScaleOutcome::Scaled)
-                } else {
-                    return Err(ScaleError::NotScalable {
-                        value: self,
-                        reason: "tried to scale a value linearly when it has the scaling defined",
-                    });
-                }
-            }
-        };
-        Ok((Self::Fixed { value }, outcome))
-    }
-
-    fn default_scale(self) -> Self {
-        match self {
-            v @ Self::Fixed { .. } => v,
-            Self::Linear { value } => Self::Fixed { value },
-            Self::ByServings { values } => Self::Fixed {
-                value: values
-                    .first()
-                    .expect("scalable value servings list empty")
-                    .clone(),
-            },
-        }
-    }
-}
-
-impl Value {
-    fn scale(&self, factor: f64) -> Result<Value, ScaleError> {
-        match self.clone() {
-            Value::Number { value: n } => Ok(Value::Number { value: n * factor }),
-            Value::Range { value: r } => Ok(Value::Range {
-                value: r.start() * factor..=r.end() * factor,
-            }),
-            v @ Value::Text { value: _ } => Err(TextValueError(v).into()),
-        }
     }
 }

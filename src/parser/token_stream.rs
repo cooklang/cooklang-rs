@@ -1,5 +1,5 @@
 //! [Cursor](crate::lexer::Cursor) iterator adapter for it's use in
-//! Parser(super::parser::Parser).
+//! `Parser(super::parser::Parser`).
 
 pub use crate::lexer::TokenKind;
 use crate::{lexer::Cursor, span::Span};

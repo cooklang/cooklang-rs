@@ -42,8 +42,15 @@
 //! # assert!(_warnings.is_empty());
 //! # Ok::<(), cooklang::error::CooklangReport>(())
 //! ```
+//!
+//! Recipes can be scaled and converted. But the following applies:
+//! - Parsing returns a [`ScalableRecipe`].
+//! - Only [`ScalableRecipe`] can be [`scale`](ScalableRecipe::scale)d or
+//!   [`default_scale`](ScalableRecipe::default_scale)d **only once** to obtain
+//!   a [`ScaledRecipe`].
+//! - Only [`ScaledRecipe`] can be [`convert`](ScaledRecipe::convert)ed.
 
-#![deny(rustdoc::broken_intra_doc_links)]
+#![warn(rustdoc::broken_intra_doc_links, clippy::doc_markdown)]
 
 #[cfg(doc)]
 pub mod _extensions {
@@ -64,6 +71,7 @@ pub mod _features {
 
 #[cfg(feature = "aisle")]
 pub mod aisle;
+pub mod analysis;
 pub mod ast;
 pub mod convert;
 pub mod error;
@@ -79,7 +87,6 @@ pub mod span;
 #[cfg(feature = "bindings")]
 mod bindings;
 
-mod analysis;
 mod context;
 mod lexer;
 
@@ -95,7 +102,8 @@ pub use located::Located;
 pub use metadata::Metadata;
 pub use model::*;
 pub use quantity::{
-    GroupedQuantity, Quantity, QuantityUnit, QuantityValue, TotalQuantity, UnitInfo, Value,
+    GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
+    TotalQuantity, UnitInfo, Value,
 };
 pub use span::Span;
 
@@ -182,7 +190,7 @@ pub struct CooklangParser {
     converter: Converter,
 }
 
-pub type RecipeResult = PassResult<Recipe, CooklangError, CooklangWarning>;
+pub type RecipeResult = PassResult<ScalableRecipe, CooklangError, CooklangWarning>;
 pub type MetadataResult = PassResult<Metadata, CooklangError, CooklangWarning>;
 
 pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> bool + 'a>;
@@ -226,24 +234,24 @@ impl CooklangParser {
         recipe_name: &str,
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
-        let mut r = parser::parse(input, self.extensions).into_context_result();
-        if !r.is_valid() {
-            return r.discard_output();
-        }
-        let ast = r.take_output().unwrap();
-        analysis::parse_ast(ast, self.extensions, &self.converter, recipe_ref_checker)
-            .into_context_result()
-            .merge(r)
-            .map(|c| Recipe {
-                name: recipe_name.to_string(),
-                metadata: c.metadata,
-                sections: c.sections,
-                ingredients: c.ingredients,
-                cookware: c.cookware,
-                timers: c.timers,
-                inline_quantities: c.inline_quantities,
-                data: (),
-            })
+        let mut parser = parser::PullParser::new(input, self.extensions);
+        let result = analysis::parse_events(
+            &mut parser,
+            self.extensions,
+            &self.converter,
+            recipe_ref_checker,
+        );
+
+        result.map(|c| Recipe {
+            name: recipe_name.to_string(),
+            metadata: c.metadata,
+            sections: c.sections,
+            ingredients: c.ingredients,
+            cookware: c.cookware,
+            timers: c.timers,
+            inline_quantities: c.inline_quantities,
+            data: (),
+        })
     }
 
     /// Parse only the metadata of a recipe
@@ -251,14 +259,9 @@ impl CooklangParser {
     /// This is a bit faster than [`Self::parse`] if you only want the metadata
     #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
-        let mut r = parser::parse_metadata(input).into_context_result();
-        if !r.is_valid() {
-            return r.discard_output();
-        }
-        let ast = r.take_output().unwrap();
-        analysis::parse_ast(ast, Extensions::empty(), &self.converter, None)
-            .into_context_result()
-            .merge(r)
+        let parser = parser::PullParser::new(input, self.extensions);
+        let meta_events = parser.into_meta_iter();
+        analysis::parse_events(meta_events, Extensions::empty(), &self.converter, None)
             .map(|c| c.metadata)
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "cooklang"
-version = "0.5.1"
+version = "0.7.1"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
@@ -64,3 +64,6 @@ harness = false
 name = "uniffi-bindgen"
 path = "src/uniffi-bindgen.rs"
 required-features = ["bindings", "uniffi/cli"]
+
+[workspace]
+members = [".", "playground"]

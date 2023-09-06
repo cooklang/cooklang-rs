@@ -136,7 +136,7 @@ impl Metadata {
         Ok(())
     }
 
-    /// Returns a copy of [Self::map] but with all *special* metadata values
+    /// Returns a copy of [`Self::map`] but with all *special* metadata values
     /// removed
     pub fn map_filtered(&self) -> IndexMap<String, String> {
         const ALL_KNOWN_KEYS: &[&str] = &[
