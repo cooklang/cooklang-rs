@@ -231,25 +231,18 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             recipe.steps.into_iter().nth(0).unwrap().items,
             vec![
-                Item::Text {
-                    value: "a test ".to_string()
-                },
+                Item::Text { value: "a test ".to_string() },
                 Item::Ingredient {
                     name: "step".to_string(),
-                    amount: Amount {
-                        quantity: "".to_string(),
-                        units: "".to_string()
-                    }
+                    amount: None
                 },
-                Item::Text {
-                    value: " ".to_string()
-                },
+                Item::Text { value: " ".to_string() },
                 Item::Ingredient {
                     name: "salt".to_string(),
-                    amount: Amount {
-                        quantity: "1".to_string(),
-                        units: "".to_string()
-                    }
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 1.0 },
+                        units: Some("mg".to_string())
+                    })
                 },
                 Item::Text {
                     value: " more text".to_string()
