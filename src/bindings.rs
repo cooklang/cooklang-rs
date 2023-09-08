@@ -1,7 +1,7 @@
 // use crate::*;
-use crate::analysis::*;
-use crate::model::{Component, ComponentKind, Item as ModelItem};
-use crate::parser::parse as canonical_parse;
+use crate::analysis::{parse_events, RecipeContent};
+use crate::model::{Item as ModelItem};
+use crate::parser::{PullParser};
 use crate::quantity::{
     Quantity as ModelQuantity, QuantityValue as ModelQuantityValue, Value as ModelValue,
 };
@@ -54,23 +54,19 @@ enum Value {
     Text { value: String },
 }
 
-trait Amountable {
-    fn extract_amount(&self) -> Amount;
+
+fn extract_amount(q: ModelQuantity) -> Amount {
+    let quantity = extract_quantity(q.value);
+
+    let units = if let Some(u) = q.unit {
+        Some(u.to_string())
+    } else {
+        None
+    };
+
+    Amount { quantity, units }
 }
 
-impl Amountable for ModelQuantity {
-    fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(&self.value);
-
-        let units = if let Some(u) = &self.unit {
-            Some(u.to_string())
-        } else {
-            None
-        };
-
-        Amount { quantity, units }
-    }
-}
 
 impl Amountable for ModelQuantityValue {
     fn extract_amount(&self) -> Amount {
@@ -107,49 +103,44 @@ fn extract_value(value: &ModelValue) -> Value {
 fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
-        ModelItem::ItemComponent { value } => {
-            let Component { index, kind } = value;
+        ModelItem::ItemIngredient { index } => {
+            let ingredient = &recipe.ingredients[index];
 
-            match kind {
-                ComponentKind::IngredientKind => {
-                    let ingredient = &recipe.ingredients[index];
-
-                    Item::Ingredient {
-                        name: ingredient.name.clone(),
-                        amount: if let Some(q) = &ingredient.quantity {
-                            Some(q.extract_amount())
-                        } else {
-                            None
-                        },
-                    }
-                }
-
-                ComponentKind::CookwareKind => {
-                    let cookware = &recipe.cookware[index];
-                    Item::Cookware {
-                        name: cookware.name.clone(),
-                        amount: if let Some(q) = &cookware.quantity {
-                            Some(q.extract_amount())
-                        } else {
-                            None
-                        },
-                    }
-                }
-
-                ComponentKind::TimerKind => {
-                    let timer = &recipe.timers[index];
-
-                    Item::Timer {
-                        name: timer.name.clone(),
-                        amount: if let Some(q) = &timer.quantity {
-                            Some(q.extract_amount())
-                        } else {
-                            None
-                        },
-                    }
-                }
+            Item::Ingredient {
+                name: ingredient.name.clone(),
+                amount: if let Some(q) = &ingredient.quantity {
+                    Some(q.extract_amount())
+                } else {
+                    None
+                },
             }
-        }
+        },
+
+        ModelItem::ItemCookware { index } => {
+            let cookware = &recipe.cookware[index];
+            Item::Cookware {
+                name: cookware.name.clone(),
+                amount: if let Some(q) = &cookware.quantity {
+                    Some(q.extract_amount())
+                } else {
+                    None
+                },
+            }
+        },
+
+        ModelItem::ItemTimer { index } => {
+            let timer = &recipe.timers[index];
+
+            Item::Timer {
+                name: timer.name.clone(),
+                amount: if let Some(q) = &timer.quantity {
+                    Some(q.extract_amount())
+                } else {
+                    None
+                },
+            }
+        },
+
         // returning an empty block of text as it's not supported by the spec
         ModelItem::InlineQuantity { .. } => Item::Text {
             value: "".to_string(),
@@ -205,8 +196,8 @@ pub fn parse(input: String) -> CooklangRecipe {
     let extensions = Extensions::empty();
     let converter = Converter::empty();
 
-    let ast = canonical_parse(&input, extensions).take_output().unwrap();
-    let result = parse_ast(ast, extensions, &converter, None)
+    let mut parser = PullParser::new(&input, extensions);
+    let result = parse_events(&mut parser, extensions, &converter, None,)
         .take_output()
         .unwrap();
 
