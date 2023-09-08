@@ -17,7 +17,7 @@ This library exports methods:
 
     # TODO
     parse_metadata(input: String) -> CooklangMetadata;
-    combine_ingredients(ingredients: Vec<Ingredient>) -> Vec<CombinedIngredient>;
+    combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
     parse_aisle_config(input: String) -> AisleConfig;
 
 ### Exposed data structures
@@ -60,6 +60,11 @@ This library exports methods:
         Number { value: f64 },
         Range { start: f64, end: f64 },
         Text { value: String },
+    }
+
+    struct CombinedIngredient {
+        name: String,
+        amounts: Vec<Amount>
     }
 
 ## Building for Android
