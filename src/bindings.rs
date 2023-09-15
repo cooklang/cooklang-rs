@@ -3,7 +3,7 @@ use crate::analysis::{parse_events, RecipeContent};
 use crate::model::{Item as ModelItem};
 use crate::parser::{PullParser};
 use crate::quantity::{
-    Quantity as ModelQuantity, QuantityValue as ModelQuantityValue, Value as ModelValue,
+    Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
 };
 use crate::Converter;
 use crate::Extensions;
@@ -55,20 +55,25 @@ enum Value {
 }
 
 
-fn extract_amount(q: ModelQuantity) -> Amount {
-    let quantity = extract_quantity(q.value);
-
-    let units = if let Some(u) = q.unit {
-        Some(u.to_string())
-    } else {
-        None
-    };
-
-    Amount { quantity, units }
+trait Amountable {
+    fn extract_amount(&self) -> Amount;
 }
 
+impl Amountable for ModelQuantity<ModelScalableValue> {
+    fn extract_amount(&self) -> Amount {
+        let quantity = extract_quantity(&self.value);
 
-impl Amountable for ModelQuantityValue {
+        let units = if let Some(u) = &self.unit {
+            Some(u.to_string())
+        } else {
+            None
+        };
+
+        Amount { quantity, units }
+    }
+}
+
+impl Amountable for ModelScalableValue {
     fn extract_amount(&self) -> Amount {
         let quantity = extract_quantity(&self);
 
@@ -79,11 +84,11 @@ impl Amountable for ModelQuantityValue {
     }
 }
 
-fn extract_quantity(value: &ModelQuantityValue) -> Value {
+fn extract_quantity(value: &ModelScalableValue) -> Value {
     match value {
-        ModelQuantityValue::Fixed { value } => extract_value(value),
-        ModelQuantityValue::Linear { value } => extract_value(value),
-        ModelQuantityValue::ByServings { values } => extract_value(values.first().unwrap()),
+        ModelScalableValue::Fixed { value } => extract_value(value),
+        ModelScalableValue::Linear { value } => extract_value(value),
+        ModelScalableValue::ByServings { values } => extract_value(values.first().unwrap()),
     }
 }
 
@@ -99,6 +104,7 @@ fn extract_value(value: &ModelValue) -> Value {
         },
     }
 }
+
 
 fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
     match item {
