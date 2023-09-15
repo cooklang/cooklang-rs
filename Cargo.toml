@@ -11,7 +11,6 @@ repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0"
 bitflags = { version = "2", features = ["serde"] }
 regex = "1"
 serde = { version = "1", features = ["derive", "rc"] }
