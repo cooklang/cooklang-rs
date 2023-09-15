@@ -84,18 +84,12 @@ pub mod quantity;
 pub mod scale;
 pub mod span;
 
-#[cfg(feature = "bindings")]
-mod bindings;
-
 mod context;
 mod lexer;
 
 use bitflags::bitflags;
 
 use error::{CooklangError, CooklangWarning, PassResult};
-
-#[cfg(feature = "bindings")]
-pub use bindings::*;
 
 pub use convert::Converter;
 pub use located::Located;
