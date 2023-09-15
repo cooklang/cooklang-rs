@@ -53,6 +53,7 @@ enum Value {
     Text { value: String },
 }
 
+type CooklangMetadata = HashMap<String, String>;
 
 trait Amountable {
     fn extract_amount(&self) -> Amount;
@@ -154,7 +155,7 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
 }
 
 fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
-    let mut metadata = HashMap::new();
+    let mut metadata = CooklangMetadata::new();
     let mut steps: Vec<Step> = Vec::new();
     let mut ingredients: Vec<Item> = Vec::new();
     let mut cookware: Vec<Item> = Vec::new();
@@ -202,12 +203,36 @@ pub fn parse(input: String) -> CooklangRecipe {
     let converter = Converter::empty();
 
     let mut parser = PullParser::new(&input, extensions);
-    let result = parse_events(&mut parser, extensions, &converter, None,)
+    let result = parse_events(&mut parser, extensions, &converter, None)
         .take_output()
         .unwrap();
 
     simplify_recipe_data(&result)
 }
+
+#[uniffi::export]
+pub fn parse_metadata(input: String) -> CooklangMetadata {
+    let mut metadata = CooklangMetadata::new();
+    let extensions = Extensions::empty();
+    let converter = Converter::empty();
+
+    let parser = PullParser::new(&input, extensions);
+
+
+    let result = parse_events(parser.into_meta_iter(), extensions, &converter, None)
+        .map(|c| c.metadata.map)
+        .take_output()
+        .unwrap();
+
+    let _ = &(result).iter().for_each(|(key, value)| {
+        metadata.insert(key.to_string(), value.to_string());
+    });
+
+    metadata
+}
+
+// combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
+// parse_aisle_config(input: String) -> AisleConfig;
 
 uniffi::setup_scaffolding!();
 

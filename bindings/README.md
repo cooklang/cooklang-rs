@@ -23,11 +23,13 @@ This library exports methods:
 ### Exposed data structures
 
     struct CooklangRecipe {
-        metadata: HashMap<String, String>,
+        metadata: CooklangMetadata,
         steps: Vec<Step>,
         ingredients: Vec<Item>,
         cookware: Vec<Item>,
     }
+
+    type CooklangMetadata = HashMap<String, String>;
 
     struct Step {
         items: Vec<Item>,
