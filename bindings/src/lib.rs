@@ -1,13 +1,12 @@
-// use crate::*;
-use crate::analysis::{parse_events, RecipeContent};
-use crate::model::{Item as ModelItem};
-use crate::parser::{PullParser};
-use crate::quantity::{
+use std::collections::HashMap;
+use cooklang::analysis::{parse_events, RecipeContent};
+use cooklang::model::{Item as ModelItem};
+use cooklang::parser::{PullParser};
+use cooklang::quantity::{
     Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
 };
-use crate::Converter;
-use crate::Extensions;
-use std::collections::HashMap;
+use cooklang::Converter;
+use cooklang::Extensions;
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
@@ -63,7 +62,7 @@ impl Amountable for ModelQuantity<ModelScalableValue> {
     fn extract_amount(&self) -> Amount {
         let quantity = extract_quantity(&self.value);
 
-        let units = if let Some(u) = &self.unit {
+        let units = if let Some(u) = &self.unit() {
             Some(u.to_string())
         } else {
             None
@@ -218,7 +217,7 @@ mod tests {
 
     #[test]
     fn just_kidding() {
-        let recipe = crate::bindings::parse(
+        let recipe = cooklang::bindings::parse(
             r#"
 a test @step @salt{1%mg} more text
 "#

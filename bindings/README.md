@@ -90,11 +90,11 @@ Add ndk linkers to the PATH variable. Example for ~/.zshrc:
 
 Build library:
 
-    cargo build --features=bindings --lib --target=x86_64-linux-android --release
+    cargo build --lib --target=x86_64-linux-android --release
 
 Biuld foreight language bindings (this will output Kotlin code into `./out` dir:
 
-    cargo run --features="bindings uniffi/cli"  \
+    cargo run --features="uniffi/cli"  \
       --bin uniffi-bindgen generate \
       --library target/x86_64-linux-android/release/libcooklang.so \
       --language kotlin \
