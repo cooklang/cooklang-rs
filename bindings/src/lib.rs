@@ -213,11 +213,11 @@ uniffi::setup_scaffolding!();
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn just_kidding() {
-        let recipe = cooklang::bindings::parse(
+        use crate::{parse, Item, Amount, Value};
+        let recipe = parse(
             r#"
 a test @step @salt{1%mg} more text
 "#
