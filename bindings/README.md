@@ -14,9 +14,9 @@ This particular library employes new-ish [procedural macroses](https://mozilla.g
 This library exports methods:
 
     parse(input: String) -> CooklangRecipe;
+    parse_metadata(input: String) -> CooklangMetadata;
 
     # TODO
-    parse_metadata(input: String) -> CooklangMetadata;
     combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
     parse_aisle_config(input: String) -> AisleConfig;
 
