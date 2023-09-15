@@ -240,8 +240,9 @@ uniffi::setup_scaffolding!();
 mod tests {
 
     #[test]
-    fn just_kidding() {
+    fn parse() {
         use crate::{parse, Item, Amount, Value};
+
         let recipe = parse(
             r#"
 a test @step @salt{1%mg} more text
@@ -269,6 +270,25 @@ a test @step @salt{1%mg} more text
                     value: " more text".to_string()
                 }
             ]
+        );
+    }
+
+    #[test]
+    fn parse_metadata() {
+        use crate::{parse_metadata};
+        use std::collections::HashMap;
+
+        let metadata = parse_metadata(
+            r#"
+>> source: https://google.com
+a test @step @salt{1%mg} more text
+"#
+            .to_string(),
+        );
+
+        assert_eq!(
+            metadata,
+            HashMap::from([("source".to_string(), "https://google.com".to_string())])
         );
     }
 }
