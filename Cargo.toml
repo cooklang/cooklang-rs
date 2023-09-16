@@ -48,4 +48,4 @@ name = "parse"
 harness = false
 
 [workspace]
-members = [".", "playground"]
+members = [".", "playground", "bindings"]
