@@ -547,8 +547,9 @@ impl GroupedQuantity {
     pub fn total(&self) -> TotalQuantity {
         let mut all = self.all_quantities().cloned().peekable();
 
-        let Some(first) = all.next()
-        else { return TotalQuantity::None; };
+        let Some(first) = all.next() else {
+            return TotalQuantity::None;
+        };
 
         if all.peek().is_none() {
             TotalQuantity::Single(first)

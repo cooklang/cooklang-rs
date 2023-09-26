@@ -14,6 +14,7 @@ pub use ast_walker::RecipeContent;
 pub type AnalysisResult = PassResult<RecipeContent, CooklangError, CooklangWarning>;
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum AnalysisError {
     #[error("Invalid value for '{key}': {value}")]
     InvalidSpecialMetadataValue {
@@ -54,7 +55,7 @@ pub enum AnalysisError {
         auto_scale_marker: Span,
     },
 
-    #[error("Unsuported modifier combination with reference: {}", conflict)]
+    #[error("Unsupported modifier combination with reference: {}", conflict)]
     ConflictingModifiersInReference {
         modifiers: Located<crate::ast::Modifiers>,
         conflict: crate::ast::Modifiers,
@@ -69,8 +70,8 @@ pub enum AnalysisError {
         implicit: bool,
     },
 
-    #[error("Invalid intermediate ingredient refrence: {reason}")]
-    InvalidIntermediateReferece {
+    #[error("Invalid intermediate ingredient reference: {reason}")]
+    InvalidIntermediateReference {
         reference_span: Span,
         reason: &'static str,
         help: Cow<'static, str>,
@@ -78,6 +79,7 @@ pub enum AnalysisError {
 }
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum AnalysisWarning {
     #[error("Ignoring unknown special metadata key: {key}")]
     UnknownSpecialMetadataKey { key: Located<String> },
@@ -175,7 +177,7 @@ impl RichError for AnalysisError {
             AnalysisError::ComponentPartNotAllowedInReference { to_remove, .. } => {
                 vec![label![to_remove, "remove this"]]
             }
-            AnalysisError::InvalidIntermediateReferece { reference_span, .. } => {
+            AnalysisError::InvalidIntermediateReference { reference_span, .. } => {
                 vec![label![reference_span]]
             }
         }
@@ -209,7 +211,7 @@ impl RichError for AnalysisError {
                     None
                 }
             }
-            AnalysisError::InvalidIntermediateReferece { help, .. } => Some(help.clone()),
+            AnalysisError::InvalidIntermediateReference { help, .. } => Some(help.clone()),
             _ => None
         }
     }

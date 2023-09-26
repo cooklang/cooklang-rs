@@ -330,7 +330,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     assert!(new_igr.modifiers().contains(Modifiers::REF));
                     let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
                     if new_igr.modifiers().intersects(invalid_modifiers) {
-                        self.ctx.error(AnalysisError::InvalidIntermediateReferece {
+                        self.ctx.error(AnalysisError::InvalidIntermediateReference {
                             reference_span: ingredient.modifiers.span(),
                             reason: "Invalid combination of modifiers",
                             help: format!(
@@ -456,7 +456,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         let val = inter_data.val as usize;
 
         if val == 0 && inter_data.ref_mode == Relative {
-            return Err(AnalysisError::InvalidIntermediateReferece {
+            return Err(AnalysisError::InvalidIntermediateReference {
                 reference_span: inter_data.span(),
                 reason: "relative reference not positive",
                 help: "Relative reference value has to be greater than 0".into(),
@@ -475,7 +475,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         )
                         .into()
                     };
-                    return Err(AnalysisError::InvalidIntermediateReferece {
+                    return Err(AnalysisError::InvalidIntermediateReference {
                         reference_span: inter_data.span(),
                         reason: "step index out of bounds",
                         help,
@@ -508,7 +508,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                             }
                             0 => unreachable!(), // being here would mean be resolving an intermediate ref before any non text step.
                         };
-                        return Err(AnalysisError::InvalidIntermediateReferece {
+                        return Err(AnalysisError::InvalidIntermediateReference {
                             reference_span: inter_data.span(),
                             reason: "relative step index out of bounds",
                             help,
@@ -523,7 +523,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     } else {
                         format!("The index has to be of a previous section. In this case, less than {}.", self.content.sections.len()).into()
                     };
-                    return Err(AnalysisError::InvalidIntermediateReferece {
+                    return Err(AnalysisError::InvalidIntermediateReference {
                         reference_span: inter_data.span(),
                         reason: "section index out of bounds",
                         help,
@@ -542,7 +542,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         )
                         .into()
                     };
-                    return Err(AnalysisError::InvalidIntermediateReferece {
+                    return Err(AnalysisError::InvalidIntermediateReference {
                         reference_span: inter_data.span(),
                         reason: "relative section index out of bounds",
                         help,

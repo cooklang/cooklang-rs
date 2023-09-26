@@ -22,7 +22,11 @@ pub(crate) use regex;
 ///
 /// The fields on this struct are the parsed values with some special meaning.
 /// The raw key/value pairs from the recipe are in the `map` field.
+///
+/// This struct is non exhaustive because adding a new special metadata value
+/// is not a breaking change.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[non_exhaustive]
 pub struct Metadata {
     /// Description of the recipe
     pub description: Option<String>,
@@ -233,6 +237,7 @@ impl RecipeTime {
 }
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum MetadataError {
     #[error("Value is not an emoji: {value}")]
     NotEmoji { value: String },
@@ -250,7 +255,7 @@ pub enum MetadataError {
 /// - The length is 1 <= len <= 32
 /// - lowercase letters, numbers and '-'
 /// - starts with a letters
-/// - '-' have to be surrouded by letters or numbers, no two '-' can be together
+/// - '-' have to be surrounded by letters or numbers, no two '-' can be together
 pub fn is_valid_tag(tag: &str) -> bool {
     let tag_len = 1..=32;
     let re = regex!(r"^\p{Ll}[\p{Ll}\d]*(-[\p{Ll}\d]+)*$");

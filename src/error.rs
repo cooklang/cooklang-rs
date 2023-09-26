@@ -463,20 +463,20 @@ impl ariadne::Cache<()> for DummyCache {
 
 /// General cooklang error type
 #[derive(Debug, Error)]
+#[non_exhaustive]
+#[error(transparent)]
 pub enum CooklangError {
     /// An error in the parse pass
-    #[error(transparent)]
     Parser(#[from] crate::parser::ParserError),
     /// An error in the analysis pass
-    #[error(transparent)]
     Analysis(#[from] crate::analysis::AnalysisError),
     /// Error related to I/O
-    #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 
 /// General cooklang warning type
 #[derive(Debug, Error)]
+#[non_exhaustive]
 #[error(transparent)]
 pub enum CooklangWarning {
     /// A waring in the parse pass
