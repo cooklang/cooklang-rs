@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use super::{token_stream::Token, Event, ParserError, ParserWarning};
+use super::{token_stream::Token, tokens_span, Event, ParserError, ParserWarning};
 use crate::{
     ast::{self, TextFragment},
     lexer::{TokenKind, T},
-    Extensions,
+    Extensions, Span,
 };
 
 pub(crate) struct BlockParser<'t, 'i> {
@@ -103,6 +103,10 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     /// Gets a token's matching str from the input
     pub(crate) fn as_str(&self, token: Token) -> &'i str {
         &self.input[token.span.range()]
+    }
+
+    pub(crate) fn span(&self) -> Span {
+        tokens_span(self.tokens)
     }
 
     pub(crate) fn text(&self, offset: usize, tokens: &[Token]) -> ast::Text<'i> {

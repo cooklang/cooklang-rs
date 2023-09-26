@@ -301,18 +301,18 @@ where
     }
 }
 
-fn parse_block(line: &mut BlockParser) {
-    let meta_or_section = match line.peek() {
-        T![meta] => line.with_recover(metadata_entry),
-        T![=] => line.with_recover(section),
+fn parse_block(block: &mut BlockParser) {
+    let meta_or_section = match block.peek() {
+        T![meta] => block.with_recover(metadata_entry),
+        T![=] => block.with_recover(section),
         _ => None,
     };
 
     if let Some(ev) = meta_or_section {
-        line.event(ev);
+        block.event(ev);
         return;
     }
-    step(line);
+    step(block);
 }
 
 /// Builds an [`Ast`](ast::Ast) given an [`Event`] iterator
@@ -422,12 +422,18 @@ pub enum ParserError {
 #[derive(Debug, Error, Clone, PartialEq)]
 pub enum ParserWarning {
     #[error("Empty metadata value for key: {key}")]
-    EmptyMetadataValue { key: Located<String> },
+    EmptyMetadataValue { key: Located<String>, value: Span },
     #[error("A {container} cannot have {what}, it will be ignored")]
     ComponentPartIgnored {
         container: &'static str,
         what: &'static str,
         ignored: Span,
+        help: Option<&'static str>,
+    },
+    #[error("A {kind} block is invalid and it will be treated as a step")]
+    BlockInvalid {
+        block: Span,
+        kind: &'static str,
         help: Option<&'static str>,
     },
 }
@@ -478,11 +484,14 @@ impl RichError for ParserWarning {
     fn labels(&self) -> Vec<(Span, Option<Cow<'static, str>>)> {
         use crate::error::label;
         match self {
-            ParserWarning::EmptyMetadataValue { key } => {
-                vec![label!(key)]
+            ParserWarning::EmptyMetadataValue { key, value } => {
+                vec![label!(key), label!(value, "write the value here")]
             }
             ParserWarning::ComponentPartIgnored { ignored, .. } => {
                 vec![label!(ignored, "this is ignored")]
+            }
+            ParserWarning::BlockInvalid { block, .. } => {
+                vec![label!(block, "this will be a step")]
             }
         }
     }
@@ -492,6 +501,7 @@ impl RichError for ParserWarning {
         match self {
             ParserWarning::EmptyMetadataValue { .. } => None,
             ParserWarning::ComponentPartIgnored { help, .. } => help!(opt help),
+            ParserWarning::BlockInvalid { help, .. } => help!(opt help),
         }
     }
 

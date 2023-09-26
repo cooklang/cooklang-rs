@@ -6,7 +6,14 @@ pub(crate) fn metadata_entry<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Even
     // Parse
     block.consume(T![meta])?;
     let key_pos = block.current_offset();
-    let key_tokens = block.until(|t| t == T![:])?;
+    let key_tokens = block.until(|t| t == T![:]).or_else(|| {
+        block.warn(ParserWarning::BlockInvalid {
+            block: block.span(),
+            kind: "metadata",
+            help: Some("Missing separator `:`"),
+        });
+        None
+    })?;
     let key = block.text(key_pos, key_tokens);
     block.bump(T![:]);
     let value_pos = block.current_offset();
@@ -25,6 +32,7 @@ pub(crate) fn metadata_entry<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Even
     } else if value.is_text_empty() {
         block.warn(ParserWarning::EmptyMetadataValue {
             key: key.located_string_trimmed(),
+            value: value.span(),
         });
     }
 
@@ -50,7 +58,9 @@ mod tests {
         let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         bp.finish();
-        let Event::Metadata { key, value } = entry else { panic!() };
+        let Event::Metadata { key, value } = entry else {
+            panic!()
+        };
         assert_eq!(key.text(), " key");
         assert_eq!(key.span(), Span::new(2, 6));
         assert_eq!(value.text(), " value");
@@ -66,7 +76,9 @@ mod tests {
         let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         bp.finish();
-        let Event::Metadata { key, value } = entry else { panic!() };
+        let Event::Metadata { key, value } = entry else {
+            panic!()
+        };
         assert_eq!(key.text(), "");
         assert_eq!(key.span(), Span::pos(2));
         assert_eq!(value.text_trimmed(), "value");
@@ -82,7 +94,9 @@ mod tests {
         let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         bp.finish();
-        let Event::Metadata { key, value } = entry else { panic!() };
+        let Event::Metadata { key, value } = entry else {
+            panic!()
+        };
         assert_eq!(key.text_trimmed(), "key");
         assert_eq!(value.text(), "");
         assert_eq!(value.span(), Span::pos(7));
@@ -95,7 +109,9 @@ mod tests {
         let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         bp.finish();
-        let Event::Metadata { key, value } = entry else { panic!() };
+        let Event::Metadata { key, value } = entry else {
+            panic!()
+        };
         assert_eq!(key.text_trimmed(), "key");
         assert_eq!(value.text(), "  ");
         assert_eq!(value.span(), Span::new(7, 9));
@@ -111,7 +127,9 @@ mod tests {
         let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
         let entry = metadata_entry(&mut bp).unwrap();
         bp.finish();
-        let Event::Metadata { key, value } = entry else { panic!() };
+        let Event::Metadata { key, value } = entry else {
+            panic!()
+        };
         assert!(key.text().is_empty());
         assert_eq!(key.span(), Span::pos(2));
         assert!(value.text().is_empty());

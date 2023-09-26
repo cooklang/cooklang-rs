@@ -1,6 +1,6 @@
 use crate::{lexer::T, Extensions};
 
-use super::{BlockParser, Event};
+use super::{BlockParser, Event, ParserWarning};
 
 pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     if !block.extension(Extensions::SECTIONS) {
@@ -16,6 +16,11 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
     block.ws_comments();
 
     if !block.rest().is_empty() {
+        block.warn(ParserWarning::BlockInvalid {
+            block: block.span(),
+            kind: "section",
+            help: Some("There is text after after the section in the same line"),
+        });
         return None;
     }
 
@@ -66,7 +71,9 @@ mod tests {
         let event = section(&mut bp).expect("failed to parse section");
         bp.finish();
         assert!(events.is_empty());
-        let Event::Section { name } = event else { panic!() };
+        let Event::Section { name } = event else {
+            panic!()
+        };
         name.map(|text| (text.text().into_owned(), text.span()))
     }
 }
