@@ -119,15 +119,21 @@ impl Metadata {
                 });
             }
             "servings" => {
-                let mut servings = value
+                let servings = value
                     .split('|')
                     .map(str::trim)
                     .map(str::parse)
                     .collect::<Result<Vec<_>, _>>()?;
-                servings.sort_unstable();
                 let l = servings.len();
-                servings.dedup();
-                if servings.len() != l {}
+                let dedup_l = {
+                    let mut s = servings.clone();
+                    s.sort_unstable();
+                    s.dedup();
+                    s.len()
+                };
+                if l != dedup_l {
+                    return Err(MetadataError::DuplicateServings { servings });
+                }
                 self.servings = Some(servings)
             }
             _ => {}
@@ -235,6 +241,8 @@ pub enum MetadataError {
     InvalidTag { tag: String },
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
+    #[error("Duplicate servings: {servings:?}")]
+    DuplicateServings { servings: Vec<u32> },
 }
 
 /// Checks that a tag is valid
