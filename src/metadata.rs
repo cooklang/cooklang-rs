@@ -146,7 +146,6 @@ impl Metadata {
     /// removed
     pub fn map_filtered(&self) -> IndexMap<String, String> {
         const ALL_KNOWN_KEYS: &[&str] = &[
-            "slug",
             "description",
             "tag",
             "tags",
