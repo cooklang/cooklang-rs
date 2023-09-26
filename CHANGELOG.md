@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+## 0.8.0 - 2023-09-26
 ### Features
 - New warnings for metadata and sections blocks that failed to parse and are
   treated as text.
