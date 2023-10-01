@@ -27,7 +27,6 @@ pub(crate) fn parse_quantity<'input>(
         .extension(Extensions::ADVANCED_UNITS)
         .then(|| bp2.with_recover(parse_advanced_quantity))
         .flatten();
-    
 
     advanced.unwrap_or_else(|| parse_regular_quantity(&mut bp2))
 }
@@ -202,7 +201,9 @@ fn parse_value(tokens: &[Token], bp: &mut BlockParser) -> Located<Value> {
     let end = bp.current_offset();
     let span = Span::new(start, end);
 
-    let result = numeric_value(tokens, bp).unwrap_or_else(|| Ok(text_value(tokens, start, bp)));
+    let result = range_value(tokens, bp)
+        .or_else(|| numeric_value(tokens, bp))
+        .unwrap_or_else(|| Ok(text_value(tokens, start, bp)));
 
     let val = match result {
         Ok(value) => value,
@@ -231,6 +232,30 @@ fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
     }
 }
 
+fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
+    if !bp.extension(Extensions::RANGE_VALUES) {
+        return None;
+    }
+
+    let mid = tokens.iter().position(|t| t.kind == T![-])?;
+    let (start, end) = tokens.split_at(mid);
+    let (_mid, end) = end.split_first().unwrap();
+
+    macro_rules! unwrap_numeric {
+        ($r:expr) => {
+            match $r {
+                Ok(Value::Number { value }) => value,
+                Err(err) => return Some(Err(err)),
+                _ => unreachable!("numeric_value not number"),
+            }
+        };
+    }
+
+    let start = unwrap_numeric!(numeric_value(start, bp)?);
+    let end = unwrap_numeric!(numeric_value(end, bp)?);
+    Some(Ok(Value::Range { value: start..=end }))
+}
+
 fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
     // All the numeric values will be at most 4 tokens
     let filtered_tokens: SmallVec<[Token; 4]> = tokens
@@ -241,25 +266,17 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Par
 
     let r = match *filtered_tokens.as_slice() {
         // int
-        [t @ mt![int]] => int(t, bp).map(|v| Value::Number { value: v }),
+        [t @ mt![int]] => int(t, bp),
         // float
-        [t @ mt![float]] => float(t, bp).map(|v| Value::Number { value: v }),
+        [t @ mt![float]] => float(t, bp),
         // mixed number
-        [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => {
-            mixed_num(i, a, b, bp).map(|v| Value::Number { value: v })
-        }
+        [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => mixed_num(i, a, b, bp),
         // frac
-        [a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, bp).map(|v| Value::Number { value: v }),
-        // range
-        [s @ mt![int | float], mt![-], e @ mt![int | float]]
-            if bp.extension(Extensions::RANGE_VALUES) =>
-        {
-            range(s, e, bp).map(|v| Value::Range { value: v })
-        }
-        // other => text
+        [a @ mt![int], mt![/], b @ mt![int]] => frac(a, b, bp),
+        // other => not numeric
         _ => return None,
     };
-    Some(r)
+    Some(r.map(|value| Value::Number { value }))
 }
 
 fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<f64, ParserError> {
@@ -277,24 +294,6 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
         Err(ParserError::DivisionByZero { bad_bit: span })
     } else {
         Ok(a / b)
-    }
-}
-
-fn range(
-    s: Token,
-    e: Token,
-    bp: &BlockParser,
-) -> Result<std::ops::RangeInclusive<f64>, ParserError> {
-    let start = num(s, bp)?;
-    let end = num(e, bp)?;
-    Ok(start..=end)
-}
-
-fn num(t: Token, block: &BlockParser) -> Result<f64, ParserError> {
-    match t.kind {
-        T![int] => int(t, block),
-        T![float] => float(t, block),
-        _ => panic!("Unexpected num token: {t:?}"),
     }
 }
 
@@ -470,6 +469,39 @@ mod tests {
                     },
                     0..3
                 ),
+                auto_scale: None
+            }
+        );
+        assert_eq!(q.unit, None);
+    }
+
+    #[test]
+    fn range_mixed_value() {
+        let (q, _, _) = t!("2 1/2-3");
+        assert_eq!(
+            q.value,
+            QuantityValue::Single {
+                value: Located::new(Value::Range { value: 2.5..=3.0 }, 0..7),
+                auto_scale: None
+            }
+        );
+        assert_eq!(q.unit, None);
+
+        let (q, _, _) = t!("2-3 1/2");
+        assert_eq!(
+            q.value,
+            QuantityValue::Single {
+                value: Located::new(Value::Range { value: 2.0..=3.5 }, 0..7),
+                auto_scale: None
+            }
+        );
+        assert_eq!(q.unit, None);
+
+        let (q, _, _) = t!("2 1/2-3 1/2");
+        assert_eq!(
+            q.value,
+            QuantityValue::Single {
+                value: Located::new(Value::Range { value: 2.5..=3.5 }, 0..11),
                 auto_scale: None
             }
         );
