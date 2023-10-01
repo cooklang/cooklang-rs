@@ -67,9 +67,7 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
         _ => {
             bp.consume_rest();
             let text = bp.text(bp.tokens().first().unwrap().span.start(), bp.tokens());
-            let text_val = Value::Text {
-                value: text.text_trimmed().into_owned(),
-            };
+            let text_val = Value::Text(text.text_trimmed().into_owned());
             value = ast::QuantityValue::Single {
                 value: Located::new(text_val, text.span()),
                 auto_scale: None,
@@ -227,9 +225,7 @@ fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
             help: None,
         });
     }
-    Value::Text {
-        value: text.text_trimmed().into_owned(),
-    }
+    Value::Text(text.text_trimmed().into_owned())
 }
 
 fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
@@ -244,7 +240,7 @@ fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Parse
     macro_rules! unwrap_numeric {
         ($r:expr) => {
             match $r {
-                Ok(Value::Number { value }) => value,
+                Ok(Value::Number(value)) => value,
                 Err(err) => return Some(Err(err)),
                 _ => unreachable!("numeric_value not number"),
             }
@@ -253,7 +249,7 @@ fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Parse
 
     let start = unwrap_numeric!(numeric_value(start, bp)?);
     let end = unwrap_numeric!(numeric_value(end, bp)?);
-    Some(Ok(Value::Range { value: start..=end }))
+    Some(Ok(Value::Range(start..=end)))
 }
 
 fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
@@ -276,7 +272,7 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Par
         // other => not numeric
         _ => return None,
     };
-    Some(r.map(|value| Value::Number { value }))
+    Some(r.map(Value::Number))
 }
 
 fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<f64, ParserError> {
@@ -358,7 +354,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Number { value: 100.0 }, 0..3),
+                value: Located::new(Value::Number(100.0), 0..3),
                 auto_scale: None,
             }
         );
@@ -372,7 +368,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Number { value: 100.0 }, 0..3),
+                value: Located::new(Value::Number(100.0), 0..3),
                 auto_scale: None
             }
         );
@@ -384,12 +380,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(
-                    Value::Text {
-                        value: "100 ml".into()
-                    },
-                    0..6
-                ),
+                value: Located::new(Value::Text("100 ml".into()), 0..6),
                 auto_scale: None
             }
         );
@@ -404,9 +395,9 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number { value: 100.0 }, 0..3),
-                Located::new(Value::Number { value: 200.0 }, 4..7),
-                Located::new(Value::Number { value: 300.0 }, 8..11),
+                Located::new(Value::Number(100.0), 0..3),
+                Located::new(Value::Number(200.0), 4..7),
+                Located::new(Value::Number(300.0), 8..11),
             ])
         );
         assert_eq!(s, Some((11..12).into()));
@@ -417,14 +408,9 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number { value: 100.0 }, 0..3),
-                Located::new(Value::Range { value: 2.0..=3.0 }, 4..7),
-                Located::new(
-                    Value::Text {
-                        value: "str".into()
-                    },
-                    8..11
-                ),
+                Located::new(Value::Number(100.0), 0..3),
+                Located::new(Value::Range(2.0..=3.0), 4..7),
+                Located::new(Value::Text("str".into()), 8..11),
             ])
         );
         assert_eq!(s, Some((12..13).into()));
@@ -436,8 +422,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number { value: 100.0 }, 0..3),
-                Located::new(Value::Text { value: "".into() }, 4..4)
+                Located::new(Value::Number(100.0), 0..3),
+                Located::new(Value::Text("".into()), 4..4)
             ])
         );
         assert_eq!(ctx.errors.len(), 1);
@@ -450,7 +436,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range { value: 2.0..=3.0 }, 0..3),
+                value: Located::new(Value::Range(2.0..=3.0), 0..3),
                 auto_scale: None
             }
         );
@@ -463,12 +449,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(
-                    Value::Text {
-                        value: "2-3".into()
-                    },
-                    0..3
-                ),
+                value: Located::new(Value::Text("2-3".into()), 0..3),
                 auto_scale: None
             }
         );
@@ -481,7 +462,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range { value: 2.5..=3.0 }, 0..7),
+                value: Located::new(Value::Range(2.5..=3.0), 0..7),
                 auto_scale: None
             }
         );
@@ -491,7 +472,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range { value: 2.0..=3.5 }, 0..7),
+                value: Located::new(Value::Range(2.0..=3.5), 0..7),
                 auto_scale: None
             }
         );
@@ -501,7 +482,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range { value: 2.5..=3.5 }, 0..11),
+                value: Located::new(Value::Range(2.5..=3.5), 0..11),
                 auto_scale: None
             }
         );

@@ -25,30 +25,30 @@ pub type ScaledQuantity = Quantity<Value>;
 
 /// A value with scaling support
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum ScalableValue {
     /// Cannot be scaled
-    Fixed { value: Value },
+    Fixed(Value),
     /// Scaling is linear to the number of servings
-    Linear { value: Value },
+    Linear(Value),
     /// Scaling is in defined steps of the number of servings
-    ByServings { values: Vec<Value> },
+    ByServings(Vec<Value>),
 }
 
 /// Base value
 ///
 /// The [`Display`] implementation round `f64` to 3 decimal places.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Value {
     /// Numeric
-    Number { value: f64 },
+    Number(f64),
     /// Range
-    Range { value: RangeInclusive<f64> },
+    Range(RangeInclusive<f64>),
     /// Text
     ///
     /// It is not possible to operate with this variant.
-    Text { value: String },
+    Text(String),
 }
 
 pub trait QuantityValue: Display + Clone + sealed::Sealed {
@@ -59,16 +59,16 @@ pub trait QuantityValue: Display + Clone + sealed::Sealed {
 impl QuantityValue for ScalableValue {
     fn is_text(&self) -> bool {
         match self {
-            ScalableValue::Fixed { value } => value.is_text(),
-            ScalableValue::Linear { value } => value.is_text(),
-            ScalableValue::ByServings { values } => values.iter().any(Value::is_text),
+            ScalableValue::Fixed(value) => value.is_text(),
+            ScalableValue::Linear(value) => value.is_text(),
+            ScalableValue::ByServings(values) => values.iter().any(Value::is_text),
         }
     }
 }
 
 impl QuantityValue for Value {
     fn is_text(&self) -> bool {
-        matches!(self, Value::Text { .. })
+        matches!(self, Value::Text(_))
     }
 }
 
@@ -196,22 +196,17 @@ impl ScalableValue {
                 value,
                 auto_scale: None,
                 ..
-            } => Self::Fixed {
-                value: value.into_inner(),
-            },
+            } => Self::Fixed(value.into_inner()),
             ast::QuantityValue::Single {
                 value,
                 auto_scale: Some(_),
                 ..
-            } => Self::Linear {
-                value: value.into_inner(),
-            },
-            ast::QuantityValue::Many(v) => Self::ByServings {
-                values: v
-                    .into_iter()
+            } => Self::Linear(value.into_inner()),
+            ast::QuantityValue::Many(v) => Self::ByServings(
+                v.into_iter()
                     .map(crate::located::Located::into_inner)
                     .collect(),
-            },
+            ),
         }
     }
 }
@@ -229,9 +224,9 @@ impl<V: QuantityValue + Display> Display for Quantity<V> {
 impl Display for ScalableValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Fixed { value } => value.fmt(f),
-            Self::Linear { value } => write!(f, "{value}*"),
-            Self::ByServings { values } => {
+            Self::Fixed(value) => value.fmt(f),
+            Self::Linear(value) => write!(f, "{value}*"),
+            Self::ByServings(values) => {
                 for value in &values[..values.len() - 1] {
                     write!(f, "{}|", value)?;
                 }
@@ -248,9 +243,9 @@ impl Display for Value {
         }
 
         match self {
-            Value::Number { value: n } => write!(f, "{}", float(*n)),
-            Value::Range { value: r } => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
-            Value::Text { value: t } => write!(f, "{}", t),
+            Value::Number(n) => write!(f, "{}", float(*n)),
+            Value::Range(r) => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
+            Value::Text(t) => write!(f, "{}", t),
         }
     }
 }
@@ -263,19 +258,19 @@ impl Display for QuantityUnit {
 
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
-        Self::Number { value }
+        Self::Number(value)
     }
 }
 
 impl From<RangeInclusive<f64>> for Value {
     fn from(value: RangeInclusive<f64>) -> Self {
-        Self::Range { value }
+        Self::Range(value)
     }
 }
 
 impl From<String> for Value {
     fn from(value: String) -> Self {
-        Self::Text { value }
+        Self::Text(value)
     }
 }
 
@@ -420,17 +415,14 @@ impl TryAdd for Value {
 
     fn try_add(&self, rhs: &Self) -> Result<Value, TextValueError> {
         let val = match (self, rhs) {
-            (Value::Number { value: a }, Value::Number { value: b }) => {
-                Value::Number { value: a + b }
+            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+            (Value::Number(n), Value::Range(r)) | (Value::Range(r), Value::Number(n)) => {
+                Value::Range(r.start() + n..=r.end() + n)
             }
-            (Value::Number { value: n }, Value::Range { value: r })
-            | (Value::Range { value: r }, Value::Number { value: n }) => Value::Range {
-                value: r.start() + n..=r.end() + n,
-            },
-            (Value::Range { value: a }, Value::Range { value: b }) => Value::Range {
-                value: a.start() + b.start()..=a.end() + b.end(),
-            },
-            (t @ Value::Text { value: _ }, _) | (_, t @ Value::Text { value: _ }) => {
+            (Value::Range(a), Value::Range(b)) => {
+                Value::Range(a.start() + b.start()..=a.end() + b.end())
+            }
+            (t @ Value::Text(_), _) | (_, t @ Value::Text(_)) => {
                 return Err(TextValueError(t.to_owned()));
             }
         };

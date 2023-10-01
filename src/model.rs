@@ -1,13 +1,5 @@
 //! Recipe representation
 
-/*
-
-   To make this model compatible with UniFFI
-     - Do not use tuple-like enums
-     - Enum variant names can't conflict with types or other enums
-
-*/
-
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
@@ -114,21 +106,28 @@ impl Step {
 }
 
 /// A step item
+///
+/// Except for [`Item::Text`], the value is the index where the item is located
+/// in it's corresponding [`Vec`] in the [`Recipe`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
-    Text { value: String },
-    #[serde(rename = "ingredient")] // UniFFI
-    ItemIngredient { index: usize },
-    #[serde(rename = "cookware")] // UniFFI
-    ItemCookware { index: usize },
-    #[serde(rename = "timer")] // UniFFI
-    ItemTimer { index: usize },
-    /// An inline quantity.
-    ///
-    /// The number inside is an index into [`Recipe::inline_quantities`].
-    InlineQuantity { index: usize },
+    Text {
+        value: String,
+    },
+    Ingredient {
+        index: usize,
+    },
+    Cookware {
+        index: usize,
+    },
+    Timer {
+        index: usize,
+    },
+    InlineQuantity {
+        index: usize,
+    },
 }
 
 /// A recipe ingredient
@@ -185,7 +184,9 @@ impl Ingredient<Value> {
     ) -> Result<Option<ScaledQuantity>, QuantityAddError> {
         let mut quantities = self.all_quantities(all_ingredients);
 
-        let Some(mut total) = quantities.next().cloned() else { return Ok(None); };
+        let Some(mut total) = quantities.next().cloned() else {
+            return Ok(None);
+        };
         for q in quantities {
             total = total.try_add(q, converter)?;
         }
@@ -344,13 +345,13 @@ pub struct IngredientRelation {
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
     #[serde(rename = "ingredient")]
-    IngredientTarget,
+    Ingredient,
     /// Step in the current section
     #[serde(rename = "step")]
-    StepTarget,
+    Step,
     /// Section in the current recipe
     #[serde(rename = "section")]
-    SectionTarget,
+    Section,
 }
 
 impl IngredientRelation {
@@ -400,7 +401,7 @@ impl IngredientRelation {
     pub fn is_regular_reference(&self) -> bool {
         use IngredientReferenceTarget::*;
         self.references_to()
-            .map(|(_, target)| target == IngredientTarget)
+            .map(|(_, target)| target == Ingredient)
             .unwrap_or(false)
     }
 
@@ -408,7 +409,7 @@ impl IngredientRelation {
     pub fn is_intermediate_reference(&self) -> bool {
         use IngredientReferenceTarget::*;
         self.references_to()
-            .map(|(_, target)| matches!(target, StepTarget | SectionTarget))
+            .map(|(_, target)| matches!(target, Step | Section))
             .unwrap_or(false)
     }
 
