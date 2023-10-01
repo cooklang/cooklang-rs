@@ -94,10 +94,10 @@ fn extract_quantity(value: &ModelScalableValue) -> Value {
 
 fn extract_value(value: &ModelValue) -> Value {
     match value {
-        ModelValue::Number(value) => Value::Number { value: *value },
-        ModelValue::Range(value) => Value::Range {
-            start: *value.start(),
-            end: *value.end(),
+        ModelValue::Number(num) => Value::Number { value: num.value() },
+        ModelValue::Range { start, end } => Value::Range {
+            start: start.value(),
+            end: end.value(),
         },
         ModelValue::Text(value) => Value::Text {
             value: value.to_string(),

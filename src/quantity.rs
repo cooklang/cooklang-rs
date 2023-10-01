@@ -1,6 +1,6 @@
 //! Quantity model
 
-use std::{collections::HashMap, fmt::Display, ops::RangeInclusive, sync::Arc};
+use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use enum_map::EnumMap;
 use once_cell::sync::OnceCell;
@@ -36,19 +36,77 @@ pub enum ScalableValue {
 }
 
 /// Base value
-///
-/// The [`Display`] implementation round `f64` to 3 decimal places.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Value {
     /// Numeric
-    Number(f64),
+    Number(Number),
     /// Range
-    Range(RangeInclusive<f64>),
+    Range { start: Number, end: Number },
     /// Text
     ///
     /// It is not possible to operate with this variant.
     Text(String),
+}
+
+/// A wrapper for different kinds of numbers
+///
+///
+/// This is mainly for the [`Display`] implementation. This allows to print a
+/// fraction when the user inputs a fraction. Using fractions is common in
+/// cooking, especially when using imperial units.
+///
+/// Also, the [`Display`] implementation round `f64` to 3 decimal places.
+///
+/// ```
+/// # use cooklang::quantity::Number;
+/// let num = Number::Regular(14.0);
+/// assert_eq!(num.to_string(), "14");
+/// let num = Number::Regular(14.57893);
+/// assert_eq!(num.to_string(), "14.579");
+/// let num = Number::Fraction { whole: 0.0, num: 1.0, den: 2.0 };
+/// assert_eq!(num.to_string(), "1/2");
+/// assert_eq!(num.value(), 0.5);
+/// let num = Number::Fraction { whole: 2.0, num: 1.0, den: 2.0 };
+/// assert_eq!(num.to_string(), "2 1/2");
+/// assert_eq!(num.value(), 2.5);
+/// ```
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum Number {
+    /// A regular number
+    Regular(f64),
+    /// A fractional number
+    ///
+    /// This is in the form of `<whole> <num>/<den>` and the total value is
+    /// `whole + num / den`.
+    Fraction { whole: f64, num: f64, den: f64 }, // These can be u32, but whatever
+}
+
+impl Into<f64> for Number {
+    fn into(self) -> f64 {
+        match self {
+            Number::Regular(v) => v,
+            Number::Fraction { whole, num, den } => whole + num / den,
+        }
+    }
+}
+
+impl From<f64> for Number {
+    fn from(value: f64) -> Self {
+        Self::Regular(value)
+    }
+}
+
+impl Number {
+    pub fn value(self) -> f64 {
+        self.into()
+    }
+}
+
+impl PartialEq for Number {
+    fn eq(&self, other: &Self) -> bool {
+        self.value().eq(&other.value())
+    }
 }
 
 pub trait QuantityValue: Display + Clone + sealed::Sealed {
@@ -238,14 +296,28 @@ impl Display for ScalableValue {
 
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn float(n: f64) -> f64 {
-            (n * 1000.0).round() / 1000.0
-        }
-
         match self {
-            Value::Number(n) => write!(f, "{}", float(*n)),
-            Value::Range(r) => write!(f, "{}-{}", float(*r.start()), float(*r.end())),
-            Value::Text(t) => write!(f, "{}", t),
+            Value::Number(n) => n.fmt(f),
+            Value::Range { start, end } => write!(f, "{start}-{end}"),
+            Value::Text(t) => t.fmt(f),
+        }
+    }
+}
+
+fn round_float(n: f64) -> f64 {
+    (n * 1000.0).round() / 1000.0
+}
+
+impl Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Number::Regular(n) => write!(f, "{}", round_float(n)),
+            Number::Fraction { whole, num, den } => {
+                if whole != 0.0 {
+                    write!(f, "{} ", round_float(whole))?;
+                }
+                write!(f, "{}/{}", round_float(num), round_float(den))
+            }
         }
     }
 }
@@ -258,13 +330,7 @@ impl Display for QuantityUnit {
 
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
-        Self::Number(value)
-    }
-}
-
-impl From<RangeInclusive<f64>> for Value {
-    fn from(value: RangeInclusive<f64>) -> Self {
-        Self::Range(value)
+        Self::Number(Number::Regular(value))
     }
 }
 
@@ -415,12 +481,17 @@ impl TryAdd for Value {
 
     fn try_add(&self, rhs: &Self) -> Result<Value, TextValueError> {
         let val = match (self, rhs) {
-            (Value::Number(a), Value::Number(b)) => Value::Number(a + b),
-            (Value::Number(n), Value::Range(r)) | (Value::Range(r), Value::Number(n)) => {
-                Value::Range(r.start() + n..=r.end() + n)
-            }
-            (Value::Range(a), Value::Range(b)) => {
-                Value::Range(a.start() + b.start()..=a.end() + b.end())
+            (Value::Number(a), Value::Number(b)) => Value::Number((a.value() + b.value()).into()),
+            (Value::Number(n), Value::Range { start, end })
+            | (Value::Range { start, end }, Value::Number(n)) => Value::Range {
+                start: (start.value() + n.value()).into(),
+                end: (end.value() + n.value()).into(),
+            },
+            (Value::Range { start: s1, end: e1 }, Value::Range { start: s2, end: e2 }) => {
+                Value::Range {
+                    start: (s1.value() + s2.value()).into(),
+                    end: (e1.value() + e2.value()).into(),
+                }
             }
             (t @ Value::Text(_), _) | (_, t @ Value::Text(_)) => {
                 return Err(TextValueError(t.to_owned()));

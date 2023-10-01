@@ -270,8 +270,12 @@ impl Scale for ScalableValue {
 
 fn linear_scale(value: Value, factor: f64) -> Result<Value, ScaleError> {
     match value {
-        Value::Number(n) => Ok(Value::Number(n * factor)),
-        Value::Range(r) => Ok(Value::Range(r.start() * factor..=r.end() * factor)),
+        Value::Number(n) => Ok(Value::Number((n.value() * factor).into())),
+        Value::Range { start, end } => {
+            let start = (start.value() * factor).into();
+            let end = (end.value() * factor).into();
+            Ok(Value::Range { start, end })
+        }
         v @ Value::Text(_) => Err(TextValueError(v).into()),
     }
 }

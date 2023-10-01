@@ -166,8 +166,8 @@ impl TestValue {
     fn from_cooklang_value(value: ScalableValue) -> Self {
         match value {
             ScalableValue::Fixed(value) => match value {
-                Value::Number(value) => TestValue::Number(value),
-                Value::Range(_) => panic!("unexpected range value"),
+                Value::Number(num) => TestValue::Number(num.value()),
+                Value::Range { .. } => panic!("unexpected range value"),
                 Value::Text(value) => TestValue::Text(value),
             },
             ScalableValue::Linear(_) => panic!("unexpected linear value"),

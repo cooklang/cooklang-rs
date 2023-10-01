@@ -879,7 +879,7 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(Value::Number(value), Some(unit_text));
+    let temperature = Quantity::new(Value::Number(value.into()), Some(unit_text));
 
     let range = caps.get(0).unwrap().range();
     let (before, after) = (&text[..range.start], &text[range.end..]);

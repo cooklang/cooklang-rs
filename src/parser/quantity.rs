@@ -1,7 +1,13 @@
 use smallvec::SmallVec;
 
 use crate::{
-    ast, context::Recover, error::label, lexer::T, located::Located, quantity::Value, span::Span,
+    ast,
+    context::Recover,
+    error::label,
+    lexer::T,
+    located::Located,
+    quantity::{Number, Value},
+    span::Span,
     Extensions,
 };
 
@@ -249,7 +255,7 @@ fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Parse
 
     let start = unwrap_numeric!(numeric_value(start, bp)?);
     let end = unwrap_numeric!(numeric_value(end, bp)?);
-    Some(Ok(Value::Range(start..=end)))
+    Some(Ok(Value::Range { start, end }))
 }
 
 fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
@@ -262,9 +268,9 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Par
 
     let r = match *filtered_tokens.as_slice() {
         // int
-        [t @ mt![int]] => int(t, bp),
+        [t @ mt![int]] => int(t, bp).map(Number::Regular),
         // float
-        [t @ mt![float]] => float(t, bp),
+        [t @ mt![float]] => float(t, bp).map(Number::Regular),
         // mixed number
         [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => mixed_num(i, a, b, bp),
         // frac
@@ -275,13 +281,15 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Par
     Some(r.map(Value::Number))
 }
 
-fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<f64, ParserError> {
+fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<Number, ParserError> {
     let i = int(i, bp)?;
-    let f = frac(a, b, bp)?;
-    Ok(i + f)
+    let Number::Fraction { num, den, .. } = frac(a, b, bp)? else {
+        unreachable!()
+    };
+    Ok(Number::Fraction { whole: i, num, den })
 }
 
-fn frac(a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
+fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, ParserError> {
     let span = Span::new(a.span.start(), b.span.end());
     let a = int(a, line)?;
     let b = int(b, line)?;
@@ -289,7 +297,11 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<f64, ParserError> {
     if b == 0.0 {
         Err(ParserError::DivisionByZero { bad_bit: span })
     } else {
-        Ok(a / b)
+        Ok(Number::Fraction {
+            whole: 0.0,
+            num: a,
+            den: b,
+        })
     }
 }
 
@@ -321,12 +333,13 @@ mod tests {
         ast::{QuantityValue, Text},
         parser::token_stream::TokenStream,
     };
+    use test_case::test_case;
 
     macro_rules! t {
-        ($input:literal) => {
+        ($input:expr) => {
             t!($input, $crate::Extensions::all())
         };
-        ($input:literal, $extensions:expr) => {{
+        ($input:expr, $extensions:expr) => {{
             let input = $input;
             let tokens = TokenStream::new(input).collect::<Vec<_>>();
             let mut events = std::collections::VecDeque::new();
@@ -347,6 +360,21 @@ mod tests {
         }};
     }
 
+    macro_rules! num {
+        ($value:expr) => {
+            Value::Number(Number::Regular($value))
+        };
+    }
+
+    macro_rules! range {
+        ($start:expr, $end:expr) => {
+            Value::Range {
+                start: Number::Regular($start),
+                end: Number::Regular($end),
+            }
+        };
+    }
+
     use super::*;
     #[test]
     fn basic_quantity() {
@@ -354,7 +382,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Number(100.0), 0..3),
+                value: Located::new(num!(100.0), 0..3),
                 auto_scale: None,
             }
         );
@@ -368,7 +396,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Number(100.0), 0..3),
+                value: Located::new(num!(100.0), 0..3),
                 auto_scale: None
             }
         );
@@ -395,9 +423,9 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number(100.0), 0..3),
-                Located::new(Value::Number(200.0), 4..7),
-                Located::new(Value::Number(300.0), 8..11),
+                Located::new(num!(100.0), 0..3),
+                Located::new(num!(200.0), 4..7),
+                Located::new(num!(300.0), 8..11),
             ])
         );
         assert_eq!(s, Some((11..12).into()));
@@ -408,8 +436,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number(100.0), 0..3),
-                Located::new(Value::Range(2.0..=3.0), 4..7),
+                Located::new(num!(100.0), 0..3),
+                Located::new(range!(2.0, 3.0), 4..7),
                 Located::new(Value::Text("str".into()), 8..11),
             ])
         );
@@ -422,7 +450,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Many(vec![
-                Located::new(Value::Number(100.0), 0..3),
+                Located::new(num!(100.0), 0..3),
                 Located::new(Value::Text("".into()), 4..4)
             ])
         );
@@ -436,7 +464,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range(2.0..=3.0), 0..3),
+                value: Located::new(range!(2.0, 3.0), 0..3),
                 auto_scale: None
             }
         );
@@ -462,7 +490,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range(2.5..=3.0), 0..7),
+                value: Located::new(range!(2.5, 3.0), 0..7),
                 auto_scale: None
             }
         );
@@ -472,7 +500,7 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range(2.0..=3.5), 0..7),
+                value: Located::new(range!(2.0, 3.5), 0..7),
                 auto_scale: None
             }
         );
@@ -482,10 +510,29 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue::Single {
-                value: Located::new(Value::Range(2.5..=3.5), 0..11),
+                value: Located::new(range!(2.5, 3.5), 0..11),
                 auto_scale: None
             }
         );
         assert_eq!(q.unit, None);
+    }
+
+    #[test_case("1/2" => (0.0, 1.0, 2.0); "fraction")]
+    #[test_case("0 1/2" => (0.0, 1.0, 2.0); "zero whole")]
+    #[test_case("01/2" => panics "not number"; "bad fraction")]
+    #[test_case("2 1/2" => (2.0, 1.0, 2.0); "mixed value")]
+    fn fractional_val(s: &str) -> (f64, f64, f64) {
+        let (q, _, _) = t!(s);
+        let QuantityValue::Single { value, .. } = q.value else {
+            panic!("not single value")
+        };
+        let value = value.into_inner();
+        let Value::Number(num) = value else {
+            panic!("not number")
+        };
+        let Number::Fraction { whole, num, den } = num else {
+            panic!("not fraction")
+        };
+        (whole, num, den)
     }
 }

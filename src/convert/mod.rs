@@ -541,8 +541,11 @@ impl<'a> From<&'a Arc<Unit>> for ConvertTo<'a> {
 impl From<ConvertValue> for Value {
     fn from(value: ConvertValue) -> Self {
         match value {
-            ConvertValue::Number(n) => Self::Number(n),
-            ConvertValue::Range(r) => Self::Range(r),
+            ConvertValue::Number(n) => Self::Number(n.into()),
+            ConvertValue::Range(r) => Self::Range {
+                start: (*r.start()).into(),
+                end: (*r.end()).into(),
+            },
         }
     }
 }
@@ -551,8 +554,8 @@ impl TryFrom<Value> for ConvertValue {
     type Error = ConvertError;
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         let value = match value {
-            Value::Number(n) => ConvertValue::Number(n),
-            Value::Range(r) => ConvertValue::Range(r),
+            Value::Number(n) => ConvertValue::Number(n.value()),
+            Value::Range { start, end } => ConvertValue::Range(start.value()..=end.value()),
             Value::Text(t) => return Err(ConvertError::TextValue(t)),
         };
         Ok(value)
