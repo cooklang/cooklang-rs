@@ -55,9 +55,9 @@ pub enum Block<'a> {
 pub enum Item<'a> {
     /// Plain text
     Text(Text<'a>),
-    Ingredient(Located<Ingredient<'a>>),
-    Cookware(Located<Cookware<'a>>),
-    Timer(Located<Timer<'a>>),
+    Ingredient(Box<Located<Ingredient<'a>>>),
+    Cookware(Box<Located<Cookware<'a>>>),
+    Timer(Box<Located<Timer<'a>>>),
 }
 
 impl Item<'_> {
