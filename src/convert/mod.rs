@@ -696,7 +696,7 @@ impl BestConversions {
             .0
             .iter()
             .rev()
-            .find(|(th, _)| norm >= *th)
+            .find(|(th, _)| norm >= (th - 0.001))
             .or_else(|| self.0.first())
             .map(|&(_, id)| id)?;
         Some(Arc::clone(&converter.all_units[best_id]))
