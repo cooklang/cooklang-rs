@@ -1,6 +1,10 @@
 //! Quantity model
 
-use std::{collections::HashMap, fmt::Display, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap, VecDeque},
+    fmt::Display,
+    sync::{Arc, Mutex},
+};
 
 use enum_map::EnumMap;
 use once_cell::sync::OnceCell;
@@ -77,17 +81,23 @@ pub enum Number {
     Regular(f64),
     /// A fractional number
     ///
-    /// This is in the form of `<whole> <num>/<den>` and the total value is
-    /// `whole + num / den`.
-    Fraction { whole: f64, num: f64, den: f64 }, // These can be u32, but whatever
+    /// This is in the form of `[<whole>] <num>/<den>` and the total value is
+    /// `whole + err + num / den`.
+    ///
+    /// `err` exists to allow lossy conversions between a regular number and a
+    /// fraction. Use the alternate (`#`) for the [`Display`] impl to include
+    /// the error (if any).
+    Fraction {
+        whole: f64,
+        num: f64,
+        den: f64,
+        err: f64,
+    }, // These can be u32, but whatever
 }
 
-impl Into<f64> for Number {
-    fn into(self) -> f64 {
-        match self {
-            Number::Regular(v) => v,
-            Number::Fraction { whole, num, den } => whole + num / den,
-        }
+impl From<Number> for f64 {
+    fn from(n: Number) -> Self {
+        n.value()
     }
 }
 
@@ -98,8 +108,19 @@ impl From<f64> for Number {
 }
 
 impl Number {
+    /// Get's the true inner value
+    ///
+    /// The error is included when it's a fraction.
     pub fn value(self) -> f64 {
-        self.into()
+        match self {
+            Number::Regular(v) => v,
+            Number::Fraction {
+                whole,
+                num,
+                den,
+                err,
+            } => whole + err + num / den,
+        }
     }
 }
 
@@ -271,9 +292,10 @@ impl ScalableValue {
 
 impl<V: QuantityValue + Display> Display for Quantity<V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)?;
+        self.value.fmt(f)?;
         if let Some(unit) = &self.unit {
-            write!(f, " {}", unit)?;
+            f.write_str(" ")?;
+            unit.fmt(f)?;
         }
         Ok(())
     }
@@ -312,11 +334,27 @@ impl Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             Number::Regular(n) => write!(f, "{}", round_float(n)),
-            Number::Fraction { whole, num, den } => {
-                if whole != 0.0 {
-                    write!(f, "{} ", round_float(whole))?;
+            Number::Fraction {
+                whole,
+                num,
+                den,
+                err,
+            } => {
+                if self.value() == 0.0 {
+                    return write!(f, "{}", 0.0);
                 }
-                write!(f, "{}/{}", round_float(num), round_float(den))
+
+                match (round_float(whole), round_float(num), round_float(den)) {
+                    (whole, num, _) if whole == 0.0 && num == 0.0 => write!(f, "{}", 0.0),
+                    (whole, num, den) if whole == 0.0 => write!(f, "{num}/{den}"),
+                    (whole, num, _) if num == 0.0 => write!(f, "{whole}"),
+                    (whole, num, den) => write!(f, "{whole} {num}/{den}"),
+                }?;
+
+                if f.alternate() && err.abs() > 0.001 {
+                    write!(f, " ({:+})", round_float(err))?;
+                }
+                Ok(())
             }
         }
     }
@@ -446,22 +484,6 @@ impl ScaledQuantity {
         };
 
         Ok(qty)
-    }
-
-    /// Converts the unit to the best possible match in the same unit system.
-    ///
-    /// For example, `1000 ml` would be converted to `1 l`.
-    pub fn fit(&mut self, converter: &Converter) -> Result<(), ConvertError> {
-        use crate::convert::ConvertTo;
-
-        // if the unit is known, convert to the best match in the same system
-        if matches!(
-            self.unit().map(|u| u.unit_info_or_parse(converter)),
-            Some(UnitInfo::Known(_))
-        ) {
-            self.convert(ConvertTo::SameSystem, converter)?;
-        }
-        Ok(())
     }
 }
 
@@ -605,8 +627,6 @@ impl GroupedQuantity {
     }
 
     /// Get the [`TotalQuantity`]
-    ///
-    /// Quantities are already
     pub fn total(&self) -> TotalQuantity {
         let mut all = self.all_quantities().cloned().peekable();
 
@@ -685,5 +705,153 @@ impl TotalQuantity {
 impl From<TotalQuantity> for Vec<ScaledQuantity> {
     fn from(value: TotalQuantity) -> Self {
         value.into_vec()
+    }
+}
+
+// All the fractions stuff
+
+struct FractionLookupTable {
+    max_denom: u32,
+    table: BTreeMap<i32, (u32, u32)>,
+}
+
+impl FractionLookupTable {
+    const FIX_RATIO: f64 = 1000.0;
+
+    pub fn new(max_denom: u32) -> Self {
+        let mut table: BTreeMap<i32, (u32, u32)> = BTreeMap::new();
+
+        let denoms = [2, 3, 4, 5, 8, 10, 16, 32, 64];
+
+        for den in denoms.into_iter().take_while(|&den| den <= max_denom) {
+            for num in 1..den {
+                // not include 1
+                let val = num as f64 / den as f64;
+
+                // convert to fixed decimal
+                let fixed = (val * Self::FIX_RATIO) as i32;
+
+                // only insert if not already in
+                //
+                // Because we are iterating from low to high denom, then the value
+                // will only be present with the smallest possible denom.
+                table.entry(fixed).or_insert((num, den));
+            }
+        }
+
+        Self { table, max_denom }
+    }
+
+    pub fn lookup(&self, value: f64, max_err: f64) -> Option<(u32, u32)> {
+        let value = (value * Self::FIX_RATIO) as i32;
+        let max_err = (max_err * Self::FIX_RATIO) as i32;
+
+        self.table
+            .range((
+                std::ops::Bound::Included(value - max_err),
+                std::ops::Bound::Included(value + max_err),
+            ))
+            .min_by_key(|frac_val| (value - frac_val.0).abs())
+            .map(|entry| *entry.1)
+    }
+}
+
+static FRACTIONS_TABLES: Mutex<FractionTableCache> = Mutex::new(FractionTableCache::new());
+
+struct FractionTableCache(VecDeque<Arc<FractionLookupTable>>);
+
+impl FractionTableCache {
+    const CACHE_SIZE: usize = 2;
+
+    pub const fn new() -> Self {
+        Self(VecDeque::new())
+    }
+
+    fn get(&mut self, max_denom: u32) -> Arc<FractionLookupTable> {
+        // rust borrow checker has some problems here with `find`... idk
+        if let Some(idx) = self.0.iter().position(|t| t.max_denom == max_denom) {
+            return self.0[idx].clone();
+        }
+        if self.0.len() == Self::CACHE_SIZE {
+            self.0.pop_front();
+        }
+        self.0
+            .push_back(Arc::new(FractionLookupTable::new(max_denom)));
+        self.0.back().unwrap().clone()
+    }
+}
+
+impl Number {
+    /// Tries to create a new fractional number
+    ///
+    /// `allow_mixed` allows things like `2 1/2`
+    ///
+    /// `max_err` is a value between 0 and 1 representing the error percent.
+    ///
+    /// `max_den` is the maximum denominator. The denominator is one a list of
+    /// "common" fractions: 2, 3, 4, 5, 8, 10, 16, 32, 64. 64 is the max.
+    ///
+    /// # Panics
+    /// - If `max_err > 1` or `max_err < 0`.
+    /// - If `max_den > 64`
+    pub fn new_fraction(
+        value: f64,
+        allow_mixed: bool,
+        accuracy: f32,
+        max_den: u32,
+        max_whole: u32,
+    ) -> Option<Self> {
+        assert!((0.0..=1.0).contains(&accuracy));
+        assert!(max_den <= 64);
+        if !allow_mixed && value > 1.0 || value < 0.0 || value == 0.0 || !value.is_finite() {
+            return None;
+        }
+
+        let max_err = accuracy as f64 * value;
+
+        let whole = value.floor();
+        if whole > max_whole as f64 {
+            return None;
+        }
+        let decimal = value.fract();
+        if decimal < max_err {
+            return None;
+        }
+        if 1.0 - decimal < max_err && whole < max_whole as f64 {
+            return Some(Self::Fraction {
+                whole: whole + 1.0,
+                num: 0.0,
+                den: 1.0,
+                err: 1.0 - decimal,
+            });
+        }
+
+        let table = FRACTIONS_TABLES.lock().unwrap().get(max_den);
+        let (num, den) = table.lookup(decimal, max_err)?;
+        let num = num as f64;
+        let den = den as f64;
+
+        Some(Self::Fraction {
+            whole,
+            num,
+            den,
+            err: value - (whole + num / den),
+        })
+    }
+
+    pub fn to_fraction(
+        &mut self,
+        allow_mixed: bool,
+        accuracy: f32,
+        max_den: u32,
+        max_whole: u32,
+    ) -> bool {
+        match Self::new_fraction(self.value(), allow_mixed, accuracy, max_den, max_whole) {
+            Some(f) => {
+                *self = f;
+                true
+            }
+            None => false,
+        }
     }
 }

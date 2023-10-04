@@ -16,6 +16,14 @@ deci = ["d"]
 centi = ["c"]
 milli = ["m"]
 
+[fractions]
+metric = { mixed_value = false }
+imperial = { mixed_value = true }
+
+[fractions.specialization]
+tsp = { max_whole = 5, max_denominator = 2 }
+tbsp = { max_whole = 4, max_denominator = 2 }
+
 [[quantity]]
 quantity = "volume"
 best = { metric = ["ml", "l"], imperial = ["cup", "tsp", "tbsp"] }

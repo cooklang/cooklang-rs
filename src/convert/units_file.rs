@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
-use super::{PhysicalQuantity, System};
+use super::{FractionsConfig, PhysicalQuantity, System};
 
 /// Configuration struct for units used in [`ConverterBuilder`](super::ConverterBuilder)
 ///
@@ -26,6 +26,11 @@ pub struct UnitsFile {
     ///
     /// [SI]: https://en.wikipedia.org/wiki/International_System_of_Units
     pub si: Option<SI>,
+    /// Automatic conversion to fractions
+    ///
+    /// Configured for each system, if enabled, a decimal value will be
+    /// converted to a fraction if possible.
+    pub fractions: Option<Fractions>,
     /// Extend units from other layers before
     pub extend: Option<Extend>,
     /// Declare new units
@@ -84,6 +89,71 @@ impl SIPrefix {
             SIPrefix::Deci => 1e-1,
             SIPrefix::Centi => 1e-2,
             SIPrefix::Milli => 1e-3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct Fractions {
+    pub metric: Option<FractionsWrapper>,
+    pub imperial: Option<FractionsWrapper>,
+    pub specialization: HashMap<String, FractionsWrapper>,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(untagged)]
+pub enum FractionsWrapper {
+    Toggle(bool),
+    Custom(FractionsConfigHelper),
+}
+
+impl FractionsWrapper {
+    pub fn get(self) -> FractionsConfigHelper {
+        match self {
+            FractionsWrapper::Toggle(enabled) => FractionsConfigHelper {
+                enabled: Some(enabled),
+                ..Default::default()
+            },
+            FractionsWrapper::Custom(cfg) => FractionsConfigHelper {
+                enabled: Some(cfg.enabled.unwrap_or(true)),
+                ..cfg
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[serde(default)]
+pub struct FractionsConfigHelper {
+    pub enabled: Option<bool>,
+    pub mixed_value: Option<bool>,
+    pub accuracy: Option<f32>,
+    pub max_denominator: Option<u32>,
+    pub max_whole: Option<u32>,
+}
+
+impl FractionsConfigHelper {
+    pub fn merge(self, parent: FractionsConfigHelper) -> Self {
+        Self {
+            enabled: self.enabled.or(parent.enabled),
+            mixed_value: self.mixed_value.or(parent.mixed_value),
+            accuracy: self.accuracy.or(parent.accuracy),
+            max_denominator: self.max_denominator.or(parent.max_denominator),
+            max_whole: self.max_whole.or(parent.max_whole),
+        }
+    }
+
+    pub fn define(self) -> FractionsConfig {
+        let d = FractionsConfig::default();
+        FractionsConfig {
+            enabled: self.enabled.unwrap_or(d.enabled),
+            mixed_value: self.mixed_value.unwrap_or(d.mixed_value),
+            accuracy: self.accuracy.unwrap_or(d.accuracy).clamp(0.0, 1.0),
+            max_denominator: self
+                .max_denominator
+                .unwrap_or(d.max_denominator)
+                .clamp(1, 64),
+            max_whole: self.max_whole.unwrap_or(d.max_whole),
         }
     }
 }

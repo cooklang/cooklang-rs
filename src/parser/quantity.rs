@@ -286,7 +286,12 @@ fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<Number, P
     let Number::Fraction { num, den, .. } = frac(a, b, bp)? else {
         unreachable!()
     };
-    Ok(Number::Fraction { whole: i, num, den })
+    Ok(Number::Fraction {
+        whole: i,
+        num,
+        den,
+        err: 0.0,
+    })
 }
 
 fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, ParserError> {
@@ -301,6 +306,7 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, ParserError> {
             whole: 0.0,
             num: a,
             den: b,
+            err: 0.0,
         })
     }
 }
@@ -530,9 +536,16 @@ mod tests {
         let Value::Number(num) = value else {
             panic!("not number")
         };
-        let Number::Fraction { whole, num, den } = num else {
+        let Number::Fraction {
+            whole,
+            num,
+            den,
+            err,
+        } = num
+        else {
             panic!("not fraction")
         };
+        assert_eq!(err, 0.0);
         (whole, num, den)
     }
 }
