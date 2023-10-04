@@ -718,6 +718,7 @@ struct FractionLookupTable {
 impl FractionLookupTable {
     const FIX_RATIO: f64 = 1000.0;
 
+    #[tracing::instrument(level = "trace", name = "new_fraction_lookup")]
     pub fn new(max_denom: u32) -> Self {
         let mut table: BTreeMap<i32, (u32, u32)> = BTreeMap::new();
 
@@ -742,6 +743,7 @@ impl FractionLookupTable {
         Self { table, max_denom }
     }
 
+    #[tracing::instrument(level = "trace", name = "fraction_table_lookup", skip(self))]
     pub fn lookup(&self, value: f64, max_err: f64) -> Option<(u32, u32)> {
         let value = (value * Self::FIX_RATIO) as i32;
         let max_err = (max_err * Self::FIX_RATIO) as i32;
@@ -756,28 +758,35 @@ impl FractionLookupTable {
     }
 }
 
-static FRACTIONS_TABLES: Mutex<FractionTableCache> = Mutex::new(FractionTableCache::new());
+static FRACTIONS_TABLES: FractionTableCache = FractionTableCache::new(10);
 
-struct FractionTableCache(VecDeque<Arc<FractionLookupTable>>);
+struct FractionTableCache {
+    size: usize,
+    cache: Mutex<VecDeque<Arc<FractionLookupTable>>>,
+}
 
 impl FractionTableCache {
-    const CACHE_SIZE: usize = 2;
-
-    pub const fn new() -> Self {
-        Self(VecDeque::new())
+    pub const fn new(size: usize) -> Self {
+        Self {
+            size,
+            cache: Mutex::new(VecDeque::new()),
+        }
     }
 
-    fn get(&mut self, max_denom: u32) -> Arc<FractionLookupTable> {
+    #[tracing::instrument(level = "trace", name = "fraction_table_cache_get", skip(self))]
+    pub fn get(&self, max_denom: u32) -> Arc<FractionLookupTable> {
+        let mut cache = self.cache.lock().unwrap();
         // rust borrow checker has some problems here with `find`... idk
-        if let Some(idx) = self.0.iter().position(|t| t.max_denom == max_denom) {
-            return self.0[idx].clone();
+        if let Some(idx) = cache.iter().position(|t| t.max_denom == max_denom) {
+            Arc::clone(&cache[idx])
+        } else {
+            if cache.len() == self.size {
+                cache.pop_front();
+            }
+            let new = Arc::new(FractionLookupTable::new(max_denom));
+            cache.push_back(Arc::clone(&new));
+            new
         }
-        if self.0.len() == Self::CACHE_SIZE {
-            self.0.pop_front();
-        }
-        self.0
-            .push_back(Arc::new(FractionLookupTable::new(max_denom)));
-        self.0.back().unwrap().clone()
     }
 }
 
@@ -803,21 +812,19 @@ impl Number {
     ) -> Option<Self> {
         assert!((0.0..=1.0).contains(&accuracy));
         assert!(max_den <= 64);
-        if !allow_mixed && value > 1.0 || value < 0.0 || value == 0.0 || !value.is_finite() {
+        if (!allow_mixed && value > 1.0) || value <= 0.0 || !value.is_finite() {
             return None;
         }
 
         let max_err = accuracy as f64 * value;
 
         let whole = value.floor();
-        if whole > max_whole as f64 {
-            return None;
-        }
         let decimal = value.fract();
-        if decimal < max_err {
+        if (whole as u32) > max_whole || decimal < max_err {
             return None;
         }
-        if 1.0 - decimal < max_err && whole < max_whole as f64 {
+
+        if 1.0 - decimal < max_err && (whole as u32) < max_whole {
             return Some(Self::Fraction {
                 whole: whole + 1.0,
                 num: 0.0,
@@ -826,7 +833,7 @@ impl Number {
             });
         }
 
-        let table = FRACTIONS_TABLES.lock().unwrap().get(max_den);
+        let table = FRACTIONS_TABLES.get(max_den);
         let (num, den) = table.lookup(decimal, max_err)?;
         let num = num as f64;
         let den = den as f64;
