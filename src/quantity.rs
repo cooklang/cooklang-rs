@@ -76,6 +76,7 @@ pub enum Value {
 /// assert_eq!(num.value(), 2.5);
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Number {
     /// A regular number
     Regular(f64),

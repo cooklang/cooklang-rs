@@ -342,15 +342,13 @@ pub struct IngredientRelation {
 ///
 /// This is obtained from [`IngredientRelation::references_to`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
-    #[serde(rename = "ingredient")]
     Ingredient,
     /// Step in the current section
-    #[serde(rename = "step")]
     Step,
     /// Section in the current recipe
-    #[serde(rename = "section")]
     Section,
 }
 

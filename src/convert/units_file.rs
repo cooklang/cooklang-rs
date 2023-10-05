@@ -179,7 +179,7 @@ pub struct Extend {
 /// This is important in, for example, the case of symbols. The first symbol
 /// is the one that will be used for formatting.
 #[derive(Debug, Default, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum Precedence {
     /// The list will be added before the current ones (*higher priority*)
     #[default]
@@ -222,7 +222,7 @@ pub struct QuantityGroup {
 /// set a unit's system in either, this enum, in [`Units`] or in both (but it
 /// has to match).
 #[derive(Debug, Deserialize, Clone)]
-#[serde(untagged, rename = "snake_case", deny_unknown_fields)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum BestUnits {
     /// List without system information
     Unified(Vec<String>),
@@ -240,7 +240,7 @@ pub enum BestUnits {
 /// set a unit's system in either, this enum, in [`BestUnits`] or in both (but it
 /// has to match).
 #[derive(Debug, Deserialize, Clone)]
-#[serde(untagged, rename = "snake_case", deny_unknown_fields)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum Units {
     /// List without [`System`] information
     Unified(Vec<UnitEntry>),
