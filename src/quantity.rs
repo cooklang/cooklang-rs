@@ -824,7 +824,7 @@ impl Number {
             return None;
         }
 
-        if 1.0 - decimal < max_err && (whole as u32) < max_whole {
+        if (1.0 - decimal < max_err) && (whole as u32) < max_whole {
             return Some(Self::Fraction {
                 whole: whole + 1.0,
                 num: 0.0,

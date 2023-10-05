@@ -460,25 +460,25 @@ impl ScaledQuantity {
             return Ok(self.try_fraction(converter));
         };
 
-        let value = match ConvertValue::try_from(&self.value)? {
-            ConvertValue::Number(n) => n,
-            // if it's a range, only start for the fit
-            ConvertValue::Range(range) => *range.start(),
+        let value = match self.value {
+            Value::Number(n) => n.value(),
+            Value::Range { start, .. } => start.value(),
+            Value::Text(ref t) => return Err(ConvertError::TextValue(t.clone())),
         };
 
         let possible_conversions = converter.best[unit.physical_quantity]
             .conversions(system)
             .0
             .iter()
-            .filter_map(|&(_, target_id)| {
-                let target = &converter.all_units[target_id];
-                let cfg = converter.fractions_config_unit_id(target.system, target_id);
+            .filter_map(|&(_, new_unit_id)| {
+                let new_unit = &converter.all_units[new_unit_id];
+                let cfg = converter.fractions_config_unit_id(new_unit.system, new_unit_id);
                 if !cfg.enabled {
                     return None;
                 }
-                let new_value = converter.convert_f64(value, unit, target);
-                let frac = to_frac(new_value, cfg)?;
-                Some((frac, unit))
+                let new_value = converter.convert_f64(value, unit, new_unit);
+                let new_value = to_frac(new_value, cfg)?;
+                Some((new_value, new_unit))
             });
 
         let selected = possible_conversions.min_by(|(a, _), (b, _)| {
