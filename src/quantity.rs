@@ -68,12 +68,12 @@ pub enum Value {
 /// assert_eq!(num.to_string(), "14");
 /// let num = Number::Regular(14.57893);
 /// assert_eq!(num.to_string(), "14.579");
-/// let num = Number::Fraction { whole: 0.0, num: 1.0, den: 2.0 };
+/// let num = Number::Fraction { whole: 0.0, num: 1.0, den: 2.0, err: 0.0 };
 /// assert_eq!(num.to_string(), "1/2");
 /// assert_eq!(num.value(), 0.5);
-/// let num = Number::Fraction { whole: 2.0, num: 1.0, den: 2.0 };
+/// let num = Number::Fraction { whole: 2.0, num: 1.0, den: 2.0, err: 0.001 };
 /// assert_eq!(num.to_string(), "2 1/2");
-/// assert_eq!(num.value(), 2.5);
+/// assert_eq!(num.value(), 2.501);
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
