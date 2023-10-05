@@ -413,7 +413,12 @@ impl ScaledQuantity {
         let value = ConvertValue::try_from(&self.value)?;
 
         let (new_value, new_unit) = converter.convert(value, unit, to)?;
-        *self = Quantity::with_known_unit(new_value.into(), new_unit);
+        *self = Quantity::with_known_unit(new_value.into(), Arc::clone(&new_unit));
+        if matches!(to, ConvertTo::Unit(_)) {
+            self.try_fraction(converter);
+        } else if converter.should_fit_fraction(&new_unit) {
+            self.fit_fraction(&new_unit, converter)?;
+        }
         Ok(())
     }
 
