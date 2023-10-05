@@ -133,6 +133,29 @@ impl Converter {
         conversions.0.iter().any(|&(_, id)| id == unit_id)
     }
 
+    /// Get the (marked) best units for a quantity and a system.
+    ///
+    /// If system is None, returns for all the systems.
+    pub fn best_units(&self, quantity: PhysicalQuantity, system: Option<System>) -> Vec<Arc<Unit>> {
+        match &self.best[quantity] {
+            BestConversionsStore::Unified(u) => u.all_units(self).cloned().collect(),
+            BestConversionsStore::BySystem { metric, imperial } => match system {
+                Some(System::Metric) => metric.all_units(self).cloned().collect(),
+                Some(System::Imperial) => imperial.all_units(self).cloned().collect(),
+                None => metric
+                    .all_units(self)
+                    .chain(imperial.all_units(self))
+                    .cloned()
+                    .collect(),
+            },
+        }
+    }
+
+    pub fn find_unit<'c>(&'c self, unit: &str) -> Option<Arc<Unit>> {
+        let uid = self.unit_index.get_unit_id(unit).ok()?;
+        Some(self.all_units[uid].clone())
+    }
+
     /// Gets the fractions configuration for the given unit
     ///
     /// # Panics
@@ -223,6 +246,15 @@ impl Default for FractionsConfig {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub(crate) struct UnitIndex(HashMap<Arc<str>, usize>);
 
+impl UnitIndex {
+    fn get_unit_id(&self, key: &str) -> Result<usize, UnknownUnit> {
+        self.0
+            .get(key)
+            .copied()
+            .ok_or_else(|| UnknownUnit(key.to_string()))
+    }
+}
+
 pub(crate) type UnitQuantityIndex = EnumMap<PhysicalQuantity, Vec<usize>>;
 
 /// A unit
@@ -305,7 +337,7 @@ enum BestConversionsStore {
 }
 
 impl BestConversionsStore {
-    pub fn conversions(&self, system: System) -> &BestConversions {
+    pub(crate) fn conversions(&self, system: System) -> &BestConversions {
         match self {
             BestConversionsStore::Unified(u) => u,
             BestConversionsStore::BySystem { metric, imperial } => match system {
@@ -324,6 +356,40 @@ impl Default for BestConversionsStore {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 struct BestConversions(Vec<(f64, usize)>);
+
+impl BestConversions {
+    fn base(&self) -> Option<usize> {
+        self.0.first().map(|c| c.1)
+    }
+
+    fn best_unit(
+        &self,
+        converter: &Converter,
+        value: &ConvertValue,
+        unit: &Unit,
+    ) -> Option<Arc<Unit>> {
+        let value = match value {
+            ConvertValue::Number(n) => n.abs(),
+            ConvertValue::Range(r) => r.start().abs(),
+        };
+        let base_unit_id = self.base()?;
+        let base_unit = &converter.all_units[base_unit_id];
+        let norm = converter.convert_f64(value, unit, base_unit);
+
+        let best_id = self
+            .0
+            .iter()
+            .rev()
+            .find(|(th, _)| norm >= (th - 0.001))
+            .or_else(|| self.0.first())
+            .map(|&(_, id)| id)?;
+        Some(Arc::clone(&converter.all_units[best_id]))
+    }
+
+    fn all_units<'c>(&'c self, converter: &'c Converter) -> impl Iterator<Item = &Arc<Unit>> {
+        self.0.iter().map(|(_, uid)| &converter.all_units[*uid])
+    }
+}
 
 #[derive(
     Debug,
@@ -640,45 +706,6 @@ pub(crate) fn convert_f64(value: f64, from: &Unit, to: &Unit) -> f64 {
 #[derive(Debug, Error)]
 #[error("Unknown unit: '{0}'")]
 pub struct UnknownUnit(String);
-
-impl UnitIndex {
-    fn get_unit_id(&self, key: &str) -> Result<usize, UnknownUnit> {
-        self.0
-            .get(key)
-            .copied()
-            .ok_or_else(|| UnknownUnit(key.to_string()))
-    }
-}
-
-impl BestConversions {
-    fn base(&self) -> Option<usize> {
-        self.0.first().map(|c| c.1)
-    }
-
-    fn best_unit(
-        &self,
-        converter: &Converter,
-        value: &ConvertValue,
-        unit: &Unit,
-    ) -> Option<Arc<Unit>> {
-        let value = match value {
-            ConvertValue::Number(n) => n.abs(),
-            ConvertValue::Range(r) => r.start().abs(),
-        };
-        let base_unit_id = self.base()?;
-        let base_unit = &converter.all_units[base_unit_id];
-        let norm = converter.convert_f64(value, unit, base_unit);
-
-        let best_id = self
-            .0
-            .iter()
-            .rev()
-            .find(|(th, _)| norm >= (th - 0.001))
-            .or_else(|| self.0.first())
-            .map(|&(_, id)| id)?;
-        Some(Arc::clone(&converter.all_units[best_id]))
-    }
-}
 
 /// Input value for [`Converter::convert`]
 #[derive(PartialEq, Clone, Debug)]
