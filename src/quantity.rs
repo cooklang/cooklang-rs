@@ -797,26 +797,21 @@ impl Number {
     /// This creates a fraction if there's any error or an exact whole regular number.
     /// That regular number is never 0 with an error, but can be 0 exact.
     ///
-    /// `allow_mixed` allows things like `2 1/2`
-    ///
     /// `max_err` is a value between 0 and 1 representing the error percent.
     ///
     /// `max_den` is the maximum denominator. The denominator is one a list of
     /// "common" fractions: 2, 3, 4, 5, 8, 10, 16, 32, 64. 64 is the max.
     ///
+    /// `max_whole` determines the maximum value of the intenger. Setting this to
+    /// 0 only allows fractions < 1.
+    ///
     /// # Panics
     /// - If `max_err > 1` or `max_err < 0`.
     /// - If `max_den > 64`
-    pub fn new_approx(
-        value: f64,
-        allow_mixed: bool,
-        accuracy: f32,
-        max_den: u32,
-        max_whole: u32,
-    ) -> Option<Self> {
+    pub fn new_approx(value: f64, accuracy: f32, max_den: u32, max_whole: u32) -> Option<Self> {
         assert!((0.0..=1.0).contains(&accuracy));
         assert!(max_den <= 64);
-        if (!allow_mixed && value > 1.0) || value <= 0.0 || !value.is_finite() {
+        if (max_whole == 0 && value > 1.0) || value <= 0.0 || !value.is_finite() {
             return None;
         }
 
@@ -864,14 +859,8 @@ impl Number {
         })
     }
 
-    pub fn to_fraction(
-        &mut self,
-        allow_mixed: bool,
-        accuracy: f32,
-        max_den: u32,
-        max_whole: u32,
-    ) -> bool {
-        match Self::new_approx(self.value(), allow_mixed, accuracy, max_den, max_whole) {
+    pub fn to_fraction(&mut self, accuracy: f32, max_den: u32, max_whole: u32) -> bool {
+        match Self::new_approx(self.value(), accuracy, max_den, max_whole) {
             Some(f) => {
                 *self = f;
                 true

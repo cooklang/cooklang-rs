@@ -204,7 +204,6 @@ struct Fractions {
 #[derive(Debug, Clone, Copy)]
 pub struct FractionsConfig {
     pub enabled: bool,
-    pub mixed_value: bool,
     pub accuracy: f32,
     pub max_denominator: u32,
     pub max_whole: u32,
@@ -214,7 +213,6 @@ impl Default for FractionsConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            mixed_value: true,
             accuracy: 0.05,
             max_denominator: 4,
             max_whole: u32::MAX,
@@ -447,13 +445,7 @@ impl ScaledQuantity {
         converter: &Converter,
     ) -> Result<bool, ConvertError> {
         let approx = |val: f64, cfg: FractionsConfig| {
-            Number::new_approx(
-                val,
-                cfg.mixed_value,
-                cfg.accuracy,
-                cfg.max_denominator,
-                cfg.max_whole,
-            )
+            Number::new_approx(val, cfg.accuracy, cfg.max_denominator, cfg.max_whole)
         };
 
         let Some(system) = unit.system else {
@@ -531,24 +523,10 @@ impl ScaledQuantity {
         }
 
         match &mut self.value {
-            Value::Number(n) => n.to_fraction(
-                cfg.mixed_value,
-                cfg.accuracy,
-                cfg.max_denominator,
-                cfg.max_whole,
-            ),
+            Value::Number(n) => n.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole),
             Value::Range { start, end } => {
-                start.to_fraction(
-                    cfg.mixed_value,
-                    cfg.accuracy,
-                    cfg.max_denominator,
-                    cfg.max_whole,
-                ) || end.to_fraction(
-                    cfg.mixed_value,
-                    cfg.accuracy,
-                    cfg.max_denominator,
-                    cfg.max_whole,
-                )
+                start.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
+                    || end.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
             }
             Value::Text(_) => false,
         }

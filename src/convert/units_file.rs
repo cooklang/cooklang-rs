@@ -126,7 +126,6 @@ impl FractionsWrapper {
 #[serde(default)]
 pub struct FractionsConfigHelper {
     pub enabled: Option<bool>,
-    pub mixed_value: Option<bool>,
     pub accuracy: Option<f32>,
     pub max_denominator: Option<u32>,
     pub max_whole: Option<u32>,
@@ -136,7 +135,6 @@ impl FractionsConfigHelper {
     pub fn merge(self, parent: FractionsConfigHelper) -> Self {
         Self {
             enabled: self.enabled.or(parent.enabled),
-            mixed_value: self.mixed_value.or(parent.mixed_value),
             accuracy: self.accuracy.or(parent.accuracy),
             max_denominator: self.max_denominator.or(parent.max_denominator),
             max_whole: self.max_whole.or(parent.max_whole),
@@ -147,7 +145,6 @@ impl FractionsConfigHelper {
         let d = FractionsConfig::default();
         FractionsConfig {
             enabled: self.enabled.unwrap_or(d.enabled),
-            mixed_value: self.mixed_value.unwrap_or(d.mixed_value),
             accuracy: self.accuracy.unwrap_or(d.accuracy).clamp(0.0, 1.0),
             max_denominator: self
                 .max_denominator
