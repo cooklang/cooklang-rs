@@ -792,7 +792,10 @@ impl FractionTableCache {
 }
 
 impl Number {
-    /// Tries to create a new fractional number
+    /// Tries to create a new exact number within a margin of error
+    ///
+    /// This creates a fraction if there's any error or an exact whole regular number.
+    /// That regular number is never 0 with an error, but can be 0 exact.
     ///
     /// `allow_mixed` allows things like `2 1/2`
     ///
@@ -804,7 +807,7 @@ impl Number {
     /// # Panics
     /// - If `max_err > 1` or `max_err < 0`.
     /// - If `max_den > 64`
-    pub fn new_fraction(
+    pub fn new_approx(
         value: f64,
         allow_mixed: bool,
         accuracy: f32,
@@ -821,17 +824,31 @@ impl Number {
 
         let whole = value.floor();
         let decimal = value.fract();
-        if (whole as u32) > max_whole || decimal < max_err {
+        if (whole as u32) > max_whole {
             return None;
         }
 
+        if decimal < max_err {
+            if decimal == 0.0 {
+                return Some(Self::Regular(whole));
+            } else {
+                return None;
+            }
+        }
+
         if (1.0 - decimal < max_err) && (whole as u32) < max_whole {
-            return Some(Self::Fraction {
-                whole: whole + 1.0,
-                num: 0.0,
-                den: 1.0,
-                err: 1.0 - decimal,
-            });
+            let err = 1.0 - decimal;
+            let num = if err == 0.0 {
+                Self::Regular(whole + 1.0)
+            } else {
+                Self::Fraction {
+                    whole: whole + 1.0,
+                    num: 0.0,
+                    den: 1.0,
+                    err,
+                }
+            };
+            return Some(num);
         }
 
         let table = FRACTIONS_TABLES.get(max_den);
@@ -854,7 +871,7 @@ impl Number {
         max_den: u32,
         max_whole: u32,
     ) -> bool {
-        match Self::new_fraction(self.value(), allow_mixed, accuracy, max_den, max_whole) {
+        match Self::new_approx(self.value(), allow_mixed, accuracy, max_den, max_whole) {
             Some(f) => {
                 *self = f;
                 true

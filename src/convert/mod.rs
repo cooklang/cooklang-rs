@@ -446,13 +446,13 @@ impl ScaledQuantity {
         unit: &Arc<Unit>,
         converter: &Converter,
     ) -> Result<bool, ConvertError> {
-        let to_frac = |val: f64, frac_cfg: FractionsConfig| {
-            Number::new_fraction(
+        let approx = |val: f64, cfg: FractionsConfig| {
+            Number::new_approx(
                 val,
-                frac_cfg.mixed_value,
-                frac_cfg.accuracy,
-                frac_cfg.max_denominator,
-                frac_cfg.max_whole,
+                cfg.mixed_value,
+                cfg.accuracy,
+                cfg.max_denominator,
+                cfg.max_whole,
             )
         };
 
@@ -477,23 +477,19 @@ impl ScaledQuantity {
                     return None;
                 }
                 let new_value = converter.convert_f64(value, unit, new_unit);
-                let new_value = to_frac(new_value, cfg)?;
+                let new_value = approx(new_value, cfg)?;
                 Some((new_value, new_unit))
             });
 
         let selected = possible_conversions.min_by(|(a, _), (b, _)| {
-            let a = match a {
+            let key = |v| match v {
                 Number::Fraction {
                     den, err, whole, ..
-                } => (den, err.abs(), whole),
-                _ => unreachable!(),
+                } => (den, whole, err.abs()),
+                Number::Regular(whole) => (1.0, whole, 0.0),
             };
-            let b = match b {
-                Number::Fraction {
-                    den, err, whole, ..
-                } => (den, err.abs(), whole),
-                _ => unreachable!(),
-            };
+            let a = key(*a);
+            let b = key(*b);
             a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Less)
         });
 
@@ -505,7 +501,7 @@ impl ScaledQuantity {
             Value::Number(_) => Value::Number(new_value),
             Value::Range { end, .. } => {
                 let end = converter.convert_f64(end.value(), unit, new_unit);
-                let end_frac = to_frac(end, converter.fractions_config(new_unit))
+                let end_frac = approx(end, converter.fractions_config(new_unit))
                     .unwrap_or(Number::Regular(end));
                 Value::Range {
                     start: new_value,

@@ -1,6 +1,7 @@
 use cooklang::{convert::System, Converter, Quantity, Value};
 use test_case::test_case;
 
+#[test_case(2.0, "tsp" => "2 tsp")]
 #[test_case(3.0, "tsp" => "1 tbsp")]
 #[test_case(3.5, "tsp" => "3 1/2 tsp")]
 #[test_case(15.0, "tsp" => "5 tbsp")]
