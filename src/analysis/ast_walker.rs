@@ -282,13 +282,13 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         continue; // ignore component
                     }
                     let new_component = match item {
-                        Event::Ingredient(i) => Item::ItemIngredient {
+                        Event::Ingredient(i) => Item::Ingredient {
                             index: self.ingredient(i),
                         },
-                        Event::Cookware(c) => Item::ItemCookware {
+                        Event::Cookware(c) => Item::Cookware {
                             index: self.cookware(c),
                         },
-                        Event::Timer(t) => Item::ItemTimer {
+                        Event::Timer(t) => Item::Timer {
                             index: self.timer(t),
                         },
                         _ => unreachable!(),
@@ -481,7 +481,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         help,
                     });
                 }
-                IngredientRelation::reference(val, IngredientReferenceTarget::StepTarget)
+                IngredientRelation::reference(val, IngredientReferenceTarget::Step)
             }
             (Step, Relative) => {
                 let index = self
@@ -495,7 +495,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     .map(|(index, _)| index);
                 match index {
                     Some(index) => {
-                        IngredientRelation::reference(index, IngredientReferenceTarget::StepTarget)
+                        IngredientRelation::reference(index, IngredientReferenceTarget::Step)
                     }
                     None => {
                         let help = match self.step_counter {
@@ -529,7 +529,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         help,
                     });
                 }
-                IngredientRelation::reference(val, IngredientReferenceTarget::SectionTarget)
+                IngredientRelation::reference(val, IngredientReferenceTarget::Section)
             }
             (Section, Relative) => {
                 if val > self.content.sections.len() {
@@ -549,7 +549,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     });
                 }
                 let index = self.content.sections.len().saturating_sub(val);
-                IngredientRelation::reference(index, IngredientReferenceTarget::SectionTarget)
+                IngredientRelation::reference(index, IngredientReferenceTarget::Section)
             }
         };
         Ok(relation)
@@ -699,10 +699,8 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
         if is_ingredient && self.auto_scale_ingredients {
             match v {
-                ScalableValue::Fixed { value } if !value.is_text() => {
-                    v = ScalableValue::Linear { value }
-                }
-                ScalableValue::Linear { .. } => {
+                ScalableValue::Fixed(value) if !value.is_text() => v = ScalableValue::Linear(value),
+                ScalableValue::Linear(_) => {
                     self.ctx.warn(AnalysisWarning::RedundantAutoScaleMarker {
                         quantity_span: Span::new(value_span.end(), value_span.end() + 1),
                     });
@@ -828,10 +826,8 @@ impl RefComponent for Ingredient<ScalableValue> {
     }
 
     fn set_reference(&mut self, references_to: usize) {
-        self.relation = IngredientRelation::reference(
-            references_to,
-            IngredientReferenceTarget::IngredientTarget,
-        );
+        self.relation =
+            IngredientRelation::reference(references_to, IngredientReferenceTarget::Ingredient);
     }
 
     fn set_referenced_from(all: &mut [Self], references_to: usize) {
@@ -883,7 +879,7 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(Value::Number { value }, Some(unit_text));
+    let temperature = Quantity::new(Value::Number(value.into()), Some(unit_text));
 
     let range = caps.get(0).unwrap().range();
     let (before, after) = (&text[..range.start], &text[range.end..]);

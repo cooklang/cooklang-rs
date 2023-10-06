@@ -1,13 +1,19 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use enum_map::{enum_map, EnumMap};
 use thiserror::Error;
 
 use super::{
     convert_f64,
-    units_file::{BestUnits, Extend, Precedence, SIPrefix, UnitEntry, Units, UnitsFile, SI},
-    BestConversions, BestConversionsStore, Converter, PhysicalQuantity, System, Unit, UnitIndex,
-    UnknownUnit,
+    units_file::{
+        self, BestUnits, Extend, FractionsConfigHelper, Precedence, SIPrefix, UnitEntry, Units,
+        UnitsFile, SI,
+    },
+    BestConversions, BestConversionsStore, Converter, Fractions, PhysicalQuantity, System, Unit,
+    UnitIndex, UnknownUnit,
 };
 
 /// Builder to create a custom [`Converter`]
@@ -21,6 +27,7 @@ pub struct ConverterBuilder {
     unit_index: UnitIndex,
     extend: Vec<Extend>,
     si: SI,
+    fractions: Vec<units_file::Fractions>,
     best_units: EnumMap<PhysicalQuantity, Option<BestUnits>>,
     default_system: System,
 }
@@ -127,6 +134,10 @@ impl ConverterBuilder {
             self.default_system = default_system;
         }
 
+        if let Some(fractions) = units.fractions {
+            self.fractions.push(fractions);
+        }
+
         Ok(self)
     }
 
@@ -205,11 +216,42 @@ impl ConverterBuilder {
             index
         };
 
+        let mut specialization = HashMap::new();
+        let mut metric = FractionsConfigHelper::default();
+        let mut imperial = FractionsConfigHelper::default();
+        for cfg in self.fractions.iter() {
+            if let Some(cfg) = cfg.metric {
+                metric = cfg.get();
+            }
+            if let Some(cfg) = cfg.imperial {
+                imperial = cfg.get();
+            }
+        }
+        for cfg in self.fractions.iter() {
+            for (key, cfg) in &cfg.specialization {
+                let cfg = cfg.get();
+                let unit_id = self.unit_index.get_unit_id(key)?;
+                let unit = &self.all_units[unit_id];
+                let cfg = match unit.system {
+                    Some(System::Metric) => cfg.merge(metric),
+                    Some(System::Imperial) => cfg.merge(imperial),
+                    None => cfg,
+                };
+                specialization.insert(unit_id, cfg.define());
+            }
+        }
+        let fractions = Fractions {
+            metric: metric.define(),
+            imperial: imperial.define(),
+            specialization,
+        };
+
         Ok(Converter {
             all_units: self.all_units.into_iter().map(Arc::new).collect(),
             unit_index: self.unit_index,
             quantity_index,
             best,
+            fractions,
             default_system: self.default_system,
             temperature_regex: Default::default(),
         })

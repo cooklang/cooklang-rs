@@ -339,9 +339,9 @@ pub fn build_ast<'input>(
                 }
             }
             Event::Text(t) => items.push(ast::Item::Text(t)),
-            Event::Ingredient(c) => items.push(ast::Item::Ingredient(c)),
-            Event::Cookware(c) => items.push(ast::Item::Cookware(c)),
-            Event::Timer(c) => items.push(ast::Item::Timer(c)),
+            Event::Ingredient(c) => items.push(ast::Item::Ingredient(Box::new(c))),
+            Event::Cookware(c) => items.push(ast::Item::Cookware(Box::new(c))),
+            Event::Timer(c) => items.push(ast::Item::Timer(Box::new(c))),
             Event::Error(e) => ctx.error(e),
             Event::Warning(w) => ctx.warn(w),
         }

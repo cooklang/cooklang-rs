@@ -1,12 +1,12 @@
-use std::collections::HashMap;
 use cooklang::analysis::{parse_events, RecipeContent};
-use cooklang::model::{Item as ModelItem};
-use cooklang::parser::{PullParser};
+use cooklang::model::Item as ModelItem;
+use cooklang::parser::PullParser;
 use cooklang::quantity::{
     Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
 };
 use cooklang::Converter;
 use cooklang::Extensions;
+use std::collections::HashMap;
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
@@ -86,30 +86,29 @@ impl Amountable for ModelScalableValue {
 
 fn extract_quantity(value: &ModelScalableValue) -> Value {
     match value {
-        ModelScalableValue::Fixed { value } => extract_value(value),
-        ModelScalableValue::Linear { value } => extract_value(value),
-        ModelScalableValue::ByServings { values } => extract_value(values.first().unwrap()),
+        ModelScalableValue::Fixed(value) => extract_value(value),
+        ModelScalableValue::Linear(value) => extract_value(value),
+        ModelScalableValue::ByServings(values) => extract_value(values.first().unwrap()),
     }
 }
 
 fn extract_value(value: &ModelValue) -> Value {
     match value {
-        ModelValue::Number { value } => Value::Number { value: *value },
-        ModelValue::Range { value } => Value::Range {
-            start: *value.start(),
-            end: *value.end(),
+        ModelValue::Number(num) => Value::Number { value: num.value() },
+        ModelValue::Range { start, end } => Value::Range {
+            start: start.value(),
+            end: end.value(),
         },
-        ModelValue::Text { value } => Value::Text {
+        ModelValue::Text(value) => Value::Text {
             value: value.to_string(),
         },
     }
 }
 
-
 fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
-        ModelItem::ItemIngredient { index } => {
+        ModelItem::Ingredient { index } => {
             let ingredient = &recipe.ingredients[index];
 
             Item::Ingredient {
@@ -120,9 +119,9 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
                     None
                 },
             }
-        },
+        }
 
-        ModelItem::ItemCookware { index } => {
+        ModelItem::Cookware { index } => {
             let cookware = &recipe.cookware[index];
             Item::Cookware {
                 name: cookware.name.clone(),
@@ -132,9 +131,9 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
                     None
                 },
             }
-        },
+        }
 
-        ModelItem::ItemTimer { index } => {
+        ModelItem::Timer { index } => {
             let timer = &recipe.timers[index];
 
             Item::Timer {
@@ -145,10 +144,10 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
                     None
                 },
             }
-        },
+        }
 
         // returning an empty block of text as it's not supported by the spec
-        ModelItem::InlineQuantity { .. } => Item::Text {
+        ModelItem::InlineQuantity { index: _ } => Item::Text {
             value: "".to_string(),
         },
     }
@@ -218,7 +217,6 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 
     let parser = PullParser::new(&input, extensions);
 
-
     let result = parse_events(parser.into_meta_iter(), extensions, &converter, None)
         .map(|c| c.metadata.map)
         .take_output()
@@ -241,7 +239,7 @@ mod tests {
 
     #[test]
     fn parse() {
-        use crate::{parse, Item, Amount, Value};
+        use crate::{parse, Amount, Item, Value};
 
         let recipe = parse(
             r#"
@@ -253,12 +251,16 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             recipe.steps.into_iter().nth(0).unwrap().items,
             vec![
-                Item::Text { value: "a test ".to_string() },
+                Item::Text {
+                    value: "a test ".to_string()
+                },
                 Item::Ingredient {
                     name: "step".to_string(),
                     amount: None
                 },
-                Item::Text { value: " ".to_string() },
+                Item::Text {
+                    value: " ".to_string()
+                },
                 Item::Ingredient {
                     name: "salt".to_string(),
                     amount: Some(Amount {
@@ -275,7 +277,7 @@ a test @step @salt{1%mg} more text
 
     #[test]
     fn parse_metadata() {
-        use crate::{parse_metadata};
+        use crate::parse_metadata;
         use std::collections::HashMap;
 
         let metadata = parse_metadata(

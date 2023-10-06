@@ -223,12 +223,12 @@ impl Scale for ScalableValue {
 
     fn scale(self, target: ScaleTarget) -> (Self::Output, ScaleOutcome) {
         match self {
-            Self::Fixed { value } => (value, ScaleOutcome::Fixed),
-            Self::Linear { value } => match linear_scale(value.clone(), target.factor()) {
+            Self::Fixed(value) => (value, ScaleOutcome::Fixed),
+            Self::Linear(value) => match linear_scale(value.clone(), target.factor()) {
                 Ok(v) => (v, ScaleOutcome::Scaled),
                 Err(e) => (value, ScaleOutcome::Error(e)),
             },
-            Self::ByServings { ref values } => {
+            Self::ByServings(ref values) => {
                 if let Some(index) = target.index {
                     let value = match values.get(index) {
                         Some(v) => v,
@@ -258,9 +258,9 @@ impl Scale for ScalableValue {
 
     fn default_scale(self) -> Self::Output {
         match self {
-            Self::Fixed { value } => value,
-            Self::Linear { value } => value,
-            Self::ByServings { values } => values
+            Self::Fixed(value) => value,
+            Self::Linear(value) => value,
+            Self::ByServings(values) => values
                 .first()
                 .expect("scalable value servings list empty")
                 .clone(),
@@ -270,11 +270,13 @@ impl Scale for ScalableValue {
 
 fn linear_scale(value: Value, factor: f64) -> Result<Value, ScaleError> {
     match value {
-        Value::Number { value: n } => Ok(Value::Number { value: n * factor }),
-        Value::Range { value: r } => Ok(Value::Range {
-            value: r.start() * factor..=r.end() * factor,
-        }),
-        v @ Value::Text { value: _ } => Err(TextValueError(v).into()),
+        Value::Number(n) => Ok(Value::Number((n.value() * factor).into())),
+        Value::Range { start, end } => {
+            let start = (start.value() * factor).into();
+            let end = (end.value() * factor).into();
+            Ok(Value::Range { start, end })
+        }
+        v @ Value::Text(_) => Err(TextValueError(v).into()),
     }
 }
 

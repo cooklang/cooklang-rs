@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    quantity::{Quantity, ScaledQuantity, Value},
+    quantity::{Number, Quantity, ScaledQuantity, Value},
     ScaledRecipe, UnitInfo,
 };
 
@@ -42,6 +42,7 @@ pub struct Converter {
     unit_index: UnitIndex,
     quantity_index: UnitQuantityIndex,
     best: EnumMap<PhysicalQuantity, BestConversionsStore>,
+    fractions: Fractions,
     default_system: System,
 
     temperature_regex: OnceCell<Regex>,
@@ -69,6 +70,7 @@ impl Converter {
             best: Default::default(),
             default_system: Default::default(),
             temperature_regex: Default::default(),
+            fractions: Default::default(),
         }
     }
 
@@ -124,15 +126,68 @@ impl Converter {
             .unit_index
             .get_unit_id(unit.symbol())
             .expect("unit not found");
-        let mut iter = match &self.best[unit.physical_quantity] {
-            BestConversionsStore::Unified(u) => u.0.iter(),
-            BestConversionsStore::BySystem { metric, imperial } => match unit.system {
-                Some(System::Metric) => metric.0.iter(),
-                Some(System::Imperial) => imperial.0.iter(),
-                None => return false,
-            },
+        let Some(system) = unit.system else {
+            return false;
         };
-        iter.any(|&(_, id)| id == unit_id)
+        let conversions = self.best[unit.physical_quantity].conversions(system);
+        conversions.0.iter().any(|&(_, id)| id == unit_id)
+    }
+
+    /// Get the (marked) best units for a quantity and a system.
+    ///
+    /// If system is None, returns for all the systems.
+    pub fn best_units(&self, quantity: PhysicalQuantity, system: Option<System>) -> Vec<Arc<Unit>> {
+        match &self.best[quantity] {
+            BestConversionsStore::Unified(u) => u.all_units(self).cloned().collect(),
+            BestConversionsStore::BySystem { metric, imperial } => match system {
+                Some(System::Metric) => metric.all_units(self).cloned().collect(),
+                Some(System::Imperial) => imperial.all_units(self).cloned().collect(),
+                None => metric
+                    .all_units(self)
+                    .chain(imperial.all_units(self))
+                    .cloned()
+                    .collect(),
+            },
+        }
+    }
+
+    pub fn find_unit<'c>(&'c self, unit: &str) -> Option<Arc<Unit>> {
+        let uid = self.unit_index.get_unit_id(unit).ok()?;
+        Some(self.all_units[uid].clone())
+    }
+
+    /// Gets the fractions configuration for the given unit
+    ///
+    /// # Panics
+    /// If the unit is not known.
+    pub(crate) fn fractions_config(&self, unit: &Unit) -> FractionsConfig {
+        let unit_id = self
+            .unit_index
+            .get_unit_id(unit.symbol())
+            .expect("unit not found");
+        self.fractions_config_unit_id(unit.system, unit_id)
+    }
+
+    fn fractions_config_unit_id(&self, system: Option<System>, unit_id: usize) -> FractionsConfig {
+        let specialized = self.fractions.specialization.get(&unit_id).copied();
+
+        specialized.unwrap_or_else(|| match system {
+            Some(System::Metric) => self.fractions.metric,
+            Some(System::Imperial) => self.fractions.imperial,
+            None => FractionsConfig::default(),
+        })
+    }
+
+    /// Determines if the unit should be tried to be converted into a fraction
+    ///
+    /// # Panics
+    /// If the unit is not known.
+    pub(crate) fn should_fit_fraction(&self, unit: &Unit) -> bool {
+        match unit.system {
+            Some(System::Metric) => self.fractions.metric.enabled,
+            Some(System::Imperial) => self.fractions.imperial.enabled,
+            None => FractionsConfig::default().enabled,
+        }
     }
 }
 
@@ -162,8 +217,43 @@ impl PartialEq for Converter {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+struct Fractions {
+    metric: FractionsConfig,
+    imperial: FractionsConfig,
+    specialization: HashMap<usize, FractionsConfig>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FractionsConfig {
+    pub enabled: bool,
+    pub accuracy: f32,
+    pub max_denominator: u32,
+    pub max_whole: u32,
+}
+
+impl Default for FractionsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            accuracy: 0.05,
+            max_denominator: 4,
+            max_whole: u32::MAX,
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, PartialEq)]
 pub(crate) struct UnitIndex(HashMap<Arc<str>, usize>);
+
+impl UnitIndex {
+    fn get_unit_id(&self, key: &str) -> Result<usize, UnknownUnit> {
+        self.0
+            .get(key)
+            .copied()
+            .ok_or_else(|| UnknownUnit(key.to_string()))
+    }
+}
 
 pub(crate) type UnitQuantityIndex = EnumMap<PhysicalQuantity, Vec<usize>>;
 
@@ -246,6 +336,18 @@ enum BestConversionsStore {
     },
 }
 
+impl BestConversionsStore {
+    pub(crate) fn conversions(&self, system: System) -> &BestConversions {
+        match self {
+            BestConversionsStore::Unified(u) => u,
+            BestConversionsStore::BySystem { metric, imperial } => match system {
+                System::Metric => metric,
+                System::Imperial => imperial,
+            },
+        }
+    }
+}
+
 impl Default for BestConversionsStore {
     fn default() -> Self {
         Self::Unified(Default::default())
@@ -254,6 +356,40 @@ impl Default for BestConversionsStore {
 
 #[derive(Debug, Clone, Default, PartialEq)]
 struct BestConversions(Vec<(f64, usize)>);
+
+impl BestConversions {
+    fn base(&self) -> Option<usize> {
+        self.0.first().map(|c| c.1)
+    }
+
+    fn best_unit(
+        &self,
+        converter: &Converter,
+        value: &ConvertValue,
+        unit: &Unit,
+    ) -> Option<Arc<Unit>> {
+        let value = match value {
+            ConvertValue::Number(n) => n.abs(),
+            ConvertValue::Range(r) => r.start().abs(),
+        };
+        let base_unit_id = self.base()?;
+        let base_unit = &converter.all_units[base_unit_id];
+        let norm = converter.convert_f64(value, unit, base_unit);
+
+        let best_id = self
+            .0
+            .iter()
+            .rev()
+            .find(|(th, _)| norm >= (th - 0.001))
+            .or_else(|| self.0.first())
+            .map(|&(_, id)| id)?;
+        Some(Arc::clone(&converter.all_units[best_id]))
+    }
+
+    fn all_units<'c>(&'c self, converter: &'c Converter) -> impl Iterator<Item = &Arc<Unit>> {
+        self.0.iter().map(|(_, uid)| &converter.all_units[*uid])
+    }
+}
 
 #[derive(
     Debug,
@@ -279,6 +415,46 @@ pub enum PhysicalQuantity {
     Time,
 }
 
+impl ScaledRecipe {
+    /// Convert a [`ScaledRecipe`] to another [`System`] in place.
+    ///
+    /// When an error occurs, it is stored and the quantity stays the same.
+    ///
+    /// Returns all the errors while converting. These usually are missing units,
+    /// unknown units or text values.
+    pub fn convert(&mut self, to: System, converter: &Converter) -> Vec<ConvertError> {
+        let mut errors = Vec::new();
+
+        let to = ConvertTo::from(to);
+
+        let mut conv = |q: &mut ScaledQuantity| {
+            if let Err(e) = q.convert(to, converter) {
+                errors.push(e)
+            }
+        };
+
+        for igr in &mut self.ingredients {
+            if let Some(q) = &mut igr.quantity {
+                conv(q);
+            }
+        }
+
+        // cookware can't have units
+
+        for timer in &mut self.timers {
+            if let Some(q) = &mut timer.quantity {
+                conv(q);
+            }
+        }
+
+        for q in &mut self.inline_quantities {
+            conv(q);
+        }
+
+        errors
+    }
+}
+
 impl ScaledQuantity {
     pub fn convert<'a>(
         &mut self,
@@ -288,6 +464,7 @@ impl ScaledQuantity {
         self.convert_impl(to.into(), converter)
     }
 
+    #[tracing::instrument(level = "trace", name = "convert", skip_all)]
     fn convert_impl(&mut self, to: ConvertTo, converter: &Converter) -> Result<(), ConvertError> {
         let unit_info = self.unit().map(|u| u.unit_info_or_parse(converter));
         let unit = match unit_info {
@@ -299,11 +476,131 @@ impl ScaledQuantity {
             }
             None => return Err(ConvertError::NoUnit(self.clone())),
         };
-        let value = self.value.clone().try_into()?;
+        let value = ConvertValue::try_from(&self.value)?;
 
         let (new_value, new_unit) = converter.convert(value, unit, to)?;
-        *self = Quantity::with_known_unit(new_value.into(), new_unit);
+        *self = Quantity::with_known_unit(new_value.into(), Arc::clone(&new_unit));
+        if matches!(to, ConvertTo::Unit(_)) {
+            self.try_fraction(converter);
+        } else if converter.should_fit_fraction(&new_unit) {
+            self.fit_fraction(&new_unit, converter)?;
+        }
         Ok(())
+    }
+
+    /// Converts the unit to the best possible match in the same unit system.
+    ///
+    /// For example, `1000 ml` would be converted to `1 l`.
+    #[tracing::instrument(level = "trace", skip_all)]
+    pub fn fit(&mut self, converter: &Converter) -> Result<(), ConvertError> {
+        // only known units can be fitted
+        let Some(UnitInfo::Known(unit)) = self.unit().map(|u| u.unit_info_or_parse(converter))
+        else {
+            return Ok(());
+        };
+
+        // If configured, try fitting as a fraction
+        if converter.should_fit_fraction(&unit) && self.fit_fraction(&unit, converter)? {
+            return Ok(());
+        }
+
+        // convert to the best in the same system
+        self.convert(ConvertTo::SameSystem, converter)?;
+
+        Ok(())
+    }
+
+    fn fit_fraction(
+        &mut self,
+        unit: &Arc<Unit>,
+        converter: &Converter,
+    ) -> Result<bool, ConvertError> {
+        let approx = |val: f64, cfg: FractionsConfig| {
+            Number::new_approx(val, cfg.accuracy, cfg.max_denominator, cfg.max_whole)
+        };
+
+        let Some(system) = unit.system else {
+            return Ok(self.try_fraction(converter));
+        };
+
+        let value = match self.value {
+            Value::Number(n) => n.value(),
+            Value::Range { start, .. } => start.value(),
+            Value::Text(ref t) => return Err(ConvertError::TextValue(t.clone())),
+        };
+
+        let possible_conversions = converter.best[unit.physical_quantity]
+            .conversions(system)
+            .0
+            .iter()
+            .filter_map(|&(_, new_unit_id)| {
+                let new_unit = &converter.all_units[new_unit_id];
+                let cfg = converter.fractions_config_unit_id(new_unit.system, new_unit_id);
+                if !cfg.enabled {
+                    return None;
+                }
+                let new_value = converter.convert_f64(value, unit, new_unit);
+                let new_value = approx(new_value, cfg)?;
+                Some((new_value, new_unit))
+            });
+
+        let selected = possible_conversions.min_by(|(a, _), (b, _)| {
+            let key = |v| match v {
+                Number::Fraction {
+                    den, err, whole, ..
+                } => (den, whole, err.abs()),
+                Number::Regular(whole) => (1.0, whole, 0.0),
+            };
+            let a = key(*a);
+            let b = key(*b);
+            a.partial_cmp(&b).unwrap_or(std::cmp::Ordering::Less)
+        });
+
+        let Some((new_value, new_unit)) = selected else {
+            return Ok(false);
+        };
+
+        let new_value = match self.value {
+            Value::Number(_) => Value::Number(new_value),
+            Value::Range { end, .. } => {
+                let end = converter.convert_f64(end.value(), unit, new_unit);
+                let end_frac = approx(end, converter.fractions_config(new_unit))
+                    .unwrap_or(Number::Regular(end));
+                Value::Range {
+                    start: new_value,
+                    end: end_frac,
+                }
+            }
+            Value::Text(_) => unreachable!(),
+        };
+        *self = Quantity::with_known_unit(new_value, Arc::clone(new_unit));
+        Ok(true)
+    }
+
+    /// Tries to convert the value to a fraction, keeping the same unit
+    ///
+    /// It respects the converter configuration for the unit.
+    #[tracing::instrument(level = "trace", skip_all)]
+    pub fn try_fraction(&mut self, converter: &Converter) -> bool {
+        // only known units can be fitted
+        let Some(UnitInfo::Known(unit)) = self.unit().map(|u| u.unit_info_or_parse(converter))
+        else {
+            return false;
+        };
+
+        let cfg = converter.fractions_config(&unit);
+        if !cfg.enabled {
+            return false;
+        }
+
+        match &mut self.value {
+            Value::Number(n) => n.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole),
+            Value::Range { start, end } => {
+                start.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
+                    || end.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
+            }
+            Value::Text(_) => false,
+        }
     }
 }
 
@@ -352,13 +649,7 @@ impl Converter {
         unit: &Unit,
         system: System,
     ) -> Result<(ConvertValue, Arc<Unit>), ConvertError> {
-        let conversions = match &self.best[unit.physical_quantity] {
-            BestConversionsStore::Unified(u) => u,
-            BestConversionsStore::BySystem { metric, imperial } => match system {
-                System::Metric => metric,
-                System::Imperial => imperial,
-            },
-        };
+        let conversions = self.best[unit.physical_quantity].conversions(system);
 
         let best_unit = conversions.best_unit(self, &value, unit).ok_or({
             ConvertError::BestUnitNotFound {
@@ -415,45 +706,6 @@ pub(crate) fn convert_f64(value: f64, from: &Unit, to: &Unit) -> f64 {
 #[derive(Debug, Error)]
 #[error("Unknown unit: '{0}'")]
 pub struct UnknownUnit(String);
-
-impl UnitIndex {
-    fn get_unit_id(&self, key: &str) -> Result<usize, UnknownUnit> {
-        self.0
-            .get(key)
-            .copied()
-            .ok_or_else(|| UnknownUnit(key.to_string()))
-    }
-}
-
-impl BestConversions {
-    fn base(&self) -> Option<usize> {
-        self.0.first().map(|c| c.1)
-    }
-
-    fn best_unit(
-        &self,
-        converter: &Converter,
-        value: &ConvertValue,
-        unit: &Unit,
-    ) -> Option<Arc<Unit>> {
-        let value = match value {
-            ConvertValue::Number(n) => n.abs(),
-            ConvertValue::Range(r) => r.start().abs(),
-        };
-        let base_unit_id = self.base()?;
-        let base_unit = &converter.all_units[base_unit_id];
-        let norm = converter.convert_f64(value, unit, base_unit);
-
-        let best_id = self
-            .0
-            .iter()
-            .rev()
-            .find(|(th, _)| norm >= *th)
-            .or_else(|| self.0.first())
-            .map(|&(_, id)| id)?;
-        Some(Arc::clone(&converter.all_units[best_id]))
-    }
-}
 
 /// Input value for [`Converter::convert`]
 #[derive(PartialEq, Clone, Debug)]
@@ -541,19 +793,22 @@ impl<'a> From<&'a Arc<Unit>> for ConvertTo<'a> {
 impl From<ConvertValue> for Value {
     fn from(value: ConvertValue) -> Self {
         match value {
-            ConvertValue::Number(n) => Self::Number { value: n },
-            ConvertValue::Range(r) => Self::Range { value: r },
+            ConvertValue::Number(n) => Self::Number(n.into()),
+            ConvertValue::Range(r) => Self::Range {
+                start: (*r.start()).into(),
+                end: (*r.end()).into(),
+            },
         }
     }
 }
 
-impl TryFrom<Value> for ConvertValue {
+impl TryFrom<&Value> for ConvertValue {
     type Error = ConvertError;
-    fn try_from(value: Value) -> Result<Self, Self::Error> {
+    fn try_from(value: &Value) -> Result<Self, Self::Error> {
         let value = match value {
-            Value::Number { value: n } => ConvertValue::Number(n),
-            Value::Range { value: r } => ConvertValue::Range(r),
-            Value::Text { value: t } => return Err(ConvertError::TextValue(t)),
+            Value::Number(n) => ConvertValue::Number(n.value()),
+            Value::Range { start, end } => ConvertValue::Range(start.value()..=end.value()),
+            Value::Text(t) => return Err(ConvertError::TextValue(t.clone())),
         };
         Ok(value)
     }
@@ -665,45 +920,5 @@ impl UnitCount {
                 q => converter.quantity_index[q].len()
             },
         }
-    }
-}
-
-impl ScaledRecipe {
-    /// Convert a [`ScaledRecipe`] to another [`System`] in place.
-    ///
-    /// When an error occurs, it is stored and the quantity stays the same.
-    ///
-    /// Returns all the errors while converting. These usually are missing units,
-    /// unknown units or text values.
-    pub fn convert(&mut self, to: System, converter: &Converter) -> Vec<ConvertError> {
-        let mut errors = Vec::new();
-
-        let to = ConvertTo::from(to);
-
-        let mut conv = |q: &mut ScaledQuantity| {
-            if let Err(e) = q.convert(to, converter) {
-                errors.push(e)
-            }
-        };
-
-        for igr in &mut self.ingredients {
-            if let Some(q) = &mut igr.quantity {
-                conv(q);
-            }
-        }
-
-        // cookware can't have units
-
-        for timer in &mut self.timers {
-            if let Some(q) = &mut timer.quantity {
-                conv(q);
-            }
-        }
-
-        for q in &mut self.inline_quantities {
-            conv(q);
-        }
-
-        errors
     }
 }

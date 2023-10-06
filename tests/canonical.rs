@@ -99,7 +99,7 @@ impl TestStepItem {
     fn from_cooklang_item(value: Item, recipe: &cooklang::ScalableRecipe) -> Self {
         match value {
             Item::Text { value } => Self::Text { value },
-            Item::ItemIngredient { index } => {
+            Item::Ingredient { index } => {
                 let i = &recipe.ingredients[index];
                 assert!(i.relation.is_definition());
                 assert!(i.relation.referenced_from().is_empty());
@@ -122,7 +122,7 @@ impl TestStepItem {
                     units,
                 }
             }
-            Item::ItemCookware { index } => {
+            Item::Cookware { index } => {
                 let i = &recipe.cookware[index];
                 assert!(i.relation.is_definition());
                 assert!(i.relation.referenced_from().is_empty());
@@ -139,7 +139,7 @@ impl TestStepItem {
                     quantity,
                 }
             }
-            Item::ItemTimer { index } => {
+            Item::Timer { index } => {
                 let i = &recipe.timers[index];
                 let quantity = i
                     .quantity
@@ -157,7 +157,7 @@ impl TestStepItem {
                     units,
                 }
             }
-            Item::InlineQuantity { .. } => panic!("Unexpected inline quantity"),
+            Item::InlineQuantity { index: _ } => panic!("Unexpected inline quantity"),
         }
     }
 }
@@ -165,13 +165,13 @@ impl TestStepItem {
 impl TestValue {
     fn from_cooklang_value(value: ScalableValue) -> Self {
         match value {
-            ScalableValue::Fixed { value } => match value {
-                Value::Number { value } => TestValue::Number(value),
+            ScalableValue::Fixed(value) => match value {
+                Value::Number(num) => TestValue::Number(num.value()),
                 Value::Range { .. } => panic!("unexpected range value"),
-                Value::Text { value } => TestValue::Text(value),
+                Value::Text(value) => TestValue::Text(value),
             },
-            ScalableValue::Linear { .. } => panic!("unexpected linear value"),
-            ScalableValue::ByServings { .. } => panic!("unexpected value by servings"),
+            ScalableValue::Linear(_) => panic!("unexpected linear value"),
+            ScalableValue::ByServings(_) => panic!("unexpected value by servings"),
         }
     }
 }
