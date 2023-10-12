@@ -332,7 +332,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     if new_igr.modifiers().intersects(invalid_modifiers) {
                         self.ctx.error(AnalysisError::InvalidIntermediateReference {
                             reference_span: ingredient.modifiers.span(),
-                            reason: "Invalid combination of modifiers",
+                            reason: "invalid combination of modifiers",
                             help: format!(
                                 "Remove the following modifiers: {}",
                                 new_igr.modifiers() & invalid_modifiers
@@ -453,35 +453,59 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         use ast::IntermediateRefMode::*;
         use ast::IntermediateTargetKind::*;
         assert!(!inter_data.val.is_negative());
-        let val = inter_data.val as usize;
+        let val = inter_data.val as u32;
 
-        if val == 0 && inter_data.ref_mode == Relative {
-            return Err(AnalysisError::InvalidIntermediateReference {
-                reference_span: inter_data.span(),
-                reason: "relative reference not positive",
-                help: "Relative reference value has to be greater than 0".into(),
-            });
-        }
-
-        let relation = match (inter_data.target_kind, inter_data.ref_mode) {
-            (Step, Index) => {
-                if val >= self.current_section.steps.len() {
-                    let help = if self.current_section.steps.is_empty() {
-                        "This is in the first step, you can't reference other steps.".into()
-                    } else {
-                        format!(
-                            "The index has to be of a previous step. In this case, less than {}.",
-                            self.current_section.steps.len()
-                        )
-                        .into()
-                    };
+        if val == 0 {
+            match inter_data.ref_mode {
+                Number => {
                     return Err(AnalysisError::InvalidIntermediateReference {
                         reference_span: inter_data.span(),
-                        reason: "step index out of bounds",
-                        help,
-                    });
+                        reason: "number is 0",
+                        help: "Step and section numbers start at 1".into(),
+                    })
                 }
-                IngredientRelation::reference(val, IngredientReferenceTarget::Step)
+                Relative => {
+                    return Err(AnalysisError::InvalidIntermediateReference {
+                        reference_span: inter_data.span(),
+                        reason: "relative reference to self",
+                        help: "Relative reference value has to be greater than 0".into(),
+                    })
+                }
+            }
+        }
+
+        let bounds = |help| {
+            Err(AnalysisError::InvalidIntermediateReference {
+                reference_span: inter_data.span(),
+                reason: "value out of bounds",
+                help,
+            })
+        };
+
+        let relation = match (inter_data.target_kind, inter_data.ref_mode) {
+            (Step, Number) => {
+                let index = self
+                    .current_section
+                    .steps
+                    .iter()
+                    .position(|s| s.number == Some(val));
+
+                if index.is_none() {
+                    return bounds(
+                        format!(
+                            "The value has to be a previous step number: {}",
+                            // -1 because step_counter holds the current step number
+                            match self.step_counter.saturating_sub(1) {
+                                0 => "no steps before this one".to_string(),
+                                1 => "1".to_string(),
+                                max => format!("1 to {max}"),
+                            }
+                        )
+                        .into(),
+                    );
+                }
+
+                IngredientRelation::reference(index.unwrap(), IngredientReferenceTarget::Step)
             }
             (Step, Relative) => {
                 let index = self
@@ -489,65 +513,63 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     .steps
                     .iter()
                     .enumerate()
-                    .rev()
-                    .filter(|(_, s)| !s.is_text())
-                    .nth(val.saturating_sub(1))
-                    .map(|(index, _)| index);
-                match index {
-                    Some(index) => {
-                        IngredientRelation::reference(index, IngredientReferenceTarget::Step)
-                    }
-                    None => {
-                        let help = match self.step_counter {
-                            1 => {
-                                "This is in the first (non text) step, you can't reference other steps."
-                                .into()
+                    .filter_map(|(i, s)| (!s.is_text()).then_some(i))
+                    .nth_back((val - 1) as usize);
+
+                if index.is_none() {
+                    return bounds(
+                        format!(
+                            "The current section {} steps before this one",
+                            match self.step_counter.saturating_sub(1) {
+                                0 => "has no".to_string(),
+                                before => format!("only has {before}"),
                             }
-                            2.. => {
-                                format!("The current section only have {} (non text) steps before this one.", self.step_counter - 1).into()
-                            }
-                            0 => unreachable!(), // being here would mean be resolving an intermediate ref before any non text step.
-                        };
-                        return Err(AnalysisError::InvalidIntermediateReference {
-                            reference_span: inter_data.span(),
-                            reason: "relative step index out of bounds",
-                            help,
-                        });
-                    }
+                        )
+                        .into(),
+                    );
                 }
+
+                IngredientRelation::reference(index.unwrap(), IngredientReferenceTarget::Step)
             }
-            (Section, Index) => {
-                if val >= self.content.sections.len() {
-                    let help = if self.content.sections.is_empty() {
-                        "This is in the first section, you can't reference other sections".into()
-                    } else {
-                        format!("The index has to be of a previous section. In this case, less than {}.", self.content.sections.len()).into()
-                    };
-                    return Err(AnalysisError::InvalidIntermediateReference {
-                        reference_span: inter_data.span(),
-                        reason: "section index out of bounds",
-                        help,
-                    });
+            (Section, Number) => {
+                let index = (val - 1) as usize; // direct index, but make it 0 indexed
+
+                if index >= self.content.sections.len() {
+                    return bounds(
+                        format!(
+                            "The value has to be a previous section number: {}",
+                            match self.content.sections.len() {
+                                0 => "no sections before this one".to_string(),
+                                1 => "1".to_string(),
+                                max => format!("1 to {max}"),
+                            }
+                        )
+                        .into(),
+                    );
                 }
-                IngredientRelation::reference(val, IngredientReferenceTarget::Section)
+
+                IngredientRelation::reference(index, IngredientReferenceTarget::Section)
             }
             (Section, Relative) => {
+                let val = val as usize; // number of sections to go back
+
+                // content.sections holds the past sections
                 if val > self.content.sections.len() {
-                    let help = if self.content.sections.is_empty() {
-                        "This is in the first section, you can't reference other sections".into()
-                    } else {
+                    return bounds(
                         format!(
-                            "The recipe only have {} sections before this one.",
-                            self.content.sections.len()
+                            "The recipe {} sections before this one",
+                            match self.content.sections.len() {
+                                0 => "has no".to_string(),
+                                before => format!("only has {before}"),
+                            }
                         )
-                        .into()
-                    };
-                    return Err(AnalysisError::InvalidIntermediateReference {
-                        reference_span: inter_data.span(),
-                        reason: "relative section index out of bounds",
-                        help,
-                    });
+                        .into(),
+                    );
                 }
+
+                // number of past sections - number to go back
+                // val is at least 1, so the first posibility is the prev section index
+                // val is checked to be smaller or equal, if equal, get 0, the index
                 let index = self.content.sections.len().saturating_sub(val);
                 IngredientRelation::reference(index, IngredientReferenceTarget::Section)
             }

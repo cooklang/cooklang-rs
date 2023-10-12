@@ -1,6 +1,9 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+### Breaking changes
+- Reworked intermediate references. Index is gone, now you reference the step
+  or section number directly. Text steps can't be referenced now.
 
 ## 0.9.0 - 2023-10-07
 ### Features

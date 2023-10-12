@@ -39,13 +39,13 @@ These ingredients will not appear in the list.
 There are more syntax variations:
 ```cooklang
 @&(~1)thing{}  -- 1 step back
-@&(2)thing{}   -- step index 2
-@&(=2)thing{}  -- section index 2
+@&(2)thing{}   -- step number 2
+@&(=2)thing{}  -- section number 2
 @&(=~2)thing{} -- 2 sections back
 ```
 
-Indexes start with 0, not 1. Only steps from the current section can be
-referenced. It can only be combined with the optional (`?`) modifier. In 
+Only past steps from the current section can be referenced. It can only be
+combined with the optional (`?`) modifier. Text steps can't be referenced. In
 relative references, text steps are ignored. Enabling this extension
 automatically enables the [modifiers](#modifiers) extension. 
 

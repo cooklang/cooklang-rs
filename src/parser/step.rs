@@ -266,9 +266,9 @@ fn parse_intermediate_ref_data(
         .collect();
 
     let (i, ref_mode, target_kind) = match *filtered_tokens.as_slice() {
-        [i @ mt![int]] => (i, Index, Step),
+        [i @ mt![int]] => (i, Number, Step),
         [mt![~], i @ mt![int]] => (i, Relative, Step),
-        [mt![=], i @ mt![int]] => (i, Index, Section),
+        [mt![=], i @ mt![int]] => (i, Number, Section),
         [mt![=], mt![~], i @ mt![int]] => (i, Relative, Section),
 
         // common errors
@@ -685,7 +685,9 @@ mod tests {
                 _ => other.push(ev),
             }
         }
-        let [Event::StartStep {..}, items @ .., Event::EndStep { .. }] = other.as_slice() else { panic!() };
+        let [Event::StartStep { .. }, items @ .., Event::EndStep { .. }] = other.as_slice() else {
+            panic!()
+        };
         (Vec::from(items), ctx)
     }
 
@@ -709,7 +711,7 @@ mod tests {
     #[test_case("@&(1)step index 1{}" => (
         Located::new(Modifiers::REF, 1..5),
         Located::new(IntermediateData {
-            ref_mode: IntermediateRefMode::Index,
+            ref_mode: IntermediateRefMode::Number,
             target_kind: IntermediateTargetKind::Step,
             val: 1
         }, 2..5)
@@ -725,7 +727,7 @@ mod tests {
     #[test_case("@&(=1)section index 1{}" => (
         Located::new(Modifiers::REF, 1..6),
         Located::new(IntermediateData {
-            ref_mode: IntermediateRefMode::Index,
+            ref_mode: IntermediateRefMode::Number,
             target_kind: IntermediateTargetKind::Section,
             val: 1
         }, 2..6)

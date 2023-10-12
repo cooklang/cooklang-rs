@@ -259,14 +259,14 @@ pub struct IntermediateData {
     ///
     /// This means:
     ///
-    /// | `ref_mode`/`target_kind` | [`Step`]                                               | [`Section`]                    |
-    /// |:-------------------------|:-------------------------------------------------------|:-------------------------------|
-    /// | [`Index`]                | Index in the vec of steps **of the current section**   | Index into the vec of sections |
-    /// | [`Relative`]             | Number of non text steps back                          | Number of sections back        |
+    /// | `ref_mode`/`target_kind` | [`Step`]                               | [`Section`]               |
+    /// |:-------------------------|:---------------------------------------|:--------------------------|
+    /// | [`Number`]               | Step number **in the current section** | Section number            |
+    /// | [`Relative`]             | Number of non text steps back          | Number of sections back   |
     ///
     /// [`Step`]: IntermediateTargetKind::Step
     /// [`Section`]: IntermediateTargetKind::Section
-    /// [`Index`]: IntermediateRefMode::Index
+    /// [`Number`]: IntermediateRefMode::Number
     /// [`Relative`]: IntermediateRefMode::Relative
     pub val: i16,
 }
@@ -274,8 +274,8 @@ pub struct IntermediateData {
 /// How to treat the value in [`IntermediateData`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IntermediateRefMode {
-    /// Absoltute index
-    Index,
+    /// Step or section number
+    Number,
     /// Relative backwards
     ///
     /// When it is steps, is number of non text steps back.
