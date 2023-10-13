@@ -10,6 +10,7 @@ repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 
 [dependencies]
+anyhow = "1.0"
 cooklang = { path = ".." }
 uniffi = { git = "https://github.com/mozilla/uniffi-rs", branch = "main" }
 
@@ -21,7 +22,7 @@ uniffi = { git = "https://github.com/mozilla/uniffi-rs", features= ["build"], br
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
-name = "cooklang"
+
 
 [[bin]]
 # workaround: https://mozilla.github.io/uniffi-rs/tutorial/foreign_language_bindings.html#creating-the-bindgen-binary

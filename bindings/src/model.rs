@@ -1,19 +1,16 @@
 use std::collections::HashMap;
-use std::collections::BTreeMap;
 
-use cooklang::model::{Item as ModelItem};
-use cooklang::analysis::{RecipeContent};
+use cooklang::analysis::RecipeContent;
+use cooklang::model::Item as ModelItem;
 use cooklang::quantity::{
     Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
 };
-
-
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
     pub metadata: HashMap<String, String>,
     pub steps: Vec<Step>,
-    pub ingredients: Vec<Item>,
+    pub ingredients: IngredientList,
     pub cookware: Vec<Item>,
 }
 
@@ -41,14 +38,118 @@ pub enum Item {
     },
 }
 
-#[derive(uniffi::Record, Debug)]
-pub struct IngredientList(BTreeMap<String, GroupedQuantity>);
+pub type IngredientList = HashMap<String, GroupedQuantity>;
 
-// #[derive(uniffi::Record, Debug)]
-pub struct GroupedQuantity {
+// #[uniffi::export]
+pub fn add_to_ingredient_list(list: &mut IngredientList, name: String, amount: &Option<Amount>) {
+    let mut default = GroupedQuantity::default();
+    let quantity = list.get_mut(&name).unwrap_or(&mut default);
 
+    add_to_quantity(quantity, amount);
 }
 
+#[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
+pub enum QuantityType {
+    Number,
+    Range, // how to combine ranges?
+    Text,
+    Empty,
+}
+
+#[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct HardToNameWTF {
+    name: String,
+    unit_type: QuantityType,
+}
+
+pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
+
+// #[uniffi::export]
+pub fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &Option<Amount>) {
+    // options here:
+    // - same units:
+    //    - same value type
+    //    - not the same value type
+    // - different units
+    // - no units
+    // - no amount
+    //
+    // \
+    //  |- <litre,Number> => 1.2
+    //  |- <litre,Text> => half
+    //  |- <,Text> => pinch
+    //  |- <,Empty> => Some
+    //
+    //
+    // TODO define rules on language spec level
+    let empty_units = "".to_string();
+
+    let key = if let Some(amount) = amount {
+        let units = amount.units.as_ref().unwrap_or(&empty_units);
+
+        match &amount.quantity {
+            Value::Number { .. } => HardToNameWTF {
+                name: units.to_string(),
+                unit_type: QuantityType::Number,
+            },
+            Value::Range { .. } => HardToNameWTF {
+                name: units.to_string(),
+                unit_type: QuantityType::Range,
+            },
+            Value::Text { .. } => HardToNameWTF {
+                name: units.to_string(),
+                unit_type: QuantityType::Text,
+            },
+            Value::Empty => HardToNameWTF {
+                name: units.to_string(),
+                unit_type: QuantityType::Empty,
+            },
+        }
+    } else {
+        HardToNameWTF {
+            name: empty_units,
+            unit_type: QuantityType::Empty,
+        }
+    };
+
+    // Hmmm
+    let unit_type = key.unit_type.clone();
+
+    if let Some(amount) = amount {
+        grouped_quantity
+            .entry(key)
+            .and_modify(|v| {
+                match unit_type {
+                    QuantityType::Number => {
+                        let Value::Number { value: assignable } = amount.quantity else { panic!("Unexpected type") };
+                        let Value::Number { value: stored } = v else { panic!("Unexpected type") };
+
+                        *stored += assignable
+                    },
+                    QuantityType::Range => {
+                        let Value::Range { start, end } = amount.quantity else { panic!("Unexpected type") };
+                        let Value::Range { start: s, end: e } = v else { panic!("Unexpected type") };
+
+                        *s += start;
+                        *e += end;
+                    },
+                    QuantityType::Text => {
+                        let Value::Text { value: ref assignable } = amount.quantity else { panic!("Unexpected type") };
+                        let Value::Text { value: stored } = v else { panic!("Unexpected type") };
+
+                        *stored += assignable;
+                    },
+                    QuantityType::Empty => {
+                        todo!();
+                    },
+
+                }
+            })
+            .or_insert(amount.quantity.clone());
+    } else {
+        grouped_quantity.entry(key).or_insert(Value::Empty);
+    }
+}
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
 pub struct Amount {
@@ -61,6 +162,7 @@ pub enum Value {
     Number { value: f64 },
     Range { start: f64, end: f64 },
     Text { value: String },
+    Empty,
 }
 
 pub type CooklangMetadata = HashMap<String, String>;
@@ -73,11 +175,7 @@ impl Amountable for ModelQuantity<ModelScalableValue> {
     fn extract_amount(&self) -> Amount {
         let quantity = extract_quantity(&self.value);
 
-        let units = if let Some(u) = &self.unit() {
-            Some(u.to_string())
-        } else {
-            None
-        };
+        let units = self.unit().as_ref().map(|u| u.to_string());
 
         Amount { quantity, units }
     }
@@ -85,7 +183,7 @@ impl Amountable for ModelQuantity<ModelScalableValue> {
 
 impl Amountable for ModelScalableValue {
     fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(&self);
+        let quantity = extract_quantity(self);
 
         Amount {
             quantity,
@@ -93,7 +191,6 @@ impl Amountable for ModelScalableValue {
         }
     }
 }
-
 
 fn extract_quantity(value: &ModelScalableValue) -> Value {
     match value {
@@ -116,7 +213,6 @@ fn extract_value(value: &ModelValue) -> Value {
     }
 }
 
-
 pub fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
@@ -125,38 +221,26 @@ pub fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
 
             Item::Ingredient {
                 name: ingredient.name.clone(),
-                amount: if let Some(q) = &ingredient.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
+                amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
             }
-        },
+        }
 
         ModelItem::ItemCookware { index } => {
             let cookware = &recipe.cookware[index];
             Item::Cookware {
                 name: cookware.name.clone(),
-                amount: if let Some(q) = &cookware.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
+                amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
             }
-        },
+        }
 
         ModelItem::ItemTimer { index } => {
             let timer = &recipe.timers[index];
 
             Item::Timer {
                 name: timer.name.clone(),
-                amount: if let Some(q) = &timer.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
+                amount: timer.quantity.as_ref().map(|q| q.extract_amount()),
             }
-        },
+        }
 
         // returning an empty block of text as it's not supported by the spec
         ModelItem::InlineQuantity { .. } => Item::Text {

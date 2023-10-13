@@ -69,6 +69,27 @@ This library exports methods:
         amounts: Vec<Amount>
     }
 
+### Shopping list usage example
+
+    // parse
+    let recipe = parse_recipe(text);
+    let config = parse_aisle_config(text);
+    // object which we'll use for rendering
+    let mut result = BTreeMap<String, BTreeMap<String,GroupedQuantity>>::New();
+    // iterate over each recipe ingredients and fill results into result object.
+    recipe.ingredients.iter().for_each(|name, grouped_quantity| {
+        // Get category name for current ingredient
+        let category = config.category_for(name).unwrap_or_else("Other");
+        // Get list of ingredients for that category
+        let mut entry = result.get(category).or_default();
+        // Get quantity object for that ingredient
+        let mut ingredient_quantity = entry.get(name).or_default();
+        // Add extra quantity to it
+        ingredient_quantity.merge(grouped_quantity);
+    });
+
+
+
 ## Building for Android
 
 ### Prepare

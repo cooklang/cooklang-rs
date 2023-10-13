@@ -1,31 +1,40 @@
+use std::sync::Arc;
 
+use cooklang::aisle::parse as parse_aisle_config_original;
 use cooklang::analysis::{parse_events, RecipeContent};
-use cooklang::parser::{PullParser};
+use cooklang::parser::PullParser;
 use cooklang::Converter;
 use cooklang::Extensions;
 
 pub mod aisle;
 pub mod model;
 
-use model::*;
 use aisle::*;
-
+use model::*;
 
 fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
     let mut metadata = CooklangMetadata::new();
     let mut steps: Vec<Step> = Vec::new();
-    let mut ingredients: Vec<Item> = Vec::new();
+    let mut ingredients: IngredientList = IngredientList::default();
     let mut cookware: Vec<Item> = Vec::new();
     let mut items: Vec<Item> = Vec::new();
 
-    (&recipe.sections).iter().for_each(|section| {
-        (&section.steps).iter().for_each(|step| {
-            (&step.items).iter().for_each(|item| {
-                let i = into_item(item.clone(), &recipe);
+    recipe.sections.iter().for_each(|section| {
+        section.steps.iter().for_each(|step| {
+            step.items.iter().for_each(|item| {
+                let i = into_item(item.clone(), recipe);
 
                 match i {
-                    Item::Ingredient { .. } => ingredients.push(i.clone()),
-                    Item::Cookware { .. } => cookware.push(i.clone()),
+                    // TODO
+                    Item::Ingredient {
+                        ref name,
+                        ref amount,
+                    } => {
+                        add_to_ingredient_list(&mut ingredients, name.to_string(), amount);
+                    }
+                    Item::Cookware { .. } => {
+                        cookware.push(i.clone());
+                    }
                     // don't need anything if timer or text
                     _ => (),
                 };
@@ -39,10 +48,10 @@ fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
             });
 
             items.clear();
-        })
+        });
     });
 
-    (&recipe.metadata.map).iter().for_each(|(key, value)| {
+    recipe.metadata.map.iter().for_each(|(key, value)| {
         metadata.insert(key.to_string(), value.to_string());
     });
 
@@ -60,11 +69,11 @@ pub fn parse(input: String) -> CooklangRecipe {
     let converter = Converter::empty();
 
     let mut parser = PullParser::new(&input, extensions);
-    let result = parse_events(&mut parser, extensions, &converter, None)
+    let parsed = parse_events(&mut parser, extensions, &converter, None)
         .take_output()
         .unwrap();
 
-    simplify_recipe_data(&result)
+    simplify_recipe_data(&parsed)
 }
 
 #[uniffi::export]
@@ -75,13 +84,12 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 
     let parser = PullParser::new(&input, extensions);
 
-
-    let result = parse_events(parser.into_meta_iter(), extensions, &converter, None)
+    let parsed = parse_events(parser.into_meta_iter(), extensions, &converter, None)
         .map(|c| c.metadata.map)
         .take_output()
         .unwrap();
 
-    let _ = &(result).iter().for_each(|(key, value)| {
+    let _ = &(parsed).iter().for_each(|(key, value)| {
         metadata.insert(key.to_string(), value.to_string());
     });
 
@@ -89,12 +97,35 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 }
 
 #[uniffi::export]
-pub fn parse_aisle_config(input: String) -> AisleConf {
+pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
+    let mut categories: Vec<AisleCategory> = Vec::new();
+    let mut ingredients: Vec<AisleIngredient> = Vec::new();
 
+    let parsed = parse_aisle_config_original(&input).unwrap();
+
+    let _ = &(parsed).categories.iter().for_each(|c| {
+        c.ingredients.iter().for_each(|i| {
+            let mut it = i.names.iter();
+
+            let name = it.next().unwrap().to_string();
+            let aliases = it.map(|v| v.to_string()).collect();
+
+            ingredients.push(AisleIngredient { name, aliases });
+        });
+
+        let category = AisleCategory {
+            name: c.name.to_string(),
+            ingredients: ingredients.clone(),
+        };
+
+        ingredients.clear();
+        categories.push(category);
+    });
+
+    let config = AisleConf { categories };
+
+    Arc::new(config)
 }
-
-// combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
-
 
 uniffi::setup_scaffolding!();
 
@@ -103,7 +134,7 @@ mod tests {
 
     #[test]
     fn parse() {
-        use crate::{parse, Item, Amount, Value};
+        use crate::{parse, Amount, Item, Value};
 
         let recipe = parse(
             r#"
@@ -115,12 +146,16 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             recipe.steps.into_iter().nth(0).unwrap().items,
             vec![
-                Item::Text { value: "a test ".to_string() },
+                Item::Text {
+                    value: "a test ".to_string()
+                },
                 Item::Ingredient {
                     name: "step".to_string(),
                     amount: None
                 },
-                Item::Text { value: " ".to_string() },
+                Item::Text {
+                    value: " ".to_string()
+                },
                 Item::Ingredient {
                     name: "salt".to_string(),
                     amount: Some(Amount {
@@ -137,7 +172,7 @@ a test @step @salt{1%mg} more text
 
     #[test]
     fn parse_metadata() {
-        use crate::{parse_metadata};
+        use crate::parse_metadata;
         use std::collections::HashMap;
 
         let metadata = parse_metadata(
