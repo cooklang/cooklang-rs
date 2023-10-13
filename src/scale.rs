@@ -170,7 +170,6 @@ impl ScalableRecipe {
         };
 
         ScaledRecipe {
-            name: self.name,
             metadata: self.metadata,
             sections: self.sections,
             ingredients,
@@ -199,7 +198,6 @@ impl ScalableRecipe {
         let timers = self.timers.into_iter().map(Scale::default_scale).collect();
 
         ScaledRecipe {
-            name: self.name,
             metadata: self.metadata,
             sections: self.sections,
             ingredients,

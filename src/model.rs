@@ -14,6 +14,9 @@ use crate::{
 
 /// A complete recipe
 ///
+/// The recipes does not have a name. You give it externally or maybe use
+/// some metadata key.
+///
 /// The recipe returned from parsing is a [`ScalableRecipe`].
 ///
 /// The difference between [`ScalableRecipe`] and [`ScaledRecipe`] is in the
@@ -22,8 +25,6 @@ use crate::{
 /// [`Value`]s.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Recipe<D, V: QuantityValue> {
-    /// Recipe name
-    pub name: String,
     /// Metadata
     pub metadata: Metadata,
     /// Each of the sections
@@ -231,7 +232,7 @@ impl Ingredient<Value> {
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
-    /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}", "name")
+    /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}")
     ///                 .into_output()
     ///                 .unwrap()
     ///                 .default_scale();

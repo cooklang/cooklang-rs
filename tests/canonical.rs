@@ -57,7 +57,7 @@ mod canonical_cases;
 fn runner(input: TestCase) {
     let parser = CooklangParser::new(Extensions::empty(), Converter::empty());
     let got = parser
-        .parse(&input.source, "test")
+        .parse(&input.source)
         .into_output()
         .expect("Failed to parse");
     let got_result = TestResult::from_cooklang(got);

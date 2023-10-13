@@ -7,6 +7,8 @@
 - Sections now holds content: steps and text blocks. This makes a clear
   distinction between the old regular steps and text steps which have been
   removed.
+- Remove name from model. The name in cooklang is external to the recipe and
+  up to the library user to handle it.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

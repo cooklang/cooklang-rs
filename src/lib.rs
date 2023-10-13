@@ -33,10 +33,7 @@
 //! ```rust
 //! # use cooklang::CooklangParser;
 //! # let parser = CooklangParser::default();
-//! let src = "This is an @example.";
-//! let name = "Example Recipe";
-//! let (recipe, _warnings) = parser.parse(src, name).into_result()?;
-//! assert_eq!(recipe.name, name);
+//! let (recipe, _warnings) = parser.parse("This is an @example").into_result()?;
 //! assert_eq!(recipe.ingredients.len(), 1);
 //! assert_eq!(recipe.ingredients[0].name, "example");
 //! # assert!(_warnings.is_empty());
@@ -211,11 +208,8 @@ impl CooklangParser {
     }
 
     /// Parse a recipe
-    ///
-    /// As in cooklang the name is external to the recipe, this must be given
-    /// here too.
-    pub fn parse(&self, input: &str, recipe_name: &str) -> RecipeResult {
-        self.parse_with_recipe_ref_checker(input, recipe_name, None)
+    pub fn parse(&self, input: &str) -> RecipeResult {
+        self.parse_with_recipe_ref_checker(input, None)
     }
 
     /// Same as [`Self::parse`] but with a function that checks if a recipe
@@ -225,7 +219,6 @@ impl CooklangParser {
     pub fn parse_with_recipe_ref_checker(
         &self,
         input: &str,
-        recipe_name: &str,
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
@@ -237,7 +230,6 @@ impl CooklangParser {
         );
 
         result.map(|c| Recipe {
-            name: recipe_name.to_string(),
             metadata: c.metadata,
             sections: c.sections,
             ingredients: c.ingredients,
@@ -269,6 +261,6 @@ impl CooklangParser {
 /// is called, an instance of a parser is constructed. Depending on the
 /// configuration, creating an instance and the first call to that can take much
 /// longer than later calls to [`CooklangParser::parse`].
-pub fn parse(input: &str, recipe_name: &str) -> RecipeResult {
-    CooklangParser::default().parse(input, recipe_name)
+pub fn parse(input: &str) -> RecipeResult {
+    CooklangParser::default().parse(input)
 }
