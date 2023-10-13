@@ -32,22 +32,20 @@ pub struct Ast<'a> {
 pub enum Block<'a> {
     /// Metadata entry
     Metadata { key: Text<'a>, value: Text<'a> },
+    /// Section divider
+    ///
+    /// In the ast, a section does not own steps, it just exists in between.
+    Section { name: Option<Text<'a>> },
     /// Recipe step
     Step {
-        /// Flag that indicates that this is a text step.
-        ///
-        /// All `items` will be [Item::Text].
-        is_text: bool,
         /// Items that compose the step.
         ///
         /// This is in order, so to form the representation of the step just
         /// iterate over the items and process them in that order.
         items: Vec<Item<'a>>,
     },
-    /// Section divider
-    ///
-    /// In the ast, a section does not own steps, it just exists in between.
-    Section { name: Option<Text<'a>> },
+    /// A paragraph of instructions
+    TextBlock(Vec<Text<'a>>),
 }
 
 /// An item of a [`Block::Step`].

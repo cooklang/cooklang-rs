@@ -9,7 +9,7 @@ use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{CooklangError, CooklangWarning};
 use crate::located::Located;
 use crate::metadata::Metadata;
-use crate::parser::Event;
+use crate::parser::{BlockKind, Event};
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
 use crate::{model::*, Extensions, RecipeRefChecker};
@@ -63,7 +63,7 @@ pub fn parse_events<'i>(
         metadata_locations: Default::default(),
         step_counter: 1,
     };
-    col.ast(events)
+    col.parse_events(events)
 }
 
 struct RecipeCollector<'i, 'c> {
@@ -85,7 +85,7 @@ struct RecipeCollector<'i, 'c> {
     step_counter: u32,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum DefineMode {
     All,
     Components,
@@ -93,14 +93,14 @@ enum DefineMode {
     Text,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum DuplicateMode {
     New,
     Reference,
 }
 
 impl<'i, 'c> RecipeCollector<'i, 'c> {
-    fn ast(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
+    fn parse_events(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
         let mut items = Vec::new();
         let events = events.by_ref();
         while let Some(event) = events.next() {
@@ -114,18 +114,26 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     self.current_section =
                         Section::new(name.map(|t| t.text_trimmed().into_owned()));
                 }
-                Event::StartStep { .. } => items.clear(),
-                Event::EndStep { is_text } => {
-                    let new_step = self.step(is_text, items);
+                Event::Start(_kind) => items.clear(),
+                Event::End(kind) => {
+                    let new_content = match kind {
+                        _ if self.define_mode == DefineMode::Text => {
+                            Content::Text(self.text_block(items))
+                        }
+                        BlockKind::Step => Content::Step(self.step(items)),
+                        BlockKind::Text => Content::Text(self.text_block(items)),
+                    };
+
                     // If define mode is ingredients, don't add the
                     // step to the section. The components should have been
                     // added to their lists
-                    if self.define_mode != DefineMode::Components {
-                        if !is_text {
-                            self.step_counter += 1;
-                        }
-                        self.current_section.steps.push(new_step);
+                    if new_content.is_step() && self.define_mode != DefineMode::Components {
+                        self.step_counter += 1;
+                        self.current_section.content.push(new_content);
+                    } else {
+                        self.current_section.content.push(new_content);
                     }
+
                     items = Vec::new();
                 }
                 item @ (Event::Text(_)
@@ -215,10 +223,8 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         }
     }
 
-    fn step(&mut self, is_text: bool, items: Vec<Event<'i>>) -> Step {
+    fn step(&mut self, items: Vec<Event<'i>>) -> Step {
         let mut new_items = Vec::new();
-
-        let is_text = is_text || self.define_mode == DefineMode::Text;
 
         for item in items {
             match item {
@@ -270,17 +276,6 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                 }
 
                 Event::Ingredient(..) | Event::Cookware(..) | Event::Timer(..) => {
-                    if is_text {
-                        self.ctx.warn(AnalysisWarning::ComponentInTextMode {
-                            component_span: match item {
-                                Event::Ingredient(i) => i.span(),
-                                Event::Cookware(c) => c.span(),
-                                Event::Timer(t) => t.span(),
-                                _ => unreachable!(),
-                            },
-                        });
-                        continue; // ignore component
-                    }
                     let new_component = match item {
                         Event::Ingredient(i) => Item::Ingredient {
                             index: self.ingredient(i),
@@ -295,16 +290,42 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     };
                     new_items.push(new_component);
                 }
-                _ => unreachable!(),
+                _ => panic!("Unexpected event in step: {item:?}"),
             };
         }
 
-        let number = (!is_text).then_some(self.step_counter);
-
         Step {
             items: new_items,
-            number,
+            number: self.step_counter,
         }
+    }
+
+    fn text_block(&mut self, items: Vec<Event<'i>>) -> String {
+        let mut s = String::new();
+        for ev in items {
+            match ev {
+                Event::Text(t) => s += t.text().as_ref(),
+                Event::Ingredient(_) | Event::Cookware(_) | Event::Timer(_) => {
+                    assert_eq!(
+                        self.define_mode,
+                        DefineMode::Text,
+                        "Non text event in text block outside define mode text"
+                    );
+
+                    // ignore component
+                    self.ctx.warn(AnalysisWarning::ComponentInTextMode {
+                        component_span: match ev {
+                            Event::Ingredient(i) => i.span(),
+                            Event::Cookware(c) => c.span(),
+                            Event::Timer(t) => t.span(),
+                            _ => unreachable!(),
+                        },
+                    });
+                }
+                _ => panic!("Unexpected event in text block: {ev:?}"),
+            }
+        }
+        s
     }
 
     fn ingredient(&mut self, ingredient: Located<ast::Ingredient<'i>>) -> usize {
@@ -486,9 +507,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             (Step, Number) => {
                 let index = self
                     .current_section
-                    .steps
+                    .content
                     .iter()
-                    .position(|s| s.number == Some(val));
+                    .enumerate()
+                    .filter_map(|(i, c)| c.is_step().then_some(i))
+                    .nth((val - 1) as usize);
 
                 if index.is_none() {
                     return bounds(
@@ -510,12 +533,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             (Step, Relative) => {
                 let index = self
                     .current_section
-                    .steps
+                    .content
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, s)| (!s.is_text()).then_some(i))
+                    .filter_map(|(i, c)| c.is_step().then_some(i))
                     .nth_back((val - 1) as usize);
-
                 if index.is_none() {
                     return bounds(
                         format!(

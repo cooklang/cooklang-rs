@@ -94,25 +94,25 @@ Recipe.0.0.jpeg -- The same
 Recipe.1.0.jpeg -- Second section, first, step
 ```
 
-## Text steps
-All components are ignored and the steps don't increment the step counter. Some
-people like to write a couple of paragraphs in the recipe that don't are steps.
-
-It can also be used as notes that are not instructions.
-
-```cooklang
-Regular step.
-> Text step.
-```
-
 ## Multiline steps
-In regular cooklang each line is a step. With this extension the division is by
-a blank line in between, so:
+In regular cooklang each line is a step. With this extension, the recipe is
+divided into blocks by a blank line in between, so:
 ```cooklang
 A step,
 the same step.
 
 A different step.
+```
+
+## Text blocks
+Some people like to write a couple of paragraphs in the recipe that don't are steps.
+
+It can also be used as notes that are not instructions.
+
+```cooklang
+> Text block.
+
+Regular step.
 ```
 
 ## Advanced units
@@ -145,7 +145,7 @@ special keys are between square brackets.
   at the beginning of the recipe if you want to do so.
   - `steps`. All the ingredients are references. To force a new ingredient, use
   the new (`+`) modifier.
-  - `text`. All steps are [text steps](#text-steps)
+  - `text`. All steps are [text blocks](#text-blocks)
 
 - `duplicate`
   - `new` | `default`. When a ingredient with the same name is found, create a

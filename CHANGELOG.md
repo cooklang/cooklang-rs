@@ -4,6 +4,12 @@
 ### Breaking changes
 - Reworked intermediate references. Index is gone, now you reference the step
   or section number directly. Text steps can't be referenced now.
+- Sections now holds content: steps and text blocks. This makes a clear
+  distinction between the old regular steps and text steps which have been
+  removed.
+
+### Fixed
+- Text steps were ignored in `components` mode.
 
 ## 0.9.0 - 2023-10-07
 ### Features

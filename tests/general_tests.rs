@@ -1,4 +1,4 @@
-use cooklang::{CooklangParser, Extensions, Item};
+use cooklang::{Content, CooklangParser, Extensions, Item};
 use indoc::indoc;
 use test_case::test_case;
 
@@ -83,7 +83,15 @@ fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
     let numbers: Vec<Vec<Option<u32>>> = r
         .sections
         .into_iter()
-        .map(|sect| sect.steps.into_iter().map(|stp| stp.number).collect())
+        .map(|sect| {
+            sect.content
+                .into_iter()
+                .map(|c| match c {
+                    Content::Step(s) => Some(s.number),
+                    Content::Text(_) => None,
+                })
+                .collect()
+        })
         .collect();
     numbers
 }
@@ -132,14 +140,14 @@ fn empty_steps() {
     // should be the same with multiline and without
     let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input, "test").take_output().unwrap();
-    assert!(r.sections[0].steps.is_empty());
+    assert!(r.sections[0].content.is_empty());
 
     let parser = CooklangParser::new(
         Extensions::all() ^ Extensions::MULTILINE_STEPS,
         Default::default(),
     );
     let r = parser.parse(input, "test").take_output().unwrap();
-    assert!(r.sections[0].steps.is_empty());
+    assert!(r.sections[0].content.is_empty());
 }
 
 #[test]
@@ -153,7 +161,7 @@ fn whitespace_line_block_separator() {
     // should be the same with multiline and without
     let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input, "test").take_output().unwrap();
-    assert_eq!(r.sections[0].steps.len(), 2);
+    assert_eq!(r.sections[0].content.len(), 2);
 }
 
 #[test]
@@ -167,8 +175,8 @@ fn single_line_no_separator() {
     let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input, "test").take_output().unwrap();
     assert_eq!(r.sections.len(), 2);
-    assert_eq!(r.sections[0].steps.len(), 2);
-    assert_eq!(r.sections[1].steps.len(), 0);
+    assert_eq!(r.sections[0].content.len(), 2);
+    assert_eq!(r.sections[1].content.len(), 0);
     assert_eq!(r.metadata.map.len(), 1);
 }
 
@@ -182,8 +190,11 @@ fn multiple_temperatures() {
     assert_eq!(r.inline_quantities[0].unit_text(), Some("ºC"));
     assert_eq!(r.inline_quantities[1].value, 150.0.into());
     assert_eq!(r.inline_quantities[1].unit_text(), Some("F"));
+    let Content::Step(first_step) = &r.sections[0].content[0] else {
+        panic!()
+    };
     assert_eq!(
-        r.sections[0].steps[0].items,
+        first_step.items,
         vec![
             Item::Text {
                 value: "text ".into()

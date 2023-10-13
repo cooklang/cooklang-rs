@@ -161,26 +161,28 @@ fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
     let mut items: Vec<Item> = Vec::new();
 
     (&recipe.sections).iter().for_each(|section| {
-        (&section.steps).iter().for_each(|step| {
-            (&step.items).iter().for_each(|item| {
-                let i = into_item(item.clone(), &recipe);
+        (&section.content).iter().for_each(|content| {
+            if let cooklang::Content::Step(step) = content {
+                (&step.items).iter().for_each(|item| {
+                    let i = into_item(item.clone(), &recipe);
 
-                match i {
-                    Item::Ingredient { .. } => ingredients.push(i.clone()),
-                    Item::Cookware { .. } => cookware.push(i.clone()),
-                    // don't need anything if timer or text
-                    _ => (),
-                };
+                    match i {
+                        Item::Ingredient { .. } => ingredients.push(i.clone()),
+                        Item::Cookware { .. } => cookware.push(i.clone()),
+                        // don't need anything if timer or text
+                        _ => (),
+                    };
 
-                items.push(i);
-            });
-            // TODO: think how to make it faster as we probably
-            // can switch items content directly into the step object without cloning it
-            steps.push(Step {
-                items: items.clone(),
-            });
+                    items.push(i);
+                });
+                // TODO: think how to make it faster as we probably
+                // can switch items content directly into the step object without cloning it
+                steps.push(Step {
+                    items: items.clone(),
+                });
 
-            items.clear();
+                items.clear();
+            }
         })
     });
 

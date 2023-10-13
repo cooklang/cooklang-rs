@@ -59,23 +59,67 @@ pub type ScaledRecipe = Recipe<crate::scale::Scaled, Value>;
 pub struct Section {
     /// Name of the section
     pub name: Option<String>,
-    /// Steps inside
-    pub steps: Vec<Step>,
+    /// Content inside
+    pub content: Vec<Content>,
 }
 
 impl Section {
     pub(crate) fn new(name: Option<String>) -> Section {
         Self {
             name,
-            steps: Vec::new(),
+            content: Vec::new(),
         }
     }
 
     /// Check if the section is empty
     ///
-    /// A section is empty when it has no name and no steps.
+    /// A section is empty when it has no name and no content.
     pub fn is_empty(&self) -> bool {
-        self.name.is_none() && self.steps.is_empty()
+        self.name.is_none() && self.content.is_empty()
+    }
+}
+
+/// Each type of content inside a section
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+pub enum Content {
+    /// A step
+    Step(Step),
+    /// A paragraph of just text, no instructions
+    Text(String),
+}
+
+impl Content {
+    /// Checks if the content is a regular step
+    pub fn is_step(&self) -> bool {
+        matches!(self, Self::Step(_))
+    }
+
+    /// Checks if the content is a text paragraph
+    pub fn is_text(&self) -> bool {
+        matches!(self, Self::Text(_))
+    }
+
+    /// Get's the inner step
+    ///
+    /// # Panics
+    /// If the content is [`Content::Text`]
+    pub fn as_step(&self) -> &Step {
+        match self {
+            Content::Step(s) => s,
+            Content::Text(_) => panic!("content is text"),
+        }
+    }
+
+    /// Get's the inner step
+    ///
+    /// # Panics
+    /// If the content is [`Content::Step`]
+    pub fn as_text(&self) -> &str {
+        match self {
+            Content::Step(_) => panic!("content is step"),
+            Content::Text(t) => t.as_str(),
+        }
     }
 }
 
@@ -88,21 +132,9 @@ pub struct Step {
 
     /// Step number
     ///
-    /// The step numbers start at 1 in each section and increase with every non
-    /// text step. Text steps do not have a number. If this is not a text step,
-    /// it will always be [`Some`].
-    pub number: Option<u32>,
-}
-
-impl Step {
-    /// Flag that indicates the step is a text step.
-    ///
-    /// A text step does not increase the step counter, so, if this method
-    /// returns `true`, the step does not have a number. There are only
-    /// [`Item::Text`] in [`items`](Self::items).
-    pub fn is_text(&self) -> bool {
-        self.number.is_none()
-    }
+    /// The step numbers start at 1 in each section and increase with non
+    /// text step.
+    pub number: u32,
 }
 
 /// A step item
@@ -386,9 +418,21 @@ impl IngredientRelation {
 
     /// Get the index the relation refrences to and the target
     ///
+    /// The first element of the tuple is an index into:
+    ///
+    /// | Target | Where |
+    /// |--------|-------|
+    /// | [`Ingredient`] | [`Recipe::ingredients`] |
+    /// | [`Step`] | [`Section::content`] in the same section this ingredient is. It's guaranteed that the content is a step. |
+    /// | [`Section`] | [`Recipe::sections`] |
+    ///
+    /// [`Ingredient`]: IngredientReferenceTarget::Ingredient
+    /// [`Step`]: IngredientReferenceTarget::Step
+    /// [`Section`]: IngredientReferenceTarget::Section
+    ///
     /// If the [`INTERMEDIATE_INGREDIENTS`](crate::Extensions::INTERMEDIATE_INGREDIENTS)
     /// extension is disabled, the target will always be
-    /// [`IngredientReferenceTarget::IngredientTarget`].
+    /// [`IngredientReferenceTarget::Ingredient`].
     pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {
         self.relation
             .references_to()

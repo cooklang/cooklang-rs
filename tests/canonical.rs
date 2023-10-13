@@ -2,7 +2,7 @@
 
 use cooklang::{
     quantity::{ScalableValue, Value},
-    Converter, CooklangParser, Extensions, Item, ScalableRecipe, Step,
+    Content, Converter, CooklangParser, Extensions, Item, ScalableRecipe,
 };
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -70,7 +70,7 @@ impl TestResult {
         let steps = if let Some(section) = value.sections.first().cloned() {
             assert!(section.name.is_none());
             section
-                .steps
+                .content
                 .into_iter()
                 .map(|v| TestStep::from_cooklang_step(v, &value))
                 .collect()
@@ -85,8 +85,12 @@ impl TestResult {
 }
 
 impl TestStep {
-    fn from_cooklang_step(value: Step, recipe: &cooklang::ScalableRecipe) -> Self {
-        let items = join_text_items(&value.items);
+    fn from_cooklang_step(value: Content, recipe: &cooklang::ScalableRecipe) -> Self {
+        let Content::Step(step) = value else {
+            panic!("unexpected non step block")
+        };
+
+        let items = join_text_items(&step.items);
         let items = items
             .into_iter()
             .map(|v| TestStepItem::from_cooklang_item(v, recipe))

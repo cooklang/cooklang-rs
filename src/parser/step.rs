@@ -11,72 +11,36 @@ use crate::{
 };
 
 use super::{
-    mt, quantity::parse_quantity, token_stream::Token, tokens_span, BlockParser, Event,
+    mt, quantity::parse_quantity, token_stream::Token, tokens_span, BlockKind, BlockParser, Event,
     ParserError, ParserWarning,
 };
 
-pub(crate) fn step(bp: &mut BlockParser<'_, '_>) {
-    // block splitter should make sure trailing newline never reaches
-    debug_assert!(bp
-        .tokens()
-        .last()
-        .map(|t| t.kind != T![newline])
-        .unwrap_or(true));
+pub(crate) fn parse_step(bp: &mut BlockParser<'_, '_>) {
+    bp.event(Event::Start(BlockKind::Step));
 
-    let is_text = bp.peek() == T![>];
-
-    let is_empty = bp.tokens().iter().all(|t| {
-        matches!(
-            t.kind,
-            T![ws] | T![line comment] | T![block comment] | T![newline]
-        )
-    });
-    if is_empty {
-        bp.consume_rest();
-        return;
-    }
-
-    bp.event(Event::StartStep { is_text });
-
-    if is_text {
-        while !bp.rest().is_empty() {
-            // skip > and leading whitespace
-            let _ = bp.consume(T![>]).and_then(|_| bp.consume(T![ws]));
+    while !bp.rest().is_empty() {
+        let component = match bp.peek() {
+            T![@] => bp.with_recover(ingredient),
+            T![#] => bp.with_recover(cookware),
+            T![~] => bp.with_recover(timer),
+            _ => None,
+        };
+        if let Some(ev) = component {
+            bp.event(ev)
+        } else {
             let start = bp.current_offset();
             let tokens = bp.capture_slice(|bp| {
-                bp.consume_while(|t| t != T![newline]);
-                let _ = bp.consume(T![newline]);
+                bp.bump_any(); // consume the first token, this avoids entering an infinite loop
+                bp.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
             });
             let text = bp.text(start, tokens);
-            if !text.is_text_empty() {
+            if !text.fragments().is_empty() {
                 bp.event(Event::Text(text));
             }
         }
-    } else {
-        while !bp.rest().is_empty() {
-            let component = match bp.peek() {
-                T![@] => bp.with_recover(ingredient),
-                T![#] => bp.with_recover(cookware),
-                T![~] => bp.with_recover(timer),
-                _ => None,
-            };
-            if let Some(ev) = component {
-                bp.event(ev)
-            } else {
-                let start = bp.current_offset();
-                let tokens = bp.capture_slice(|bp| {
-                    bp.bump_any(); // consume the first token, this avoids entering an infinite loop
-                    bp.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
-                });
-                let text = bp.text(start, tokens);
-                if !text.fragments().is_empty() {
-                    bp.event(Event::Text(text));
-                }
-            }
-        }
     }
 
-    bp.event(Event::EndStep { is_text });
+    bp.event(Event::End(BlockKind::Step));
 }
 
 struct Body<'t> {
@@ -661,7 +625,6 @@ mod tests {
 
     use super::*;
     use crate::{context::Context, parser::token_stream::TokenStream};
-    use indoc::indoc;
     use test_case::test_case;
 
     fn t(input: &str) -> (Vec<Event>, Context<ParserError, ParserWarning>) {
@@ -673,7 +636,7 @@ mod tests {
         }
         let mut events = VecDeque::new();
         let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::all());
-        step(&mut bp);
+        parse_step(&mut bp);
         bp.finish();
         let mut other = Vec::new();
         let mut ctx = Context::default();
@@ -685,7 +648,9 @@ mod tests {
                 _ => other.push(ev),
             }
         }
-        let [Event::StartStep { .. }, items @ .., Event::EndStep { .. }] = other.as_slice() else {
+        let [Event::Start(BlockKind::Step), items @ .., Event::End(BlockKind::Step)] =
+            other.as_slice()
+        else {
             panic!()
         };
         (Vec::from(items), ctx)
@@ -747,42 +712,5 @@ mod tests {
     fn intermediate_ref_errors(input: &str) {
         let (_, ctx) = t(input);
         assert_eq!(ctx.errors.len(), 1);
-    }
-
-    #[test_case(
-        indoc! { "
-            > a text step
-            with 2 lines
-        " }
-        => "a text step with 2 lines"
-        ; "no second line marker"
-    )]
-    #[test_case(
-        indoc! { "
-            > a text step
-            > with 2 lines
-        " }
-        => "a text step with 2 lines"
-        ; "second line marker"
-    )]
-    #[test_case(
-        indoc! { "
-            > with no marker
-             <- this ws stays
-        " }
-        => "with no marker  <- this ws stays"
-        ; "no trim if no marker"
-    )]
-    fn multiline_text_step(input: &str) -> String {
-        let (events, ctx) = t(input);
-        assert!(ctx.is_empty());
-        let mut text = String::new();
-        for e in events {
-            match e {
-                Event::Text(t) => text += &t.text(),
-                _ => panic!("not text inside text step"),
-            }
-        }
-        text
     }
 }
