@@ -207,6 +207,7 @@
       }
       if (search.has("extensions")) {
         initalExtensions = Number(search.get("extensions"));
+        set_extensions(initalExtensions)
       } else {
         initalExtensions = get_extensions();
       }
