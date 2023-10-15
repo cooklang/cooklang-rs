@@ -11,6 +11,10 @@
 - Remove name from model. The name in cooklang is external to the recipe and
   up to the library user to handle it.
 
+### Features
+- New warning for bad single word names. It could be confusing not getting
+  any result because of a unsoported symbol there.
+
 ### Fixed
 - Text steps were ignored in `components` mode.
 

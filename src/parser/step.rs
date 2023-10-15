@@ -74,9 +74,17 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
         }
     })
     .or_else(|| {
-        bp.with_recover(|line| {
-            let tokens = line.consume_while(|t| matches!(t, T![word] | T![int] | T![float]));
+        bp.with_recover(|bp| {
+            let tokens = bp.consume_while(|t| matches!(t, T![word] | T![int] | T![float]));
             if tokens.is_empty() {
+                if !bp.at(T![ws]) {
+                    bp.warn(ParserWarning::ComponentPartIgnored {
+                        container: "component",
+                        what: "this single word name",
+                        ignored: Span::pos(bp.current_offset()),
+                        help: Some("Add '{}' at the end of the name to use it, or change it."),
+                    });
+                }
                 return None;
             }
             Some(Body {
@@ -102,11 +110,11 @@ fn modifiers<'t>(bp: &mut BlockParser<'t, '_>) -> &'t [Token] {
             T![&] => {
                 bp.bump_any();
                 if bp.extension(Extensions::INTERMEDIATE_PREPARATIONS) {
-                    bp.with_recover(|line| {
-                        line.consume(T!['('])?;
-                        let intermediate = line.until(|t| t == T![')'])?;
-                        line.bump(T![')']);
-                        Some(intermediate)
+                    bp.with_recover(|bp| {
+                        bp.consume(T!['('])?;
+                        let _intermediate = bp.until(|t| t == T![')'])?;
+                        bp.bump(T![')']);
+                        Some(())
                     });
                 }
             }
