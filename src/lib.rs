@@ -96,6 +96,7 @@ pub use quantity::{
     GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
     TotalQuantity, UnitInfo, Value,
 };
+use serde::{Deserialize, Serialize};
 pub use span::Span;
 
 bitflags! {
@@ -105,7 +106,7 @@ bitflags! {
     /// for a detailed explanation of all of them.
     ///
     /// [`Extensions::default`] enables all extensions.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Extensions: u32 {
         /// Steps separation is a blank line, not a line break. This may break
         /// compatibility with other cooklang parsers.
@@ -133,7 +134,7 @@ bitflags! {
         /// Creating a timer without a time becomes an error
         const TIMER_REQUIRES_TIME      = 1 << 10;
         /// This extensions also enables [`Self::COMPONENT_MODIFIERS`].
-        const INTERMEDIATE_INGREDIENTS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
+        const INTERMEDIATE_PREPARATIONS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
 
         /// Enables [`Self::COMPONENT_MODIFIERS`], [`Self::COMPONENT_NOTE`] and [`Self::COMPONENT_ALIAS`]
         const COMPONENT_ALL = Self::COMPONENT_MODIFIERS.bits()
@@ -156,7 +157,7 @@ bitflags! {
                         | Self::TEMPERATURE.bits()
                         | Self::TEXT_STEPS.bits()
                         | Self::RANGE_VALUES.bits()
-                        | Self::INTERMEDIATE_INGREDIENTS.bits();
+                        | Self::INTERMEDIATE_PREPARATIONS.bits();
     }
 }
 

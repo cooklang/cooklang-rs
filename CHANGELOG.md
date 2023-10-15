@@ -4,6 +4,7 @@
 ### Breaking changes
 - Reworked intermediate references. Index is gone, now you reference the step
   or section number directly. Text steps can't be referenced now.
+- Rename `INTERMEDIATE_INGREDIENTS` extension to `INTERMEDIATE_PREPARATIONS`.
 - Sections now holds content: steps and text blocks. This makes a clear
   distinction between the old regular steps and text steps which have been
   removed.

@@ -431,7 +431,7 @@ impl IngredientRelation {
     /// [`Step`]: IngredientReferenceTarget::Step
     /// [`Section`]: IngredientReferenceTarget::Section
     ///
-    /// If the [`INTERMEDIATE_INGREDIENTS`](crate::Extensions::INTERMEDIATE_INGREDIENTS)
+    /// If the [`INTERMEDIATE_PREPARATIONS`](crate::Extensions::INTERMEDIATE_PREPARATIONS)
     /// extension is disabled, the target will always be
     /// [`IngredientReferenceTarget::Ingredient`].
     pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {

@@ -70,7 +70,7 @@ pub enum AnalysisError {
         implicit: bool,
     },
 
-    #[error("Invalid intermediate ingredient reference: {reason}")]
+    #[error("Invalid intermediate preparation reference: {reason}")]
     InvalidIntermediateReference {
         reference_span: Span,
         reason: &'static str,

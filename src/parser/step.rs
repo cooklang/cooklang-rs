@@ -101,7 +101,7 @@ fn modifiers<'t>(bp: &mut BlockParser<'t, '_>) -> &'t [Token] {
             }
             T![&] => {
                 bp.bump_any();
-                if bp.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
+                if bp.extension(Extensions::INTERMEDIATE_PREPARATIONS) {
                     bp.with_recover(|line| {
                         line.consume(T!['('])?;
                         let intermediate = line.until(|t| t == T![')'])?;
@@ -157,10 +157,9 @@ fn parse_modifiers(
             let new_m = match tok.kind {
                 T![@] => Modifiers::RECIPE,
                 T![&] => {
-                    if bp.extension(Extensions::INTERMEDIATE_INGREDIENTS) {
+                    if bp.extension(Extensions::INTERMEDIATE_PREPARATIONS) {
                         intermediate_data = parse_intermediate_ref_data(bp, &mut tokens);
                     }
-
                     Modifiers::REF
                 }
                 T![?] => Modifiers::OPT,
@@ -193,7 +192,7 @@ fn parse_intermediate_ref_data(
     use IntermediateRefMode::*;
     use IntermediateTargetKind::*;
     const CONTAINER: &str = "modifiers";
-    const WHAT: &str = "intermediate reference";
+    const WHAT: &str = "intermediate preparation reference";
     const INTER_REF_HELP: &str = "The reference is something like: `~1`, `1`, `=1` or `=~1`.";
 
     // if '(' has been taken as a modifier token, it has taken until
@@ -207,7 +206,7 @@ fn parse_intermediate_ref_data(
         let slice = tokens.as_slice();
         let end_pos = tokens
             .position(|t| t.kind == T![')']) // consumes until and including ')'
-            .expect("No closing paren in intermediate ingredient ref");
+            .expect("No closing paren in intermediate preparation reference");
         &slice[..=end_pos]
     };
     let inner_slice = &slice[1..slice.len() - 1];
@@ -238,8 +237,8 @@ fn parse_intermediate_ref_data(
         // common errors
         [rel @ mt![~], sec @ mt![=], mt![int]] => {
             bp.error(ParserError::ComponentPartInvalid {
-                container: "modifiers",
-                what: "intermediate reference",
+                container: CONTAINER,
+                what: WHAT,
                 reason: "Wrong relative section order",
                 labels: vec![
                     label!(rel.span, "this should be"),
@@ -251,8 +250,8 @@ fn parse_intermediate_ref_data(
         }
         [.., s @ mt![- | +], mt![int]] => {
             bp.error(ParserError::ComponentPartNotAllowed {
-                container: "modifiers",
-                what: "intermediate reference sign",
+                container: CONTAINER,
+                what: "intermediate preparation reference sign",
                 to_remove: s.span,
                 help: Some(
                     "The value cannot have a sign. They are indexes or relative always backwards.",
@@ -262,8 +261,8 @@ fn parse_intermediate_ref_data(
         }
         _ => {
             bp.error(ParserError::ComponentPartInvalid {
-                container: "modifiers",
-                what: "intermediate reference",
+                container: CONTAINER,
+                what: WHAT,
                 reason: "Invalid reference syntax",
                 labels: vec![label!(
                     tokens_span(inner_slice),

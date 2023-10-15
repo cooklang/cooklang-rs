@@ -26,7 +26,7 @@ are 5 modifiers:
 
 This also works (except recipe) for cookware.
 
-## Intermediate ingredients
+## Intermediate preparations
 You can refer to intermediate preparations as ingredients. For example:
 ```cooklang
 Add @flour{200%g} and @water. Mix until combined.
