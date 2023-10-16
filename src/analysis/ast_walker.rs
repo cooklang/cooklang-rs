@@ -8,23 +8,12 @@ use crate::context::Context;
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{CooklangError, CooklangWarning};
 use crate::located::Located;
-use crate::metadata::Metadata;
 use crate::parser::{BlockKind, Event};
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
-use crate::{model::*, Extensions, RecipeRefChecker};
+use crate::{model::*, Extensions, RecipeRefCheckResult, RecipeRefChecker};
 
-use super::{AnalysisError, AnalysisResult, AnalysisWarning};
-
-#[derive(Default, Debug)]
-pub struct RecipeContent {
-    pub metadata: Metadata,
-    pub sections: Vec<Section>,
-    pub ingredients: Vec<Ingredient<ScalableValue>>,
-    pub cookware: Vec<Cookware<ScalableValue>>,
-    pub timers: Vec<Timer<ScalableValue>>,
-    pub inline_quantities: Vec<Quantity<Value>>,
-}
+use super::{AnalysisError, AnalysisResult, AnalysisWarning, DefineMode, DuplicateMode};
 
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
 pub fn parse_events<'i>(
@@ -51,7 +40,15 @@ pub fn parse_events<'i>(
         converter,
         recipe_ref_checker,
 
-        content: Default::default(),
+        content: ScalableRecipe {
+            metadata: Default::default(),
+            sections: Default::default(),
+            ingredients: Default::default(),
+            cookware: Default::default(),
+            timers: Default::default(),
+            inline_quantities: Default::default(),
+            data: (),
+        },
         current_section: Section::default(),
 
         define_mode: DefineMode::All,
@@ -72,7 +69,7 @@ struct RecipeCollector<'i, 'c> {
     converter: &'c Converter,
     recipe_ref_checker: Option<RecipeRefChecker<'c>>,
 
-    content: RecipeContent,
+    content: ScalableRecipe,
     current_section: Section,
 
     define_mode: DefineMode,
@@ -83,20 +80,6 @@ struct RecipeCollector<'i, 'c> {
     ingredient_locations: Vec<Located<ast::Ingredient<'i>>>,
     metadata_locations: HashMap<Cow<'i, str>, (Text<'i>, Text<'i>)>,
     step_counter: u32,
-}
-
-#[derive(PartialEq, Debug)]
-enum DefineMode {
-    All,
-    Components,
-    Steps,
-    Text,
-}
-
-#[derive(PartialEq, Debug)]
-enum DuplicateMode {
-    New,
-    Reference,
 }
 
 impl<'i, 'c> RecipeCollector<'i, 'c> {
@@ -453,11 +436,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             && !new_igr.modifiers.contains(Modifiers::REF)
         {
             if let Some(checker) = &self.recipe_ref_checker {
-                if !(*checker)(&new_igr.name) {
+                let res = (*checker)(&new_igr.name);
+
+                if let RecipeRefCheckResult::NotFound { help, note } = res {
                     self.ctx.warn(AnalysisWarning::RecipeNotFound {
                         ref_span: location,
                         name: new_igr.name.clone(),
-                    });
+                        help,
+                        note,
+                    })
                 }
             }
         }
@@ -763,21 +750,16 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         modifiers_location: Span,
     ) -> Option<(usize, bool)> {
         let new_name = new.name().to_lowercase();
-
-        // find the LAST component with the same name
-        let same_name = C::all(&mut self.content).iter_mut().rposition(|other| {
-            !other.modifiers().contains(Modifiers::REF) && new_name == other.name().to_lowercase()
-        });
-
-        if (self.duplicate_mode == DuplicateMode::Reference
-            || self.define_mode == DefineMode::Steps)
-            && new.modifiers().contains(Modifiers::REF)
-            && !new.modifiers().contains(Modifiers::NEW)
-        {
-            self.ctx.warn(AnalysisWarning::RedundantReferenceModifier {
-                modifiers: Located::new(*new.modifiers(), modifiers_location),
-            });
-        }
+        // find the LAST component with the same name, lazy
+        let same_name_cell = std::cell::OnceCell::new();
+        let same_name = || {
+            *same_name_cell.get_or_init(|| {
+                C::all(&self.content).iter().rposition(|other| {
+                    !other.modifiers().contains(Modifiers::REF)
+                        && new_name == other.name().to_lowercase()
+                })
+            })
+        };
 
         if new.modifiers().contains(Modifiers::NEW | Modifiers::REF) {
             self.ctx
@@ -789,86 +771,140 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             return None;
         }
 
-        let treat_as_reference = !new.modifiers().contains(Modifiers::NEW)
-            && (new.modifiers().contains(Modifiers::REF)
-                || self.define_mode == DefineMode::Steps
-                || same_name.is_some() && self.duplicate_mode == DuplicateMode::Reference);
-
-        if treat_as_reference {
-            if let Some(references_to) = same_name {
-                let referenced = &mut C::all(&mut self.content)[references_to];
-
-                // Set of inherited modifiers from the definition
-                let inherited = *referenced.modifiers() & C::inherit_modifiers();
-                // Set of conflict modifiers
-                //   - any modifiers not inherited
-                //   - is not ref
-                // OR
-                //   - is new, new is always a conflict with ref
-                // except ref and new, the only modifiers a reference can have is those inherited
-                // from the definition
-                let conflict = (*new.modifiers() & !inherited & !Modifiers::REF)
-                    | (*new.modifiers() & Modifiers::NEW);
-
-                // Apply inherited
-                *new.modifiers() |= inherited;
-
-                // is implicit if we are here (is a reference) and the reference modifier is not set
-                let implicit = !new.modifiers().contains(Modifiers::REF);
-
-                *new.modifiers() |= Modifiers::REF;
-                new.set_reference(references_to);
-
-                if !conflict.is_empty() {
-                    self.ctx
-                        .error(AnalysisError::ConflictingModifiersInReference {
-                            modifiers: Located::new(*new.modifiers(), modifiers_location),
-                            conflict,
-                            implicit,
-                        });
+        if new.modifiers().contains(Modifiers::NEW) {
+            if self.define_mode != DefineMode::Steps {
+                if self.duplicate_mode == DuplicateMode::Reference && same_name().is_none() {
+                    self.ctx.warn(AnalysisWarning::RedundantModifier {
+                        what: "new ('+')",
+                        help: format!("There are no {}s with the same name before", C::container())
+                            .into(),
+                        define_mode: self.define_mode,
+                        duplicate_mode: self.duplicate_mode,
+                        modifiers: Located::new(*new.modifiers(), modifiers_location),
+                    });
+                } else if self.duplicate_mode == DuplicateMode::New {
+                    self.ctx.warn(AnalysisWarning::RedundantModifier {
+                        what: "new ('+')",
+                        help: format!("This {} is already a definition", C::container()).into(),
+                        define_mode: self.define_mode,
+                        duplicate_mode: self.duplicate_mode,
+                        modifiers: Located::new(*new.modifiers(), modifiers_location),
+                    });
                 }
-
-                return Some((references_to, implicit));
-            } else {
-                self.ctx.error(AnalysisError::ReferenceNotFound {
-                    name: new.name().to_string(),
-                    reference_span: location,
-                });
             }
+            return None;
         }
-        None
+
+        if (self.duplicate_mode == DuplicateMode::Reference
+            || self.define_mode == DefineMode::Steps)
+            && new.modifiers().contains(Modifiers::REF)
+        {
+            self.ctx.warn(AnalysisWarning::RedundantModifier {
+                what: "reference ('&')",
+                help: format!("This {} is already a reference", C::container()).into(),
+                define_mode: self.define_mode,
+                duplicate_mode: self.duplicate_mode,
+                modifiers: Located::new(*new.modifiers(), modifiers_location),
+            });
+        }
+
+        // the reference is implicit if we are here (is a reference) and the
+        // reference modifier is not set
+        let implicit = !new.modifiers().contains(Modifiers::REF);
+
+        let treat_as_reference = new.modifiers().contains(Modifiers::REF)
+            || self.define_mode == DefineMode::Steps
+            || self.duplicate_mode == DuplicateMode::Reference && same_name().is_some();
+
+        if !treat_as_reference {
+            return None;
+        }
+
+        if let Some(references_to) = same_name() {
+            let referenced = &mut C::all_mut(&mut self.content)[references_to];
+
+            // Set of inherited modifiers from the definition
+            let inherited = *referenced.modifiers() & C::inherit_modifiers();
+            // Set of conflict modifiers
+            //   - any modifiers not inherited
+            //   - is not ref
+            // except ref and new, the only modifiers a reference can have is those inherited
+            // from the definition. And if it has it's not treated as a reference.
+            let conflict = *new.modifiers() & !inherited & !Modifiers::REF;
+
+            // Apply inherited
+            *new.modifiers_mut() |= inherited;
+
+            *new.modifiers_mut() |= Modifiers::REF;
+            new.set_reference(references_to);
+
+            if !conflict.is_empty() {
+                self.ctx
+                    .error(AnalysisError::ConflictingModifiersInReference {
+                        modifiers: Located::new(*new.modifiers(), modifiers_location),
+                        conflict,
+                        implicit,
+                    });
+            }
+
+            Some((references_to, implicit))
+        } else {
+            self.ctx.error(AnalysisError::ReferenceNotFound {
+                name: new.name().to_string(),
+                reference_span: location,
+                implicit,
+            });
+            None
+        }
     }
 }
 
 trait RefComponent: Sized {
-    fn modifiers(&mut self) -> &mut Modifiers;
+    fn modifiers(&self) -> &Modifiers;
+    fn modifiers_mut(&mut self) -> &mut Modifiers;
     fn name(&self) -> &str;
     /// Get a slice with all the components of this type
-    fn all(content: &mut RecipeContent) -> &mut [Self];
+    fn all(content: &ScalableRecipe) -> &[Self];
+    fn all_mut(content: &mut ScalableRecipe) -> &mut [Self];
 
     fn inherit_modifiers() -> Modifiers;
 
     fn set_reference(&mut self, references_to: usize);
     fn set_referenced_from(all: &mut [Self], references_to: usize);
+
+    fn container() -> &'static str;
 }
 
 impl RefComponent for Ingredient<ScalableValue> {
-    fn modifiers(&mut self) -> &mut Modifiers {
+    #[inline]
+    fn modifiers(&self) -> &Modifiers {
+        &self.modifiers
+    }
+    #[inline]
+    fn modifiers_mut(&mut self) -> &mut Modifiers {
         &mut self.modifiers
     }
-
+    #[inline]
     fn name(&self) -> &str {
         &self.name
     }
 
-    fn all(content: &mut RecipeContent) -> &mut [Self] {
+    #[inline]
+    fn all(content: &ScalableRecipe) -> &[Self] {
+        &content.ingredients
+    }
+
+    #[inline]
+    fn all_mut(content: &mut ScalableRecipe) -> &mut [Self] {
         &mut content.ingredients
     }
 
+    #[inline]
     fn inherit_modifiers() -> Modifiers {
         Modifiers::HIDDEN | Modifiers::OPT | Modifiers::RECIPE
     }
 
+    #[inline]
     fn set_reference(&mut self, references_to: usize) {
         self.relation =
             IngredientRelation::reference(references_to, IngredientReferenceTarget::Ingredient);
@@ -883,25 +919,45 @@ impl RefComponent for Ingredient<ScalableValue> {
             None => panic!("Reference to reference"),
         }
     }
+
+    #[inline]
+    fn container() -> &'static str {
+        "ingredient"
+    }
 }
 
 impl RefComponent for Cookware<ScalableValue> {
-    fn modifiers(&mut self) -> &mut Modifiers {
+    #[inline]
+    fn modifiers(&self) -> &Modifiers {
+        &self.modifiers
+    }
+
+    #[inline]
+    fn modifiers_mut(&mut self) -> &mut Modifiers {
         &mut self.modifiers
     }
 
+    #[inline]
     fn name(&self) -> &str {
         &self.name
     }
 
-    fn all(content: &mut RecipeContent) -> &mut [Self] {
+    #[inline]
+    fn all(content: &ScalableRecipe) -> &[Self] {
+        &content.cookware
+    }
+
+    #[inline]
+    fn all_mut(content: &mut ScalableRecipe) -> &mut [Self] {
         &mut content.cookware
     }
 
+    #[inline]
     fn inherit_modifiers() -> Modifiers {
         Modifiers::HIDDEN | Modifiers::OPT
     }
 
+    #[inline]
     fn set_reference(&mut self, references_to: usize) {
         self.relation = ComponentRelation::Reference { references_to };
     }
@@ -912,6 +968,11 @@ impl RefComponent for Cookware<ScalableValue> {
             ComponentRelation::Definition { referenced_from } => referenced_from.push(new_index),
             ComponentRelation::Reference { .. } => panic!("Reference to reference"),
         }
+    }
+
+    #[inline]
+    fn container() -> &'static str {
+        "cookware item"
     }
 }
 

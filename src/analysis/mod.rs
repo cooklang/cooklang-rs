@@ -4,14 +4,28 @@ use thiserror::Error;
 
 use crate::error::{CooklangError, CooklangWarning, PassResult};
 use crate::span::Span;
+use crate::ScalableRecipe;
 use crate::{error::RichError, located::Located, metadata::MetadataError};
 
 mod ast_walker;
 
 pub use ast_walker::parse_events;
-pub use ast_walker::RecipeContent;
 
-pub type AnalysisResult = PassResult<RecipeContent, CooklangError, CooklangWarning>;
+pub type AnalysisResult = PassResult<ScalableRecipe, CooklangError, CooklangWarning>;
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum DefineMode {
+    All,
+    Components,
+    Steps,
+    Text,
+}
+
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum DuplicateMode {
+    New,
+    Reference,
+}
 
 #[derive(Debug, Error)]
 #[non_exhaustive]
@@ -24,7 +38,11 @@ pub enum AnalysisError {
     },
 
     #[error("Reference not found: {name}")]
-    ReferenceNotFound { name: String, reference_span: Span },
+    ReferenceNotFound {
+        name: String,
+        reference_span: Span,
+        implicit: bool,
+    },
 
     #[error("Conflicting ingredient reference quantities: {ingredient_name}")]
     ConflictingReferenceQuantities {
@@ -120,13 +138,22 @@ pub enum AnalysisWarning {
     #[error("Redundant auto scale marker")]
     RedundantAutoScaleMarker { quantity_span: Span },
 
-    #[error("Redundant reference (&) modifier")]
-    RedundantReferenceModifier {
+    #[error("Redundant {what} modifier")]
+    RedundantModifier {
+        what: &'static str,
         modifiers: Located<crate::ast::Modifiers>,
+        help: Cow<'static, str>,
+        define_mode: DefineMode,
+        duplicate_mode: DuplicateMode,
     },
 
     #[error("Referenced recipe not found: '{name}'")]
-    RecipeNotFound { ref_span: Span, name: String },
+    RecipeNotFound {
+        ref_span: Span,
+        name: String,
+        help: Option<Cow<'static, str>>,
+        note: Option<Cow<'static, str>>,
+    },
 }
 
 impl RichError for AnalysisError {
@@ -223,9 +250,10 @@ impl RichError for AnalysisError {
                 note!("With the ADVANCED_UNITS extensions, timers are required to have a time unit")
             }
             AnalysisError::ConflictingModifiersInReference { implicit, .. }
-            | AnalysisError::ComponentPartNotAllowedInReference { implicit, .. } => {
+            | AnalysisError::ComponentPartNotAllowedInReference { implicit, .. }
+            | AnalysisError::ReferenceNotFound { implicit, .. } => {
                 if *implicit {
-                    note!("The reference ('&') is implicit.")
+                    note!("The reference ('&') is implicit")
                 } else {
                     None
                 }
@@ -276,7 +304,7 @@ impl RichError for AnalysisWarning {
             AnalysisWarning::RedundantAutoScaleMarker { quantity_span } => {
                 vec![label!(quantity_span)]
             }
-            AnalysisWarning::RedundantReferenceModifier { modifiers } => {
+            AnalysisWarning::RedundantModifier { modifiers, .. } => {
                 vec![label!(modifiers)]
             }
             AnalysisWarning::RecipeNotFound { ref_span, .. } => vec![label!(ref_span)],
@@ -290,17 +318,13 @@ impl RichError for AnalysisWarning {
                 help!("Possible values are 'define', 'duplicate' and 'auto scale'")
             }
             AnalysisWarning::TemperatureRegexCompile { .. } => {
-                help!("Check the temperature symbols defined in the units.toml file")
+                help!("Check the temperature symbols defined in the units configuration")
             }
             AnalysisWarning::RedundantAutoScaleMarker { .. } => {
                 help!("Be careful as every ingredient is already marked to auto scale")
             }
-            AnalysisWarning::RedundantReferenceModifier { .. } => {
-                help!("Be careful as every ingredient is already marked to be a reference")
-            }
-            AnalysisWarning::RecipeNotFound { .. } => {
-                help!("Names must match exactly except for upper and lower case")
-            }
+            AnalysisWarning::RedundantModifier { help, .. } => Some(help.clone()),
+            AnalysisWarning::RecipeNotFound { help, .. } => help.clone(),
             _ => None,
         }
     }
@@ -311,13 +335,20 @@ impl RichError for AnalysisWarning {
             AnalysisWarning::InvalidMetadataValue { .. } => {
                 note!("Rich information for this metadata will not be available")
             }
-            AnalysisWarning::RecipeNotFound { name, .. } => {
-                if name.chars().any(std::path::is_separator) {
-                    note!("This is treated as a path relative to the base directory")
-                } else {
-                    None
+            AnalysisWarning::RecipeNotFound { note, .. } => note.clone(),
+            AnalysisWarning::RedundantModifier {
+                define_mode,
+                duplicate_mode,
+                ..
+            } => note!(format!(
+                "In the current mode, by default, {}",
+                match (define_mode, duplicate_mode) {
+                    (DefineMode::Steps, _) => "all components are references",
+                    (_, DuplicateMode::Reference) =>
+                        "components are definitions but duplicates are references",
+                    _ => "all components are definitions",
                 }
-            }
+            )),
             _ => None,
         }
     }

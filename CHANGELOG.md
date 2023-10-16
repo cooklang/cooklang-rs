@@ -8,12 +8,18 @@
 - Sections now holds content: steps and text blocks. This makes a clear
   distinction between the old regular steps and text steps which have been
   removed.
-- Remove name from model. The name in cooklang is external to the recipe and
+- Remove name from `Recipe`. The name in cooklang is external to the recipe and
   up to the library user to handle it.
+- Remove `analysis::RecipeContent`. Now `analysis::parse_events` returns a
+  `ScalableRecipe` directly.
+- Change the return type of the recipe ref checker.
 
 ### Features
 - New warning for bad single word names. It could be confusing not getting
   any result because of a unsoported symbol there.
+- Improve redundant modifiers warnings.
+- Recipe not found warning is now customizable from the result of the recipe
+  ref checker.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

@@ -1,11 +1,11 @@
-use cooklang::analysis::{parse_events, RecipeContent};
+use cooklang::analysis::parse_events;
 use cooklang::model::Item as ModelItem;
 use cooklang::parser::PullParser;
 use cooklang::quantity::{
     Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
 };
-use cooklang::Converter;
 use cooklang::Extensions;
+use cooklang::{Converter, ScalableRecipe};
 use std::collections::HashMap;
 
 #[derive(uniffi::Record, Debug)]
@@ -105,7 +105,7 @@ fn extract_value(value: &ModelValue) -> Value {
     }
 }
 
-fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
+fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
         ModelItem::Ingredient { index } => {
@@ -153,7 +153,7 @@ fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
     }
 }
 
-fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
+fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
     let mut metadata = CooklangMetadata::new();
     let mut steps: Vec<Step> = Vec::new();
     let mut ingredients: Vec<Item> = Vec::new();

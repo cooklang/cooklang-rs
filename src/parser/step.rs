@@ -77,7 +77,7 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
         bp.with_recover(|bp| {
             let tokens = bp.consume_while(|t| matches!(t, T![word] | T![int] | T![float]));
             if tokens.is_empty() {
-                if !bp.at(T![ws]) {
+                if !bp.rest().is_empty() && !bp.at(T![ws]) {
                     bp.warn(ParserWarning::ComponentPartIgnored {
                         container: "component",
                         what: "this single word name",

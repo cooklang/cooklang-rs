@@ -84,6 +84,8 @@ pub mod span;
 mod context;
 mod lexer;
 
+use std::borrow::Cow;
+
 use bitflags::bitflags;
 
 use error::{CooklangError, CooklangWarning, PassResult};
@@ -185,7 +187,34 @@ pub struct CooklangParser {
 pub type RecipeResult = PassResult<ScalableRecipe, CooklangError, CooklangWarning>;
 pub type MetadataResult = PassResult<Metadata, CooklangError, CooklangWarning>;
 
-pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> bool + 'a>;
+/// Function to check if a reference to a recipe exist
+///
+/// It takes the name of the ingredient
+pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> RecipeRefCheckResult + 'a>;
+
+/// Result of [`RecipeRefChecker`]
+pub enum RecipeRefCheckResult {
+    /// The recipe is found
+    Found,
+    /// The recipe is not found
+    NotFound {
+        /// Optional help message for the error
+        help: Option<Cow<'static, str>>,
+        /// Optional note message for the error
+        note: Option<Cow<'static, str>>,
+    },
+}
+impl From<bool> for RecipeRefCheckResult {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::Found,
+            false => Self::NotFound {
+                help: None,
+                note: None,
+            },
+        }
+    }
+}
 
 impl CooklangParser {
     /// Creates a new parser.
@@ -223,22 +252,12 @@ impl CooklangParser {
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
-        let result = analysis::parse_events(
+        analysis::parse_events(
             &mut parser,
             self.extensions,
             &self.converter,
             recipe_ref_checker,
-        );
-
-        result.map(|c| Recipe {
-            metadata: c.metadata,
-            sections: c.sections,
-            ingredients: c.ingredients,
-            cookware: c.cookware,
-            timers: c.timers,
-            inline_quantities: c.inline_quantities,
-            data: (),
-        })
+        )
     }
 
     /// Parse only the metadata of a recipe
