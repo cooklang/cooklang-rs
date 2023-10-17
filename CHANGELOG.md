@@ -20,6 +20,7 @@
 - Improve redundant modifiers warnings.
 - Recipe not found warning is now customizable from the result of the recipe
   ref checker.
+- Unknown special metadata keys are now added to the metadata.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

@@ -189,9 +189,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     "false" | "default" => self.auto_scale_ingredients = false,
                     _ => self.ctx.error(invalid_value(vec!["true", "false"])),
                 },
-                _ => self.ctx.warn(AnalysisWarning::UnknownSpecialMetadataKey {
-                    key: key.located_string_trimmed(),
-                }),
+                _ => {
+                    self.ctx.warn(AnalysisWarning::UnknownSpecialMetadataKey {
+                        key: key.located_string_trimmed(),
+                    });
+                    self.content
+                        .metadata
+                        .map
+                        .insert(key_t.into_owned(), value_t.into_owned());
+                }
             }
         } else if let Err(warn) = self
             .content
