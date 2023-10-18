@@ -32,22 +32,20 @@ pub struct Ast<'a> {
 pub enum Block<'a> {
     /// Metadata entry
     Metadata { key: Text<'a>, value: Text<'a> },
+    /// Section divider
+    ///
+    /// In the ast, a section does not own steps, it just exists in between.
+    Section { name: Option<Text<'a>> },
     /// Recipe step
     Step {
-        /// Flag that indicates that this is a text step.
-        ///
-        /// All `items` will be [Item::Text].
-        is_text: bool,
         /// Items that compose the step.
         ///
         /// This is in order, so to form the representation of the step just
         /// iterate over the items and process them in that order.
         items: Vec<Item<'a>>,
     },
-    /// Section divider
-    ///
-    /// In the ast, a section does not own steps, it just exists in between.
-    Section { name: Option<Text<'a>> },
+    /// A paragraph of instructions
+    TextBlock(Vec<Text<'a>>),
 }
 
 /// An item of a [`Block::Step`].
@@ -55,9 +53,9 @@ pub enum Block<'a> {
 pub enum Item<'a> {
     /// Plain text
     Text(Text<'a>),
-    Ingredient(Located<Ingredient<'a>>),
-    Cookware(Located<Cookware<'a>>),
-    Timer(Located<Timer<'a>>),
+    Ingredient(Box<Located<Ingredient<'a>>>),
+    Cookware(Box<Located<Cookware<'a>>>),
+    Timer(Box<Located<Timer<'a>>>),
 }
 
 impl Item<'_> {
@@ -193,7 +191,7 @@ impl Recover for QuantityValue {
 
 impl Recover for Value {
     fn recover() -> Self {
-        Self::Number { value: 1.0 }
+        1.0.into()
     }
 }
 
@@ -259,14 +257,14 @@ pub struct IntermediateData {
     ///
     /// This means:
     ///
-    /// | `ref_mode`/`target_kind` | [`Step`]                                               | [`Section`]                    |
-    /// |:-------------------------|:-------------------------------------------------------|:-------------------------------|
-    /// | [`Index`]                | Index in the vec of steps **of the current section**   | Index into the vec of sections |
-    /// | [`Relative`]             | Number of non text steps back                          | Number of sections back        |
+    /// | `ref_mode`/`target_kind` | [`Step`]                               | [`Section`]               |
+    /// |:-------------------------|:---------------------------------------|:--------------------------|
+    /// | [`Number`]               | Step number **in the current section** | Section number            |
+    /// | [`Relative`]             | Number of non text steps back          | Number of sections back   |
     ///
     /// [`Step`]: IntermediateTargetKind::Step
     /// [`Section`]: IntermediateTargetKind::Section
-    /// [`Index`]: IntermediateRefMode::Index
+    /// [`Number`]: IntermediateRefMode::Number
     /// [`Relative`]: IntermediateRefMode::Relative
     pub val: i16,
 }
@@ -274,8 +272,8 @@ pub struct IntermediateData {
 /// How to treat the value in [`IntermediateData`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IntermediateRefMode {
-    /// Absoltute index
-    Index,
+    /// Step or section number
+    Number,
     /// Relative backwards
     ///
     /// When it is steps, is number of non text steps back.

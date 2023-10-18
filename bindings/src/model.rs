@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use cooklang::analysis::RecipeContent;
+use cooklang::ScalableRecipe;
 use cooklang::model::Item as ModelItem;
 use cooklang::quantity::{
     Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
@@ -194,56 +194,68 @@ impl Amountable for ModelScalableValue {
 
 fn extract_quantity(value: &ModelScalableValue) -> Value {
     match value {
-        ModelScalableValue::Fixed { value } => extract_value(value),
-        ModelScalableValue::Linear { value } => extract_value(value),
-        ModelScalableValue::ByServings { values } => extract_value(values.first().unwrap()),
+        ModelScalableValue::Fixed(value) => extract_value(value),
+        ModelScalableValue::Linear(value) => extract_value(value),
+        ModelScalableValue::ByServings(values) => extract_value(values.first().unwrap()),
     }
 }
 
 fn extract_value(value: &ModelValue) -> Value {
     match value {
-        ModelValue::Number { value } => Value::Number { value: *value },
-        ModelValue::Range { value } => Value::Range {
-            start: *value.start(),
-            end: *value.end(),
+        ModelValue::Number(num) => Value::Number { value: num.value() },
+        ModelValue::Range { start, end } => Value::Range {
+            start: start.value(),
+            end: end.value(),
         },
-        ModelValue::Text { value } => Value::Text {
+        ModelValue::Text(value) => Value::Text {
             value: value.to_string(),
         },
     }
 }
 
-pub fn into_item(item: ModelItem, recipe: &RecipeContent) -> Item {
+pub fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
-        ModelItem::ItemIngredient { index } => {
+        ModelItem::Ingredient { index } => {
             let ingredient = &recipe.ingredients[index];
 
             Item::Ingredient {
                 name: ingredient.name.clone(),
-                amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
+                amount: if let Some(q) = &ingredient.quantity {
+                    Some(q.extract_amount())
+                } else {
+                    None
+                },
             }
         }
 
-        ModelItem::ItemCookware { index } => {
+        ModelItem::Cookware { index } => {
             let cookware = &recipe.cookware[index];
             Item::Cookware {
                 name: cookware.name.clone(),
-                amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
+                amount: if let Some(q) = &cookware.quantity {
+                    Some(q.extract_amount())
+                } else {
+                    None
+                },
             }
         }
 
-        ModelItem::ItemTimer { index } => {
+        ModelItem::Timer { index } => {
             let timer = &recipe.timers[index];
 
             Item::Timer {
                 name: timer.name.clone(),
-                amount: timer.quantity.as_ref().map(|q| q.extract_amount()),
+                amount: if let Some(q) = &timer.quantity {
+                    Some(q.extract_amount())
+                } else {
+                    None
+                },
             }
         }
 
         // returning an empty block of text as it's not supported by the spec
-        ModelItem::InlineQuantity { .. } => Item::Text {
+        ModelItem::InlineQuantity { index: _ } => Item::Text {
             value: "".to_string(),
         },
     }

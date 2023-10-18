@@ -33,10 +33,7 @@
 //! ```rust
 //! # use cooklang::CooklangParser;
 //! # let parser = CooklangParser::default();
-//! let src = "This is an @example.";
-//! let name = "Example Recipe";
-//! let (recipe, _warnings) = parser.parse(src, name).into_result()?;
-//! assert_eq!(recipe.name, name);
+//! let (recipe, _warnings) = parser.parse("This is an @example").into_result()?;
 //! assert_eq!(recipe.ingredients.len(), 1);
 //! assert_eq!(recipe.ingredients[0].name, "example");
 //! # assert!(_warnings.is_empty());
@@ -87,6 +84,8 @@ pub mod span;
 mod context;
 mod lexer;
 
+use std::borrow::Cow;
+
 use bitflags::bitflags;
 
 use error::{CooklangError, CooklangWarning, PassResult};
@@ -99,6 +98,7 @@ pub use quantity::{
     GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
     TotalQuantity, UnitInfo, Value,
 };
+use serde::{Deserialize, Serialize};
 pub use span::Span;
 
 bitflags! {
@@ -108,7 +108,7 @@ bitflags! {
     /// for a detailed explanation of all of them.
     ///
     /// [`Extensions::default`] enables all extensions.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Extensions: u32 {
         /// Steps separation is a blank line, not a line break. This may break
         /// compatibility with other cooklang parsers.
@@ -136,7 +136,7 @@ bitflags! {
         /// Creating a timer without a time becomes an error
         const TIMER_REQUIRES_TIME      = 1 << 10;
         /// This extensions also enables [`Self::COMPONENT_MODIFIERS`].
-        const INTERMEDIATE_INGREDIENTS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
+        const INTERMEDIATE_PREPARATIONS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
 
         /// Enables [`Self::COMPONENT_MODIFIERS`], [`Self::COMPONENT_NOTE`] and [`Self::COMPONENT_ALIAS`]
         const COMPONENT_ALL = Self::COMPONENT_MODIFIERS.bits()
@@ -159,7 +159,7 @@ bitflags! {
                         | Self::TEMPERATURE.bits()
                         | Self::TEXT_STEPS.bits()
                         | Self::RANGE_VALUES.bits()
-                        | Self::INTERMEDIATE_INGREDIENTS.bits();
+                        | Self::INTERMEDIATE_PREPARATIONS.bits();
     }
 }
 
@@ -187,7 +187,34 @@ pub struct CooklangParser {
 pub type RecipeResult = PassResult<ScalableRecipe, CooklangError, CooklangWarning>;
 pub type MetadataResult = PassResult<Metadata, CooklangError, CooklangWarning>;
 
-pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> bool + 'a>;
+/// Function to check if a reference to a recipe exist
+///
+/// It takes the name of the ingredient
+pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> RecipeRefCheckResult + 'a>;
+
+/// Result of [`RecipeRefChecker`]
+pub enum RecipeRefCheckResult {
+    /// The recipe is found
+    Found,
+    /// The recipe is not found
+    NotFound {
+        /// Optional help message for the error
+        help: Option<Cow<'static, str>>,
+        /// Optional note message for the error
+        note: Option<Cow<'static, str>>,
+    },
+}
+impl From<bool> for RecipeRefCheckResult {
+    fn from(value: bool) -> Self {
+        match value {
+            true => Self::Found,
+            false => Self::NotFound {
+                help: None,
+                note: None,
+            },
+        }
+    }
+}
 
 impl CooklangParser {
     /// Creates a new parser.
@@ -211,11 +238,8 @@ impl CooklangParser {
     }
 
     /// Parse a recipe
-    ///
-    /// As in cooklang the name is external to the recipe, this must be given
-    /// here too.
-    pub fn parse(&self, input: &str, recipe_name: &str) -> RecipeResult {
-        self.parse_with_recipe_ref_checker(input, recipe_name, None)
+    pub fn parse(&self, input: &str) -> RecipeResult {
+        self.parse_with_recipe_ref_checker(input, None)
     }
 
     /// Same as [`Self::parse`] but with a function that checks if a recipe
@@ -225,27 +249,15 @@ impl CooklangParser {
     pub fn parse_with_recipe_ref_checker(
         &self,
         input: &str,
-        recipe_name: &str,
         recipe_ref_checker: Option<RecipeRefChecker>,
     ) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
-        let result = analysis::parse_events(
+        analysis::parse_events(
             &mut parser,
             self.extensions,
             &self.converter,
             recipe_ref_checker,
-        );
-
-        result.map(|c| Recipe {
-            name: recipe_name.to_string(),
-            metadata: c.metadata,
-            sections: c.sections,
-            ingredients: c.ingredients,
-            cookware: c.cookware,
-            timers: c.timers,
-            inline_quantities: c.inline_quantities,
-            data: (),
-        })
+        )
     }
 
     /// Parse only the metadata of a recipe
@@ -269,6 +281,6 @@ impl CooklangParser {
 /// is called, an instance of a parser is constructed. Depending on the
 /// configuration, creating an instance and the first call to that can take much
 /// longer than later calls to [`CooklangParser::parse`].
-pub fn parse(input: &str, recipe_name: &str) -> RecipeResult {
-    CooklangParser::default().parse(input, recipe_name)
+pub fn parse(input: &str) -> RecipeResult {
+    CooklangParser::default().parse(input)
 }

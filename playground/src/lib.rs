@@ -76,7 +76,7 @@ pub fn parse_full(input: &str, json: bool) -> FallibleResult {
         ));
     }
     let parser = parser_ref.as_ref().unwrap();
-    let (recipe, warnings, errors) = parser.parse(input, "playground").into_tuple();
+    let (recipe, warnings, errors) = parser.parse(input).into_tuple();
     let value = match recipe {
         Some(r) => {
             if json {

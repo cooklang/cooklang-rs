@@ -8,9 +8,7 @@ fn complete_recipe(c: &mut Criterion) {
     let mut group = c.benchmark_group("complete recipe");
     let parser = CooklangParser::default();
     let input = black_box(TEST_RECIPE);
-    group.bench_function("cooklang-rs", |b| {
-        b.iter(|| parser.parse(input, "benchmark"))
-    });
+    group.bench_function("cooklang-rs", |b| b.iter(|| parser.parse(input)));
 }
 
 fn just_metadata(c: &mut Criterion) {

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use cooklang::aisle::parse as parse_aisle_config_original;
-use cooklang::analysis::{parse_events, RecipeContent};
+use cooklang::analysis::{parse_events};
 use cooklang::parser::PullParser;
-use cooklang::Converter;
 use cooklang::Extensions;
+use cooklang::{Converter, ScalableRecipe};
 
 pub mod aisle;
 pub mod model;
@@ -12,44 +12,46 @@ pub mod model;
 use aisle::*;
 use model::*;
 
-fn simplify_recipe_data(recipe: &RecipeContent) -> CooklangRecipe {
+fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
     let mut metadata = CooklangMetadata::new();
     let mut steps: Vec<Step> = Vec::new();
     let mut ingredients: IngredientList = IngredientList::default();
     let mut cookware: Vec<Item> = Vec::new();
     let mut items: Vec<Item> = Vec::new();
 
-    recipe.sections.iter().for_each(|section| {
-        section.steps.iter().for_each(|step| {
-            step.items.iter().for_each(|item| {
-                let i = into_item(item.clone(), recipe);
+    (&recipe.sections).iter().for_each(|section| {
+        (&section.content).iter().for_each(|content| {
+            if let cooklang::Content::Step(step) = content {
+                (&step.items).iter().for_each(|item| {
+                    let i = into_item(item.clone(), recipe);
 
-                match i {
-                    // TODO
-                    Item::Ingredient {
-                        ref name,
-                        ref amount,
-                    } => {
-                        add_to_ingredient_list(&mut ingredients, name.to_string(), amount);
-                    }
-                    Item::Cookware { .. } => {
-                        cookware.push(i.clone());
-                    }
-                    // don't need anything if timer or text
-                    _ => (),
-                };
+                    match i {
+                        // TODO
+                        Item::Ingredient {
+                            ref name,
+                            ref amount,
+                        } => {
+                            add_to_ingredient_list(&mut ingredients, name.to_string(), amount);
+                        }
+                        Item::Cookware { .. } => {
+                            cookware.push(i.clone());
+                        }
+                        // don't need anything if timer or text
+                        _ => (),
+                    };
+                        items.push(i);
+                });
+                // TODO: think how to make it faster as we probably
+                // can switch items content directly into the step object without cloning it
+                steps.push(Step {
+                    items: items.clone(),
+                });
 
-                items.push(i);
-            });
-            // TODO: think how to make it faster as we probably
-            // can switch items content directly into the step object without cloning it
-            steps.push(Step {
-                items: items.clone(),
-            });
-
-            items.clear();
+                items.clear();
+            }
         });
     });
+
 
     recipe.metadata.map.iter().for_each(|(key, value)| {
         metadata.insert(key.to_string(), value.to_string());

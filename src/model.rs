@@ -1,13 +1,5 @@
 //! Recipe representation
 
-/*
-
-   To make this model compatible with UniFFI
-     - Do not use tuple-like enums
-     - Enum variant names can't conflict with types or other enums
-
-*/
-
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
@@ -22,6 +14,9 @@ use crate::{
 
 /// A complete recipe
 ///
+/// The recipes does not have a name. You give it externally or maybe use
+/// some metadata key.
+///
 /// The recipe returned from parsing is a [`ScalableRecipe`].
 ///
 /// The difference between [`ScalableRecipe`] and [`ScaledRecipe`] is in the
@@ -30,8 +25,6 @@ use crate::{
 /// [`Value`]s.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Recipe<D, V: QuantityValue> {
-    /// Recipe name
-    pub name: String,
     /// Metadata
     pub metadata: Metadata,
     /// Each of the sections
@@ -67,23 +60,67 @@ pub type ScaledRecipe = Recipe<crate::scale::Scaled, Value>;
 pub struct Section {
     /// Name of the section
     pub name: Option<String>,
-    /// Steps inside
-    pub steps: Vec<Step>,
+    /// Content inside
+    pub content: Vec<Content>,
 }
 
 impl Section {
     pub(crate) fn new(name: Option<String>) -> Section {
         Self {
             name,
-            steps: Vec::new(),
+            content: Vec::new(),
         }
     }
 
     /// Check if the section is empty
     ///
-    /// A section is empty when it has no name and no steps.
+    /// A section is empty when it has no name and no content.
     pub fn is_empty(&self) -> bool {
-        self.name.is_none() && self.steps.is_empty()
+        self.name.is_none() && self.content.is_empty()
+    }
+}
+
+/// Each type of content inside a section
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+pub enum Content {
+    /// A step
+    Step(Step),
+    /// A paragraph of just text, no instructions
+    Text(String),
+}
+
+impl Content {
+    /// Checks if the content is a regular step
+    pub fn is_step(&self) -> bool {
+        matches!(self, Self::Step(_))
+    }
+
+    /// Checks if the content is a text paragraph
+    pub fn is_text(&self) -> bool {
+        matches!(self, Self::Text(_))
+    }
+
+    /// Get's the inner step
+    ///
+    /// # Panics
+    /// If the content is [`Content::Text`]
+    pub fn as_step(&self) -> &Step {
+        match self {
+            Content::Step(s) => s,
+            Content::Text(_) => panic!("content is text"),
+        }
+    }
+
+    /// Get's the inner step
+    ///
+    /// # Panics
+    /// If the content is [`Content::Step`]
+    pub fn as_text(&self) -> &str {
+        match self {
+            Content::Step(_) => panic!("content is step"),
+            Content::Text(t) => t.as_str(),
+        }
     }
 }
 
@@ -96,39 +133,34 @@ pub struct Step {
 
     /// Step number
     ///
-    /// The step numbers start at 1 in each section and increase with every non
-    /// text step. Text steps do not have a number. If this is not a text step,
-    /// it will always be [`Some`].
-    pub number: Option<u32>,
-}
-
-impl Step {
-    /// Flag that indicates the step is a text step.
-    ///
-    /// A text step does not increase the step counter, so, if this method
-    /// returns `true`, the step does not have a number. There are only
-    /// [`Item::Text`] in [`items`](Self::items).
-    pub fn is_text(&self) -> bool {
-        self.number.is_none()
-    }
+    /// The step numbers start at 1 in each section and increase with non
+    /// text step.
+    pub number: u32,
 }
 
 /// A step item
+///
+/// Except for [`Item::Text`], the value is the index where the item is located
+/// in it's corresponding [`Vec`] in the [`Recipe`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
-    Text { value: String },
-    #[serde(rename = "ingredient")] // UniFFI
-    ItemIngredient { index: usize },
-    #[serde(rename = "cookware")] // UniFFI
-    ItemCookware { index: usize },
-    #[serde(rename = "timer")] // UniFFI
-    ItemTimer { index: usize },
-    /// An inline quantity.
-    ///
-    /// The number inside is an index into [`Recipe::inline_quantities`].
-    InlineQuantity { index: usize },
+    Text {
+        value: String,
+    },
+    Ingredient {
+        index: usize,
+    },
+    Cookware {
+        index: usize,
+    },
+    Timer {
+        index: usize,
+    },
+    InlineQuantity {
+        index: usize,
+    },
 }
 
 /// A recipe ingredient
@@ -185,7 +217,9 @@ impl Ingredient<Value> {
     ) -> Result<Option<ScaledQuantity>, QuantityAddError> {
         let mut quantities = self.all_quantities(all_ingredients);
 
-        let Some(mut total) = quantities.next().cloned() else { return Ok(None); };
+        let Some(mut total) = quantities.next().cloned() else {
+            return Ok(None);
+        };
         for q in quantities {
             total = total.try_add(q, converter)?;
         }
@@ -198,7 +232,7 @@ impl Ingredient<Value> {
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
-    /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}", "name")
+    /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}")
     ///                 .into_output()
     ///                 .unwrap()
     ///                 .default_scale();
@@ -341,16 +375,14 @@ pub struct IngredientRelation {
 ///
 /// This is obtained from [`IngredientRelation::references_to`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
-    #[serde(rename = "ingredient")]
-    IngredientTarget,
+    Ingredient,
     /// Step in the current section
-    #[serde(rename = "step")]
-    StepTarget,
+    Step,
     /// Section in the current recipe
-    #[serde(rename = "section")]
-    SectionTarget,
+    Section,
 }
 
 impl IngredientRelation {
@@ -387,9 +419,21 @@ impl IngredientRelation {
 
     /// Get the index the relation refrences to and the target
     ///
-    /// If the [`INTERMEDIATE_INGREDIENTS`](crate::Extensions::INTERMEDIATE_INGREDIENTS)
+    /// The first element of the tuple is an index into:
+    ///
+    /// | Target | Where |
+    /// |--------|-------|
+    /// | [`Ingredient`] | [`Recipe::ingredients`] |
+    /// | [`Step`] | [`Section::content`] in the same section this ingredient is. It's guaranteed that the content is a step. |
+    /// | [`Section`] | [`Recipe::sections`] |
+    ///
+    /// [`Ingredient`]: IngredientReferenceTarget::Ingredient
+    /// [`Step`]: IngredientReferenceTarget::Step
+    /// [`Section`]: IngredientReferenceTarget::Section
+    ///
+    /// If the [`INTERMEDIATE_PREPARATIONS`](crate::Extensions::INTERMEDIATE_PREPARATIONS)
     /// extension is disabled, the target will always be
-    /// [`IngredientReferenceTarget::IngredientTarget`].
+    /// [`IngredientReferenceTarget::Ingredient`].
     pub fn references_to(&self) -> Option<(usize, IngredientReferenceTarget)> {
         self.relation
             .references_to()
@@ -400,7 +444,7 @@ impl IngredientRelation {
     pub fn is_regular_reference(&self) -> bool {
         use IngredientReferenceTarget::*;
         self.references_to()
-            .map(|(_, target)| target == IngredientTarget)
+            .map(|(_, target)| target == Ingredient)
             .unwrap_or(false)
     }
 
@@ -408,7 +452,7 @@ impl IngredientRelation {
     pub fn is_intermediate_reference(&self) -> bool {
         use IngredientReferenceTarget::*;
         self.references_to()
-            .map(|(_, target)| matches!(target, StepTarget | SectionTarget))
+            .map(|(_, target)| matches!(target, Step | Section))
             .unwrap_or(false)
     }
 

@@ -541,6 +541,13 @@ impl RichError for CooklangWarning {
         }
     }
 
+    fn note(&self) -> Option<Cow<'static, str>> {
+        match self {
+            CooklangWarning::Parser(e) => e.note(),
+            CooklangWarning::Analysis(e) => e.note(),
+        }
+    }
+
     fn kind(&self) -> ariadne::ReportKind {
         ariadne::ReportKind::Warning
     }

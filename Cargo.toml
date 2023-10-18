@@ -1,6 +1,6 @@
 [package]
 name = "cooklang"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
@@ -21,7 +21,7 @@ pest = { version = "2", optional = true }
 pest_derive = { version = "2", optional = true }
 indexmap = { version = "2", features = ["serde"] }
 emojis = "0.6"
-toml = { version = "0.7", optional = true }
+toml = { version = "0.8", optional = true }
 once_cell = "1"
 enum-map = { version = "2", features = ["serde"] }
 humantime = "2"
@@ -35,7 +35,7 @@ smallvec = { version = "1", features = ["serde"] }
 serde_json = "1"
 serde_yaml = "0.9"
 criterion = "0.5"
-test-case = "=3.1.0"
+test-case = "3.2.1"
 indoc = "2.0.3"
 
 [features]
@@ -45,6 +45,10 @@ aisle = ["dep:pest", "dep:pest_derive"]
 
 [[bench]]
 name = "parse"
+harness = false
+
+[[bench]]
+name = "convert"
 harness = false
 
 [workspace]

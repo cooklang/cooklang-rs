@@ -26,7 +26,7 @@ are 5 modifiers:
 
 This also works (except recipe) for cookware.
 
-## Intermediate ingredients
+## Intermediate preparations
 You can refer to intermediate preparations as ingredients. For example:
 ```cooklang
 Add @flour{200%g} and @water. Mix until combined.
@@ -39,13 +39,13 @@ These ingredients will not appear in the list.
 There are more syntax variations:
 ```cooklang
 @&(~1)thing{}  -- 1 step back
-@&(2)thing{}   -- step index 2
-@&(=2)thing{}  -- section index 2
+@&(2)thing{}   -- step number 2
+@&(=2)thing{}  -- section number 2
 @&(=~2)thing{} -- 2 sections back
 ```
 
-Indexes start with 0, not 1. Only steps from the current section can be
-referenced. It can only be combined with the optional (`?`) modifier. In 
+Only past steps from the current section can be referenced. It can only be
+combined with the optional (`?`) modifier. Text steps can't be referenced. In
 relative references, text steps are ignored. Enabling this extension
 automatically enables the [modifiers](#modifiers) extension. 
 
@@ -94,25 +94,25 @@ Recipe.0.0.jpeg -- The same
 Recipe.1.0.jpeg -- Second section, first, step
 ```
 
-## Text steps
-All components are ignored and the steps don't increment the step counter. Some
-people like to write a couple of paragraphs in the recipe that don't are steps.
-
-It can also be used as notes that are not instructions.
-
-```cooklang
-Regular step.
-> Text step.
-```
-
 ## Multiline steps
-In regular cooklang each line is a step. With this extension the division is by
-a blank line in between, so:
+In regular cooklang each line is a step. With this extension, the recipe is
+divided into blocks by a blank line in between, so:
 ```cooklang
 A step,
 the same step.
 
 A different step.
+```
+
+## Text blocks
+Some people like to write a couple of paragraphs in the recipe that don't are steps.
+
+It can also be used as notes that are not instructions.
+
+```cooklang
+> Text block.
+
+Regular step.
 ```
 
 ## Advanced units
@@ -145,7 +145,7 @@ special keys are between square brackets.
   at the beginning of the recipe if you want to do so.
   - `steps`. All the ingredients are references. To force a new ingredient, use
   the new (`+`) modifier.
-  - `text`. All steps are [text steps](#text-steps)
+  - `text`. All steps are [text blocks](#text-blocks)
 
 - `duplicate`
   - `new` | `default`. When a ingredient with the same name is found, create a

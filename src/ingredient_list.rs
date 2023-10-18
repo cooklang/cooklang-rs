@@ -36,7 +36,7 @@ impl ScaledRecipe {
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
-    /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}", "name")
+    /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}")
     ///                 .into_output()
     ///                 .unwrap()
     ///                 .default_scale();
