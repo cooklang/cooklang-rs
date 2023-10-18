@@ -179,11 +179,6 @@ pub struct Ingredient<V: QuantityValue = Value> {
     /// How the cookware is related to others
     pub relation: IngredientRelation,
     pub(crate) modifiers: Modifiers,
-    // ? maybe move this into analysis?, is not needed in the model
-    // ? however I will keep it here for now. Because of alignment it does
-    // ? not increase the size of the struct. Maybe in the future it can even be
-    // ? be public.
-    pub(crate) defined_in_step: bool,
 }
 
 impl<V: QuantityValue> Ingredient<V> {
@@ -240,7 +235,7 @@ impl Ingredient<Value> {
     /// let flour = &recipe.ingredients[0];
     /// assert_eq!(flour.name, "flour");
     ///
-    /// let grouped_flour = recipe.ingredients[0].group_quantities(
+    /// let grouped_flour = flour.group_quantities(
     ///                         &recipe.ingredients,
     ///                         parser.converter()
     ///                     );
@@ -315,6 +310,74 @@ impl<V: QuantityValue> Cookware<V> {
     }
 }
 
+impl Cookware<Value> {
+    /// Groups all the amounts of itself and it's references
+    ///
+    /// The first element is a grouped numeric value (if any), the rest are text
+    /// values.
+    ///
+    /// ```
+    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
+    /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    /// let recipe = parser.parse("#pan{3} #&pan{1} #&pan{big}")
+    ///                 .into_output()
+    ///                 .unwrap()
+    ///                 .default_scale();
+    ///
+    /// let pan = &recipe.cookware[0];
+    /// assert_eq!(pan.name, "pan");
+    ///
+    /// let grouped_pans = pan.group_amounts(&recipe.cookware);
+    ///
+    /// assert_eq!(
+    ///     grouped_pans,
+    ///     vec![
+    ///         Value::from(4.0),
+    ///         Value::from("big".to_string()),
+    ///     ]
+    /// );
+    /// ```
+    pub fn group_amounts(&self, all_cookware: &[Self]) -> Vec<Value> {
+        use crate::quantity::TryAdd;
+
+        let mut amounts = self.all_amounts(all_cookware);
+        let mut r = Vec::new();
+        loop {
+            match amounts.next() {
+                Some(v) if v.is_text() => r.push(v.clone()),
+                Some(v) => {
+                    r.insert(0, v.clone());
+                    break;
+                }
+                None => return r,
+            }
+        }
+        for v in amounts {
+            if v.is_text() {
+                r.push(v.clone());
+            } else {
+                r[0] = r[0]
+                    .try_add(v)
+                    .expect("non text to non text value add error");
+            }
+        }
+        r
+    }
+
+    /// Gets an iterator over all quantities of this ingredient and its references.
+    pub fn all_amounts<'a>(&'a self, all_cookware: &'a [Self]) -> impl Iterator<Item = &Value> {
+        std::iter::once(self.quantity.as_ref())
+            .chain(
+                self.relation
+                    .referenced_from()
+                    .iter()
+                    .copied()
+                    .map(|i| all_cookware[i].quantity.as_ref()),
+            )
+            .flatten()
+    }
+}
+
 /// Relation between components
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -324,6 +387,10 @@ pub enum ComponentRelation {
         /// List of indices of other components of the same kind referencing this
         /// one
         referenced_from: Vec<usize>,
+        /// True if the definition was in a step
+        ///
+        /// This is only false for components defined in components mode.
+        defined_in_step: bool,
     },
     /// The component is a reference
     Reference {
@@ -338,7 +405,9 @@ impl ComponentRelation {
     /// Returns a list of indices to the corresponding vec in [`Recipe`].
     pub fn referenced_from(&self) -> &[usize] {
         match self {
-            ComponentRelation::Definition { referenced_from } => referenced_from,
+            ComponentRelation::Definition {
+                referenced_from, ..
+            } => referenced_from,
             ComponentRelation::Reference { .. } => &[],
         }
     }
@@ -359,6 +428,18 @@ impl ComponentRelation {
     /// Check if the relation is a definition
     pub fn is_definition(&self) -> bool {
         matches!(self, ComponentRelation::Definition { .. })
+    }
+
+    /// Checks if the definition was in a step
+    ///
+    /// Returns None for references
+    pub fn is_defined_in_step(&self) -> Option<bool> {
+        match self {
+            ComponentRelation::Definition {
+                defined_in_step, ..
+            } => Some(*defined_in_step),
+            ComponentRelation::Reference { .. } => None,
+        }
     }
 }
 
@@ -386,9 +467,12 @@ pub enum IngredientReferenceTarget {
 }
 
 impl IngredientRelation {
-    pub(crate) fn definition(referenced_from: Vec<usize>) -> Self {
+    pub(crate) fn definition(referenced_from: Vec<usize>, defined_in_step: bool) -> Self {
         Self {
-            relation: ComponentRelation::Definition { referenced_from },
+            relation: ComponentRelation::Definition {
+                referenced_from,
+                defined_in_step,
+            },
             reference_target: None,
         }
     }
@@ -412,7 +496,9 @@ impl IngredientRelation {
 
     pub(crate) fn referenced_from_mut(&mut self) -> Option<&mut Vec<usize>> {
         match &mut self.relation {
-            ComponentRelation::Definition { referenced_from } => Some(referenced_from),
+            ComponentRelation::Definition {
+                referenced_from, ..
+            } => Some(referenced_from),
             ComponentRelation::Reference { .. } => None,
         }
     }
@@ -459,6 +545,13 @@ impl IngredientRelation {
     /// Check if the relation is a definition
     pub fn is_definition(&self) -> bool {
         self.relation.is_definition()
+    }
+
+    /// Checks if the definition was in a step
+    ///
+    /// Returns None for references
+    pub fn is_defined_in_step(&self) -> Option<bool> {
+        self.relation.is_defined_in_step()
     }
 }
 

@@ -44,9 +44,9 @@ pub enum AnalysisError {
         implicit: bool,
     },
 
-    #[error("Conflicting ingredient reference quantities: {ingredient_name}")]
+    #[error("Conflicting component reference quantities: {component_name}")]
     ConflictingReferenceQuantities {
-        ingredient_name: String,
+        component_name: String,
         definition_span: Span,
         reference_span: Span,
     },
@@ -105,8 +105,11 @@ pub enum AnalysisWarning {
     #[error("Ignoring text in define ingredients mode")]
     TextDefiningIngredients { text_span: Span },
 
-    #[error("Text value in reference prevents calculating total amount")]
-    TextValueInReference { quantity_span: Span },
+    #[error("Text value may prevent calculating total amount")]
+    TextValueInReference {
+        text_quantity_span: Span,
+        number_quantity_span: Span,
+    },
 
     #[error("Incompatible units in reference prevent calculating total amount")]
     IncompatibleUnits {
@@ -220,7 +223,7 @@ impl RichError for AnalysisError {
                 "A non reference ingredient with the same name defined before cannot be found"
             ),
             AnalysisError::ConflictingReferenceQuantities { .. } => help!(
-                "If the ingredient is not defined in a step and has a quantity, its references cannot have a quantity"
+                "If the component is not defined in a step and has a quantity, its references cannot have a quantity"
             ),
             AnalysisError::UnknownTimerUnit { .. } => {
                 help!("Add a unit to the timer")
@@ -273,7 +276,13 @@ impl RichError for AnalysisWarning {
         match self {
             AnalysisWarning::UnknownSpecialMetadataKey { key } => vec![label!(key)],
             AnalysisWarning::TextDefiningIngredients { text_span } => vec![label!(text_span)],
-            AnalysisWarning::TextValueInReference { quantity_span } => vec![label!(quantity_span)],
+            AnalysisWarning::TextValueInReference {
+                text_quantity_span,
+                number_quantity_span,
+            } => vec![
+                label!(text_quantity_span, "this text"),
+                label!(number_quantity_span, "can't be added with this value"),
+            ],
             AnalysisWarning::IncompatibleUnits { a, b, source } => match source {
                 crate::quantity::IncompatibleUnits::MissingUnit { found } => {
                     let m = "this is missing a unit";

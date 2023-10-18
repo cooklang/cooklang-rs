@@ -310,7 +310,6 @@ impl Scale for Ingredient<ScalableValue> {
             note: self.note,
             relation: self.relation,
             modifiers: self.modifiers,
-            defined_in_step: self.defined_in_step,
         };
         (scaled, outcome)
     }
@@ -323,7 +322,6 @@ impl Scale for Ingredient<ScalableValue> {
             note: self.note,
             relation: self.relation,
             modifiers: self.modifiers,
-            defined_in_step: self.defined_in_step,
         }
     }
 }
