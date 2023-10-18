@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use cooklang::ScalableRecipe;
 use cooklang::model::Item as ModelItem;
 use cooklang::quantity::{
     Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
 };
+use cooklang::ScalableRecipe;
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
@@ -221,11 +221,7 @@ pub fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
 
             Item::Ingredient {
                 name: ingredient.name.clone(),
-                amount: if let Some(q) = &ingredient.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
+                amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
             }
         }
 
@@ -233,11 +229,7 @@ pub fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
             let cookware = &recipe.cookware[index];
             Item::Cookware {
                 name: cookware.name.clone(),
-                amount: if let Some(q) = &cookware.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
+                amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
             }
         }
 
@@ -246,11 +238,7 @@ pub fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
 
             Item::Timer {
                 name: timer.name.clone(),
-                amount: if let Some(q) = &timer.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
+                amount: timer.quantity.as_ref().map(|q| q.extract_amount()),
             }
         }
 

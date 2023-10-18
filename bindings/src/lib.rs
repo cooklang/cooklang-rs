@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use cooklang::aisle::parse as parse_aisle_config_original;
-use cooklang::analysis::{parse_events};
+use cooklang::analysis::parse_events;
 use cooklang::parser::PullParser;
 use cooklang::Extensions;
 use cooklang::{Converter, ScalableRecipe};
@@ -19,14 +19,13 @@ fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
     let mut cookware: Vec<Item> = Vec::new();
     let mut items: Vec<Item> = Vec::new();
 
-    (&recipe.sections).iter().for_each(|section| {
-        (&section.content).iter().for_each(|content| {
+    recipe.sections.iter().for_each(|section| {
+        section.content.iter().for_each(|content| {
             if let cooklang::Content::Step(step) = content {
-                (&step.items).iter().for_each(|item| {
+                step.items.iter().for_each(|item| {
                     let i = into_item(item.clone(), recipe);
 
                     match i {
-                        // TODO
                         Item::Ingredient {
                             ref name,
                             ref amount,
@@ -39,7 +38,7 @@ fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
                         // don't need anything if timer or text
                         _ => (),
                     };
-                        items.push(i);
+                    items.push(i);
                 });
                 // TODO: think how to make it faster as we probably
                 // can switch items content directly into the step object without cloning it
@@ -51,7 +50,6 @@ fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
             }
         });
     });
-
 
     recipe.metadata.map.iter().for_each(|(key, value)| {
         metadata.insert(key.to_string(), value.to_string());
