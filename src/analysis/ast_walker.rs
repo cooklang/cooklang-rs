@@ -115,10 +115,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     // If define mode is ingredients, don't add the
                     // step to the section. The components should have been
                     // added to their lists
-                    if new_content.is_step() && self.define_mode != DefineMode::Components {
-                        self.step_counter += 1;
-                        self.current_section.content.push(new_content);
-                    } else {
+                    if self.define_mode != DefineMode::Components || new_content.is_text() {
+                        if new_content.is_step() {
+                            self.step_counter += 1;
+                        }
                         self.current_section.content.push(new_content);
                     }
 

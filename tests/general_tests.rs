@@ -210,3 +210,21 @@ fn multiple_temperatures() {
         ]
     );
 }
+
+#[test]
+fn no_steps_component_mode() {
+    let input = indoc! {r#"
+        >> [mode]: components
+        @igr
+        >> [mode]: steps
+        = section
+        step
+    "#};
+    let r = cooklang::parse(input).take_output().unwrap();
+    assert_eq!(r.sections.len(), 1);
+    assert_eq!(r.sections[0].name.as_deref(), Some("section"));
+    assert!(matches!(
+        r.sections[0].content.as_slice(),
+        [Content::Step(_)]
+    ));
+}
