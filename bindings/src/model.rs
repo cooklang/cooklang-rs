@@ -65,7 +65,7 @@ pub struct HardToNameWTF {
 pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
 
 // #[uniffi::export]
-pub fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &Option<Amount>) {
+pub(crate) fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &Option<Amount>) {
     // options here:
     // - same units:
     //    - same value type
@@ -153,8 +153,8 @@ pub fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &Option<A
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
 pub struct Amount {
-    quantity: Value,
-    units: Option<String>,
+    pub(crate) quantity: Value,
+    pub(crate) units: Option<String>,
 }
 
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
@@ -213,7 +213,7 @@ fn extract_value(value: &ModelValue) -> Value {
     }
 }
 
-pub fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
+pub(crate) fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
     match item {
         ModelItem::Text { value } => Item::Text { value },
         ModelItem::Ingredient { index } => {

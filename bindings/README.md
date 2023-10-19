@@ -13,12 +13,12 @@ This particular library employes new-ish [procedural macroses](https://mozilla.g
 
 This library exports methods:
 
-    parse(input: String) -> CooklangRecipe;
+    parse_recipe(input: String) -> CooklangRecipe;
     parse_metadata(input: String) -> CooklangMetadata;
+    parse_aisle_config(input: String) -> Arc<AisleConfig>;
 
     # TODO
     combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
-    parse_aisle_config(input: String) -> AisleConfig;
 
 ### Exposed data structures
 
@@ -64,10 +64,6 @@ This library exports methods:
         Text { value: String },
     }
 
-    struct CombinedIngredient {
-        name: String,
-        amounts: Vec<Amount>
-    }
 
 ### Shopping list usage example
 

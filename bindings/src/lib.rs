@@ -64,7 +64,7 @@ fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
 }
 
 #[uniffi::export]
-pub fn parse(input: String) -> CooklangRecipe {
+pub fn parse_recipe(input: String) -> CooklangRecipe {
     let extensions = Extensions::empty();
     let converter = Converter::empty();
 
@@ -141,10 +141,10 @@ uniffi::setup_scaffolding!();
 mod tests {
 
     #[test]
-    fn parse() {
-        use crate::{parse, Amount, Item, Value};
+    fn test_parse_recipe() {
+        use crate::{parse_recipe, Amount, Item, Value};
 
-        let recipe = parse(
+        let recipe = parse_recipe(
             r#"
 a test @step @salt{1%mg} more text
 "#
@@ -179,7 +179,7 @@ a test @step @salt{1%mg} more text
     }
 
     #[test]
-    fn parse_metadata() {
+    fn test_parse_metadata() {
         use crate::parse_metadata;
         use std::collections::HashMap;
 
@@ -194,6 +194,50 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             metadata,
             HashMap::from([("source".to_string(), "https://google.com".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_parse_aisle_config() {
+        use crate::parse_aisle_config;
+        use std::collections::HashMap;
+
+        let config = parse_aisle_config(
+            r#"
+[fruit and veg]
+apple gala | apples
+aubergine
+avocado | avocados
+
+[milk and dairy]
+butter
+egg | eggs
+curd cheese
+cheddar cheese
+feta
+
+[dried herbs and spices]
+bay leaves
+black pepper
+cayenne pepper
+dried oregano
+"#
+            .to_string(),
+        );
+
+        assert_eq!(
+            config.category_for("bay leaves".to_string()),
+            Some("dried herbs and spices".to_string())
+        );
+
+        assert_eq!(
+            config.category_for("eggs".to_string()),
+            Some("milk and dairy".to_string())
+        );
+
+        assert_eq!(
+            config.category_for("some weird ingredient".to_string()),
+            None
         );
     }
 }
