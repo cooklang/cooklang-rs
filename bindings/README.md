@@ -71,6 +71,8 @@ This library exports methods:
 
 ### Shopping list usage example
 
+Not all categories from AisleConfig can be used in shopping list. There could be "Other" category if not defined in the config.
+
     // parse
     let recipe = parse_recipe(text);
     let config = parse_aisle_config(text);

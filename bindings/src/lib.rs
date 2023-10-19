@@ -100,21 +100,29 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let mut categories: Vec<AisleCategory> = Vec::new();
     let mut ingredients: Vec<AisleIngredient> = Vec::new();
+    let mut cache: AisleReverseCategory = AisleReverseCategory::default();
 
     let parsed = parse_aisle_config_original(&input).unwrap();
 
     let _ = &(parsed).categories.iter().for_each(|c| {
+        let category_name = c.name.to_string();
+
         c.ingredients.iter().for_each(|i| {
             let mut it = i.names.iter();
 
             let name = it.next().unwrap().to_string();
-            let aliases = it.map(|v| v.to_string()).collect();
+            let aliases: Vec<String> = it.map(|v| v.to_string()).collect();
+
+            cache.insert(name.clone(), category_name.clone());
+            aliases.iter().for_each(|a| {
+                cache.insert(a.to_string(), category_name.clone());
+            });
 
             ingredients.push(AisleIngredient { name, aliases });
         });
 
         let category = AisleCategory {
-            name: c.name.to_string(),
+            name: category_name,
             ingredients: ingredients.clone(),
         };
 
@@ -122,7 +130,7 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
         categories.push(category);
     });
 
-    let config = AisleConf { categories };
+    let config = AisleConf { categories, cache };
 
     Arc::new(config)
 }
