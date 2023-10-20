@@ -22,14 +22,6 @@ pub struct AisleConf {
 
 #[uniffi::export]
 impl AisleConf {
-    // pub fn add_category(&self, _ingredient: AisleCategory) {
-    //     todo!();
-    // }
-
-    // pub fn add_ingredient(&self, _category_name: String, _name: String, _aliases: Vec<String>) {
-    //     todo!();
-    // }
-
     pub fn category_for(&self, ingredient_name: String) -> Option<String> {
         self.cache.get(&ingredient_name).cloned()
     }

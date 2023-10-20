@@ -16,9 +16,8 @@ This library exports methods:
     parse_recipe(input: String) -> CooklangRecipe;
     parse_metadata(input: String) -> CooklangMetadata;
     parse_aisle_config(input: String) -> Arc<AisleConfig>;
+    combine_ingredients(lists: Vec<IngredientList>) -> IngredientList;
 
-    # TODO
-    combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
 
 ### Exposed data structures
 
@@ -64,20 +63,41 @@ This library exports methods:
         Text { value: String },
     }
 
+    type IngredientList = HashMap<String, GroupedQuantity>;
+
+    struct AisleConf {}
+    impl AisleConf {
+        fn category_for(&self, ingredient_name: String) -> Option<String>;
+    }
+
+    enum QuantityType {
+        Number,
+        Range, // how to combine ranges?
+        Text,
+        Empty,
+    }
+
+    struct HardToNameWTF {
+        name: String,
+        unit_type: QuantityType,
+    }
+
+    type GroupedQuantity = HashMap<HardToNameWTF, Value>;
+
 
 ### Shopping list usage example
 
-Not all categories from AisleConfig can be used in shopping list. There could be "Other" category if not defined in the config.
+Not all categories from AisleConfig are referenced in a shopping list. There could be "Other" category if not defined in the config.
 
     // parse
     let recipe = parse_recipe(text);
     let config = parse_aisle_config(text);
     // object which we'll use for rendering
-    let mut result = BTreeMap<String, BTreeMap<String,GroupedQuantity>>::New();
+    let mut result = HashMap<String, HashMap<String,GroupedQuantity>>::New();
     // iterate over each recipe ingredients and fill results into result object.
-    recipe.ingredients.iter().for_each(|name, grouped_quantity| {
+    recipe.ingredients.iter().for_each(|(name, grouped_quantity)| {
         // Get category name for current ingredient
-        let category = config.category_for(name).unwrap_or_else("Other");
+        let category = config.category_for(name).unwrap_or("Other");
         // Get list of ingredients for that category
         let mut entry = result.get(category).or_default();
         // Get quantity object for that ingredient
