@@ -40,32 +40,7 @@ pub enum Item {
 
 pub type IngredientList = HashMap<String, GroupedQuantity>;
 
-// #[uniffi::export]
-pub fn add_to_ingredient_list(list: &mut IngredientList, name: String, amount: &Option<Amount>) {
-    let mut default = GroupedQuantity::default();
-    let quantity = list.get_mut(&name).unwrap_or(&mut default);
-
-    add_to_quantity(quantity, amount);
-}
-
-#[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
-pub enum QuantityType {
-    Number,
-    Range, // how to combine ranges?
-    Text,
-    Empty,
-}
-
-#[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
-pub struct HardToNameWTF {
-    name: String,
-    unit_type: QuantityType,
-}
-
-pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
-
-// #[uniffi::export]
-pub(crate) fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &Option<Amount>) {
+pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
     // options here:
     // - same units:
     //    - same value type
@@ -81,7 +56,7 @@ pub(crate) fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &O
     //  |- <,Empty> => Some
     //
     //
-    // TODO define rules on language spec level
+    // TODO define rules on language spec level???
     let empty_units = "".to_string();
 
     let key = if let Some(amount) = amount {
@@ -112,29 +87,92 @@ pub(crate) fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &O
         }
     };
 
-    // Hmmm
-    let unit_type = key.unit_type.clone();
+    let value = if let Some(amount) = amount {
+         amount.quantity.clone()
+    } else {
+        Value::Empty
+    };
 
-    if let Some(amount) = amount {
-        grouped_quantity
-            .entry(key)
+    GroupedQuantity::from([(key, value)])
+}
+
+// I(dubadub) haven't found a way to export these methods with mutable argument
+pub fn add_to_ingredient_list(list: &mut IngredientList, name: &String, quantity_to_add: &GroupedQuantity) {
+    if let Some(quantity) = list.get_mut(name) {
+        merge_grouped_quantities(quantity, quantity_to_add);
+    } else {
+        list.insert(name.to_string(), quantity_to_add.clone());
+    }
+}
+
+
+// O(n2)? find a better way
+pub fn merge_ingredient_lists(left: &mut IngredientList, right: &IngredientList) {
+    right.iter().for_each(|(ingredient_name, grouped_quantity)| {
+        let quantity = left.entry(ingredient_name.to_string()).or_insert(GroupedQuantity::default());
+
+        merge_grouped_quantities(quantity, grouped_quantity);
+    });
+}
+
+#[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
+pub enum QuantityType {
+    Number,
+    Range, // how to combine ranges?
+    Text,
+    Empty,
+}
+
+#[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct HardToNameWTF {
+    pub name: String,
+    pub unit_type: QuantityType,
+}
+
+pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
+
+
+// I(dubadub) haven't found a way to export these methods with mutable argument
+// Right should be always smaller?
+pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &GroupedQuantity) {
+    // options here:
+    // - same units:
+    //    - same value type
+    //    - not the same value type
+    // - different units
+    // - no units
+    // - no amount
+    //
+    // \
+    //  |- <litre,Number> => 1.2
+    //  |- <litre,Text> => half
+    //  |- <,Text> => pinch
+    //  |- <,Empty> => Some
+    //
+    //
+    // TODO define rules on language spec level
+
+
+    right.iter().for_each(|(key, value)| {
+        left
+            .entry(key.clone())
             .and_modify(|v| {
-                match unit_type {
+                match key.unit_type {
                     QuantityType::Number => {
-                        let Value::Number { value: assignable } = amount.quantity else { panic!("Unexpected type") };
+                        let Value::Number { value: assignable } = value else { panic!("Unexpected type") };
                         let Value::Number { value: stored } = v else { panic!("Unexpected type") };
 
                         *stored += assignable
                     },
                     QuantityType::Range => {
-                        let Value::Range { start, end } = amount.quantity else { panic!("Unexpected type") };
+                        let Value::Range { start, end } = value else { panic!("Unexpected type") };
                         let Value::Range { start: s, end: e } = v else { panic!("Unexpected type") };
 
                         *s += start;
                         *e += end;
                     },
                     QuantityType::Text => {
-                        let Value::Text { value: ref assignable } = amount.quantity else { panic!("Unexpected type") };
+                        let Value::Text { value: ref assignable } = value else { panic!("Unexpected type") };
                         let Value::Text { value: stored } = v else { panic!("Unexpected type") };
 
                         *stored += assignable;
@@ -145,10 +183,9 @@ pub(crate) fn add_to_quantity(grouped_quantity: &mut GroupedQuantity, amount: &O
 
                 }
             })
-            .or_insert(amount.quantity.clone());
-    } else {
-        grouped_quantity.entry(key).or_insert(Value::Empty);
-    }
+            .or_insert(value.clone());
+    });
+
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]

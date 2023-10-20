@@ -30,7 +30,8 @@ fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
                             ref name,
                             ref amount,
                         } => {
-                            add_to_ingredient_list(&mut ingredients, name.to_string(), amount);
+                            let quantity = into_group_quantity(amount);
+                            add_to_ingredient_list(&mut ingredients, name, &quantity);
                         }
                         Item::Cookware { .. } => {
                             cookware.push(i.clone());
@@ -133,6 +134,17 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let config = AisleConf { categories, cache };
 
     Arc::new(config)
+}
+
+#[uniffi::export]
+pub fn combine_ingredients(lists: Vec<IngredientList>) -> IngredientList {
+    let mut combined: IngredientList = IngredientList::default();
+
+    lists.iter().for_each(|l| {
+        merge_ingredient_lists(&mut combined, l);
+    });
+
+    combined
 }
 
 uniffi::setup_scaffolding!();
@@ -238,6 +250,59 @@ dried oregano
         assert_eq!(
             config.category_for("some weird ingredient".to_string()),
             None
+        );
+    }
+
+    #[test]
+    fn test_combine_ingredients() {
+        use crate::{combine_ingredients, HardToNameWTF, QuantityType, Value};
+        use std::collections::HashMap;
+
+        let combined = combine_ingredients(
+            vec![
+                HashMap::from([
+                    (
+                        "salt".to_string(),
+                        HashMap::from([
+                            (HardToNameWTF { name: "g".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 5.0 }),
+                            (HardToNameWTF { name: "tsp".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 1.0 }),
+                        ])
+                    ),
+                    (
+                        "pepper".to_string(),
+                        HashMap::from([
+                            (HardToNameWTF { name: "mg".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 5.0 }),
+                            (HardToNameWTF { name: "tsp".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 1.0 }),
+                        ])
+                    ),
+                ]),
+                HashMap::from([
+                    (
+                        "salt".to_string(),
+                        HashMap::from([
+                            (HardToNameWTF { name: "kg".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 0.005 }),
+                            (HardToNameWTF { name: "tsp".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 1.0 }),
+                        ])
+                    ),
+                ])
+            ]
+        );
+
+        assert_eq!(
+            *combined.get("salt").unwrap(),
+            HashMap::from([
+                (HardToNameWTF { name: "kg".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 0.005 }),
+                (HardToNameWTF { name: "tsp".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 2.0 }),
+                (HardToNameWTF { name: "g".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 5.0 }),
+            ])
+        );
+
+        assert_eq!(
+            *combined.get("pepper").unwrap(),
+            HashMap::from([
+                (HardToNameWTF { name: "mg".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 5.0 }),
+                (HardToNameWTF { name: "tsp".to_string(), unit_type: QuantityType::Number }, Value::Number { value: 1.0 }),
+            ])
         );
     }
 }
