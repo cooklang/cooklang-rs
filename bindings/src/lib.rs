@@ -212,7 +212,6 @@ a test @step @salt{1%mg} more text
     #[test]
     fn test_parse_aisle_config() {
         use crate::parse_aisle_config;
-        use std::collections::HashMap;
 
         let config = parse_aisle_config(
             r#"
