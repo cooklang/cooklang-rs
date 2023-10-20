@@ -88,7 +88,7 @@ pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
     };
 
     let value = if let Some(amount) = amount {
-         amount.quantity.clone()
+        amount.quantity.clone()
     } else {
         Value::Empty
     };
@@ -97,7 +97,11 @@ pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
 }
 
 // I(dubadub) haven't found a way to export these methods with mutable argument
-pub fn add_to_ingredient_list(list: &mut IngredientList, name: &String, quantity_to_add: &GroupedQuantity) {
+pub fn add_to_ingredient_list(
+    list: &mut IngredientList,
+    name: &String,
+    quantity_to_add: &GroupedQuantity,
+) {
     if let Some(quantity) = list.get_mut(name) {
         merge_grouped_quantities(quantity, quantity_to_add);
     } else {
@@ -105,14 +109,17 @@ pub fn add_to_ingredient_list(list: &mut IngredientList, name: &String, quantity
     }
 }
 
-
 // O(n2)? find a better way
 pub fn merge_ingredient_lists(left: &mut IngredientList, right: &IngredientList) {
-    right.iter().for_each(|(ingredient_name, grouped_quantity)| {
-        let quantity = left.entry(ingredient_name.to_string()).or_insert(GroupedQuantity::default());
+    right
+        .iter()
+        .for_each(|(ingredient_name, grouped_quantity)| {
+            let quantity = left
+                .entry(ingredient_name.to_string())
+                .or_insert(GroupedQuantity::default());
 
-        merge_grouped_quantities(quantity, grouped_quantity);
-    });
+            merge_grouped_quantities(quantity, grouped_quantity);
+        });
 }
 
 #[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
@@ -130,7 +137,6 @@ pub struct HardToNameWTF {
 }
 
 pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
-
 
 // I(dubadub) haven't found a way to export these methods with mutable argument
 // Right should be always smaller?
@@ -151,7 +157,6 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
     //
     //
     // TODO define rules on language spec level
-
 
     right.iter().for_each(|(key, value)| {
         left
@@ -185,7 +190,6 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
             })
             .or_insert(value.clone());
     });
-
 }
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
