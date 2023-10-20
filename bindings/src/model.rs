@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use cooklang::model::Item as ModelItem;
+use cooklang::model::Item as OriginalItem;
 use cooklang::quantity::{
-    Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
+    Quantity as OriginalQuantity, ScalableValue as OriginalScalableValue, Value as OriginalValue,
 };
-use cooklang::ScalableRecipe;
+use cooklang::ScalableRecipe as OriginalRecipe;
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
@@ -96,6 +96,84 @@ pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
     GroupedQuantity::from([(key, value)])
 }
 
+#[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
+pub enum QuantityType {
+    Number,
+    Range, // how to combine ranges?
+    Text,
+    Empty,
+}
+
+#[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
+pub struct HardToNameWTF {
+    pub name: String,
+    pub unit_type: QuantityType,
+}
+
+pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
+
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct Amount {
+    pub(crate) quantity: Value,
+    pub(crate) units: Option<String>,
+}
+
+#[derive(uniffi::Enum, Debug, Clone, PartialEq)]
+pub enum Value {
+    Number { value: f64 },
+    Range { start: f64, end: f64 },
+    Text { value: String },
+    Empty,
+}
+
+pub type CooklangMetadata = HashMap<String, String>;
+
+trait Amountable {
+    fn extract_amount(&self) -> Amount;
+}
+
+impl Amountable for OriginalQuantity<OriginalScalableValue> {
+    fn extract_amount(&self) -> Amount {
+        let quantity = extract_quantity(&self.value);
+
+        let units = self.unit().as_ref().map(|u| u.to_string());
+
+        Amount { quantity, units }
+    }
+}
+
+impl Amountable for OriginalScalableValue {
+    fn extract_amount(&self) -> Amount {
+        let quantity = extract_quantity(self);
+
+        Amount {
+            quantity,
+            units: None,
+        }
+    }
+}
+
+fn extract_quantity(value: &OriginalScalableValue) -> Value {
+    match value {
+        OriginalScalableValue::Fixed(value) => extract_value(value),
+        OriginalScalableValue::Linear(value) => extract_value(value),
+        OriginalScalableValue::ByServings(values) => extract_value(values.first().unwrap()),
+    }
+}
+
+fn extract_value(value: &OriginalValue) -> Value {
+    match value {
+        OriginalValue::Number(num) => Value::Number { value: num.value() },
+        OriginalValue::Range { start, end } => Value::Range {
+            start: start.value(),
+            end: end.value(),
+        },
+        OriginalValue::Text(value) => Value::Text {
+            value: value.to_string(),
+        },
+    }
+}
+
 // I(dubadub) haven't found a way to export these methods with mutable argument
 pub fn add_to_ingredient_list(
     list: &mut IngredientList,
@@ -121,22 +199,6 @@ pub fn merge_ingredient_lists(left: &mut IngredientList, right: &IngredientList)
             merge_grouped_quantities(quantity, grouped_quantity);
         });
 }
-
-#[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
-pub enum QuantityType {
-    Number,
-    Range, // how to combine ranges?
-    Text,
-    Empty,
-}
-
-#[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
-pub struct HardToNameWTF {
-    pub name: String,
-    pub unit_type: QuantityType,
-}
-
-pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
 
 // I(dubadub) haven't found a way to export these methods with mutable argument
 // Right should be always smaller?
@@ -173,6 +235,7 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
                         let Value::Range { start, end } = value else { panic!("Unexpected type") };
                         let Value::Range { start: s, end: e } = v else { panic!("Unexpected type") };
 
+                        // is it even correct?
                         *s += start;
                         *e += end;
                     },
@@ -192,73 +255,13 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
     });
 }
 
-#[derive(uniffi::Record, Debug, Clone, PartialEq)]
-pub struct Amount {
-    pub(crate) quantity: Value,
-    pub(crate) units: Option<String>,
-}
-
-#[derive(uniffi::Enum, Debug, Clone, PartialEq)]
-pub enum Value {
-    Number { value: f64 },
-    Range { start: f64, end: f64 },
-    Text { value: String },
-    Empty,
-}
-
-pub type CooklangMetadata = HashMap<String, String>;
-
-trait Amountable {
-    fn extract_amount(&self) -> Amount;
-}
-
-impl Amountable for ModelQuantity<ModelScalableValue> {
-    fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(&self.value);
-
-        let units = self.unit().as_ref().map(|u| u.to_string());
-
-        Amount { quantity, units }
-    }
-}
-
-impl Amountable for ModelScalableValue {
-    fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(self);
-
-        Amount {
-            quantity,
-            units: None,
-        }
-    }
-}
-
-fn extract_quantity(value: &ModelScalableValue) -> Value {
-    match value {
-        ModelScalableValue::Fixed(value) => extract_value(value),
-        ModelScalableValue::Linear(value) => extract_value(value),
-        ModelScalableValue::ByServings(values) => extract_value(values.first().unwrap()),
-    }
-}
-
-fn extract_value(value: &ModelValue) -> Value {
-    match value {
-        ModelValue::Number(num) => Value::Number { value: num.value() },
-        ModelValue::Range { start, end } => Value::Range {
-            start: start.value(),
-            end: end.value(),
-        },
-        ModelValue::Text(value) => Value::Text {
+pub(crate) fn into_item(item: &OriginalItem, recipe: &OriginalRecipe) -> Item {
+    match item {
+        OriginalItem::Text { value } => Item::Text {
             value: value.to_string(),
         },
-    }
-}
-
-pub(crate) fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
-    match item {
-        ModelItem::Text { value } => Item::Text { value },
-        ModelItem::Ingredient { index } => {
-            let ingredient = &recipe.ingredients[index];
+        OriginalItem::Ingredient { index } => {
+            let ingredient = &recipe.ingredients[*index];
 
             Item::Ingredient {
                 name: ingredient.name.clone(),
@@ -266,16 +269,16 @@ pub(crate) fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
             }
         }
 
-        ModelItem::Cookware { index } => {
-            let cookware = &recipe.cookware[index];
+        OriginalItem::Cookware { index } => {
+            let cookware = &recipe.cookware[*index];
             Item::Cookware {
                 name: cookware.name.clone(),
                 amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
             }
         }
 
-        ModelItem::Timer { index } => {
-            let timer = &recipe.timers[index];
+        OriginalItem::Timer { index } => {
+            let timer = &recipe.timers[*index];
 
             Item::Timer {
                 name: timer.name.clone(),
@@ -284,8 +287,61 @@ pub(crate) fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
         }
 
         // returning an empty block of text as it's not supported by the spec
-        ModelItem::InlineQuantity { index: _ } => Item::Text {
+        OriginalItem::InlineQuantity { index: _ } => Item::Text {
             value: "".to_string(),
         },
+    }
+}
+
+pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
+    let mut metadata = CooklangMetadata::new();
+    let mut steps: Vec<Step> = Vec::new();
+    let mut ingredients: IngredientList = IngredientList::default();
+    let mut cookware: Vec<Item> = Vec::new();
+    let mut items: Vec<Item> = Vec::new();
+
+    recipe.sections.iter().for_each(|section| {
+        section.content.iter().for_each(|content| {
+            if let cooklang::Content::Step(step) = content {
+                step.items.iter().for_each(|i| {
+                    let item = into_item(i, recipe);
+
+                    match item {
+                        Item::Ingredient {
+                            ref name,
+                            ref amount,
+                        } => {
+                            let quantity = into_group_quantity(amount);
+
+                            add_to_ingredient_list(&mut ingredients, name, &quantity);
+                        }
+                        Item::Cookware { .. } => {
+                            cookware.push(item.clone());
+                        }
+                        // don't need anything if timer or text
+                        _ => (),
+                    };
+                    items.push(item);
+                });
+                // TODO: think how to make it faster as we probably
+                // can switch items content directly into the step object without cloning it
+                steps.push(Step {
+                    items: items.clone(),
+                });
+
+                items.clear();
+            }
+        });
+    });
+
+    recipe.metadata.map.iter().for_each(|(key, value)| {
+        metadata.insert(key.to_string(), value.to_string());
+    });
+
+    CooklangRecipe {
+        metadata,
+        steps,
+        ingredients,
+        cookware,
     }
 }

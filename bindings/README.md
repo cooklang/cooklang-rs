@@ -16,7 +16,7 @@ This library exports methods:
     parse_recipe(input: String) -> CooklangRecipe;
     parse_metadata(input: String) -> CooklangMetadata;
     parse_aisle_config(input: String) -> Arc<AisleConfig>;
-    combine_ingredients(lists: Vec<IngredientList>) -> IngredientList;
+    combine_ingredient_lists(lists: Vec<IngredientList>) -> IngredientList;
 
 
 ### Exposed data structures
