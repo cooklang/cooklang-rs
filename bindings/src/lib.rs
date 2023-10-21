@@ -1,214 +1,27 @@
+use std::sync::Arc;
+
+use cooklang::aisle::parse as parse_aisle_config_original;
 use cooklang::analysis::parse_events;
-use cooklang::model::Item as ModelItem;
 use cooklang::parser::PullParser;
-use cooklang::quantity::{
-    Quantity as ModelQuantity, ScalableValue as ModelScalableValue, Value as ModelValue,
-};
-use cooklang::Extensions;
-use cooklang::{Converter, ScalableRecipe};
-use std::collections::HashMap;
+use cooklang::{Converter, Extensions};
 
-#[derive(uniffi::Record, Debug)]
-pub struct CooklangRecipe {
-    metadata: HashMap<String, String>,
-    steps: Vec<Step>,
-    ingredients: Vec<Item>,
-    cookware: Vec<Item>,
-}
+pub mod aisle;
+pub mod model;
 
-#[derive(uniffi::Record, Debug)]
-struct Step {
-    items: Vec<Item>,
-}
-
-#[derive(uniffi::Enum, Debug, Clone, PartialEq)]
-enum Item {
-    Text {
-        value: String,
-    },
-    Ingredient {
-        name: String,
-        amount: Option<Amount>,
-    },
-    Cookware {
-        name: String,
-        amount: Option<Amount>,
-    },
-    Timer {
-        name: Option<String>,
-        amount: Option<Amount>,
-    },
-}
-
-#[derive(uniffi::Record, Debug, Clone, PartialEq)]
-struct Amount {
-    quantity: Value,
-    units: Option<String>,
-}
-
-#[derive(uniffi::Enum, Debug, Clone, PartialEq)]
-enum Value {
-    Number { value: f64 },
-    Range { start: f64, end: f64 },
-    Text { value: String },
-}
-
-type CooklangMetadata = HashMap<String, String>;
-
-trait Amountable {
-    fn extract_amount(&self) -> Amount;
-}
-
-impl Amountable for ModelQuantity<ModelScalableValue> {
-    fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(&self.value);
-
-        let units = if let Some(u) = &self.unit() {
-            Some(u.to_string())
-        } else {
-            None
-        };
-
-        Amount { quantity, units }
-    }
-}
-
-impl Amountable for ModelScalableValue {
-    fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(&self);
-
-        Amount {
-            quantity,
-            units: None,
-        }
-    }
-}
-
-fn extract_quantity(value: &ModelScalableValue) -> Value {
-    match value {
-        ModelScalableValue::Fixed(value) => extract_value(value),
-        ModelScalableValue::Linear(value) => extract_value(value),
-        ModelScalableValue::ByServings(values) => extract_value(values.first().unwrap()),
-    }
-}
-
-fn extract_value(value: &ModelValue) -> Value {
-    match value {
-        ModelValue::Number(num) => Value::Number { value: num.value() },
-        ModelValue::Range { start, end } => Value::Range {
-            start: start.value(),
-            end: end.value(),
-        },
-        ModelValue::Text(value) => Value::Text {
-            value: value.to_string(),
-        },
-    }
-}
-
-fn into_item(item: ModelItem, recipe: &ScalableRecipe) -> Item {
-    match item {
-        ModelItem::Text { value } => Item::Text { value },
-        ModelItem::Ingredient { index } => {
-            let ingredient = &recipe.ingredients[index];
-
-            Item::Ingredient {
-                name: ingredient.name.clone(),
-                amount: if let Some(q) = &ingredient.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
-            }
-        }
-
-        ModelItem::Cookware { index } => {
-            let cookware = &recipe.cookware[index];
-            Item::Cookware {
-                name: cookware.name.clone(),
-                amount: if let Some(q) = &cookware.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
-            }
-        }
-
-        ModelItem::Timer { index } => {
-            let timer = &recipe.timers[index];
-
-            Item::Timer {
-                name: timer.name.clone(),
-                amount: if let Some(q) = &timer.quantity {
-                    Some(q.extract_amount())
-                } else {
-                    None
-                },
-            }
-        }
-
-        // returning an empty block of text as it's not supported by the spec
-        ModelItem::InlineQuantity { index: _ } => Item::Text {
-            value: "".to_string(),
-        },
-    }
-}
-
-fn simplify_recipe_data(recipe: &ScalableRecipe) -> CooklangRecipe {
-    let mut metadata = CooklangMetadata::new();
-    let mut steps: Vec<Step> = Vec::new();
-    let mut ingredients: Vec<Item> = Vec::new();
-    let mut cookware: Vec<Item> = Vec::new();
-    let mut items: Vec<Item> = Vec::new();
-
-    (&recipe.sections).iter().for_each(|section| {
-        (&section.content).iter().for_each(|content| {
-            if let cooklang::Content::Step(step) = content {
-                (&step.items).iter().for_each(|item| {
-                    let i = into_item(item.clone(), &recipe);
-
-                    match i {
-                        Item::Ingredient { .. } => ingredients.push(i.clone()),
-                        Item::Cookware { .. } => cookware.push(i.clone()),
-                        // don't need anything if timer or text
-                        _ => (),
-                    };
-
-                    items.push(i);
-                });
-                // TODO: think how to make it faster as we probably
-                // can switch items content directly into the step object without cloning it
-                steps.push(Step {
-                    items: items.clone(),
-                });
-
-                items.clear();
-            }
-        })
-    });
-
-    (&recipe.metadata.map).iter().for_each(|(key, value)| {
-        metadata.insert(key.to_string(), value.to_string());
-    });
-
-    CooklangRecipe {
-        metadata,
-        steps,
-        ingredients,
-        cookware,
-    }
-}
+use aisle::*;
+use model::*;
 
 #[uniffi::export]
-pub fn parse(input: String) -> CooklangRecipe {
+pub fn parse_recipe(input: String) -> CooklangRecipe {
     let extensions = Extensions::empty();
     let converter = Converter::empty();
 
     let mut parser = PullParser::new(&input, extensions);
-    let result = parse_events(&mut parser, extensions, &converter, None)
+    let parsed = parse_events(&mut parser, extensions, &converter, None)
         .take_output()
         .unwrap();
 
-    simplify_recipe_data(&result)
+    into_simple_recipe(&parsed)
 }
 
 #[uniffi::export]
@@ -219,20 +32,56 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 
     let parser = PullParser::new(&input, extensions);
 
-    let result = parse_events(parser.into_meta_iter(), extensions, &converter, None)
+    let parsed = parse_events(parser.into_meta_iter(), extensions, &converter, None)
         .map(|c| c.metadata.map)
         .take_output()
         .unwrap();
 
-    let _ = &(result).iter().for_each(|(key, value)| {
+    // converting IndexMap into HashMap
+    let _ = &(parsed).iter().for_each(|(key, value)| {
         metadata.insert(key.to_string(), value.to_string());
     });
 
     metadata
 }
 
-// combine_amounts(amounts: Vec<Amount>) -> Vec<Amount>;
-// parse_aisle_config(input: String) -> AisleConfig;
+#[uniffi::export]
+pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
+    let mut categories: Vec<AisleCategory> = Vec::new();
+    let mut cache: AisleReverseCategory = AisleReverseCategory::default();
+
+    let parsed = parse_aisle_config_original(&input).unwrap();
+
+    let _ = &(parsed).categories.iter().for_each(|c| {
+        let category = into_category(c);
+
+        // building cache
+        category.ingredients.iter().for_each(|i| {
+            cache.insert(i.name.clone(), category.name.clone());
+
+            i.aliases.iter().for_each(|a| {
+                cache.insert(a.to_string(), category.name.clone());
+            });
+        });
+
+        categories.push(category);
+    });
+
+    let config = AisleConf { categories, cache };
+
+    Arc::new(config)
+}
+
+#[uniffi::export]
+pub fn combine_ingredient_lists(lists: Vec<IngredientList>) -> IngredientList {
+    let mut combined: IngredientList = IngredientList::default();
+
+    lists
+        .iter()
+        .for_each(|l| merge_ingredient_lists(&mut combined, l));
+
+    combined
+}
 
 uniffi::setup_scaffolding!();
 
@@ -240,10 +89,10 @@ uniffi::setup_scaffolding!();
 mod tests {
 
     #[test]
-    fn parse() {
-        use crate::{parse, Amount, Item, Value};
+    fn test_parse_recipe() {
+        use crate::{parse_recipe, Amount, Item, Value};
 
-        let recipe = parse(
+        let recipe = parse_recipe(
             r#"
 a test @step @salt{1%mg} more text
 "#
@@ -278,7 +127,7 @@ a test @step @salt{1%mg} more text
     }
 
     #[test]
-    fn parse_metadata() {
+    fn test_parse_metadata() {
         use crate::parse_metadata;
         use std::collections::HashMap;
 
@@ -293,6 +142,164 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             metadata,
             HashMap::from([("source".to_string(), "https://google.com".to_string())])
+        );
+    }
+
+    #[test]
+    fn test_parse_aisle_config() {
+        use crate::parse_aisle_config;
+
+        let config = parse_aisle_config(
+            r#"
+[fruit and veg]
+apple gala | apples
+aubergine
+avocado | avocados
+
+[milk and dairy]
+butter
+egg | eggs
+curd cheese
+cheddar cheese
+feta
+
+[dried herbs and spices]
+bay leaves
+black pepper
+cayenne pepper
+dried oregano
+"#
+            .to_string(),
+        );
+
+        assert_eq!(
+            config.category_for("bay leaves".to_string()),
+            Some("dried herbs and spices".to_string())
+        );
+
+        assert_eq!(
+            config.category_for("eggs".to_string()),
+            Some("milk and dairy".to_string())
+        );
+
+        assert_eq!(
+            config.category_for("some weird ingredient".to_string()),
+            None
+        );
+    }
+
+    #[test]
+    fn test_combine_ingredient_lists() {
+        use crate::{combine_ingredient_lists, HardToNameWTF, QuantityType, Value};
+        use std::collections::HashMap;
+
+        let combined = combine_ingredient_lists(vec![
+            HashMap::from([
+                (
+                    "salt".to_string(),
+                    HashMap::from([
+                        (
+                            HardToNameWTF {
+                                name: "g".to_string(),
+                                unit_type: QuantityType::Number,
+                            },
+                            Value::Number { value: 5.0 },
+                        ),
+                        (
+                            HardToNameWTF {
+                                name: "tsp".to_string(),
+                                unit_type: QuantityType::Number,
+                            },
+                            Value::Number { value: 1.0 },
+                        ),
+                    ]),
+                ),
+                (
+                    "pepper".to_string(),
+                    HashMap::from([
+                        (
+                            HardToNameWTF {
+                                name: "mg".to_string(),
+                                unit_type: QuantityType::Number,
+                            },
+                            Value::Number { value: 5.0 },
+                        ),
+                        (
+                            HardToNameWTF {
+                                name: "tsp".to_string(),
+                                unit_type: QuantityType::Number,
+                            },
+                            Value::Number { value: 1.0 },
+                        ),
+                    ]),
+                ),
+            ]),
+            HashMap::from([(
+                "salt".to_string(),
+                HashMap::from([
+                    (
+                        HardToNameWTF {
+                            name: "kg".to_string(),
+                            unit_type: QuantityType::Number,
+                        },
+                        Value::Number { value: 0.005 },
+                    ),
+                    (
+                        HardToNameWTF {
+                            name: "tsp".to_string(),
+                            unit_type: QuantityType::Number,
+                        },
+                        Value::Number { value: 1.0 },
+                    ),
+                ]),
+            )]),
+        ]);
+
+        assert_eq!(
+            *combined.get("salt").unwrap(),
+            HashMap::from([
+                (
+                    HardToNameWTF {
+                        name: "kg".to_string(),
+                        unit_type: QuantityType::Number
+                    },
+                    Value::Number { value: 0.005 }
+                ),
+                (
+                    HardToNameWTF {
+                        name: "tsp".to_string(),
+                        unit_type: QuantityType::Number
+                    },
+                    Value::Number { value: 2.0 }
+                ),
+                (
+                    HardToNameWTF {
+                        name: "g".to_string(),
+                        unit_type: QuantityType::Number
+                    },
+                    Value::Number { value: 5.0 }
+                ),
+            ])
+        );
+
+        assert_eq!(
+            *combined.get("pepper").unwrap(),
+            HashMap::from([
+                (
+                    HardToNameWTF {
+                        name: "mg".to_string(),
+                        unit_type: QuantityType::Number
+                    },
+                    Value::Number { value: 5.0 }
+                ),
+                (
+                    HardToNameWTF {
+                        name: "tsp".to_string(),
+                        unit_type: QuantityType::Number
+                    },
+                    Value::Number { value: 1.0 }
+                ),
+            ])
         );
     }
 }
