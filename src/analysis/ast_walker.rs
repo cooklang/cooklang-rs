@@ -758,7 +758,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             ast::QuantityValue::Single {
                 value,
                 auto_scale: Some(auto_scale_marker),
-            } => {
+            } if value.is_text() => {
                 self.ctx.error(AnalysisError::ScaleTextValue {
                     value_span: value.span(),
                     auto_scale_marker: *auto_scale_marker,

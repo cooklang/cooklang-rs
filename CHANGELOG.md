@@ -24,6 +24,7 @@
 
 ### Fixed
 - Text steps were ignored in `components` mode.
+- Scale text value error was firing for all errors marked with `*`.
 
 ## 0.9.0 - 2023-10-07
 ### Features
