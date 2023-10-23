@@ -151,7 +151,7 @@ impl Converter {
         }
     }
 
-    pub fn find_unit<'c>(&'c self, unit: &str) -> Option<Arc<Unit>> {
+    pub fn find_unit(&self, unit: &str) -> Option<Arc<Unit>> {
         let uid = self.unit_index.get_unit_id(unit).ok()?;
         Some(self.all_units[uid].clone())
     }
