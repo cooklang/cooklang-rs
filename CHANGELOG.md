@@ -21,6 +21,7 @@
 - Recipe not found warning is now customizable from the result of the recipe
   ref checker.
 - Unknown special metadata keys are now added to the metadata.
+- Advanced units removal of `%` now supports range values too.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

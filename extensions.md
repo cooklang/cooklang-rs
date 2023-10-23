@@ -119,8 +119,8 @@ Regular step.
 Maybe confusing name. Tweaks a little bit the parsing and behaviour of units
 inside quantities.
 
-- When the value is a number, the unit separator (`%`) can be replaced with a
-a space.
+- When the value is a number or a range and the values does not start with a
+number, the unit separator (`%`) can be replaced with a space.
   ```cooklang
   @water{1 L} is the same as @water{1%L}
   ```

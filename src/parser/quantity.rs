@@ -119,7 +119,7 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
         Span::new(start, end)
     };
 
-    let result = numeric_value(value_tokens, bp)?;
+    let result = range_value(value_tokens, bp).or_else(|| numeric_value(value_tokens, bp))?;
     let value = match result {
         Ok(value) => value,
         Err(err) => {
@@ -420,6 +420,44 @@ mod tests {
         );
         assert_eq!(s, None);
         assert_eq!(q.unit, None);
+        assert!(ctx.is_empty());
+    }
+
+    #[test]
+    fn no_separator_range() {
+        let (q, s, ctx) = t!("100-200 ml");
+        assert_eq!(
+            q.value,
+            QuantityValue::Single {
+                value: Located::new(range!(100.0, 200.0), 0..7),
+                auto_scale: None
+            }
+        );
+        assert_eq!(s, None);
+        assert_eq!(q.unit.unwrap().text(), "ml");
+        assert!(ctx.is_empty());
+
+        let (q, s, ctx) = t!("1 - 2 1 / 2 ml");
+        assert_eq!(
+            q.value,
+            QuantityValue::Single {
+                value: Located::new(
+                    Value::Range {
+                        start: 1.0.into(),
+                        end: Number::Fraction {
+                            whole: 2.0,
+                            num: 1.0,
+                            den: 2.0,
+                            err: 0.0
+                        }
+                    },
+                    0..11
+                ),
+                auto_scale: None
+            }
+        );
+        assert_eq!(s, None);
+        assert_eq!(q.unit.unwrap().text(), "ml");
         assert!(ctx.is_empty());
     }
 
