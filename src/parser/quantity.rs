@@ -39,48 +39,50 @@ pub(crate) fn parse_quantity<'input>(
 
 fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i> {
     let mut value = many_values(bp);
-    let mut unit_separator = None;
     let unit = match bp.peek() {
+        // values parsed correctly and unit
         T![%] => {
             let sep = bp.bump_any();
-            unit_separator = Some(sep.span);
             let unit = bp.consume_rest();
-            if unit
-                .iter()
-                .all(|t| matches!(t.kind, T![ws] | T![block comment]))
-            {
-                let span = if unit.is_empty() {
-                    Span::pos(sep.span.end())
-                } else {
-                    Span::new(sep.span.start(), unit.last().unwrap().span.end())
-                };
-                bp.error(ParserError::ComponentPartInvalid {
-                    container: "quantity",
-                    what: "unit",
-                    reason: "is empty",
-                    labels: vec![
-                        label!(sep.span, "remove this"),
-                        label!(span, "or add unit here"),
-                    ],
-                    help: None,
-                });
-                None
-            } else {
-                Some(bp.text(sep.span.end(), unit))
-            }
+            Some((sep.span, bp.text(sep.span.end(), unit)))
         }
+        // values parsed correctly but no unit
         T![eof] => None,
+        // fallback
         _ => {
-            bp.consume_rest();
-            let text = bp.text(bp.tokens().first().unwrap().span.start(), bp.tokens());
+            bp.consume_while(|t| t != T![%]);
+            let text = bp.text(bp.span().start(), bp.parsed());
             let text_val = Value::Text(text.text_trimmed().into_owned());
             value = ast::QuantityValue::Single {
                 value: Located::new(text_val, text.span()),
                 auto_scale: None,
             };
-            None
+
+            if let Some(sep) = bp.consume(T![%]) {
+                let unit = bp.consume_rest();
+                Some((sep.span, bp.text(sep.span.end(), unit)))
+            } else {
+                None
+            }
         }
     };
+
+    if let Some((sep, unit)) = &unit {
+        if unit.is_text_empty() {
+            bp.error(ParserError::ComponentPartInvalid {
+                container: "quantity",
+                what: "unit",
+                reason: "is empty",
+                labels: vec![
+                    label!(sep, "remove this"),
+                    label!(unit.span(), "or add unit here"),
+                ],
+                help: None,
+            });
+        }
+    }
+
+    let (unit_separator, unit) = unit.unzip();
 
     ParsedQuantity {
         quantity: Located::new(ast::Quantity { value, unit }, tokens_span(bp.tokens())),
@@ -103,7 +105,6 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     if value_tokens.is_empty() || value_tokens.last().unwrap().kind != T![ws] {
         return None;
     }
-
     let value_tokens = {
         // beginning already trimmed
         let end_pos = value_tokens
@@ -112,6 +113,11 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
             .unwrap(); // ws_comments were already cosumed and then checked non empty
         &value_tokens[..=end_pos]
     };
+
+    let unit_tokens = bp.consume_rest();
+    if unit_tokens.is_empty() {
+        return None;
+    }
 
     let value_span = {
         let start = value_tokens.first().unwrap().span.start();
@@ -129,11 +135,7 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     };
     let value = Located::new(value, value_span);
 
-    let unit = bp.consume_rest();
-    if unit.is_empty() {
-        return None;
-    }
-    let unit = bp.text(unit.first().unwrap().span.start(), unit);
+    let unit = bp.text(unit_tokens.first().unwrap().span.start(), unit_tokens);
     Some(ParsedQuantity {
         quantity: Located::new(
             ast::Quantity {
@@ -163,13 +165,7 @@ fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
             }
             T![*] => {
                 let tok = bp.bump_any();
-                if values.len() == 1 {
-                    auto_scale = Some(tok.span);
-                } else {
-                    bp.error(ParserError::QuantityScalingConflict {
-                        bad_bit: Span::new(values[0].span().end(), tok.span.end()),
-                    });
-                }
+                auto_scale = Some(tok.span);
                 break;
             }
             _ => break,
@@ -188,7 +184,7 @@ fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
                     what: "value",
                     reason: "auto scale is not compatible with multiple values",
                     labels: vec![label!(span, "remove this")],
-                    help: None,
+                    help: Some("A quantity cannot have the auto scaling marker (*) and have many values at the same time"),
                 });
             }
             ast::QuantityValue::Many(values)
