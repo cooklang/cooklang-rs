@@ -434,6 +434,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         component_name: new_igr.name.to_string(),
                         definition_span: definition_location.span(),
                         reference_span: location,
+                        implicit,
                     });
             }
 
@@ -457,6 +458,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     self.ctx.warn(AnalysisWarning::TextValueInReference {
                         text_quantity_span,
                         number_quantity_span,
+                        implicit,
                     });
                 }
             }
@@ -664,6 +666,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         component_name: new_cw.name.to_string(),
                         definition_span: definition_location.span(),
                         reference_span: location,
+                        implicit,
                     });
             }
 
@@ -687,6 +690,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     self.ctx.warn(AnalysisWarning::TextValueInReference {
                         text_quantity_span,
                         number_quantity_span,
+                        implicit,
                     });
                 }
             }

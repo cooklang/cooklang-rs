@@ -49,6 +49,7 @@ pub enum AnalysisError {
         component_name: String,
         definition_span: Span,
         reference_span: Span,
+        implicit: bool,
     },
 
     #[error("Unknown timer unit: {unit}")]
@@ -109,6 +110,7 @@ pub enum AnalysisWarning {
     TextValueInReference {
         text_quantity_span: Span,
         number_quantity_span: Span,
+        implicit: bool,
     },
 
     #[error("Incompatible units in reference prevent calculating total amount")]
@@ -254,7 +256,8 @@ impl RichError for AnalysisError {
             }
             AnalysisError::ConflictingModifiersInReference { implicit, .. }
             | AnalysisError::ComponentPartNotAllowedInReference { implicit, .. }
-            | AnalysisError::ReferenceNotFound { implicit, .. } => {
+            | AnalysisError::ReferenceNotFound { implicit, .. }
+            | AnalysisError::ConflictingReferenceQuantities { implicit, .. } => {
                 if *implicit {
                     note!("The reference ('&') is implicit")
                 } else {
@@ -279,6 +282,7 @@ impl RichError for AnalysisWarning {
             AnalysisWarning::TextValueInReference {
                 text_quantity_span,
                 number_quantity_span,
+                ..
             } => vec![
                 label!(text_quantity_span, "this text"),
                 label!(number_quantity_span, "can't be added with this value"),
@@ -358,6 +362,13 @@ impl RichError for AnalysisWarning {
                     _ => "all components are definitions",
                 }
             )),
+            AnalysisWarning::TextValueInReference { implicit, .. } => {
+                if *implicit {
+                    note!("The reference ('&') is implicit")
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
