@@ -169,7 +169,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         };
 
         let key_t = key.text_trimmed();
-        let value_t = value.text_trimmed();
+        let value_t = value.text_outer_trimmed();
         if self.extensions.contains(Extensions::MODES)
             && key_t.starts_with('[')
             && key_t.ends_with(']')
