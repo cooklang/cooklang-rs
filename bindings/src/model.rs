@@ -63,25 +63,25 @@ pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
         let units = amount.units.as_ref().unwrap_or(&empty_units);
 
         match &amount.quantity {
-            Value::Number { .. } => HardToNameWTF {
+            Value::Number { .. } => GroupedQuantityKey {
                 name: units.to_string(),
                 unit_type: QuantityType::Number,
             },
-            Value::Range { .. } => HardToNameWTF {
+            Value::Range { .. } => GroupedQuantityKey {
                 name: units.to_string(),
                 unit_type: QuantityType::Range,
             },
-            Value::Text { .. } => HardToNameWTF {
+            Value::Text { .. } => GroupedQuantityKey {
                 name: units.to_string(),
                 unit_type: QuantityType::Text,
             },
-            Value::Empty => HardToNameWTF {
+            Value::Empty => GroupedQuantityKey {
                 name: units.to_string(),
                 unit_type: QuantityType::Empty,
             },
         }
     } else {
-        HardToNameWTF {
+        GroupedQuantityKey {
             name: empty_units,
             unit_type: QuantityType::Empty,
         }
@@ -105,12 +105,12 @@ pub enum QuantityType {
 }
 
 #[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
-pub struct HardToNameWTF {
+pub struct GroupedQuantityKey {
     pub name: String,
     pub unit_type: QuantityType,
 }
 
-pub type GroupedQuantity = HashMap<HardToNameWTF, Value>;
+pub type GroupedQuantity = HashMap<GroupedQuantityKey, Value>;
 
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
 pub struct Amount {
@@ -212,8 +212,8 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
     // - no amount
     //
     // \
-    //  |- <litre,Number> => 1.2
-    //  |- <litre,Text> => half
+    //  |- <litre,Number> => 1.2 litre
+    //  |- <litre,Text> => half litre
     //  |- <,Text> => pinch
     //  |- <,Empty> => Some
     //
@@ -222,7 +222,7 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
 
     right.iter().for_each(|(key, value)| {
         left
-            .entry(key.clone())
+            .entry(key.clone()) // isn't really necessary?
             .and_modify(|v| {
                 match key.unit_type {
                     QuantityType::Number => {
@@ -245,9 +245,7 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
 
                         *stored += assignable;
                     },
-                    QuantityType::Empty => {
-                        todo!();
-                    },
+                    QuantityType::Empty => {}, // nothing is required to do, Some + Some = Some
 
                 }
             })

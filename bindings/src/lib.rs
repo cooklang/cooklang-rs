@@ -190,7 +190,7 @@ dried oregano
 
     #[test]
     fn test_combine_ingredient_lists() {
-        use crate::{combine_ingredient_lists, HardToNameWTF, QuantityType, Value};
+        use crate::{combine_ingredient_lists, GroupedQuantityKey, QuantityType, Value};
         use std::collections::HashMap;
 
         let combined = combine_ingredient_lists(vec![
@@ -199,14 +199,14 @@ dried oregano
                     "salt".to_string(),
                     HashMap::from([
                         (
-                            HardToNameWTF {
+                            GroupedQuantityKey {
                                 name: "g".to_string(),
                                 unit_type: QuantityType::Number,
                             },
                             Value::Number { value: 5.0 },
                         ),
                         (
-                            HardToNameWTF {
+                            GroupedQuantityKey {
                                 name: "tsp".to_string(),
                                 unit_type: QuantityType::Number,
                             },
@@ -218,14 +218,14 @@ dried oregano
                     "pepper".to_string(),
                     HashMap::from([
                         (
-                            HardToNameWTF {
+                            GroupedQuantityKey {
                                 name: "mg".to_string(),
                                 unit_type: QuantityType::Number,
                             },
                             Value::Number { value: 5.0 },
                         ),
                         (
-                            HardToNameWTF {
+                            GroupedQuantityKey {
                                 name: "tsp".to_string(),
                                 unit_type: QuantityType::Number,
                             },
@@ -238,14 +238,14 @@ dried oregano
                 "salt".to_string(),
                 HashMap::from([
                     (
-                        HardToNameWTF {
+                        GroupedQuantityKey {
                             name: "kg".to_string(),
                             unit_type: QuantityType::Number,
                         },
                         Value::Number { value: 0.005 },
                     ),
                     (
-                        HardToNameWTF {
+                        GroupedQuantityKey {
                             name: "tsp".to_string(),
                             unit_type: QuantityType::Number,
                         },
@@ -259,21 +259,21 @@ dried oregano
             *combined.get("salt").unwrap(),
             HashMap::from([
                 (
-                    HardToNameWTF {
+                    GroupedQuantityKey {
                         name: "kg".to_string(),
                         unit_type: QuantityType::Number
                     },
                     Value::Number { value: 0.005 }
                 ),
                 (
-                    HardToNameWTF {
+                    GroupedQuantityKey {
                         name: "tsp".to_string(),
                         unit_type: QuantityType::Number
                     },
                     Value::Number { value: 2.0 }
                 ),
                 (
-                    HardToNameWTF {
+                    GroupedQuantityKey {
                         name: "g".to_string(),
                         unit_type: QuantityType::Number
                     },
@@ -286,14 +286,14 @@ dried oregano
             *combined.get("pepper").unwrap(),
             HashMap::from([
                 (
-                    HardToNameWTF {
+                    GroupedQuantityKey {
                         name: "mg".to_string(),
                         unit_type: QuantityType::Number
                     },
                     Value::Number { value: 5.0 }
                 ),
                 (
-                    HardToNameWTF {
+                    GroupedQuantityKey {
                         name: "tsp".to_string(),
                         unit_type: QuantityType::Number
                     },

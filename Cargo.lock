@@ -1503,7 +1503,7 @@ checksum = "c0edd1e5b14653f783770bce4a4dabb4a5108a5370a5f5d8cfe8710c361f6c8b"
 [[package]]
 name = "uniffi"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
@@ -1515,7 +1515,7 @@ dependencies = [
 [[package]]
 name = "uniffi_bindgen"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "askama",
@@ -1537,7 +1537,7 @@ dependencies = [
 [[package]]
 name = "uniffi_build"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "camino",
@@ -1547,7 +1547,7 @@ dependencies = [
 [[package]]
 name = "uniffi_checksum_derive"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "quote",
  "syn 2.0.29",
@@ -1556,12 +1556,13 @@ dependencies = [
 [[package]]
 name = "uniffi_core"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "bytes",
  "camino",
  "log",
+ "once_cell",
  "oneshot",
  "paste",
  "static_assertions",
@@ -1570,7 +1571,7 @@ dependencies = [
 [[package]]
 name = "uniffi_macros"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "bincode",
  "camino",
@@ -1588,7 +1589,7 @@ dependencies = [
 [[package]]
 name = "uniffi_meta"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1599,7 +1600,7 @@ dependencies = [
 [[package]]
 name = "uniffi_testing"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "camino",
@@ -1611,7 +1612,7 @@ dependencies = [
 [[package]]
 name = "uniffi_udl"
 version = "0.24.3"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "anyhow",
  "uniffi_meta",
@@ -1732,7 +1733,7 @@ dependencies = [
 [[package]]
 name = "weedle2"
 version = "4.0.0"
-source = "git+https://github.com/mozilla/uniffi-rs?branch=main#7acfce022c1c394d9f91c390874557e611b47385"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#2fdaae18aba290769bd56d7c9838edc5b8e747cd"
 dependencies = [
  "nom",
 ]
