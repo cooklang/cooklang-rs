@@ -212,7 +212,7 @@ fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
     if text.is_text_empty() {
         bp.error(error!(
             "Empty quantity value",
-            label!(text.span(), "add value here or remove it"),
+            label!(text.span(), "add value here"),
         ));
     }
     Value::Text(text.text_trimmed().into_owned())

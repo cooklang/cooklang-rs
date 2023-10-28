@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 
 use crate::Span;
 
+/// Handy label creation
+#[macro_export]
 macro_rules! label {
     ($span:expr) => {
         ($span.to_owned().into(), None)
@@ -12,15 +14,20 @@ macro_rules! label {
     ($span:expr, $message:expr) => {
         ($span.to_owned().into(), Some($message.into()))
     };
-    ($span:expr, $fmt:literal, $($arg:expr),*) => {
-        ($span.to_owned().into(), format!($fmt, $($arg),*))
+    ($span:expr, $fmt:literal, $($arg:expr),+) => {
+        label!($span, format!($fmt, $($arg),+))
     }
 }
-pub(crate) use label;
+pub use label;
 
 pub type CowStr = Cow<'static, str>;
+
+/// A label is a pair of a code location and an optional hint at that location
+///
+/// See the [`label`] macro for creating this
 pub type Label = (Span, Option<CowStr>);
 
+/// A diagnostic of source code
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct SourceDiag {
@@ -76,17 +83,7 @@ impl PartialEq for SourceDiag {
 }
 
 impl SourceDiag {
-    pub fn unlabeled(message: impl Into<CowStr>, severity: Severity, stage: Stage) -> Self {
-        Self {
-            severity,
-            stage,
-            message: message.into(),
-            source: None,
-            labels: vec![],
-            hints: vec![],
-        }
-    }
-
+    /// Creates a new error
     pub fn error(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
         Self {
             severity: Severity::Error,
@@ -98,6 +95,7 @@ impl SourceDiag {
         }
     }
 
+    /// Creates a new warning
     pub fn warning(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
         Self {
             severity: Severity::Warning,
@@ -109,47 +107,75 @@ impl SourceDiag {
         }
     }
 
+    /// Creates a new unlabeled diagnostic
+    ///
+    /// This means there's no error location
+    pub fn unlabeled(message: impl Into<CowStr>, severity: Severity, stage: Stage) -> Self {
+        Self {
+            severity,
+            stage,
+            message: message.into(),
+            source: None,
+            labels: vec![],
+            hints: vec![],
+        }
+    }
+
+    /// Checks if the diagnostic is an error
     pub fn is_error(&self) -> bool {
         self.severity == Severity::Error
     }
 
+    /// Checks if the diagnostic is a warning
     pub fn is_warning(&self) -> bool {
         self.severity == Severity::Warning
     }
 
+    /// Adds a new label
     pub fn label(mut self, label: Label) -> Self {
         self.add_label(label);
         self
     }
+    /// Adds a new label
     pub fn add_label(&mut self, label: Label) -> &mut Self {
         self.labels.push(label);
         self
     }
 
+    /// Adds a new hint
     pub fn hint(mut self, hint: impl Into<CowStr>) -> Self {
         self.add_hint(hint);
         self
     }
+    /// Adds a new hint
     pub fn add_hint(&mut self, hint: impl Into<CowStr>) -> &mut Self {
         self.hints.push(hint.into());
         self
     }
-
-    pub(crate) fn set_source(mut self, source: impl std::error::Error + 'static) -> Self {
+    /// Sets the error source
+    ///
+    /// This is where [`std::error::Error::source`] get's the information
+    pub fn set_source(mut self, source: impl std::error::Error + 'static) -> Self {
         self.source = Some(std::sync::Arc::new(source));
         self
     }
 }
 
+/// Diagnostic severity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
+    /// Fatal error
     Error,
+    /// Non fatal warning
     Warning,
 }
 
+/// Stage where the diagnostic origined
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
+    /// Parse stage
     Parse,
+    /// Analysis stage
     Analysis,
 }
 
@@ -209,18 +235,22 @@ impl SourceReport {
         self.severity.as_ref()
     }
 
-    pub fn errors(&self) -> impl Iterator<Item = &SourceDiag> {
-        self.buf.iter().filter(|e| e.severity == Severity::Error)
-    }
-
-    pub fn warnings(&self) -> impl Iterator<Item = &SourceDiag> {
-        self.buf.iter().filter(|e| e.severity == Severity::Warning)
-    }
-
+    /// Iterate over all diagnostics
     pub fn iter(&self) -> impl Iterator<Item = &SourceDiag> {
         self.buf.iter()
     }
 
+    /// Get the errors
+    pub fn errors(&self) -> impl Iterator<Item = &SourceDiag> {
+        self.iter().filter(|e| e.severity == Severity::Error)
+    }
+
+    /// Get the warnings
+    pub fn warnings(&self) -> impl Iterator<Item = &SourceDiag> {
+        self.iter().filter(|e| e.severity == Severity::Warning)
+    }
+
+    /// Check if the report has any error
     pub fn has_errors(&self) -> bool {
         match self.severity {
             Some(Severity::Warning) => false,
@@ -229,6 +259,7 @@ impl SourceReport {
         }
     }
 
+    /// Check if the report has any warning
     pub fn has_warnings(&self) -> bool {
         match self.severity {
             Some(Severity::Warning) => !self.buf.is_empty(),
@@ -237,10 +268,14 @@ impl SourceReport {
         }
     }
 
+    /// Check if the report is empty
     pub fn is_empty(&self) -> bool {
         self.buf.is_empty()
     }
 
+    /// Divide the report into two report, errors and warnings
+    ///
+    /// The first is the errors and the second, warnings
     pub fn unzip(self) -> (SourceReport, SourceReport) {
         let (errors, warnings) = self.buf.into_iter().partition(SourceDiag::is_error);
         (
@@ -454,7 +489,7 @@ fn build_report<'a>(
         .collect::<Vec<_>>();
 
     // The start of the first span
-    let offset = labels.iter().map(|l| l.0.start).min().unwrap_or_default();
+    let offset = labels.first().map(|l| l.0.start).unwrap_or_default();
 
     let kind = match err.severity() {
         Severity::Error => ariadne::ReportKind::Error,

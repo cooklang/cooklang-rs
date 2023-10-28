@@ -1,6 +1,6 @@
 use crate::{error::label, lexer::T, Extensions};
 
-use super::{warning, BlockParser, Event};
+use super::{tokens_span, warning, BlockParser, Event};
 
 pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     if !block.extension(Extensions::SECTIONS) {
@@ -21,7 +21,8 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
                 "A section block is invalid and it will be a step",
                 label!(block.span()),
             )
-            .hint("There is text after the section in the same line"),
+            .label(label!(tokens_span(block.rest()), "remove this"))
+            .hint("After the ending `=` the line must end for it to be a valid section"),
         );
         return None;
     }

@@ -216,6 +216,23 @@ impl CooklangParser {
         }
     }
 
+    /// Creates a new extended parser
+    ///
+    /// This enables all extensions and uses the bunlded units.
+    /// It is encouraged to reuse the parser and not rebuild it every time.
+    pub fn extended() -> Self {
+        Self::new(Extensions::all(), Converter::bundled())
+    }
+
+    /// Creates a new canonical parser
+    ///
+    /// This disables all extensions and does not use units.
+    ///
+    /// It is encouraged to reuse the parser and not rebuild it every time.
+    pub fn canonical() -> Self {
+        Self::new(Extensions::empty(), Converter::empty())
+    }
+
     /// Get the parser inner converter
     pub fn converter(&self) -> &Converter {
         &self.converter

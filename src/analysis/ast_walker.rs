@@ -105,7 +105,7 @@ struct Locations<'i> {
     metadata: HashMap<Cow<'i, str>, (Text<'i>, Text<'i>)>,
 }
 
-const IMPLICIT_REF_WARN: &str = "The reference (`&`) is implicit";
+const IMPLICIT_REF_WARN: &str = "The reference (&) is implicit";
 
 impl<'i, 'c> RecipeCollector<'i, 'c> {
     fn parse_events(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
@@ -373,24 +373,22 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         };
 
         if let Some(inter_data) = ingredient.intermediate_data {
+            assert!(new_igr.modifiers().contains(Modifiers::REF));
+            let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
+            if new_igr.modifiers().intersects(invalid_modifiers) {
+                self.ctx.error(
+                    error!(
+                        "Conflicting modifiers with intermediate preparation reference",
+                        label!(ingredient.modifiers.span())
+                    )
+                    .hint(format!(
+                        "Remove the following modifiers: {}",
+                        new_igr.modifiers() & invalid_modifiers
+                    )),
+                );
+            }
             match self.resolve_intermediate_ref(inter_data) {
-                Ok(relation) => {
-                    new_igr.relation = relation;
-                    assert!(new_igr.modifiers().contains(Modifiers::REF));
-                    let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
-                    if new_igr.modifiers().intersects(invalid_modifiers) {
-                        self.ctx.error(
-                            error!(
-                                "Conflicting modifiers with intermediate preparation reference",
-                                label!(ingredient.modifiers.span())
-                            )
-                            .hint(format!(
-                                "Remove the following modifiers: {}",
-                                new_igr.modifiers() & invalid_modifiers
-                            )),
-                        );
-                    }
-                }
+                Ok(relation) => new_igr.relation = relation,
                 Err(error) => self.ctx.error(error),
             }
         } else if let Some((references_to, implicit)) =
@@ -756,27 +754,34 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         let quantity = timer.quantity.map(|q| {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
+                let located_quantity = located_timer.quantity.as_ref().unwrap();
+                if quantity.value.is_text() {
+                    self.ctx.error(
+                        error!(
+                            format!("Timer value is text: {}", quantity.value),
+                            label!(located_quantity.value.span(), "this should be numeric")
+                        )
+                        .hint("A timer duration cannot be text"),
+                    );
+                }
                 if let Some(unit) = quantity.unit() {
-                    let unit_span = located_timer
-                        .quantity
-                        .as_ref()
-                        .unwrap()
-                        .unit
-                        .as_ref()
-                        .unwrap()
-                        .span();
+                    let unit_span = located_quantity.unit.as_ref().unwrap().span();
                     match unit.unit_info_or_parse(self.converter) {
                         UnitInfo::Known(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
                                 self.ctx.error(error!(
                                     format!("Timer unit is not time: {unit}"),
-                                    label!(unit_span)
+                                    label!(
+                                        unit_span,
+                                        "expected time, not {}",
+                                        unit.physical_quantity
+                                    )
                                 ));
                             }
                         }
                         UnitInfo::Unknown => self.ctx.error(error!(
                             format!("Unknown timer unit: {unit}"),
-                            label!(unit_span)
+                            label!(unit_span, "expected time unit")
                         )),
                     }
                 }
@@ -930,7 +935,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         if new.modifiers().contains(Modifiers::NEW | Modifiers::REF) {
             self.ctx.error(conflicing_modifiers(
                 *new.modifiers(),
-                "NEW (`+`) can never be combined with REF (`&`)".into(),
+                "NEW (+) can never be combined with REF (&)".into(),
                 false,
             ));
             return None;
@@ -941,12 +946,12 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             if self.define_mode != DefineMode::Steps {
                 if self.duplicate_mode == DuplicateMode::Reference && same_name().is_none() {
                     self.ctx.warn(redundant_modifier(
-                        "new (`+`)",
+                        "new (+)",
                         format!("There are no {}s with the same name before", C::container()),
                     ));
                 } else if self.duplicate_mode == DuplicateMode::New {
                     self.ctx.warn(redundant_modifier(
-                        "new (`+`)",
+                        "new (+)",
                         format!("This {} is already a definition", C::container()),
                     ));
                 }
@@ -960,7 +965,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             && new.modifiers().contains(Modifiers::REF)
         {
             self.ctx.warn(redundant_modifier(
-                "reference (`&`)",
+                "reference (&)",
                 format!("This {} is already a reference", C::container()),
             ));
         }
@@ -1005,9 +1010,9 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         .collect::<Vec<_>>()
                         .join(", ");
                     if implicit {
-                        format!("Mark the definition as {extra} or add new ('+') to this.")
+                        format!("Mark the definition as {extra} or add new (+) to this")
                     } else {
-                        format!("Mark the definition as {extra} or remove the reference ('&').")
+                        format!("Mark the definition as {extra} or remove the reference (&)")
                     }
                 };
                 self.ctx

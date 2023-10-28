@@ -86,7 +86,7 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
                                 "expected single word name here"
                             ),
                         )
-                        .hint("Add `{}` at the end of the name to use it, or change it."),
+                        .hint("Add `{}` at the end of the name to use it, or change the name"),
                     );
                 }
                 return None;
@@ -184,7 +184,7 @@ fn parse_modifiers(
                 bp.error(
                     error!(
                         format!("Duplicate modifier: {}", bp.as_str(*tok)),
-                        label!(modifiers_span, "remove duplicate modifier"),
+                        label!(modifiers_span, "only leave one {}", bp.as_str(*tok)),
                     )
                     .hint("Order does not matter, but duplicates are not allowed"),
                 );
@@ -206,7 +206,7 @@ fn parse_intermediate_ref_data(
 ) -> Option<Located<IntermediateData>> {
     use IntermediateRefMode::*;
     use IntermediateTargetKind::*;
-    const INTER_PREP_HELP: &str = "The reference is something like: `~1`, `1`, `=1` or `=~1`.";
+    const INTER_PREP_HELP: &str = "The target is something like: `1`, `~1`, `=1` or `=~1`";
     const INVALID: &str = "Invalid intermediate preparation reference";
 
     // if '(' has been taken as a modifier token, it has taken until
@@ -262,12 +262,10 @@ fn parse_intermediate_ref_data(
         [.., s @ mt![- | +], mt![int]] => {
             bp.error(
                 error!(
-                    format!("{INVALID}: value cannot have sign"),
+                    format!("{INVALID}: value sign"),
                     label!(s.span, "remove this"),
                 )
-                .hint(
-                    "The value cannot have a sign. They are indexes or relative always backwards.",
-                ),
+                .hint("The value cannot have a sign. It is absolute or relative always backwards"),
             );
             return None;
         }
@@ -318,7 +316,7 @@ fn parse_alias<'input>(
                     format!("Invalid {container}: multiple aliases"),
                     label!(bad_bit, "more than one alias defined here"),
                 )
-                .hint("A component can only have one alias. Remove the extra '|'."),
+                .hint("A component can only have one alias. Remove the extra '|'"),
             );
             None
         } else if alias_text.is_text_empty() {
@@ -421,7 +419,7 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
                     "Invalid cookware quantity: auto scale marker",
                     label!(auto_scale, "remove this"),
                 )
-                .hint("Cookware items amount  can't be auto scaled"),
+                .hint("Cookware items amount can't be auto scaled"),
             );
         }
         q.quantity.map(|q| q.value)
@@ -484,7 +482,7 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
                     "Invalid timer quantity: auto scale marker",
                     label!(auto_scale, "remove this"),
                 )
-                .hint("Timers duration cannot be auto scaled"),
+                .hint("Timers durations cannot be auto scaled"),
             );
         }
         if q.quantity.unit.is_none() {
@@ -492,7 +490,7 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
                 error!(
                     "Invalid timer quantity: missing unit",
                     label!(
-                        Span::pos(q.quantity.value.span().start()),
+                        Span::pos(q.quantity.value.span().end()),
                         "expected unit here"
                     ),
                 )
@@ -571,6 +569,9 @@ fn check_intermediate_data(
 fn check_alias(bp: &mut BlockParser, name_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
     assert_ne!(container, COOKWARE);
+    if !bp.extension(Extensions::COMPONENT_ALIAS) {
+        return;
+    }
     if let Some(sep) = name_tokens.iter().position(|t| t.kind == T![|]) {
         let to_remove = Span::new(
             name_tokens[sep].span.start(),

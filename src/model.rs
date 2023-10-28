@@ -568,7 +568,7 @@ pub struct Timer<V: QuantityValue = Value> {
     /// If created from parsing the following applies:
     ///
     /// - If the [`ADVANCED_UNITS`](crate::Extensions::ADVANCED_UNITS) extension
-    /// is enabled, this is guaranteed to have a time unit.
+    /// is enabled, this is guaranteed to have a time unit and a non text value.
     ///
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
     /// extension is enabled, this is guaranteed to be [`Some`].
