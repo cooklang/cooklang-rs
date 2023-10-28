@@ -37,7 +37,7 @@
 //! assert_eq!(recipe.ingredients.len(), 1);
 //! assert_eq!(recipe.ingredients[0].name, "example");
 //! # assert!(_warnings.is_empty());
-//! # Ok::<(), cooklang::error::CooklangReport>(())
+//! # Ok::<(), cooklang::error::SourceReport>(())
 //! ```
 //!
 //! Recipes can be scaled and converted. But the following applies:
@@ -81,14 +81,11 @@ pub mod quantity;
 pub mod scale;
 pub mod span;
 
-mod context;
 mod lexer;
-
-use std::borrow::Cow;
 
 use bitflags::bitflags;
 
-use error::{CooklangError, CooklangWarning, PassResult};
+use error::{CowStr, PassResult};
 
 pub use convert::Converter;
 pub use located::Located;
@@ -184,8 +181,8 @@ pub struct CooklangParser {
     converter: Converter,
 }
 
-pub type RecipeResult = PassResult<ScalableRecipe, CooklangError, CooklangWarning>;
-pub type MetadataResult = PassResult<Metadata, CooklangError, CooklangWarning>;
+pub type RecipeResult = PassResult<ScalableRecipe>;
+pub type MetadataResult = PassResult<Metadata>;
 
 /// Function to check if a reference to a recipe exist
 ///
@@ -197,21 +194,13 @@ pub enum RecipeRefCheckResult {
     /// The recipe is found
     Found,
     /// The recipe is not found
-    NotFound {
-        /// Optional help message for the error
-        help: Option<Cow<'static, str>>,
-        /// Optional note message for the error
-        note: Option<Cow<'static, str>>,
-    },
+    NotFound { hints: Vec<CowStr> },
 }
 impl From<bool> for RecipeRefCheckResult {
     fn from(value: bool) -> Self {
         match value {
             true => Self::Found,
-            false => Self::NotFound {
-                help: None,
-                note: None,
-            },
+            false => Self::NotFound { hints: vec![] },
         }
     }
 }

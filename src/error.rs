@@ -1,57 +1,260 @@
 //! Error type, formatting and utilities.
 
 use std::borrow::Cow;
-use std::ops::Deref;
+use std::collections::VecDeque;
 
-use thiserror::Error;
+use crate::Span;
+
+macro_rules! label {
+    ($span:expr) => {
+        ($span.to_owned().into(), None)
+    };
+    ($span:expr, $message:expr) => {
+        ($span.to_owned().into(), Some($message.into()))
+    };
+    ($span:expr, $fmt:literal, $($arg:expr),*) => {
+        ($span.to_owned().into(), format!($fmt, $($arg),*))
+    }
+}
+pub(crate) use label;
+
+pub type CowStr = Cow<'static, str>;
+pub type Label = (Span, Option<CowStr>);
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct SourceDiag {
+    /// If the diagnostic is an error or warning
+    pub severity: Severity,
+    /// In which parsing stage did this origined
+    pub stage: Stage,
+    /// Report message describing the problem
+    pub message: CowStr,
+    /// Lower level error that produced the problem, if any
+    source: Option<std::sync::Arc<dyn std::error::Error>>,
+    /// Spans of the code that helps the user find the error
+    ///
+    /// It should be ordered from high to low importance. The first is the
+    /// main location of the error.
+    pub labels: Vec<Label>,
+    /// Additional hints for the user
+    ///
+    /// It should be ordered from high to low importance.
+    pub hints: Vec<CowStr>,
+}
+
+impl std::fmt::Display for SourceDiag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.message.fmt(f)
+    }
+}
+
+impl RichError for SourceDiag {
+    fn labels(&self) -> Cow<[Label]> {
+        self.labels.as_slice().into()
+    }
+
+    fn hints(&self) -> Cow<[CowStr]> {
+        self.hints.as_slice().into()
+    }
+
+    fn severity(&self) -> Severity {
+        self.severity
+    }
+}
+
+impl std::error::Error for SourceDiag {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_deref()
+    }
+}
+
+impl PartialEq for SourceDiag {
+    fn eq(&self, other: &Self) -> bool {
+        self.severity == other.severity && self.message == other.message
+    }
+}
+
+impl SourceDiag {
+    pub fn unlabeled(message: impl Into<CowStr>, severity: Severity, stage: Stage) -> Self {
+        Self {
+            severity,
+            stage,
+            message: message.into(),
+            source: None,
+            labels: vec![],
+            hints: vec![],
+        }
+    }
+
+    pub fn error(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
+        Self {
+            severity: Severity::Error,
+            message: message.into(),
+            labels: vec![label],
+            hints: vec![],
+            source: None,
+            stage,
+        }
+    }
+
+    pub fn warning(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
+        Self {
+            severity: Severity::Warning,
+            message: message.into(),
+            labels: vec![label],
+            hints: vec![],
+            source: None,
+            stage,
+        }
+    }
+
+    pub fn is_error(&self) -> bool {
+        self.severity == Severity::Error
+    }
+
+    pub fn is_warning(&self) -> bool {
+        self.severity == Severity::Warning
+    }
+
+    pub fn label(mut self, label: Label) -> Self {
+        self.add_label(label);
+        self
+    }
+    pub fn add_label(&mut self, label: Label) -> &mut Self {
+        self.labels.push(label);
+        self
+    }
+
+    pub fn hint(mut self, hint: impl Into<CowStr>) -> Self {
+        self.add_hint(hint);
+        self
+    }
+    pub fn add_hint(&mut self, hint: impl Into<CowStr>) -> &mut Self {
+        self.hints.push(hint.into());
+        self
+    }
+
+    pub(crate) fn set_source(mut self, source: impl std::error::Error + 'static) -> Self {
+        self.source = Some(std::sync::Arc::new(source));
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Severity {
+    Error,
+    Warning,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stage {
+    Parse,
+    Analysis,
+}
 
 /// Errors and warnings container with fancy formatting
 ///
 /// The [`Display`](std::fmt::Display) implementation is not fancy formatting,
 /// use one of the print or write methods.
 #[derive(Debug, Clone)]
-pub struct Report<E, W> {
-    pub(crate) errors: Vec<E>,
-    pub(crate) warnings: Vec<W>,
+pub struct SourceReport {
+    buf: VecDeque<SourceDiag>,
+    severity: Option<Severity>,
 }
 
-pub type CooklangReport = Report<CooklangError, CooklangWarning>;
-
-impl<E, W> Report<E, W> {
-    /// Create a new report
-    pub fn new(errors: Vec<E>, warnings: Vec<W>) -> Self {
-        Self { errors, warnings }
+impl SourceReport {
+    pub(crate) fn empty() -> Self {
+        Self {
+            buf: VecDeque::new(),
+            severity: None,
+        }
     }
 
-    /// Errors of the report
-    pub fn errors(&self) -> &[E] {
-        &self.errors
+    pub(crate) fn push(&mut self, err: SourceDiag) {
+        debug_assert!(self.severity.is_none() || self.severity.is_some_and(|s| err.severity == s));
+        match err.severity {
+            Severity::Error => self.buf.push_back(err),
+            Severity::Warning => self.buf.push_front(err),
+        }
     }
 
-    /// Warnings of the report
-    pub fn warnings(&self) -> &[W] {
-        &self.warnings
+    pub(crate) fn error(&mut self, w: SourceDiag) {
+        debug_assert_eq!(w.severity, Severity::Error);
+        self.push(w);
     }
 
-    /// Check if the reports has errors
+    pub(crate) fn warn(&mut self, w: SourceDiag) {
+        debug_assert_eq!(w.severity, Severity::Warning);
+        self.push(w);
+    }
+
+    pub(crate) fn retain(&mut self, f: impl Fn(&SourceDiag) -> bool) {
+        self.buf.retain(f)
+    }
+
+    pub(crate) fn set_severity(&mut self, severity: Option<Severity>) {
+        debug_assert!(
+            severity.is_none()
+                || severity.is_some_and(|s| self.buf.iter().all(|e| e.severity == s))
+        );
+        self.severity = severity;
+    }
+
+    /// Returns the severity of this report.
+    ///
+    /// - `None` means any severity.
+    /// - `Some(sev)` means all errors in the report are of severity `sev`.
+    pub fn severity(&self) -> Option<&Severity> {
+        self.severity.as_ref()
+    }
+
+    pub fn errors(&self) -> impl Iterator<Item = &SourceDiag> {
+        self.buf.iter().filter(|e| e.severity == Severity::Error)
+    }
+
+    pub fn warnings(&self) -> impl Iterator<Item = &SourceDiag> {
+        self.buf.iter().filter(|e| e.severity == Severity::Warning)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &SourceDiag> {
+        self.buf.iter()
+    }
+
     pub fn has_errors(&self) -> bool {
-        !self.errors.is_empty()
+        match self.severity {
+            Some(Severity::Warning) => false,
+            Some(Severity::Error) => !self.buf.is_empty(),
+            None => self.errors().next().is_some(),
+        }
     }
-    /// Check if the reports has warnings
-    pub fn has_warnings(&self) -> bool {
-        !self.warnings.is_empty()
-    }
-    /// Check if the reports doesn't have errors or warnings
-    pub fn is_empty(&self) -> bool {
-        self.errors.is_empty() && self.warnings.is_empty()
-    }
-}
 
-impl<E, W> Report<E, W>
-where
-    E: RichError,
-    W: RichError,
-{
+    pub fn has_warnings(&self) -> bool {
+        match self.severity {
+            Some(Severity::Warning) => !self.buf.is_empty(),
+            Some(Severity::Error) => false,
+            None => self.warnings().next().is_some(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.buf.is_empty()
+    }
+
+    pub fn unzip(self) -> (SourceReport, SourceReport) {
+        let (errors, warnings) = self.buf.into_iter().partition(SourceDiag::is_error);
+        (
+            Self {
+                buf: errors,
+                severity: Some(Severity::Error),
+            },
+            Self {
+                buf: warnings,
+                severity: Some(Severity::Warning),
+            },
+        )
+    }
+
     /// Write a formatted report
     pub fn write(
         &self,
@@ -62,18 +265,19 @@ where
         w: &mut impl std::io::Write,
     ) -> std::io::Result<()> {
         let mut cache = DummyCache::new(file_name, source_code);
-        if !hide_warnings {
-            for warn in &self.warnings {
-                build_report(warn, file_name, source_code, color).write(&mut cache, &mut *w)?;
+
+        if hide_warnings {
+            for err in self.errors() {
+                build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
             }
-        }
-        for err in &self.errors {
-            build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
+        } else {
+            for err in self.iter() {
+                build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
+            }
         }
         Ok(())
     }
-
-    /// Prints a formatted report to stdout
+    /// Print a formatted report to stdout
     pub fn print(
         &self,
         file_name: &str,
@@ -86,11 +290,10 @@ where
             source_code,
             hide_warnings,
             color,
-            &mut std::io::stdout(),
+            &mut std::io::stdout().lock(),
         )
     }
-
-    /// Prints a formatted report to stderr
+    /// Print a formatted report to stderr
     pub fn eprint(
         &self,
         file_name: &str,
@@ -103,115 +306,41 @@ where
             source_code,
             hide_warnings,
             color,
-            &mut std::io::stderr(),
+            &mut std::io::stderr().lock(),
         )
     }
 }
 
-impl<E, W> std::fmt::Display for Report<E, W>
-where
-    E: std::fmt::Display,
-    W: std::fmt::Display,
-{
+impl IntoIterator for SourceReport {
+    type Item = SourceDiag;
+
+    type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.buf.into_iter()
+    }
+}
+
+impl std::fmt::Display for SourceReport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let errors = &self.errors;
-        let warnings = &self.warnings;
-        if errors.len() == 1 {
-            errors[0].fmt(f)?;
-        } else if warnings.len() == 1 {
-            warnings[0].fmt(f)?;
-        } else {
-            match (errors.is_empty(), warnings.is_empty()) {
-                (true, true) => writeln!(f, "Unknown error")?,
-                (true, false) => writeln!(f, "Multiple warnings:")?,
-                (false, _) => writeln!(f, "Multiple errors:")?,
-            }
-            for warn in warnings {
-                warn.fmt(f)?;
-            }
-            for err in errors {
-                err.fmt(f)?;
-            }
+        for err in self.iter() {
+            err.fmt(f)?;
         }
         Ok(())
     }
 }
-impl<E, W> std::error::Error for Report<E, W>
-where
-    E: std::fmt::Display + std::fmt::Debug,
-    W: std::fmt::Display + std::fmt::Debug,
-{
-}
-
-/// Partial [`Report`] only for warnings
-pub struct Warnings<W>(Vec<W>);
-
-impl<W> Warnings<W> {
-    pub fn new(warnings: Vec<W>) -> Self {
-        Self(warnings)
-    }
-
-    pub fn into_report<E>(self) -> Report<E, W> {
-        self.into()
-    }
-}
-
-impl<W: RichError> Warnings<W> {
-    /// Write a formatted report
-    pub fn write(
-        &self,
-        file_name: &str,
-        source_code: &str,
-        color: bool,
-        w: &mut impl std::io::Write,
-    ) -> std::io::Result<()> {
-        let mut cache = DummyCache::new(file_name, source_code);
-        for warn in &self.0 {
-            build_report(warn, file_name, source_code, color).write(&mut cache, &mut *w)?;
-        }
-        Ok(())
-    }
-
-    /// Prints a formatted report to stdout
-    pub fn print(&self, file_name: &str, source_code: &str, color: bool) -> std::io::Result<()> {
-        self.write(file_name, source_code, color, &mut std::io::stdout())
-    }
-
-    /// Prints a formatted report to stderr
-    pub fn eprint(&self, file_name: &str, source_code: &str, color: bool) -> std::io::Result<()> {
-        self.write(file_name, source_code, color, &mut std::io::stderr())
-    }
-}
-
-impl<E, W> From<Warnings<W>> for Report<E, W> {
-    fn from(value: Warnings<W>) -> Self {
-        Self::new(vec![], value.0)
-    }
-}
-
-impl<W> Deref for Warnings<W> {
-    type Target = [W];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+impl std::error::Error for SourceReport {}
 
 /// Output from the different passes of the parsing process
 #[derive(Debug)]
-pub struct PassResult<T, E, W> {
+pub struct PassResult<T> {
     output: Option<T>,
-    warnings: Vec<W>,
-    errors: Vec<E>,
+    report: SourceReport,
 }
 
-impl<T, E, W> PassResult<T, E, W> {
-    pub(crate) fn new(output: Option<T>, warnings: Vec<W>, errors: Vec<E>) -> Self {
-        Self {
-            output,
-            warnings,
-            errors,
-        }
+impl<T> PassResult<T> {
+    pub(crate) fn new(output: Option<T>, report: SourceReport) -> Self {
+        Self { output, report }
     }
 
     /// Check if the result has any output. It may not be valid.
@@ -220,13 +349,8 @@ impl<T, E, W> PassResult<T, E, W> {
     }
 
     /// Check if the result has errors.
-    pub fn has_errors(&self) -> bool {
-        !self.errors.is_empty()
-    }
-
-    /// Check if the result has warnings.
-    pub fn has_warnings(&self) -> bool {
-        !self.warnings.is_empty()
+    pub fn report(&self) -> &SourceReport {
+        &self.report
     }
 
     /// Check if the result is invalid.
@@ -234,7 +358,7 @@ impl<T, E, W> PassResult<T, E, W> {
     /// Output, if any, should be discarded or used knowing that it contains
     /// errors or is incomplete.
     pub fn is_valid(&self) -> bool {
-        !self.has_errors() && self.has_output()
+        self.has_output() && !self.report.has_errors()
     }
 
     /// Get the output
@@ -242,32 +366,20 @@ impl<T, E, W> PassResult<T, E, W> {
         self.output.as_ref()
     }
 
-    /// Get the warnings
-    pub fn warnings(&self) -> &[W] {
-        &self.warnings
-    }
-
-    /// Get the errors
-    pub fn errors(&self) -> &[E] {
-        &self.errors
-    }
-
     /// Transform into a common rust [`Result`]
-    pub fn into_result(mut self) -> Result<(T, Warnings<W>), Report<E, W>> {
+    pub fn into_result(mut self) -> Result<(T, SourceReport), SourceReport> {
         if let Some(o) = self.output.take() {
-            if self.errors.is_empty() {
-                return Ok((o, Warnings::new(self.warnings)));
+            if !self.report.has_errors() {
+                self.report.set_severity(Some(Severity::Warning));
+                return Ok((o, self.report));
             }
         }
-        Err(self.into_report())
+        Err(self.report)
     }
 
     /// Transform into a [`Report`] discarding the output
-    pub fn into_report(self) -> Report<E, W> {
-        Report {
-            errors: self.errors,
-            warnings: self.warnings,
-        }
+    pub fn into_report(self) -> SourceReport {
+        self.report
     }
 
     /// Take the output discarding the errors/warnings
@@ -280,91 +392,35 @@ impl<T, E, W> PassResult<T, E, W> {
         self.output
     }
 
-    /// Transform into errors discarding output and warnings
-    pub fn into_errors(self) -> Vec<E> {
-        self.errors
-    }
-
-    /// Transform into warnings discarding output and errors
-    pub fn into_warnings(self) -> Vec<W> {
-        self.warnings
-    }
-
     /// Get output, errors and warnings in a tuple
-    pub fn into_tuple(self) -> (Option<T>, Vec<W>, Vec<E>) {
-        (self.output, self.warnings, self.errors)
+    pub fn into_tuple(self) -> (Option<T>, SourceReport) {
+        (self.output, self.report)
     }
 
     /// Map the inner output
-    pub fn map<F, O>(self, f: F) -> PassResult<O, E, W>
+    pub fn map<F, O>(self, f: F) -> PassResult<O>
     where
         F: FnOnce(T) -> O,
     {
         PassResult {
             output: self.output.map(f),
-            warnings: self.warnings,
-            errors: self.errors,
+            report: self.report,
         }
-    }
-
-    /// Map the inner output with a fallible function
-    pub fn try_map<F, O, E2>(self, f: F) -> Result<PassResult<O, E, W>, E2>
-    where
-        F: FnOnce(T) -> Result<O, E2>,
-    {
-        let output = self.output.map(f).transpose()?;
-        Ok(PassResult {
-            output,
-            warnings: self.warnings,
-            errors: self.errors,
-        })
     }
 }
 
 /// Trait to enhace errors with rich metadata
 pub trait RichError: std::error::Error {
-    fn labels(&self) -> Vec<(Span, Option<Cow<'static, str>>)> {
-        vec![]
+    fn labels(&self) -> Cow<[Label]> {
+        Cow::Borrowed(&[])
     }
-    fn help(&self) -> Option<Cow<'static, str>> {
-        None
+    fn hints(&self) -> Cow<[CowStr]> {
+        Cow::Borrowed(&[])
     }
-    fn note(&self) -> Option<Cow<'static, str>> {
-        None
-    }
-    fn code(&self) -> Option<&'static str> {
-        None
-    }
-    fn kind(&self) -> ariadne::ReportKind {
-        ariadne::ReportKind::Error
+    fn severity(&self) -> Severity {
+        Severity::Error
     }
 }
-
-macro_rules! label {
-    ($span:expr) => {
-        ($span.to_owned().into(), None)
-    };
-    ($span:expr, $message:expr) => {
-        ($span.to_owned().into(), Some($message.into()))
-    };
-}
-pub(crate) use label;
-
-macro_rules! help {
-    () => {
-        None
-    };
-    ($help:expr) => {
-        Some($help.into())
-    };
-    (opt $help:expr) => {
-        $help.map(|h| h.into())
-    };
-}
-pub(crate) use help;
-pub(crate) use help as note;
-
-use crate::span::Span;
 
 /// Writes a rich error report
 ///
@@ -391,8 +447,8 @@ fn build_report<'a>(
 ) -> ariadne::Report<'a> {
     use ariadne::{Color, ColorGenerator, Fmt, Label, Report};
 
-    let labels = err
-        .labels()
+    let labels = err.labels();
+    let labels = labels
         .into_iter()
         .map(|(s, t)| (s.to_chars_span(src_code, file_name).range(), t))
         .collect::<Vec<_>>();
@@ -400,12 +456,17 @@ fn build_report<'a>(
     // The start of the first span
     let offset = labels.iter().map(|l| l.0.start).min().unwrap_or_default();
 
-    let mut r = Report::build(err.kind(), (), offset)
-        .with_config(ariadne::Config::default().with_color(color));
+    let kind = match err.severity() {
+        Severity::Error => ariadne::ReportKind::Error,
+        Severity::Warning => ariadne::ReportKind::Warning,
+    };
+
+    let mut r =
+        Report::build(kind, (), offset).with_config(ariadne::Config::default().with_color(color));
 
     if let Some(source) = err.source() {
         let arrow_color = if color {
-            match err.kind() {
+            match kind {
                 ariadne::ReportKind::Error => Color::Red,
                 ariadne::ReportKind::Warning => Color::Yellow,
                 ariadne::ReportKind::Advice => Color::Fixed(147),
@@ -431,12 +492,23 @@ fn build_report<'a>(
         l
     }));
 
-    if let Some(help) = err.help() {
+    let hints = err.hints();
+    let mut hints = hints.iter();
+
+    if let Some(help) = hints.next() {
         r.set_help(help);
     }
 
-    if let Some(note) = err.note() {
+    if let Some(note) = hints.next() {
         r.set_note(note);
+    }
+
+    #[cfg(debug_assertions)]
+    if hints.next().is_some() {
+        tracing::warn!(
+            hints = ?err.hints(),
+            "this function only supports 2 hints, more will be ignored",
+        );
     }
 
     r.finish()
@@ -461,94 +533,17 @@ impl ariadne::Cache<()> for DummyCache {
     }
 }
 
-/// General cooklang error type
-#[derive(Debug, Error)]
-#[non_exhaustive]
-#[error(transparent)]
-pub enum CooklangError {
-    /// An error in the parse pass
-    Parser(#[from] crate::parser::ParserError),
-    /// An error in the analysis pass
-    Analysis(#[from] crate::analysis::AnalysisError),
-    /// Error related to I/O
-    Io(#[from] std::io::Error),
+/// Like [`Default`] but for situations where a default value does not make sense
+/// and we need to recover from an error.
+pub trait Recover {
+    fn recover() -> Self;
 }
 
-/// General cooklang warning type
-#[derive(Debug, Error)]
-#[non_exhaustive]
-#[error(transparent)]
-pub enum CooklangWarning {
-    /// A waring in the parse pass
-    Parser(#[from] crate::parser::ParserWarning),
-    /// A waring in the analysis pass
-    Analysis(#[from] crate::analysis::AnalysisWarning),
-}
-
-impl RichError for CooklangError {
-    fn labels(&self) -> Vec<(Span, Option<Cow<'static, str>>)> {
-        match self {
-            CooklangError::Parser(e) => e.labels(),
-            CooklangError::Analysis(e) => e.labels(),
-            CooklangError::Io(_) => vec![],
-        }
-    }
-
-    fn help(&self) -> Option<Cow<'static, str>> {
-        match self {
-            CooklangError::Parser(e) => e.help(),
-            CooklangError::Analysis(e) => e.help(),
-            CooklangError::Io(_) => None,
-        }
-    }
-
-    fn note(&self) -> Option<Cow<'static, str>> {
-        match self {
-            CooklangError::Parser(e) => e.note(),
-            CooklangError::Analysis(e) => e.note(),
-            CooklangError::Io(_) => None,
-        }
-    }
-
-    fn code(&self) -> Option<&'static str> {
-        match self {
-            CooklangError::Parser(e) => e.code(),
-            CooklangError::Analysis(e) => e.code(),
-            CooklangError::Io(_) => Some("io"),
-        }
-    }
-}
-
-impl RichError for CooklangWarning {
-    fn labels(&self) -> Vec<(Span, Option<Cow<'static, str>>)> {
-        match self {
-            CooklangWarning::Parser(e) => e.labels(),
-            CooklangWarning::Analysis(e) => e.labels(),
-        }
-    }
-
-    fn help(&self) -> Option<Cow<'static, str>> {
-        match self {
-            CooklangWarning::Parser(e) => e.help(),
-            CooklangWarning::Analysis(e) => e.help(),
-        }
-    }
-
-    fn code(&self) -> Option<&'static str> {
-        match self {
-            CooklangWarning::Parser(e) => e.code(),
-            CooklangWarning::Analysis(e) => e.code(),
-        }
-    }
-
-    fn note(&self) -> Option<Cow<'static, str>> {
-        match self {
-            CooklangWarning::Parser(e) => e.note(),
-            CooklangWarning::Analysis(e) => e.note(),
-        }
-    }
-
-    fn kind(&self) -> ariadne::ReportKind {
-        ariadne::ReportKind::Warning
+impl<T> Recover for T
+where
+    T: Default,
+{
+    fn recover() -> Self {
+        Self::default()
     }
 }

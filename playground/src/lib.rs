@@ -1,4 +1,3 @@
-use cooklang::error::Report;
 use cooklang::parser::build_ast;
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser};
@@ -45,7 +44,7 @@ pub struct FallibleResult {
 #[wasm_bindgen]
 pub fn parse_ast(input: &str, json: bool) -> FallibleResult {
     let events = PullParser::new(input, *EXTENSIONS.lock().unwrap());
-    let (ast, warnings, errors) = build_ast(events).into_tuple();
+    let (ast, report) = build_ast(events).into_tuple();
     let value = match ast {
         Some(ast) => {
             if json {
@@ -57,7 +56,7 @@ pub fn parse_ast(input: &str, json: bool) -> FallibleResult {
         None => "<no ouput>".to_string(),
     };
     let mut buf = Vec::new();
-    Report::new(errors, warnings)
+    report
         .write("playground", input, false, true, &mut buf)
         .unwrap();
     let ansi_error = String::from_utf8_lossy(&buf);
@@ -76,7 +75,7 @@ pub fn parse_full(input: &str, json: bool) -> FallibleResult {
         ));
     }
     let parser = parser_ref.as_ref().unwrap();
-    let (recipe, warnings, errors) = parser.parse(input).into_tuple();
+    let (recipe, report) = parser.parse(input).into_tuple();
     let value = match recipe {
         Some(r) => {
             if json {
@@ -88,7 +87,7 @@ pub fn parse_full(input: &str, json: bool) -> FallibleResult {
         None => "<no ouput>".to_string(),
     };
     let mut buf = Vec::new();
-    Report::new(errors, warnings)
+    report
         .write("playground", input, false, true, &mut buf)
         .unwrap();
     let ansi_error = String::from_utf8_lossy(&buf);

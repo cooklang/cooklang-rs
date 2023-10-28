@@ -8,7 +8,7 @@
 
 mod text;
 
-use crate::{context::Recover, located::Located, quantity::Value, span::Span};
+use crate::{error::Recover, located::Located, quantity::Value, span::Span};
 pub use text::{Text, TextFragment};
 
 use bitflags::bitflags;

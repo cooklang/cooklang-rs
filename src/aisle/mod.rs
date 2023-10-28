@@ -2,13 +2,16 @@
 //!
 //! This module is only available with the `aisle` [feaure](crate::_features).
 //!
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use pest::Parser;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{error::RichError, span::Span};
+use crate::{
+    error::{CowStr, Label, RichError},
+    span::Span,
+};
 
 // So [parser::Rule] is not public
 mod parser {
@@ -172,7 +175,7 @@ pub enum AisleConfError {
 }
 
 impl RichError for AisleConfError {
-    fn labels(&self) -> Vec<(Span, Option<std::borrow::Cow<'static, str>>)> {
+    fn labels(&self) -> Cow<[Label]> {
         use crate::error::label;
         match self {
             AisleConfError::Parse { span, .. } => vec![label!(span)],
@@ -181,22 +184,38 @@ impl RichError for AisleConfError {
                 second_span,
                 ..
             } => vec![
-                label!(first_span, "first defined here"),
-                label!(second_span, "then here"),
+                label!(second_span, "this category"),
+                label!(first_span, "was first defined here"),
             ],
             AisleConfError::DuplicateIngredient {
                 first_span,
                 second_span,
                 ..
             } => vec![
-                label!(first_span, "first defined here"),
-                label!(second_span, "then here"),
+                label!(second_span, "this ingredient"),
+                label!(first_span, "was first defined here"),
             ],
         }
+        .into()
     }
 
-    fn code(&self) -> Option<&'static str> {
-        Some("shopping list")
+    fn hints(&self) -> Cow<[CowStr]> {
+        match self {
+            AisleConfError::DuplicateCategory { .. } => {
+                vec!["Remove the duplicate category".into()]
+            }
+            AisleConfError::DuplicateIngredient { .. } => {
+                vec!["Remove the duplicate ingredient".into()]
+            }
+            _ => {
+                vec![]
+            }
+        }
+        .into()
+    }
+
+    fn severity(&self) -> crate::error::Severity {
+        crate::error::Severity::Error
     }
 }
 

@@ -1,8 +1,9 @@
 use std::collections::VecDeque;
 
-use super::{token_stream::Token, tokens_span, Event, ParserError, ParserWarning};
+use super::{token_stream::Token, tokens_span, Event};
 use crate::{
     ast::{self, TextFragment},
+    error::SourceDiag,
     lexer::{TokenKind, T},
     Extensions, Span,
 };
@@ -254,10 +255,12 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         }
     }
 
-    pub(crate) fn error(&mut self, error: ParserError) {
+    pub(crate) fn error(&mut self, error: SourceDiag) {
+        debug_assert!(error.is_error());
         self.event(Event::Error(error))
     }
-    pub(crate) fn warn(&mut self, warn: ParserWarning) {
+    pub(crate) fn warn(&mut self, warn: SourceDiag) {
+        debug_assert!(warn.is_warning());
         self.event(Event::Warning(warn))
     }
 }

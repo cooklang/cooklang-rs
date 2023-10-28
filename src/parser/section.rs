@@ -1,6 +1,6 @@
-use crate::{lexer::T, Extensions};
+use crate::{error::label, lexer::T, Extensions};
 
-use super::{BlockParser, Event, ParserWarning};
+use super::{warning, BlockParser, Event};
 
 pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     if !block.extension(Extensions::SECTIONS) {
@@ -16,11 +16,13 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
     block.ws_comments();
 
     if !block.rest().is_empty() {
-        block.warn(ParserWarning::BlockInvalid {
-            block: block.span(),
-            kind: "section",
-            help: Some("There is text after after the section in the same line"),
-        });
+        block.warn(
+            warning!(
+                "A section block is invalid and it will be a step",
+                label!(block.span()),
+            )
+            .hint("There is text after the section in the same line"),
+        );
         return None;
     }
 

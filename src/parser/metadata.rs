@@ -1,17 +1,19 @@
 use crate::{error::label, lexer::T};
 
-use super::{BlockParser, Event, ParserError, ParserWarning};
+use super::{error, warning, BlockParser, Event};
 
 pub(crate) fn metadata_entry<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
     block.consume(T![meta])?;
     let key_pos = block.current_offset();
     let key_tokens = block.until(|t| t == T![:]).or_else(|| {
-        block.warn(ParserWarning::BlockInvalid {
-            block: block.span(),
-            kind: "metadata",
-            help: Some("Missing separator `:`"),
-        });
+        block.warn(
+            warning!(
+                "A metadata block is invalid and it will be a step",
+                label!(block.span()),
+            )
+            .hint("Missing separator `:`"),
+        );
         None
     })?;
     let key = block.text(key_pos, key_tokens);
@@ -22,18 +24,21 @@ pub(crate) fn metadata_entry<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Even
 
     // Checks
     if key.is_text_empty() {
-        block.error(ParserError::ComponentPartInvalid {
-            container: "metadata entry",
-            what: "key",
-            reason: "is empty",
-            labels: vec![label!(key.span(), "this cannot be empty")],
-            help: None,
-        });
+        block.error(
+            error!(
+                "Empty metadata key",
+                label!(key.span(), "write the key here"),
+            )
+            .hint("The key cannot be empty"),
+        );
     } else if value.is_text_empty() {
-        block.warn(ParserWarning::EmptyMetadataValue {
-            key: key.located_string_trimmed(),
-            value: value.span(),
-        });
+        block.warn(
+            warning!(
+                format!("Empty metadata value for key: {}", key.text_trimmed()),
+                label!(value.span(), "write a value here"),
+            )
+            .label(label!(key.span())),
+        );
     }
 
     Some(Event::Metadata { key, value })

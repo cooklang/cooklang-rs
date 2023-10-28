@@ -98,7 +98,7 @@ impl<T> From<crate::located::Located<T>> for Span {
     }
 }
 
-impl crate::context::Recover for Span {
+impl crate::error::Recover for Span {
     fn recover() -> Self {
         Self::new(0, 0)
     }

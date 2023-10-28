@@ -7,7 +7,7 @@ use std::{
 
 use serde::Serialize;
 
-use crate::{context::Recover, span::Span};
+use crate::{error::Recover, span::Span};
 
 /// Wrapper type that adds location information to another
 #[derive(PartialEq, Serialize)]

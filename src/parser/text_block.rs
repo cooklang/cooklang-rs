@@ -27,8 +27,8 @@ mod tests {
     use std::collections::VecDeque;
 
     use crate::{
-        context::Context,
-        parser::{mt, token_stream::TokenStream, ParserError, ParserWarning},
+        error::SourceReport,
+        parser::{mt, token_stream::TokenStream},
         Extensions,
     };
 
@@ -36,7 +36,7 @@ mod tests {
     use indoc::indoc;
     use test_case::test_case;
 
-    fn t(input: &str) -> (Vec<Event>, Context<ParserError, ParserWarning>) {
+    fn t(input: &str) -> (Vec<Event>, SourceReport) {
         let mut tokens = TokenStream::new(input).collect::<Vec<_>>();
         // trim trailing newlines, block splitting should make sure this never
         // reaches the step function
@@ -48,12 +48,11 @@ mod tests {
         parse_text_block(&mut bp);
         bp.finish();
         let mut other = Vec::new();
-        let mut ctx = Context::default();
+        let mut ctx = SourceReport::empty();
 
         for ev in events {
             match ev {
-                Event::Error(err) => ctx.error(err),
-                Event::Warning(warn) => ctx.warn(warn),
+                Event::Error(err) | Event::Warning(err) => ctx.push(err),
                 _ => other.push(ev),
             }
         }

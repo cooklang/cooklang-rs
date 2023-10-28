@@ -2,8 +2,8 @@ use smallvec::SmallVec;
 
 use crate::{
     ast::{self, IntermediateData, IntermediateRefMode, IntermediateTargetKind, Modifiers, Text},
-    context::Recover,
     error::label,
+    error::Recover,
     lexer::T,
     located::Located,
     span::Span,
@@ -11,8 +11,8 @@ use crate::{
 };
 
 use super::{
-    mt, quantity::parse_quantity, token_stream::Token, tokens_span, BlockKind, BlockParser, Event,
-    ParserError, ParserWarning,
+    error, mt, quantity::parse_quantity, token_stream::Token, tokens_span, warning, BlockKind,
+    BlockParser, Event,
 };
 
 pub(crate) fn parse_step(bp: &mut BlockParser<'_, '_>) {
@@ -78,12 +78,16 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
             let tokens = bp.consume_while(|t| matches!(t, T![word] | T![int] | T![float]));
             if tokens.is_empty() {
                 if !bp.rest().is_empty() && !bp.at(T![ws]) {
-                    bp.warn(ParserWarning::ComponentPartIgnored {
-                        container: "component",
-                        what: "this single word name",
-                        ignored: Span::pos(bp.current_offset()),
-                        help: Some("Add '{}' at the end of the name to use it, or change it."),
-                    });
+                    bp.warn(
+                        warning!(
+                            "Invalid single word name, the component will be ignored",
+                            label!(
+                                Span::pos(bp.current_offset()),
+                                "expected single word name here"
+                            ),
+                        )
+                        .hint("Add `{}` at the end of the name to use it, or change it."),
+                    );
                 }
                 return None;
             }
@@ -177,10 +181,13 @@ fn parse_modifiers(
             };
 
             if modifiers.contains(new_m) {
-                bp.error(ParserError::DuplicateModifiers {
-                    modifiers_span,
-                    dup: bp.as_str(*tok).to_string(),
-                });
+                bp.error(
+                    error!(
+                        format!("Duplicate modifier: {}", bp.as_str(*tok)),
+                        label!(modifiers_span, "remove duplicate modifier"),
+                    )
+                    .hint("Order does not matter, but duplicates are not allowed"),
+                );
             } else {
                 modifiers |= new_m;
             }
@@ -199,9 +206,8 @@ fn parse_intermediate_ref_data(
 ) -> Option<Located<IntermediateData>> {
     use IntermediateRefMode::*;
     use IntermediateTargetKind::*;
-    const CONTAINER: &str = "modifiers";
-    const WHAT: &str = "intermediate preparation reference";
-    const INTER_REF_HELP: &str = "The reference is something like: `~1`, `1`, `=1` or `=~1`.";
+    const INTER_PREP_HELP: &str = "The reference is something like: `~1`, `1`, `=1` or `=~1`.";
+    const INVALID: &str = "Invalid intermediate preparation reference";
 
     // if '(' has been taken as a modifier token, it has taken until
     // a closing ')'
@@ -219,17 +225,6 @@ fn parse_intermediate_ref_data(
     };
     let inner_slice = &slice[1..slice.len() - 1];
 
-    if inner_slice.is_empty() {
-        bp.error(ParserError::ComponentPartInvalid {
-            container: CONTAINER,
-            what: WHAT,
-            reason: "empty",
-            labels: vec![label!(tokens_span(slice), "add the reference here")],
-            help: Some(INTER_REF_HELP),
-        });
-        return None;
-    }
-
     let filtered_tokens: SmallVec<[Token; 3]> = inner_slice
         .iter()
         .filter(|t| !matches!(t.kind, T![ws] | T![block comment]))
@@ -243,41 +238,41 @@ fn parse_intermediate_ref_data(
         [mt![=], mt![~], i @ mt![int]] => (i, Relative, Section),
 
         // common errors
+        [] => {
+            bp.error(
+                error!(
+                    format!("{INVALID}: empty"),
+                    label!(tokens_span(slice), "add the target preparation here"),
+                )
+                .hint(INTER_PREP_HELP),
+            );
+            return None;
+        }
         [rel @ mt![~], sec @ mt![=], mt![int]] => {
-            bp.error(ParserError::ComponentPartInvalid {
-                container: CONTAINER,
-                what: WHAT,
-                reason: "Wrong relative section order",
-                labels: vec![
-                    label!(rel.span, "this should be"),
-                    label!(sec.span, "after this"),
-                ],
-                help: Some("Swap the `~` and the `=`"),
-            });
+            bp.error(
+                error!(
+                    format!("{INVALID}: wrong relative section order"),
+                    label!(rel.span, "the relative marker"),
+                )
+                .label(label!(sec.span, "goes after the section marker"))
+                .hint("Swap the `~` and the `=`"),
+            );
             return None;
         }
         [.., s @ mt![- | +], mt![int]] => {
-            bp.error(ParserError::ComponentPartNotAllowed {
-                container: CONTAINER,
-                what: "intermediate preparation reference sign",
-                to_remove: s.span,
-                help: Some(
+            bp.error(
+                error!(
+                    format!("{INVALID}: value cannot have sign"),
+                    label!(s.span, "remove this"),
+                )
+                .hint(
                     "The value cannot have a sign. They are indexes or relative always backwards.",
                 ),
-            });
+            );
             return None;
         }
         _ => {
-            bp.error(ParserError::ComponentPartInvalid {
-                container: CONTAINER,
-                what: WHAT,
-                reason: "Invalid reference syntax",
-                labels: vec![label!(
-                    tokens_span(inner_slice),
-                    "this reference is not valid"
-                )],
-                help: Some(INTER_REF_HELP),
-            });
+            bp.error(error!(INVALID, label!(tokens_span(inner_slice))).hint(INTER_PREP_HELP));
             return None;
         }
     };
@@ -285,10 +280,7 @@ fn parse_intermediate_ref_data(
     let val = match bp.as_str(i).parse::<i16>() {
         Ok(val) => val,
         Err(err) => {
-            bp.error(ParserError::ParseInt {
-                bad_bit: i.span,
-                source: err,
-            });
+            bp.error(error!("Error parsing integer number", label!(i.span)).set_source(err));
             return None;
         }
     };
@@ -321,25 +313,22 @@ fn parse_alias<'input>(
                 alias_sep.span.start(),
                 alias_text_tokens.last().unwrap_or(alias_sep).span.end(),
             );
-            bp.error(ParserError::ComponentPartInvalid {
-                container,
-                what: "alias",
-                reason: "multiple aliases",
-                labels: vec![label!(bad_bit, "more than one alias defined here")],
-                help: Some("A component can only have one alias. Remove the extra '|'."),
-            });
+            bp.error(
+                error!(
+                    format!("Invalid {container}: multiple aliases"),
+                    label!(bad_bit, "more than one alias defined here"),
+                )
+                .hint("A component can only have one alias. Remove the extra '|'."),
+            );
             None
         } else if alias_text.is_text_empty() {
-            bp.error(ParserError::ComponentPartInvalid {
-                container,
-                what: "alias",
-                reason: "is empty",
-                labels: vec![
-                    label!(alias_sep.span, "remove this"),
-                    label!(alias_text.span(), "or add something here"),
-                ],
-                help: None,
-            });
+            bp.error(
+                error!(
+                    format!("Invalid {container}: empty alias"),
+                    label!(alias_text.span(), "add alias here"),
+                )
+                .label(label!(alias_sep.span, "or remove this")),
+            );
             None
         } else {
             Some(alias_text)
@@ -367,16 +356,7 @@ fn ingredient<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
 
     // Build text(s) and checks
     let (name, alias) = parse_alias(INGREDIENT, bp, body.name, name_offset);
-
-    if name.is_text_empty() {
-        bp.error(ParserError::ComponentPartInvalid {
-            container: INGREDIENT,
-            what: "name",
-            reason: "is empty",
-            labels: vec![label!(name.span(), "add a name here")],
-            help: None,
-        });
-    }
+    check_empty_name(INGREDIENT, bp, &name);
 
     let ParsedModifiers {
         flags: modifiers,
@@ -413,15 +393,8 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
 
     // Errors
     let (name, alias) = parse_alias(COOKWARE, bp, body.name, name_offset);
-    if name.is_text_empty() {
-        bp.error(ParserError::ComponentPartInvalid {
-            container: COOKWARE,
-            what: "name",
-            reason: "is empty",
-            labels: vec![label!(name, "add a name here")],
-            help: None,
-        });
-    }
+    check_empty_name(COOKWARE, bp, &name);
+
     let quantity = body.quantity.map(|tokens| {
         let q = parse_quantity(bp, tokens);
         if let Some(unit) = &q.quantity.unit {
@@ -430,24 +403,26 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             } else {
                 unit.span()
             };
-            bp.error(ParserError::ComponentPartNotAllowed {
-                container: COOKWARE,
-                what: "unit in quantity",
-                to_remove: span,
-                help: Some("Cookware quantity can't have an unit."),
-            });
+            bp.error(
+                error!(
+                    "Invalid cookware quantity: unit",
+                    label!(span, "remove this"),
+                )
+                .hint("Cookware items can't have units"),
+            );
         }
         if let ast::QuantityValue::Single {
             auto_scale: Some(auto_scale),
             ..
         } = &q.quantity.value
         {
-            bp.error(ParserError::ComponentPartNotAllowed {
-                container: COOKWARE,
-                what: "auto scale marker",
-                to_remove: *auto_scale,
-                help: Some("Cookware quantity can't be auto scaled."),
-            });
+            bp.error(
+                error!(
+                    "Invalid cookware quantity: auto scale marker",
+                    label!(auto_scale, "remove this"),
+                )
+                .hint("Cookware items amount  can't be auto scaled"),
+            );
         }
         q.quantity.map(|q| q.value)
     });
@@ -460,14 +435,13 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             .find(|t| t.kind == T![@])
             .map(|t| t.span)
             .expect("no recipe token in modifiers with recipe");
-
-        bp.error(ParserError::ComponentPartInvalid {
-            container: COOKWARE,
-            what: "modifiers",
-            reason: "recipe modifier not allowed in cookware",
-            labels: vec![(pos, Some("remove this".into()))],
-            help: None,
-        });
+        bp.error(
+            error!(
+                "Invalid cookware modifiers: recipe modifier not allowed",
+                label!(pos, "remove this"),
+            )
+            .hint("Only ingredients can have the recipe modifier"),
+        );
     }
 
     Some(Event::Cookware(Located::new(
@@ -505,30 +479,35 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             ..
         } = &q.quantity.value
         {
-            bp.error(ParserError::ComponentPartNotAllowed {
-                container: TIMER,
-                what: "auto scale marker",
-                to_remove: *auto_scale,
-                help: Some("Timer quantity can't be auto scaled."),
-            });
+            bp.error(
+                error!(
+                    "Invalid timer quantity: auto scale marker",
+                    label!(auto_scale, "remove this"),
+                )
+                .hint("Timers duration cannot be auto scaled"),
+            );
         }
         if q.quantity.unit.is_none() {
-            bp.error(ParserError::ComponentPartMissing {
-                container: TIMER,
-                what: "quantity unit",
-                expected_pos: Span::pos(q.quantity.value.span().end()),
-            });
+            bp.error(
+                error!(
+                    "Invalid timer quantity: missing unit",
+                    label!(
+                        Span::pos(q.quantity.value.span().start()),
+                        "expected unit here"
+                    ),
+                )
+                .hint("A timer needs a unit to know the duration"),
+            )
         }
         q.quantity
     });
 
     if quantity.is_none() && bp.extension(Extensions::TIMER_REQUIRES_TIME) {
         let span = body.close.unwrap_or_else(|| Span::pos(name.span().end()));
-        bp.error(ParserError::ComponentPartMissing {
-            container: TIMER,
-            what: "quantity",
-            expected_pos: span,
-        });
+        bp.error(error!(
+            "Invalid timer: missing quantity",
+            label!(span, "expected timer duration here"),
+        ));
         quantity = Some(Recover::recover());
     }
 
@@ -544,11 +523,10 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         } else {
             Span::pos(name_offset)
         };
-        bp.error(ParserError::ComponentPartMissing {
-            container: TIMER,
-            what: "quantity OR name",
-            expected_pos: span,
-        });
+        bp.error(error!(
+            "Invalid timer: neither quantity nor name",
+            label!(span, "expected duration or name"),
+        ));
         quantity = Some(Recover::recover()); // could be also name, but whatever
     }
 
@@ -562,12 +540,13 @@ fn check_modifiers(bp: &mut BlockParser, modifiers_tokens: &[Token], container: 
     assert_ne!(container, INGREDIENT);
     assert_ne!(container, COOKWARE);
     if !modifiers_tokens.is_empty() {
-        bp.error(ParserError::ComponentPartNotAllowed {
-            container,
-            what: "modifiers",
-            to_remove: tokens_span(modifiers_tokens),
-            help: Some("Modifiers are only available in ingredients and cookware"),
-        });
+        bp.error(
+            error!(
+                format!("Invalid {container}: modifiers not allowed"),
+                label!(tokens_span(modifiers_tokens), "remove this"),
+            )
+            .hint("Modifiers are only available in ingredients and cookware items"),
+        );
     }
 }
 
@@ -578,52 +557,67 @@ fn check_intermediate_data(
 ) -> Located<Modifiers> {
     assert_ne!(container, INGREDIENT);
     if let Some(inter_data) = parsed_modifiers.intermediate_data {
-        bp.error(ParserError::ComponentPartNotAllowed {
-            container,
-            what: "intermediate reference modifier",
-            to_remove: inter_data.span(),
-            help: Some("Intermediate references are only available in ingredients"),
-        })
+        bp.error(
+            error!(
+                format!("Invalid {container}: intermediate preparation reference not allowed"),
+                label!(inter_data.span(), "remove this"),
+            )
+            .hint("Intermediate preparation references are only available in ingredients"),
+        );
     }
     parsed_modifiers.flags
 }
 
 fn check_alias(bp: &mut BlockParser, name_tokens: &[Token], container: &'static str) {
     assert_ne!(container, INGREDIENT);
+    assert_ne!(container, COOKWARE);
     if let Some(sep) = name_tokens.iter().position(|t| t.kind == T![|]) {
         let to_remove = Span::new(
             name_tokens[sep].span.start(),
             name_tokens.last().unwrap().span.end(),
         );
-        bp.error(ParserError::ComponentPartNotAllowed {
-            container,
-            what: "alias",
-            to_remove,
-            help: Some("Aliases are only available in ingredients"),
-        });
+        bp.error(
+            error!(
+                format!("Invalid {container}: alias not allowed"),
+                label!(to_remove, "remove this"),
+            )
+            .hint("Aliases are only available in ingredients and cookware items"),
+        );
     }
 }
 
 fn check_note(bp: &mut BlockParser, container: &'static str) {
     assert_ne!(container, INGREDIENT);
+    assert_ne!(container, COOKWARE);
     if !bp.extension(Extensions::COMPONENT_NOTE) {
         return;
     }
 
     assert!(bp
-        .with_recover(|line| {
-            let start = line.consume(T!['('])?.span.start();
-            let _ = line.until(|t| t == T![')'])?;
-            let end = line.bump(T![')']).span.end();
-            line.warn(ParserWarning::ComponentPartIgnored {
-                container,
-                what: "note",
-                ignored: Span::new(start, end),
-                help: Some("Notes are only available in ingredients"),
-            });
+        .with_recover(|bp| {
+            let start = bp.consume(T!['('])?.span.start();
+            let _ = bp.until(|t| t == T![')'])?;
+            let end = bp.bump(T![')']).span.end();
+            bp.warn(
+                warning!(
+                    format!("A {container} cannot have a note, it will be text"),
+                    label!(Span::new(start, end)),
+                )
+                .label(label!(Span::pos(start), "add a space here"))
+                .hint("Notes are only available in ingredients and cookware items"),
+            );
             None::<()> // always backtrack
         })
         .is_none());
+}
+
+fn check_empty_name(container: &'static str, bp: &mut BlockParser, name: &Text) {
+    if name.is_text_empty() {
+        bp.error(error!(
+            format!("Invalid {container} name: is empty"),
+            label!(name.span(), "add a name here"),
+        ));
+    }
 }
 
 #[cfg(test)]
@@ -631,10 +625,10 @@ mod tests {
     use std::collections::VecDeque;
 
     use super::*;
-    use crate::{context::Context, parser::token_stream::TokenStream};
+    use crate::{error::SourceReport, parser::token_stream::TokenStream};
     use test_case::test_case;
 
-    fn t(input: &str) -> (Vec<Event>, Context<ParserError, ParserWarning>) {
+    fn t(input: &str) -> (Vec<Event>, SourceReport) {
         let mut tokens = TokenStream::new(input).collect::<Vec<_>>();
         // trim trailing newlines, block splitting should make sure this never
         // reaches the step function
@@ -646,12 +640,11 @@ mod tests {
         parse_step(&mut bp);
         bp.finish();
         let mut other = Vec::new();
-        let mut ctx = Context::default();
+        let mut ctx = SourceReport::empty();
 
         for ev in events {
             match ev {
-                Event::Error(err) => ctx.error(err),
-                Event::Warning(warn) => ctx.warn(warn),
+                Event::Error(err) | Event::Warning(err) => ctx.push(err),
                 _ => other.push(ev),
             }
         }
@@ -718,6 +711,6 @@ mod tests {
     #[test_case("~&(1){1%min}"; "timer")]
     fn intermediate_ref_errors(input: &str) {
         let (_, ctx) = t(input);
-        assert_eq!(ctx.errors.len(), 1);
+        assert_eq!(ctx.errors().count(), 1);
     }
 }

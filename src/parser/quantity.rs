@@ -2,8 +2,8 @@ use smallvec::SmallVec;
 
 use crate::{
     ast,
-    context::Recover,
-    error::label,
+    error::Recover,
+    error::{label, SourceDiag},
     lexer::T,
     located::Located,
     quantity::{Number, Value},
@@ -11,7 +11,7 @@ use crate::{
     Extensions,
 };
 
-use super::{mt, token_stream::Token, tokens_span, BlockParser, ParserError};
+use super::{error, mt, token_stream::Token, tokens_span, BlockParser};
 
 pub struct ParsedQuantity<'a> {
     pub quantity: Located<ast::Quantity<'a>>,
@@ -69,16 +69,10 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
 
     if let Some((sep, unit)) = &unit {
         if unit.is_text_empty() {
-            bp.error(ParserError::ComponentPartInvalid {
-                container: "quantity",
-                what: "unit",
-                reason: "is empty",
-                labels: vec![
-                    label!(sep, "remove this"),
-                    label!(unit.span(), "or add unit here"),
-                ],
-                help: None,
-            });
+            bp.error(
+                error!("Empty quantity unit", label!(unit.span(), "add unit here"))
+                    .label(label!(sep, "or remove this")),
+            )
         }
     }
 
@@ -179,13 +173,10 @@ fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
         },
         2.. => {
             if let Some(span) = auto_scale {
-                bp.error(ParserError::ComponentPartInvalid {
-                    container: "quantity",
-                    what: "value",
-                    reason: "auto scale is not compatible with multiple values",
-                    labels: vec![label!(span, "remove this")],
-                    help: Some("A quantity cannot have the auto scaling marker (*) and have many values at the same time"),
-                });
+                bp.error(
+                    error!("Invalid quantity value: auto scale is not compatible with multiple values", label!(span, "remove this"))
+                    .hint("A quantity cannot have the auto scaling marker (*) and have many values at the same time")
+                )
             }
             ast::QuantityValue::Many(values)
         }
@@ -219,18 +210,15 @@ fn parse_value(tokens: &[Token], bp: &mut BlockParser) -> Located<Value> {
 fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
     let text = bp.text(offset, tokens);
     if text.is_text_empty() {
-        bp.error(ParserError::ComponentPartInvalid {
-            container: "quantity",
-            what: "value",
-            reason: "is empty",
-            labels: vec![label!(text.span(), "empty value here")],
-            help: None,
-        });
+        bp.error(error!(
+            "Empty quantity value",
+            label!(text.span(), "add value here or remove it"),
+        ));
     }
     Value::Text(text.text_trimmed().into_owned())
 }
 
-fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
+fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, SourceDiag>> {
     if !bp.extension(Extensions::RANGE_VALUES) {
         return None;
     }
@@ -254,7 +242,7 @@ fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Parse
     Some(Ok(Value::Range { start, end }))
 }
 
-fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, ParserError>> {
+fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, SourceDiag>> {
     // All the numeric values will be at most 4 tokens
     let filtered_tokens: SmallVec<[Token; 4]> = tokens
         .iter()
@@ -277,7 +265,7 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Par
     Some(r.map(Value::Number))
 }
 
-fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<Number, ParserError> {
+fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<Number, SourceDiag> {
     let i = int(i, bp)?;
     let Number::Fraction { num, den, .. } = frac(a, b, bp)? else {
         unreachable!()
@@ -290,13 +278,14 @@ fn mixed_num(i: Token, a: Token, b: Token, bp: &BlockParser) -> Result<Number, P
     })
 }
 
-fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, ParserError> {
+fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, SourceDiag> {
     let span = Span::new(a.span.start(), b.span.end());
     let a = int(a, line)?;
     let b = int(b, line)?;
 
     if b == 0.0 {
-        Err(ParserError::DivisionByZero { bad_bit: span })
+        Err(error!("Division by zero", label!(span))
+            .hint("Change this please, we don't want an infinite amount of anything"))
     } else {
         Ok(Number::Fraction {
             whole: 0.0,
@@ -307,26 +296,20 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, ParserError> {
     }
 }
 
-fn int(tok: Token, block: &BlockParser) -> Result<f64, ParserError> {
+fn int(tok: Token, block: &BlockParser) -> Result<f64, SourceDiag> {
     assert_eq!(tok.kind, T![int]);
     block
         .as_str(tok)
         .parse::<u32>()
         .map(|i| i as f64)
-        .map_err(|e| ParserError::ParseInt {
-            bad_bit: tok.span,
-            source: e,
-        })
+        .map_err(|e| error!("Error parsing integer number", label!(tok.span)).set_source(e))
 }
 
-fn float(tok: Token, bp: &BlockParser) -> Result<f64, ParserError> {
+fn float(tok: Token, bp: &BlockParser) -> Result<f64, SourceDiag> {
     assert_eq!(tok.kind, T![float]);
     bp.as_str(tok)
         .parse::<f64>()
-        .map_err(|e| ParserError::ParseFloat {
-            bad_bit: tok.span,
-            source: e,
-        })
+        .map_err(|e| error!("Error parsing decimal number", label!(tok.span)).set_source(e))
 }
 
 #[cfg(test)]
@@ -349,13 +332,9 @@ mod tests {
             let q = parse_quantity(&mut bp, &tokens);
             bp.consume_rest();
             bp.finish();
-            let mut ctx = crate::context::Context::<
-                crate::parser::ParserError,
-                crate::parser::ParserWarning,
-            >::default();
+            let mut ctx = $crate::error::SourceReport::empty();
             events.into_iter().for_each(|ev| match ev {
-                crate::parser::Event::Error(e) => ctx.error(e),
-                crate::parser::Event::Warning(w) => ctx.warn(w),
+                $crate::parser::Event::Error(e) | $crate::parser::Event::Warning(e) => ctx.push(e),
                 _ => {}
             });
             (q.quantity.into_inner(), q.unit_separator, ctx)
@@ -483,8 +462,8 @@ mod tests {
         );
         assert_eq!(s, Some((12..13).into()));
         assert_eq!(q.unit.unwrap(), Text::from_str("ml", 13));
-        assert_eq!(ctx.errors.len(), 1);
-        assert!(ctx.warnings.is_empty());
+        assert_eq!(ctx.errors().count(), 1);
+        assert_eq!(ctx.warnings().count(), 0);
 
         let (q, _, ctx) = t!("100|");
         assert_eq!(
@@ -494,8 +473,8 @@ mod tests {
                 Located::new(Value::Text("".into()), 4..4)
             ])
         );
-        assert_eq!(ctx.errors.len(), 1);
-        assert!(ctx.warnings.is_empty());
+        assert_eq!(ctx.errors().count(), 1);
+        assert_eq!(ctx.warnings().count(), 0);
     }
 
     #[test]

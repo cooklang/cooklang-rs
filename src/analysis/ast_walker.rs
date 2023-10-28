@@ -4,16 +4,27 @@ use std::collections::HashMap;
 use regex::Regex;
 
 use crate::ast::{self, IntermediateData, Modifiers, Text};
-use crate::context::Context;
 use crate::convert::{Converter, PhysicalQuantity};
-use crate::error::{CooklangError, CooklangWarning};
+use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
 use crate::parser::{BlockKind, Event};
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
 use crate::{model::*, Extensions, RecipeRefCheckResult, RecipeRefChecker};
 
-use super::{AnalysisError, AnalysisResult, AnalysisWarning, DefineMode, DuplicateMode};
+use super::{AnalysisResult, DefineMode, DuplicateMode};
+
+macro_rules! error {
+    ($msg:expr, $label:expr $(,)?) => {
+        $crate::error::SourceDiag::error($msg, $label, $crate::error::Stage::Analysis)
+    };
+}
+
+macro_rules! warning {
+    ($msg:expr, $label:expr $(,)?) => {
+        $crate::error::SourceDiag::warning($msg, $label, $crate::error::Stage::Analysis)
+    };
+}
 
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
 pub fn parse_events<'i>(
@@ -22,13 +33,20 @@ pub fn parse_events<'i>(
     converter: &Converter,
     recipe_ref_checker: Option<RecipeRefChecker>,
 ) -> AnalysisResult {
-    let mut ctx = Context::default();
+    let mut ctx = SourceReport::empty();
     let temperature_regex = extensions
         .contains(Extensions::TEMPERATURE)
         .then(|| match converter.temperature_regex() {
             Ok(re) => Some(re),
-            Err(source) => {
-                ctx.warn(AnalysisWarning::TemperatureRegexCompile { source });
+            Err(err) => {
+                ctx.warn(
+                    SourceDiag::unlabeled(
+                        "An error ocurred searching temperature values",
+                        crate::error::Severity::Error,
+                        crate::error::Stage::Analysis,
+                    )
+                    .set_source(err),
+                );
                 None
             }
         })
@@ -74,7 +92,7 @@ struct RecipeCollector<'i, 'c> {
     define_mode: DefineMode,
     duplicate_mode: DuplicateMode,
     auto_scale_ingredients: bool,
-    ctx: Context<CooklangError, CooklangWarning>,
+    ctx: SourceReport,
 
     locations: Locations<'i>,
     step_counter: u32,
@@ -86,6 +104,8 @@ struct Locations<'i> {
     cookware: Vec<Located<ast::Cookware<'i>>>,
     metadata: HashMap<Cow<'i, str>, (Text<'i>, Text<'i>)>,
 }
+
+const IMPLICIT_REF_WARN: &str = "The reference (`&`) is implicit";
 
 impl<'i, 'c> RecipeCollector<'i, 'c> {
     fn parse_events(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
@@ -134,19 +154,13 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     // warnings
                     self.ctx.error(e);
                     events.for_each(|e| match e {
-                        Event::Error(e) => self.ctx.error(e),
-                        Event::Warning(w) => self.ctx.warn(w),
+                        Event::Error(e) | Event::Warning(e) => self.ctx.push(e),
                         _ => {}
                     });
                     // discard non parser errors/warnings
-                    self.ctx
-                        .errors
-                        .retain(|e| matches!(e, CooklangError::Parser(_)));
-                    self.ctx
-                        .warnings
-                        .retain(|e| matches!(e, CooklangWarning::Parser(_)));
+                    self.ctx.retain(|e| e.stage == crate::error::Stage::Parse);
                     // return no output
-                    return self.ctx.finish(None);
+                    return PassResult::new(None, self.ctx);
                 }
                 Event::Warning(w) => self.ctx.warn(w),
             }
@@ -154,7 +168,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         if !self.current_section.is_empty() {
             self.content.sections.push(self.current_section);
         }
-        self.ctx.finish(Some(self.content))
+        PassResult::new(Some(self.content), self.ctx)
     }
 
     fn metadata(&mut self, key: Text<'i>, value: Text<'i>) {
@@ -162,14 +176,17 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             .metadata
             .insert(key.text_trimmed(), (key.clone(), value.clone()));
 
-        let invalid_value = |possible_values| AnalysisError::InvalidSpecialMetadataValue {
-            key: key.located_string_trimmed(),
-            value: value.located_string_trimmed(),
-            possible_values,
-        };
-
         let key_t = key.text_trimmed();
         let value_t = value.text_outer_trimmed();
+        let invalid_value = |possible| {
+            error!(
+                format!("Invalid value for config key '{key_t}': {value_t}"),
+                label!(value.span(), "this value is not supported")
+            )
+            .label(label!(key.span(), "by this key"))
+            .hint(format!("Possible values are: {possible:?}"))
+        };
+
         if self.extensions.contains(Extensions::MODES)
             && key_t.starts_with('[')
             && key_t.ends_with(']')
@@ -196,9 +213,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     _ => self.ctx.error(invalid_value(vec!["true", "false"])),
                 },
                 _ => {
-                    self.ctx.warn(AnalysisWarning::UnknownSpecialMetadataKey {
-                        key: key.located_string_trimmed(),
-                    });
+                    self.ctx.warn(
+                        warning!(
+                            format!("Unknown config metadata key: {key_t}"),
+                            label!(key.span())
+                        )
+                        .hint(
+                            "Possible config keys are '[mode]', '[duplicate]' and '[auto scale]'",
+                        ),
+                    );
                     self.content
                         .metadata
                         .map
@@ -210,11 +233,18 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             .metadata
             .insert(key_t.into_owned(), value_t.into_owned())
         {
-            self.ctx.warn(AnalysisWarning::InvalidMetadataValue {
-                key: key.located_string_trimmed(),
-                value: value.located_string_trimmed(),
-                source: warn,
-            });
+            self.ctx.warn(
+                warning!(
+                    format!(
+                        "Unsupported value for special key: '{}'",
+                        key.text_trimmed()
+                    ),
+                    label!(value.span(), "this value"),
+                )
+                .label(label!(key.span(), "is not supported by this key"))
+                .hint("It will be a regular metadata entry")
+                .set_source(warn),
+            );
         }
     }
 
@@ -230,9 +260,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         // so that the user can format the text with spaces,
                         // hypens or whatever.
                         if t.contains(|c: char| c.is_alphanumeric()) {
-                            self.ctx.warn(AnalysisWarning::TextDefiningIngredients {
-                                text_span: text.span(),
-                            });
+                            self.ctx.warn(warning!(
+                                "Ignoring text in define components mode",
+                                label!(text.span())
+                            ));
                         }
                         continue; // ignore text
                     }
@@ -308,14 +339,14 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     );
 
                     // ignore component
-                    self.ctx.warn(AnalysisWarning::ComponentInTextMode {
-                        component_span: match ev {
-                            Event::Ingredient(i) => i.span(),
-                            Event::Cookware(c) => c.span(),
-                            Event::Timer(t) => t.span(),
-                            _ => unreachable!(),
-                        },
-                    });
+                    let (c, s) = match ev {
+                        Event::Ingredient(i) => ("ingredient", i.span()),
+                        Event::Cookware(c) => ("cookware", c.span()),
+                        Event::Timer(t) => ("timer", t.span()),
+                        _ => unreachable!(),
+                    };
+                    self.ctx
+                        .warn(warning!(format!("Ignoring {c} in text mode"), label!(s)));
                 }
                 _ => panic!("Unexpected event in text block: {ev:?}"),
             }
@@ -348,15 +379,16 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     assert!(new_igr.modifiers().contains(Modifiers::REF));
                     let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
                     if new_igr.modifiers().intersects(invalid_modifiers) {
-                        self.ctx.error(AnalysisError::InvalidIntermediateReference {
-                            reference_span: ingredient.modifiers.span(),
-                            reason: "invalid combination of modifiers",
-                            help: format!(
+                        self.ctx.error(
+                            error!(
+                                "Conflicting modifiers with intermediate preparation reference",
+                                label!(ingredient.modifiers.span())
+                            )
+                            .hint(format!(
                                 "Remove the following modifiers: {}",
                                 new_igr.modifiers() & invalid_modifiers
-                            )
-                            .into(),
-                        })
+                            )),
+                        );
                     }
                 }
                 Err(error) => self.ctx.error(error),
@@ -384,32 +416,53 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         if let Err(e) = q.compatible_unit(new_quantity, self.converter) {
                             let old_q_loc =
                                 self.locations.ingredients[index].quantity.as_ref().unwrap();
-                            let a = old_q_loc
+                            let old = old_q_loc
                                 .unit
                                 .as_ref()
                                 .map(|l| l.span())
                                 .unwrap_or(old_q_loc.span());
                             let new_q_loc = located_ingredient.quantity.as_ref().unwrap();
-                            let b = new_q_loc
+                            let new = new_q_loc
                                 .unit
                                 .as_ref()
                                 .map(|l| l.span())
                                 .unwrap_or(new_q_loc.span());
-                            self.ctx
-                                .warn(AnalysisWarning::IncompatibleUnits { a, b, source: e });
+
+                            let (new_label, old_label) = match &e {
+                                crate::quantity::IncompatibleUnits::MissingUnit { found } => {
+                                    let m = "this is missing a unit";
+                                    let f = "matching this one";
+                                    match found {
+                                        either::Either::Left(_) => (label!(new, m), label!(old, f)),
+                                        either::Either::Right(_) => (label!(new, f), label!(old, m)),
+                                    }
+                                }
+                                crate::quantity::IncompatibleUnits::DifferentPhysicalQuantities {
+                                    a: a_q,
+                                    b: b_q,
+                                } => {
+                                    (label!(new, b_q.to_string()), label!(old, a_q.to_string()))
+                                }
+                                crate::quantity::IncompatibleUnits::UnknownDifferentUnits { .. } => {
+                                    (label!(new, "differs from this"), label!(old, "this unit"))
+                                }
+                            };
+
+                            self.ctx.warn(
+                                warning!(
+                                    "Incompatible units prevent calculating total amount",
+                                    new_label
+                                )
+                                .label(old_label)
+                                .set_source(e),
+                            )
                         }
                     }
                 }
             }
 
             if let Some(note) = &located_ingredient.note {
-                self.ctx
-                    .error(AnalysisError::ComponentPartNotAllowedInReference {
-                        container: "ingredient",
-                        what: "note",
-                        to_remove: note.span(),
-                        implicit,
-                    })
+                self.ctx.error(note_reference_error(note.span(), implicit));
             }
 
             // When the ingredient is not defined in a step, only the definition
@@ -429,13 +482,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     .is_defined_in_step()
                     .expect("definition")
             {
-                self.ctx
-                    .error(AnalysisError::ConflictingReferenceQuantities {
-                        component_name: new_igr.name.to_string(),
-                        definition_span: definition_location.span(),
-                        reference_span: location,
-                        implicit,
-                    });
+                self.ctx.error(conflicting_reference_quantity_error(
+                    ingredient.quantity.unwrap().span(),
+                    definition_location.span(),
+                    implicit,
+                ));
             }
 
             // text value warning
@@ -455,11 +506,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         (def_q_loc, ref_q_loc)
                     };
 
-                    self.ctx.warn(AnalysisWarning::TextValueInReference {
+                    self.ctx.warn(text_val_in_ref_warn(
                         text_quantity_span,
                         number_quantity_span,
                         implicit,
-                    });
+                    ));
                 }
             }
 
@@ -472,13 +523,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             if let Some(checker) = &self.recipe_ref_checker {
                 let res = (*checker)(&new_igr.name);
 
-                if let RecipeRefCheckResult::NotFound { help, note } = res {
-                    self.ctx.warn(AnalysisWarning::RecipeNotFound {
-                        ref_span: location,
-                        name: new_igr.name.clone(),
-                        help,
-                        note,
-                    })
+                if let RecipeRefCheckResult::NotFound { hints } = res {
+                    let mut w = warning!(
+                        format!("Referenced recipe not found: {}", new_igr.name),
+                        label!(location)
+                    );
+                    for hint in hints {
+                        w.add_hint(hint);
+                    }
+                    self.ctx.warn(w)
                 }
             }
         }
@@ -491,37 +544,39 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
     fn resolve_intermediate_ref(
         &mut self,
         inter_data: Located<IntermediateData>,
-    ) -> Result<IngredientRelation, AnalysisError> {
+    ) -> Result<IngredientRelation, SourceDiag> {
         use ast::IntermediateRefMode::*;
         use ast::IntermediateTargetKind::*;
         assert!(!inter_data.val.is_negative());
         let val = inter_data.val as u32;
 
+        const INVALID: &str = "Invalid intermediate preparation reference";
+
         if val == 0 {
             match inter_data.ref_mode {
                 Number => {
-                    return Err(AnalysisError::InvalidIntermediateReference {
-                        reference_span: inter_data.span(),
-                        reason: "number is 0",
-                        help: "Step and section numbers start at 1".into(),
-                    })
+                    return Err(error!(
+                        format!("{INVALID}: number is 0"),
+                        label!(inter_data.span())
+                    )
+                    .hint("Step and section numbers start at 1"));
                 }
                 Relative => {
-                    return Err(AnalysisError::InvalidIntermediateReference {
-                        reference_span: inter_data.span(),
-                        reason: "relative reference to self",
-                        help: "Relative reference value has to be greater than 0".into(),
-                    })
+                    return Err(error!(
+                        format!("{INVALID}: relative reference to self"),
+                        label!(inter_data.span())
+                    )
+                    .hint("Relative reference value has to be greater than 0"));
                 }
             }
         }
 
-        let bounds = |help| {
-            Err(AnalysisError::InvalidIntermediateReference {
-                reference_span: inter_data.span(),
-                reason: "value out of bounds",
-                help,
-            })
+        let bounds = |help: String| {
+            Err(error!(
+                format!("{INVALID}: value out of bounds"),
+                label!(inter_data.span())
+            )
+            .hint(help))
         };
 
         let relation = match (inter_data.target_kind, inter_data.ref_mode) {
@@ -644,13 +699,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             assert!(definition.relation.is_definition());
 
             if let Some(note) = &located_cookware.note {
-                self.ctx
-                    .error(AnalysisError::ComponentPartNotAllowedInReference {
-                        container: "cookware",
-                        what: "note",
-                        to_remove: note.span(),
-                        implicit,
-                    });
+                self.ctx.error(note_reference_error(note.span(), implicit));
             }
 
             // See ingredients for explanation
@@ -661,13 +710,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     .is_defined_in_step()
                     .expect("definition")
             {
-                self.ctx
-                    .error(AnalysisError::ConflictingReferenceQuantities {
-                        component_name: new_cw.name.to_string(),
-                        definition_span: definition_location.span(),
-                        reference_span: location,
-                        implicit,
-                    });
+                self.ctx.error(conflicting_reference_quantity_error(
+                    located_cookware.quantity.as_ref().unwrap().span(),
+                    definition_location.span(),
+                    implicit,
+                ));
             }
 
             // text value warning
@@ -687,11 +734,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         (def_q_loc, ref_q_loc)
                     };
 
-                    self.ctx.warn(AnalysisWarning::TextValueInReference {
+                    self.ctx.warn(text_val_in_ref_warn(
                         text_quantity_span,
                         number_quantity_span,
                         implicit,
-                    });
+                    ));
                 }
             }
 
@@ -705,31 +752,32 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
     fn timer(&mut self, timer: Located<ast::Timer<'i>>) -> usize {
         let located_timer = timer.clone();
-        let (timer, span) = timer.take_pair();
+        let (timer, _span) = timer.take_pair();
         let quantity = timer.quantity.map(|q| {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 if let Some(unit) = quantity.unit() {
+                    let unit_span = located_timer
+                        .quantity
+                        .as_ref()
+                        .unwrap()
+                        .unit
+                        .as_ref()
+                        .unwrap()
+                        .span();
                     match unit.unit_info_or_parse(self.converter) {
                         UnitInfo::Known(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
-                                self.ctx.error(AnalysisError::BadTimerUnit {
-                                    unit: Box::new(unit.as_ref().clone()),
-                                    timer_span: located_timer
-                                        .quantity
-                                        .as_ref()
-                                        .unwrap()
-                                        .unit
-                                        .as_ref()
-                                        .unwrap()
-                                        .span(),
-                                })
+                                self.ctx.error(error!(
+                                    format!("Timer unit is not time: {unit}"),
+                                    label!(unit_span)
+                                ));
                             }
                         }
-                        UnitInfo::Unknown => self.ctx.error(AnalysisError::UnknownTimerUnit {
-                            unit: unit.text().to_string(),
-                            timer_span: span,
-                        }),
+                        UnitInfo::Unknown => self.ctx.error(error!(
+                            format!("Unknown timer unit: {unit}"),
+                            label!(unit_span)
+                        )),
                     }
                 }
             }
@@ -758,56 +806,70 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
     }
 
     fn value(&mut self, value: ast::QuantityValue, is_ingredient: bool) -> ScalableValue {
+        let mut marker_span = None;
         match &value {
             ast::QuantityValue::Single {
                 value,
                 auto_scale: Some(auto_scale_marker),
-            } if value.is_text() => {
-                self.ctx.error(AnalysisError::ScaleTextValue {
-                    value_span: value.span(),
-                    auto_scale_marker: *auto_scale_marker,
-                });
+            } => {
+                marker_span = Some(*auto_scale_marker);
+                if value.is_text() {
+                    self.ctx.error(
+                        error!(
+                            "Text value with auto scale marker",
+                            label!(auto_scale_marker, "remove this")
+                        )
+                        .hint("Text cannot be scaled"),
+                    );
+                }
             }
             ast::QuantityValue::Many(v) => {
+                const CONFLICT: &str = "Many values conflict";
                 if let Some(s) = &self.content.metadata.servings {
                     let servings_meta_span = self
                         .locations
                         .metadata
                         .get("servings")
-                        .map(|(_, value)| value.span());
+                        .map(|(_, value)| value.span())
+                        .unwrap();
                     if s.len() != v.len() {
-                        self.ctx.error(AnalysisError::ScalableValueManyConflict {
-                            reason: format!(
-                                "{} servings defined but {} values in the quantity",
-                                s.len(),
-                                v.len()
+                        self.ctx.error(
+                            error!(
+                                format!(
+                                    "{CONFLICT}: {} servings defined but {} values in the quantity",
+                                    s.len(),
+                                    v.len()
+                                ),
+                                label!(value.span(), "number of values do not match servings")
                             )
-                            .into(),
-                            value_span: value.span(),
-                            servings_meta_span,
-                        });
+                            .label(label!(servings_meta_span, "servings defined here")),
+                        );
                     }
                 } else {
-                    self.ctx.error(AnalysisError::ScalableValueManyConflict {
-                        reason: format!("no servings defined but {} values in quantity", v.len())
-                            .into(),
-                        value_span: value.span(),
-                        servings_meta_span: None,
-                    })
+                    self.ctx.error(error!(
+                        format!(
+                            "{CONFLICT}: not servings defined but {} values in the quantity",
+                            v.len()
+                        ),
+                        label!(value.span())
+                    ));
                 }
             }
             _ => {}
         }
-        let value_span = value.span();
         let mut v = ScalableValue::from_ast(value);
 
         if is_ingredient && self.auto_scale_ingredients {
             match v {
                 ScalableValue::Fixed(value) if !value.is_text() => v = ScalableValue::Linear(value),
                 ScalableValue::Linear(_) => {
-                    self.ctx.warn(AnalysisWarning::RedundantAutoScaleMarker {
-                        quantity_span: Span::new(value_span.end(), value_span.end() + 1),
-                    });
+                    self.ctx.warn(
+                        warning!(
+                            "Redundant auto scale marker",
+                            label!(marker_span.unwrap(), "remove this")
+                        )
+                        .hint("Every ingredient is already marked to auto scale"),
+                    );
                 }
                 _ => {}
             };
@@ -835,14 +897,42 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             })
         };
 
+        let conflicing_modifiers = |conflict: Modifiers, help: CowStr, implicit: bool| {
+            let mut e = error!(
+                format!("Unsupported modifier combination with reference: {conflict}"),
+                label!(modifiers_location)
+            )
+            .hint(help);
+            if implicit {
+                e.add_hint(IMPLICIT_REF_WARN);
+            }
+            e
+        };
+
+        let redundant_modifier = |redundant: &'static str, help: String| {
+            warning!(
+                format!("Redundant {redundant} modifier"),
+                label!(modifiers_location)
+            )
+            .hint(help)
+            .hint(format!(
+                "In the current mode, by default, {}",
+                match (self.define_mode, self.duplicate_mode) {
+                    (DefineMode::Steps, _) => "all components are references",
+                    (_, DuplicateMode::Reference) =>
+                        "components are definitions but duplicates are references",
+                    _ => "all components are definitions",
+                }
+            ))
+        };
+
         // no new and ref -> error
         if new.modifiers().contains(Modifiers::NEW | Modifiers::REF) {
-            self.ctx
-                .error(AnalysisError::ConflictingModifiersInReference {
-                    modifiers: Located::new(*new.modifiers(), modifiers_location),
-                    conflict: *new.modifiers(),
-                    implicit: false,
-                });
+            self.ctx.error(conflicing_modifiers(
+                *new.modifiers(),
+                "NEW (`+`) can never be combined with REF (`&`)".into(),
+                false,
+            ));
             return None;
         }
 
@@ -850,22 +940,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         if new.modifiers().contains(Modifiers::NEW) {
             if self.define_mode != DefineMode::Steps {
                 if self.duplicate_mode == DuplicateMode::Reference && same_name().is_none() {
-                    self.ctx.warn(AnalysisWarning::RedundantModifier {
-                        what: "new ('+')",
-                        help: format!("There are no {}s with the same name before", C::container())
-                            .into(),
-                        define_mode: self.define_mode,
-                        duplicate_mode: self.duplicate_mode,
-                        modifiers: Located::new(*new.modifiers(), modifiers_location),
-                    });
+                    self.ctx.warn(redundant_modifier(
+                        "new (`+`)",
+                        format!("There are no {}s with the same name before", C::container()),
+                    ));
                 } else if self.duplicate_mode == DuplicateMode::New {
-                    self.ctx.warn(AnalysisWarning::RedundantModifier {
-                        what: "new ('+')",
-                        help: format!("This {} is already a definition", C::container()).into(),
-                        define_mode: self.define_mode,
-                        duplicate_mode: self.duplicate_mode,
-                        modifiers: Located::new(*new.modifiers(), modifiers_location),
-                    });
+                    self.ctx.warn(redundant_modifier(
+                        "new (`+`)",
+                        format!("This {} is already a definition", C::container()),
+                    ));
                 }
             }
             return None;
@@ -876,13 +959,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             || self.define_mode == DefineMode::Steps)
             && new.modifiers().contains(Modifiers::REF)
         {
-            self.ctx.warn(AnalysisWarning::RedundantModifier {
-                what: "reference ('&')",
-                help: format!("This {} is already a reference", C::container()).into(),
-                define_mode: self.define_mode,
-                duplicate_mode: self.duplicate_mode,
-                modifiers: Located::new(*new.modifiers(), modifiers_location),
-            });
+            self.ctx.warn(redundant_modifier(
+                "reference (`&`)",
+                format!("This {} is already a reference", C::container()),
+            ));
         }
 
         let treat_as_reference = new.modifiers().contains(Modifiers::REF)
@@ -918,21 +998,38 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             new.set_reference(references_to);
 
             if !conflict.is_empty() {
+                let help = {
+                    let extra = conflict
+                        .iter_names()
+                        .map(|(s, _)| s.to_lowercase())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    if implicit {
+                        format!("Mark the definition as {extra} or add new ('+') to this.")
+                    } else {
+                        format!("Mark the definition as {extra} or remove the reference ('&').")
+                    }
+                };
                 self.ctx
-                    .error(AnalysisError::ConflictingModifiersInReference {
-                        modifiers: Located::new(*new.modifiers(), modifiers_location),
-                        conflict,
-                        implicit,
-                    });
+                    .error(conflicing_modifiers(conflict, help.into(), implicit));
             }
 
             // extra reference checks
             Some((references_to, implicit))
         } else {
-            self.ctx.error(AnalysisError::ReferenceNotFound {
-                name: new.name().to_string(),
-                reference_span: location,
-                implicit,
+            self.ctx.error({
+                let mut e = error!(
+                    format!("Reference not found: {}", new.name()),
+                    label!(location)
+                )
+                .hint(format!(
+                    "A non reference {} with the same name defined BEFORE cannot be found",
+                    C::container()
+                ));
+                if implicit {
+                    e.add_hint(IMPLICIT_REF_WARN);
+                }
+                e
             });
             None
         }
@@ -1063,4 +1160,53 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<
     let (before, after) = (&text[..range.start], &text[range.end..]);
 
     Some((before, temperature, after))
+}
+
+fn note_reference_error(span: Span, implicit: bool) -> SourceDiag {
+    let mut e = error!("Note not allowed in reference", label!(span, "remove this"))
+        .hint("Add the note in the definition of the ingredient");
+    if implicit {
+        e.add_hint(IMPLICIT_REF_WARN);
+    }
+    e
+}
+
+fn conflicting_reference_quantity_error(
+    ref_quantity_span: Span,
+    def_span: Span,
+    implicit: bool,
+) -> SourceDiag {
+    let mut e = error!(
+        "Conflicting component reference quantities",
+        label!(ref_quantity_span, "remove this")
+    )
+    .label(label!(
+        def_span,
+        "definition with quantity outside a step here"
+    ))
+    .hint("If the component is not defined in a step and has a quantity, its references cannot have a quantity");
+    if implicit {
+        e.add_hint(IMPLICIT_REF_WARN);
+    }
+    e
+}
+
+fn text_val_in_ref_warn(
+    text_quantity_span: Span,
+    number_quantity_span: Span,
+    implicit: bool,
+) -> SourceDiag {
+    let mut w = warning!(
+        "Text value may prevent calculating total amount",
+        label!(text_quantity_span, "this text")
+    )
+    .label(label!(
+        number_quantity_span,
+        "cannot be added to this value"
+    ))
+    .hint("Use numeric values so they can be added together");
+    if implicit {
+        w.add_hint(IMPLICIT_REF_WARN);
+    }
+    w
 }
