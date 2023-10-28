@@ -13,6 +13,7 @@
 - Remove `analysis::RecipeContent`. Now `analysis::parse_events` returns a
   `ScalableRecipe` directly.
 - Change the return type of the recipe ref checker.
+- Reworked error model.
 
 ### Features
 - New warning for bad single word names. It could be confusing not getting
@@ -22,6 +23,7 @@
   ref checker.
 - Unknown special metadata keys are now added to the metadata.
 - Advanced units removal of `%` now supports range values too.
+- New error for text value in a timer with the advanced units extension.
 
 ### Fixed
 - Text steps were ignored in `components` mode.
