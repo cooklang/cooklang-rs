@@ -1,7 +1,6 @@
 //! Error type, formatting and utilities.
 
 use std::borrow::Cow;
-use std::collections::VecDeque;
 
 use crate::Span;
 
@@ -185,24 +184,21 @@ pub enum Stage {
 /// use one of the print or write methods.
 #[derive(Debug, Clone)]
 pub struct SourceReport {
-    buf: VecDeque<SourceDiag>,
+    buf: Vec<SourceDiag>,
     severity: Option<Severity>,
 }
 
 impl SourceReport {
     pub(crate) fn empty() -> Self {
         Self {
-            buf: VecDeque::new(),
+            buf: Vec::new(),
             severity: None,
         }
     }
 
     pub(crate) fn push(&mut self, err: SourceDiag) {
         debug_assert!(self.severity.is_none() || self.severity.is_some_and(|s| err.severity == s));
-        match err.severity {
-            Severity::Error => self.buf.push_back(err),
-            Severity::Warning => self.buf.push_front(err),
-        }
+        self.buf.push(err);
     }
 
     pub(crate) fn error(&mut self, w: SourceDiag) {
@@ -290,6 +286,11 @@ impl SourceReport {
         )
     }
 
+    /// Consumes the report and returns [`Vec`] of [`SourceDiag`]
+    pub fn into_vec(self) -> Vec<SourceDiag> {
+        self.buf
+    }
+
     /// Write a formatted report
     pub fn write(
         &self,
@@ -301,14 +302,13 @@ impl SourceReport {
     ) -> std::io::Result<()> {
         let mut cache = DummyCache::new(file_name, source_code);
 
-        if hide_warnings {
-            for err in self.errors() {
+        if !hide_warnings {
+            for err in self.warnings() {
                 build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
             }
-        } else {
-            for err in self.iter() {
-                build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
-            }
+        }
+        for err in self.errors() {
+            build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
         }
         Ok(())
     }
@@ -343,16 +343,6 @@ impl SourceReport {
             color,
             &mut std::io::stderr().lock(),
         )
-    }
-}
-
-impl IntoIterator for SourceReport {
-    type Item = SourceDiag;
-
-    type IntoIter = std::collections::vec_deque::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.buf.into_iter()
     }
 }
 
