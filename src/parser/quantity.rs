@@ -251,10 +251,10 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Sou
         .collect();
 
     let r = match *filtered_tokens.as_slice() {
-        // int
-        [t @ mt![int]] => int(t, bp).map(Number::Regular),
-        // float
-        [t @ mt![float]] => float(t, bp).map(Number::Regular),
+        // int or float
+        // at the end, bare ints are converted to floats, so parse them as floats
+        // to allow unnecesary large values for recipes :)
+        [t @ mt![int | float]] => float(t, bp).map(Number::Regular),
         // mixed number
         [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => mixed_num(i, a, b, bp),
         // frac
@@ -306,7 +306,7 @@ fn int(tok: Token, block: &BlockParser) -> Result<f64, SourceDiag> {
 }
 
 fn float(tok: Token, bp: &BlockParser) -> Result<f64, SourceDiag> {
-    assert_eq!(tok.kind, T![float]);
+    assert!(tok.kind == T![float] || tok.kind == T![int]);
     bp.as_str(tok)
         .parse::<f64>()
         .map_err(|e| error!("Error parsing decimal number", label!(tok.span)).set_source(e))

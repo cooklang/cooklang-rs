@@ -30,6 +30,9 @@
 ### Fixed
 - Text steps were ignored in `components` mode.
 - Scale text value error was firing for all errors marked with `*`.
+- Even though number values for quantities were decimal, a big integer would
+  fail to parse. That's no more the case. If it's too big, it will only fail in a
+  fraction.
 
 ## 0.9.0 - 2023-10-07
 ### Features
