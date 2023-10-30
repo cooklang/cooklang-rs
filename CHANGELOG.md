@@ -24,6 +24,8 @@
 - Unknown special metadata keys are now added to the metadata.
 - Advanced units removal of `%` now supports range values too.
 - New error for text value in a timer with the advanced units extension.
+- Special metadata keys for time, now use the configured time units.
+- Bundled units now includes `secs` and `mins` as aliases to seconds and minutes.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

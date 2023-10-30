@@ -18,6 +18,11 @@ macro_rules! regex {
 }
 pub(crate) use regex;
 
+use crate::{
+    convert::{ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity},
+    Converter,
+};
+
 /// Metadata of a recipe
 ///
 /// The fields on this struct are the parsed values with some special meaning.
@@ -78,7 +83,12 @@ pub enum RecipeTime {
 }
 
 impl Metadata {
-    pub(crate) fn insert(&mut self, key: String, value: String) -> Result<(), MetadataError> {
+    pub(crate) fn insert(
+        &mut self,
+        key: String,
+        value: String,
+        converter: &Converter,
+    ) -> Result<(), MetadataError> {
         self.map.insert(key.clone(), value.clone());
         match key.as_str() {
             "description" => self.description = Some(value),
@@ -101,14 +111,14 @@ impl Metadata {
             }
             "author" => self.author = Some(NameAndUrl::parse(&value)),
             "source" => self.source = Some(NameAndUrl::parse(&value)),
-            "time" => self.time = Some(RecipeTime::Total(parse_time(&value)?)),
+            "time" => self.time = Some(RecipeTime::Total(parse_time(&value, converter)?)),
             "prep_time" | "prep time" => {
                 let cook_time = self.time.and_then(|t| match t {
                     RecipeTime::Total(_) => None,
                     RecipeTime::Composed { cook_time, .. } => cook_time,
                 });
                 self.time = Some(RecipeTime::Composed {
-                    prep_time: Some(parse_time(&value)?),
+                    prep_time: Some(parse_time(&value, converter)?),
                     cook_time,
                 });
             }
@@ -119,7 +129,7 @@ impl Metadata {
                 });
                 self.time = Some(RecipeTime::Composed {
                     prep_time,
-                    cook_time: Some(parse_time(&value)?),
+                    cook_time: Some(parse_time(&value, converter)?),
                 });
             }
             "servings" => {
@@ -170,10 +180,56 @@ impl Metadata {
 }
 
 /// Returns minutes
-fn parse_time(s: &str) -> Result<u32, std::num::ParseIntError> {
-    match humantime::parse_duration(s) {
-        Ok(duration) => Ok((duration.as_secs_f64() / 60.0).round() as u32),
-        Err(_) => s.parse(),
+fn parse_time(s: &str, converter: &Converter) -> Result<u32, std::num::ParseIntError> {
+    match parse_time_with_units(s, converter) {
+        Some(time) => Ok(time),
+        None => s.parse(),
+    }
+}
+
+fn parse_time_with_units(s: &str, converter: &Converter) -> Option<u32> {
+    let mut total = 0.0;
+    let minutes = converter.find_unit("min")?; // TODO maybe make this configurable? It will work for 99% of users...
+    if minutes.physical_quantity != PhysicalQuantity::Time {
+        return None;
+    }
+    let to_minutes = ConvertTo::from(&minutes);
+
+    let mut parts = s.split_whitespace();
+
+    while let Some(part) = parts.next() {
+        let first_non_digit_pos = part
+            .char_indices()
+            .find_map(|(pos, c)| (!c.is_numeric()).then_some(pos));
+        let (number, unit) = if let Some(mid) = first_non_digit_pos {
+            // if the part contains a non numeric char, split it in two and it will
+            // be the unit
+            part.split_at(mid)
+        } else {
+            // otherwise, take the next part as the unit
+            let next = parts.next()?;
+            (part, next)
+        };
+
+        let number = number.parse::<u32>().ok()?;
+        let (value, _) = converter
+            .convert(
+                ConvertValue::Number(number as f64),
+                ConvertUnit::Key(unit),
+                to_minutes,
+            )
+            .ok()?;
+        match value {
+            ConvertValue::Number(m) => total += m,
+            ConvertValue::Range(_) => unreachable!(),
+        }
+    }
+
+    let total = total.round() as u32;
+    if total == 0 {
+        None
+    } else {
+        Some(total)
     }
 }
 
@@ -311,5 +367,26 @@ mod tests {
         assert_eq!(tagify("text_with_underscores"), "text-with-underscores");
         assert_eq!(tagify("WhATever_--thiS - - is"), "whatever-this-is");
         assert_eq!(tagify("Sensible recipe name"), "sensible-recipe-name");
+    }
+
+    #[test]
+    fn test_parse_time_with_units() {
+        let converter = Converter::bundled();
+        let t = |s: &str| parse_time_with_units(s, &converter);
+        assert_eq!(t(""), None);
+        assert_eq!(t("1"), None);
+        assert_eq!(t("1 kilometer"), None);
+        assert_eq!(t("1min"), Some(1));
+        assert_eq!(t("1 hour"), Some(60));
+        assert_eq!(t("1 hour"), Some(60));
+        assert_eq!(t("1 hour 30 min"), Some(90));
+        assert_eq!(t("1hour 30min"), Some(90));
+        assert_eq!(t("1hour30min"), None); // needs space between pairs
+        assert_eq!(t("90 minutes"), Some(90));
+        assert_eq!(t("30 secs 30 secs"), Some(1)); // sum
+        assert_eq!(t("45 secs"), Some(1)); // round up
+        assert_eq!(t("25 secs"), None); // round down
+        assert_eq!(t("1 min 25 secs"), Some(1)); // round down
+        assert_eq!(t("   0  hours 90min 59 sec "), Some(91));
     }
 }

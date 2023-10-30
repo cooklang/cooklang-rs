@@ -70,8 +70,8 @@ imperial = [
 quantity = "time"
 best = ["s", "h", "min", "d"]
 units = [
-    { names = ["second", "seconds"], symbols = ["s", "sec"], ratio = 1 },
-    { names = ["minute", "minutes"], symbols = ["min"], ratio = 60 },
+    { names = ["second", "seconds"], symbols = ["s", "sec"], aliases = ["secs"], ratio = 1 },
+    { names = ["minute", "minutes"], symbols = ["min"], aliases = ["mins"], ratio = 60 },
     { names = ["hour", "hours"], symbols = ["h"], ratio = 3600 },
     { names = ["day", "days"], symbols = ["d"], ratio = 86400 },
 ]
