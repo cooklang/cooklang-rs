@@ -2,8 +2,8 @@
 
 ## Unreleased - ReleaseDate
 ### Breaking changes
-- Reworked intermediate references. Index is gone, now you reference the step
-  or section number directly. Text steps can't be referenced now.
+- Reworked intermediate references. Index is gone, now you reference the step or
+  section number directly. Text steps can't be referenced now.
 - Rename `INTERMEDIATE_INGREDIENTS` extension to `INTERMEDIATE_PREPARATIONS`.
 - Sections now holds content: steps and text blocks. This makes a clear
   distinction between the old regular steps and text steps which have been
@@ -16,23 +16,26 @@
 - Reworked error model.
 
 ### Features
-- New warning for bad single word names. It could be confusing not getting
-  any result because of a unsoported symbol there.
+- New warning for bad single word names. It could be confusing not getting any
+  result because of a unsoported symbol there.
 - Improve redundant modifiers warnings.
-- Recipe not found warning is now customizable from the result of the recipe
-  ref checker.
+- Recipe not found warning is now customizable from the result of the recipe ref
+  checker.
 - Unknown special metadata keys are now added to the metadata.
 - Advanced units removal of `%` now supports range values too.
 - New error for text value in a timer with the advanced units extension.
 - Special metadata keys for time, now use the configured time units.
-- Bundled units now includes `secs` and `mins` as aliases to seconds and minutes.
+- Bundled units now includes `secs` and `mins` as aliases to seconds and
+  minutes.
+- New warning for overriding special recipe total time with composed time and
+  vice versa.
 
 ### Fixed
 - Text steps were ignored in `components` mode.
 - Scale text value error was firing for all errors marked with `*`.
 - Even though number values for quantities were decimal, a big integer would
-  fail to parse. That's no more the case. If it's too big, it will only fail in a
-  fraction.
+  fail to parse. That's no more the case. If it's too big, it will only fail in
+  a fraction.
 
 ## 0.9.0 - 2023-10-07
 ### Features

@@ -6,7 +6,7 @@ use std::ops::{Deref, Range};
 ///
 /// The offsets are zero-indexed charactere offsets from the beginning of the source
 /// code.
-#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, PartialOrd, Ord)]
 pub struct Span {
     start: usize,
     end: usize,

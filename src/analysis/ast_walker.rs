@@ -1,5 +1,5 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use regex::Regex;
 
@@ -7,6 +7,7 @@ use crate::ast::{self, IntermediateData, Modifiers, Text};
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
+use crate::metadata::SpecialKey;
 use crate::parser::{BlockKind, Event};
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
@@ -102,7 +103,7 @@ struct RecipeCollector<'i, 'c> {
 struct Locations<'i> {
     ingredients: Vec<Located<ast::Ingredient<'i>>>,
     cookware: Vec<Located<ast::Cookware<'i>>>,
-    metadata: HashMap<Cow<'i, str>, (Text<'i>, Text<'i>)>,
+    metadata: HashMap<SpecialKey, (Text<'i>, Text<'i>)>,
 }
 
 const IMPLICIT_REF_WARN: &str = "The reference (&) is implicit";
@@ -172,10 +173,6 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
     }
 
     fn metadata(&mut self, key: Text<'i>, value: Text<'i>) {
-        self.locations
-            .metadata
-            .insert(key.text_trimmed(), (key.clone(), value.clone()));
-
         let key_t = key.text_trimmed();
         let value_t = value.text_outer_trimmed();
         let invalid_value = |possible| {
@@ -191,8 +188,8 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             && key_t.starts_with('[')
             && key_t.ends_with(']')
         {
-            let special_key = &key_t[1..key_t.len() - 1];
-            match special_key {
+            let config_key = &key_t[1..key_t.len() - 1];
+            match config_key {
                 "define" | "mode" => match value_t.as_ref() {
                     "all" | "default" => self.define_mode = DefineMode::All,
                     "components" | "ingredients" => self.define_mode = DefineMode::Components,
@@ -228,24 +225,92 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         .insert(key_t.into_owned(), value_t.into_owned());
                 }
             }
-        } else if let Err(warn) =
-            self.content
-                .metadata
-                .insert(key_t.into_owned(), value_t.into_owned(), self.converter)
-        {
-            self.ctx.warn(
-                warning!(
-                    format!(
-                        "Unsupported value for special key: '{}'",
-                        key.text_trimmed()
-                    ),
-                    label!(value.span(), "this value"),
-                )
-                .label(label!(key.span(), "is not supported by this key"))
-                .hint("It will be a regular metadata entry")
-                .set_source(warn),
-            );
+            return;
         }
+
+        // insert the value into the map
+        self.content
+            .metadata
+            .map
+            .insert(key_t.to_string(), value_t.to_string());
+
+        // check if it's a special key
+        if let Ok(sp_key) = SpecialKey::from_str(&key_t) {
+            // try to insert it
+            let res = self.content.metadata.insert_special_key(
+                sp_key,
+                value_t.to_string(),
+                self.converter,
+            );
+            if let Err(err) = res {
+                self.ctx.warn(
+                    warning!(
+                        format!(
+                            "Unsupported value for special key: '{}'",
+                            key.text_trimmed()
+                        ),
+                        label!(value.span(), "this value"),
+                    )
+                    .label(label!(key.span(), "is not supported by this key"))
+                    .hint("It will be a regular metadata entry")
+                    .set_source(err),
+                );
+                return;
+            }
+            // store it's location if it was inserted
+            self.locations
+                .metadata
+                .insert(sp_key, (key.clone(), value.clone()));
+
+            if matches!(
+                sp_key,
+                SpecialKey::Time | SpecialKey::PrepTime | SpecialKey::CookTime
+            ) {
+                self.time_override_check(sp_key)
+            }
+        }
+    }
+
+    fn time_override_check(&mut self, new: SpecialKey) {
+        let locs = |keys: &[SpecialKey]| {
+            assert!(!keys.is_empty());
+            let mut v = keys
+                .iter()
+                .filter_map(|k| {
+                    self.locations
+                        .metadata
+                        .get(k)
+                        .map(|e| Span::new(e.0.span().start(), e.1.span().end()))
+                })
+                .collect::<Vec<_>>();
+            v.sort_unstable();
+            v
+        };
+
+        let overrides = locs(&[new])[0];
+        let overriden = match new {
+            SpecialKey::Time => locs(&[SpecialKey::PrepTime, SpecialKey::CookTime]),
+            SpecialKey::PrepTime | SpecialKey::CookTime => locs(&[SpecialKey::Time]),
+            _ => panic!("unknown time special key"),
+        };
+        if overriden.is_empty() {
+            return;
+        }
+        let mut overriden = overriden.iter();
+
+        const OVERRIDEN: &str = "this entry is overriden";
+        const OVERRIDES: &str = "by this entry";
+
+        let mut warn = warning!(
+            "Time overridden",
+            label!(overriden.next().unwrap(), OVERRIDEN)
+        );
+        for e in overriden {
+            warn.add_label(label!(e, OVERRIDEN));
+        }
+        warn.add_label(label!(overrides, OVERRIDES));
+        warn.add_hint("Prep time and/or cook time overrides total time and vice versa");
+        self.ctx.warn(warn);
     }
 
     fn step(&mut self, items: Vec<Event<'i>>) -> Step {
@@ -822,7 +887,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     let servings_meta_span = self
                         .locations
                         .metadata
-                        .get("servings")
+                        .get(&SpecialKey::Servings)
                         .map(|(_, value)| value.span())
                         .unwrap();
                     if s.len() != v.len() {
