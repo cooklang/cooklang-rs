@@ -228,10 +228,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         .insert(key_t.into_owned(), value_t.into_owned());
                 }
             }
-        } else if let Err(warn) = self
-            .content
-            .metadata
-            .insert(key_t.into_owned(), value_t.into_owned())
+        } else if let Err(warn) =
+            self.content
+                .metadata
+                .insert(key_t.into_owned(), value_t.into_owned(), self.converter)
         {
             self.ctx.warn(
                 warning!(
@@ -588,18 +588,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     .nth((val - 1) as usize);
 
                 if index.is_none() {
-                    return bounds(
-                        format!(
-                            "The value has to be a previous step number: {}",
-                            // -1 because step_counter holds the current step number
-                            match self.step_counter.saturating_sub(1) {
-                                0 => "no steps before this one".to_string(),
-                                1 => "1".to_string(),
-                                max => format!("1 to {max}"),
-                            }
-                        )
-                        .into(),
-                    );
+                    return bounds(format!(
+                        "The value has to be a previous step number: {}",
+                        // -1 because step_counter holds the current step number
+                        match self.step_counter.saturating_sub(1) {
+                            0 => "no steps before this one".to_string(),
+                            1 => "1".to_string(),
+                            max => format!("1 to {max}"),
+                        }
+                    ));
                 }
 
                 IngredientRelation::reference(index.unwrap(), IngredientReferenceTarget::Step)
@@ -613,16 +610,13 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     .filter_map(|(i, c)| c.is_step().then_some(i))
                     .nth_back((val - 1) as usize);
                 if index.is_none() {
-                    return bounds(
-                        format!(
-                            "The current section {} steps before this one",
-                            match self.step_counter.saturating_sub(1) {
-                                0 => "has no".to_string(),
-                                before => format!("only has {before}"),
-                            }
-                        )
-                        .into(),
-                    );
+                    return bounds(format!(
+                        "The current section {} steps before this one",
+                        match self.step_counter.saturating_sub(1) {
+                            0 => "has no".to_string(),
+                            before => format!("only has {before}"),
+                        }
+                    ));
                 }
 
                 IngredientRelation::reference(index.unwrap(), IngredientReferenceTarget::Step)
@@ -631,17 +625,14 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                 let index = (val - 1) as usize; // direct index, but make it 0 indexed
 
                 if index >= self.content.sections.len() {
-                    return bounds(
-                        format!(
-                            "The value has to be a previous section number: {}",
-                            match self.content.sections.len() {
-                                0 => "no sections before this one".to_string(),
-                                1 => "1".to_string(),
-                                max => format!("1 to {max}"),
-                            }
-                        )
-                        .into(),
-                    );
+                    return bounds(format!(
+                        "The value has to be a previous section number: {}",
+                        match self.content.sections.len() {
+                            0 => "no sections before this one".to_string(),
+                            1 => "1".to_string(),
+                            max => format!("1 to {max}"),
+                        }
+                    ));
                 }
 
                 IngredientRelation::reference(index, IngredientReferenceTarget::Section)
@@ -651,16 +642,13 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
                 // content.sections holds the past sections
                 if val > self.content.sections.len() {
-                    return bounds(
-                        format!(
-                            "The recipe {} sections before this one",
-                            match self.content.sections.len() {
-                                0 => "has no".to_string(),
-                                before => format!("only has {before}"),
-                            }
-                        )
-                        .into(),
-                    );
+                    return bounds(format!(
+                        "The recipe {} sections before this one",
+                        match self.content.sections.len() {
+                            0 => "has no".to_string(),
+                            before => format!("only has {before}"),
+                        }
+                    ));
                 }
 
                 // number of past sections - number to go back

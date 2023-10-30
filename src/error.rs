@@ -484,7 +484,7 @@ fn build_report<'a>(
 
     let labels = err.labels();
     let labels = labels
-        .into_iter()
+        .iter()
         .map(|(s, t)| (s.to_chars_span(src_code, file_name).range(), t))
         .collect::<Vec<_>>();
 
