@@ -77,12 +77,12 @@ This library exports methods:
         Empty,
     }
 
-    struct HardToNameWTF {
+    struct GroupedQuantityKey {
         name: String,
         unit_type: QuantityType,
     }
 
-    type GroupedQuantity = HashMap<HardToNameWTF, Value>;
+    type GroupedQuantity = HashMap<GroupedQuantityKey, Value>;
 
 
 ### Shopping list usage example
