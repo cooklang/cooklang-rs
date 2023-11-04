@@ -228,3 +228,26 @@ fn no_steps_component_mode() {
         [Content::Step(_)]
     ));
 }
+
+#[test]
+fn text_steps_extension() {
+    let input = "> text";
+
+    let r = CooklangParser::extended()
+        .parse(input)
+        .take_output()
+        .unwrap();
+    assert!(matches!(
+        r.sections[0].content.as_slice(),
+        [Content::Text(_)]
+    ));
+
+    let r = CooklangParser::canonical()
+        .parse(input)
+        .take_output()
+        .unwrap();
+    assert!(matches!(
+        r.sections[0].content.as_slice(),
+        [Content::Step(_)]
+    ));
+}

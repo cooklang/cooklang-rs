@@ -361,7 +361,7 @@ fn parse_multiline_block(bp: &mut BlockParser) {
         return;
     }
 
-    let is_text = bp.peek() == T![>];
+    let is_text = bp.peek() == T![>] && bp.extension(Extensions::TEXT_STEPS);
 
     if is_text {
         parse_text_block(bp);
