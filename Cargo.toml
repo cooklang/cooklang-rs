@@ -50,5 +50,9 @@ harness = false
 name = "convert"
 harness = false
 
+[[bench]]
+name = "special_chars_lookup"
+harness = false
+
 [workspace]
 members = [".", "playground", "bindings"]
