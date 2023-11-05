@@ -75,7 +75,7 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
     })
     .or_else(|| {
         bp.with_recover(|bp| {
-            let tokens = bp.consume_while(|t| matches!(t, T![word] | T![int] | T![float]));
+            let tokens = bp.consume_while(|t| matches!(t, T![word] | T![int] | T![zeroint]));
             if tokens.is_empty() {
                 if !bp.rest().is_empty() && !bp.at(T![ws]) {
                     bp.warn(
@@ -183,8 +183,8 @@ fn parse_modifiers(
             if modifiers.contains(new_m) {
                 bp.error(
                     error!(
-                        format!("Duplicate modifier: {}", bp.as_str(*tok)),
-                        label!(modifiers_span, "only leave one {}", bp.as_str(*tok)),
+                        format!("Duplicate modifier: {}", bp.token_str(*tok)),
+                        label!(modifiers_span, "only leave one {}", bp.token_str(*tok)),
                     )
                     .hint("Order does not matter, but duplicates are not allowed"),
                 );
@@ -275,7 +275,7 @@ fn parse_intermediate_ref_data(
         }
     };
 
-    let val = match bp.as_str(i).parse::<i16>() {
+    let val = match bp.token_str(i).parse::<i16>() {
         Ok(val) => val,
         Err(err) => {
             bp.error(error!("Error parsing integer number", label!(i.span)).set_source(err));
@@ -713,5 +713,22 @@ mod tests {
     fn intermediate_ref_errors(input: &str) {
         let (_, ctx) = t(input);
         assert_eq!(ctx.errors().count(), 1);
+    }
+
+    #[test_case("bread" => "bread")]
+    #[test_case("bread1" => "bread1")]
+    #[test_case("bread01" => "bread01")]
+    #[test_case("01bread" => "01bread")]
+    #[test_case("1bread" => "1bread")]
+    #[test_case("1" => "1")]
+    #[test_case("01" => "01")]
+    #[test_case("1.1" => "1")]
+    #[test_case("01.1" => "01")]
+    fn single_word_component(input: &str) -> String {
+        let tokens = TokenStream::new(input).collect::<Vec<_>>();
+        let mut events = VecDeque::new();
+        let mut bp = BlockParser::new(&tokens, input, &mut events, Extensions::empty());
+        let body = comp_body(&mut bp).expect("not parsed");
+        bp.text(0, body.name).text_trimmed().into_owned()
     }
 }

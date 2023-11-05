@@ -1,7 +1,6 @@
 mod cursor;
 
 pub use cursor::Cursor;
-use cursor::EOF_CHAR;
 
 use finl_unicode::categories::CharacterCategories;
 
@@ -60,8 +59,8 @@ pub enum TokenKind {
 
     /// "14", "0", but not "014"
     Int,
-    /// "3.14", ".14", but not "14."
-    Float,
+    /// "014", but not "14"
+    ZeroInt,
     /// any other unicode punctuation characters
     Punctuation,
     /// Everything else, a "\" escapes the next char
@@ -92,7 +91,7 @@ fn is_whitespace(c: char) -> bool {
 
 fn is_special(c: char) -> bool {
     // faster than str::contains and equally as fast as match, at least in
-    // rustc 1.68.2
+    // rustc 1.73.0
     const SPECIAL_CHARS_LIST: &[char] = &[
         '>', ':', '@', '#', '~', '?', '+', '-', '/', '*', '&', '|', '=', '%', '{', '}', '(', ')',
     ];
@@ -105,8 +104,6 @@ fn is_word_char(c: char) -> bool {
 
 impl Cursor<'_> {
     pub fn advance_token(&mut self) -> Token {
-        let prev = self.prev();
-
         let first_char = match self.bump() {
             Some(c) => c,
             None => return Token::new(TokenKind::Eof, 0),
@@ -129,9 +126,6 @@ impl Cursor<'_> {
             c if is_whitespace(c) => self.whitespace(),
             c if is_newline(c, self.first()) => self.newline(c),
             c if c.is_ascii_digit() => self.number(c),
-            '.' if self.first().is_ascii_digit() && (!is_word_char(prev) || prev == EOF_CHAR) => {
-                self.number('.')
-            }
 
             // single char tokens
             '>' => TokenKind::TextStep,
@@ -154,10 +148,9 @@ impl Cursor<'_> {
             ')' => TokenKind::CloseParen,
 
             c if c.is_punctuation() => TokenKind::Punctuation,
-            c if is_word_char(c) => self.word(),
 
-            // anything else, a one char word
-            _ => TokenKind::Word,
+            // anything else, word
+            _ => self.word(),
         };
         let token = Token::new(token_kind, self.pos_within_token());
         self.reset_pos_within_token();
@@ -186,6 +179,7 @@ impl Cursor<'_> {
     }
 
     fn word(&mut self) -> TokenKind {
+        debug_assert!(self.pos_within_token() > 0); // at least one char
         self.eat_while(is_word_char);
         TokenKind::Word
     }
@@ -199,7 +193,7 @@ impl Cursor<'_> {
     fn newline(&mut self, c: char) -> TokenKind {
         debug_assert!(is_newline(self.prev(), self.first()));
         if c == '\r' {
-            self.bump();
+            self.bump(); // \n
         }
         TokenKind::Newline
     }
@@ -213,52 +207,14 @@ impl Cursor<'_> {
     /// [1-9]+ => int
     ///
     fn number(&mut self, c: char) -> TokenKind {
-        debug_assert!(
-            self.prev().is_ascii_digit() || (self.prev() == '.' && self.first().is_ascii_digit())
-        );
-
-        // no int special case
-        if c == '.' {
-            if self.eat_digits() {
-                return TokenKind::Float;
-            } else {
-                return TokenKind::Word;
-            }
-        }
-
-        // Regular number
-        let has_int = self.eat_digits() || c.is_ascii_digit();
-        let int_leading_zero = c == '0' && self.pos_within_token() > 1;
-        let has_divider = self.first() == '.';
-        let has_frac = if has_divider {
-            self.bump();
-            self.eat_digits()
+        debug_assert!(self.prev().is_ascii_digit());
+        self.eat_while(|c| c.is_ascii_digit());
+        let leading_zero = c == '0' && self.pos_within_token() > 1;
+        if leading_zero {
+            TokenKind::ZeroInt
         } else {
-            false
-        };
-
-        if int_leading_zero {
-            return TokenKind::Word;
+            TokenKind::Int
         }
-
-        match (has_int, has_divider, has_frac) {
-            (true, false, false) => TokenKind::Int,
-            (_, true, true) => TokenKind::Float,
-            _ => TokenKind::Word,
-        }
-    }
-
-    fn eat_digits(&mut self) -> bool {
-        let mut has_digits = false;
-        loop {
-            if self.first().is_ascii_digit() {
-                has_digits = true;
-                self.bump();
-            } else {
-                break;
-            }
-        }
-        has_digits
     }
 }
 
@@ -333,8 +289,8 @@ macro_rules! T {
     [int] => {
         $crate::lexer::TokenKind::Int
     };
-    [float] => {
-        $crate::lexer::TokenKind::Float
+    [zeroint] => {
+        $crate::lexer::TokenKind::ZeroInt
     };
     [meta] => {
         $crate::lexer::TokenKind::MetadataStart
@@ -405,14 +361,17 @@ mod tests {
     fn number() {
         t!("1", vec![Int]);
         t!("0", vec![Int]);
-        t!("01", vec![Word]);
-        t!("01.3", vec![Word]);
-        t!("1.3", vec![Float]);
-        t!(".3", vec![Float]);
-        t!("0.3", vec![Float]);
-        t!("0.03", vec![Float]);
-        t!("{.3}", vec![OpenBrace, Float, CloseBrace]);
+        t!("01", vec![ZeroInt]);
+        t!("01.3", vec![ZeroInt, Punctuation, Int]);
+        t!("1.3", vec![Int, Punctuation, Int]);
+        t!(".3", vec![Punctuation, Int]);
+        t!("0.3", vec![Int, Punctuation, Int]);
+        t!("0.03", vec![Int, Punctuation, ZeroInt]);
+        t!("{.3}", vec![OpenBrace, Punctuation, Int, CloseBrace]);
         t!("phraseends.3", vec![Word, Punctuation, Int]);
+        t!("phraseends .3", vec![Word, Whitespace, Punctuation, Int]);
+        t!("14.", vec![Int, Punctuation]);
+        t!("word3.", vec![Word, Punctuation]);
     }
 
     #[test]

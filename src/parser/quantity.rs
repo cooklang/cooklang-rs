@@ -242,19 +242,55 @@ fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Sourc
     Some(Ok(Value::Range { start, end }))
 }
 
+fn not_ws_comment(t: &Token) -> bool {
+    !matches!(t.kind, T![ws] | T![line comment] | T![block comment])
+}
+
+fn trim_tokens(s: &[Token]) -> &[Token] {
+    let from = match s.iter().position(not_ws_comment) {
+        Some(i) => i,
+        None => return &s[0..0],
+    };
+    let to = s.iter().rposition(not_ws_comment).unwrap();
+    &s[from..=to]
+}
+
 fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, SourceDiag>> {
-    // All the numeric values will be at most 4 tokens
-    let filtered_tokens: SmallVec<[Token; 4]> = tokens
+    // remove spaces and comments from start to end
+    let trimmed_tokens = trim_tokens(tokens);
+    if trimmed_tokens.is_empty() {
+        return None;
+    }
+
+    // check simple numbers
+
+    // int or float
+    // at the end, bare ints are converted to floats, so parse them as floats
+    // to allow unnecesary large values for recipes :)
+    let r = match trimmed_tokens {
+        &[mt![int]] => Some(float(trimmed_tokens, bp)),
+        &[mt![int], p @ mt![punctuation], mt![int | zeroint]]
+        | &[p @ mt![punctuation], mt![int | zeroint]]
+            if bp.token_str(p) == "." =>
+        {
+            Some(float(trimmed_tokens, bp))
+        }
+        _ => None,
+    };
+    if r.is_some() {
+        return r.map(|r| r.map(|v| Value::Number(Number::Regular(v))));
+    }
+
+    // remove spaces and comments in between other tokens
+    // numeric values will be at most 4 tokens
+    let filtered_tokens: SmallVec<[Token; 4]> = trimmed_tokens
         .iter()
-        .filter(|t| !matches!(t.kind, T![ws] | T![line comment] | T![block comment]))
         .copied()
+        .filter(not_ws_comment)
         .collect();
 
+    // check complex values
     let r = match *filtered_tokens.as_slice() {
-        // int or float
-        // at the end, bare ints are converted to floats, so parse them as floats
-        // to allow unnecesary large values for recipes :)
-        [t @ mt![int | float]] => float(t, bp).map(Number::Regular),
         // mixed number
         [i @ mt![int], a @ mt![int], mt![/], b @ mt![int]] => mixed_num(i, a, b, bp),
         // frac
@@ -299,17 +335,16 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, SourceDiag> {
 fn int(tok: Token, block: &BlockParser) -> Result<f64, SourceDiag> {
     assert_eq!(tok.kind, T![int]);
     block
-        .as_str(tok)
+        .token_str(tok)
         .parse::<u32>()
         .map(|i| i as f64)
         .map_err(|e| error!("Error parsing integer number", label!(tok.span)).set_source(e))
 }
 
-fn float(tok: Token, bp: &BlockParser) -> Result<f64, SourceDiag> {
-    assert!(tok.kind == T![float] || tok.kind == T![int]);
-    bp.as_str(tok)
-        .parse::<f64>()
-        .map_err(|e| error!("Error parsing decimal number", label!(tok.span)).set_source(e))
+fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
+    bp.slice_str(tokens).parse::<f64>().map_err(|e| {
+        error!("Error parsing decimal number", label!(tokens_span(tokens))).set_source(e)
+    })
 }
 
 #[cfg(test)]
@@ -560,5 +595,28 @@ mod tests {
         };
         assert_eq!(err, 0.0);
         (whole, num, den)
+    }
+
+    #[test_case("1" => 1.0)]
+    #[test_case("1.0" => 1.0)]
+    #[test_case("10" => 10.0)]
+    #[test_case("10.0000000" => 10.0)]
+    #[test_case("10.05" => 10.05)]
+    #[test_case("01" => panics "not number")]
+    #[test_case("01.0" => panics "not number")]
+    fn simple_numbers(s: &str) -> f64 {
+        let (q, _, r) = t!(s);
+        let QuantityValue::Single { value, .. } = q.value else {
+            panic!("not single value")
+        };
+        let value = value.into_inner();
+        let Value::Number(num) = value else {
+            panic!("not number")
+        };
+        let Number::Regular(n) = num else {
+            panic!("not regular number")
+        };
+        assert!(r.is_empty(), "source error");
+        n
     }
 }

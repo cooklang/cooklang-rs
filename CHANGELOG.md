@@ -36,6 +36,8 @@
 - Even though number values for quantities were decimal, a big integer would
   fail to parse. That's no more the case. If it's too big, it will only fail in
   a fraction.
+- Incorrect behaviour with single word components that started with a decimal
+  number.
 
 ## 0.9.0 - 2023-10-07
 ### Features

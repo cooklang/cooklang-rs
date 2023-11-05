@@ -8,6 +8,15 @@ use crate::{
     Extensions, Span,
 };
 
+macro_rules! debug_assert_adjacent {
+    ($s:expr) => {
+        debug_assert!(
+            $s.windows(2).all(|w| w[0].span.end() == w[1].span.start()),
+            "tokens are not adjacent"
+        )
+    };
+}
+
 pub(crate) struct BlockParser<'t, 'i> {
     tokens: &'t [Token],
     pub(crate) current: usize,
@@ -33,12 +42,7 @@ impl<'t, 'i> BlockParser<'t, 'i> {
                 && tokens.last().unwrap().span.end() <= input.len(),
             "tokens out of input bounds"
         );
-        debug_assert!(
-            tokens
-                .windows(2)
-                .all(|w| w[0].span.end() == w[1].span.start()),
-            "tokens are not adjacent"
-        );
+        debug_assert_adjacent!(tokens);
         Self {
             tokens,
             current: 0,
@@ -102,8 +106,18 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     }
 
     /// Gets a token's matching str from the input
-    pub(crate) fn as_str(&self, token: Token) -> &'i str {
+    pub(crate) fn token_str(&self, token: Token) -> &'i str {
         &self.input[token.span.range()]
+    }
+
+    pub(crate) fn slice_str(&self, s: &[Token]) -> &'i str {
+        debug_assert_adjacent!(s);
+        if s.is_empty() {
+            return "";
+        }
+        let start = s.first().unwrap().span.start();
+        let end = s.last().unwrap().span.end();
+        &self.input[start..end]
     }
 
     pub(crate) fn span(&self) -> Span {
@@ -111,12 +125,7 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     }
 
     pub(crate) fn text(&self, offset: usize, tokens: &[Token]) -> ast::Text<'i> {
-        debug_assert!(
-            tokens
-                .windows(2)
-                .all(|w| w[0].span.end() == w[1].span.start()),
-            "tokens are not adjacent"
-        );
+        debug_assert_adjacent!(tokens);
 
         let mut t = ast::Text::empty(offset);
         if tokens.is_empty() {

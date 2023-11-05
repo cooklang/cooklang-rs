@@ -6,6 +6,7 @@ use std::str::Chars;
 pub struct Cursor<'a> {
     len_remaining: usize,
     chars: Chars<'a>,
+    #[cfg(debug_assertions)]
     prev: char,
 }
 
@@ -16,13 +17,21 @@ impl<'a> Cursor<'a> {
         Self {
             len_remaining: input.len(),
             chars: input.chars(),
+            #[cfg(debug_assertions)]
             prev: EOF_CHAR,
         }
     }
 
     /// Returns the last eaten symbol.
     pub(crate) fn prev(&self) -> char {
-        self.prev
+        #[cfg(debug_assertions)]
+        {
+            self.prev
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            EOF_CHAR
+        }
     }
 
     /// Peeks the next char. If none, [`EOF_CHAR`] is returned. But EOF should
@@ -50,7 +59,10 @@ impl<'a> Cursor<'a> {
     /// Moves to the next character.
     pub(crate) fn bump(&mut self) -> Option<char> {
         let c = self.chars.next()?;
-        self.prev = c;
+        #[cfg(debug_assertions)]
+        {
+            self.prev = c;
+        }
         Some(c)
     }
 
