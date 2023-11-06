@@ -29,7 +29,7 @@ jobs:
           wasm-pack build --target web --release --no-pack --no-typescript
           rm pkg/.gitignore
         env:
-          BUILD_COOKLANG_RS_VERSION: ${{ steps.ghd.outputs.tag }}
+          BUILD_COOKLANG_RS_VERSION: ${{ steps.ghd.outputs.describe }}
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
