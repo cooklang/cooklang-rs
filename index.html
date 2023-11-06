@@ -117,6 +117,26 @@
     fieldset {
       text-align: start;
     }
+
+    .codeblock .ingredient {
+      color: green;
+      font-weight: bold;
+    }
+
+    .codeblock .timer {
+      color: teal;
+      font-weight: bold;
+    }
+
+    .codeblock .cookware {
+      color: orange;
+      font-weight: bold;
+    }
+
+    .codeblock .temp {
+      color: crimson;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -134,11 +154,16 @@
         </div>
 
         <select id="parserSelect">
+          <option value="render" selected>Render</option>
           <option value="full" selected>Full parse</option>
           <option value="events">Events</option>
           <option value="ast">AST</option>
         </select>
-        <div>
+        <div hidden id="servingscontainer">
+          <label for="servings">Servings</label>
+          <input type="number" name="servings" id="servings" />
+        </div>
+        <div hidden id="jsoncontainer">
           <input type="checkbox" name="json" id="json" />
           <label for="json">JSON output</label>
         </div>
@@ -172,6 +197,7 @@
       parse_events,
       parse_full,
       parse_ast,
+      parse_render,
       set_extensions,
       get_extensions,
       version
@@ -195,20 +221,24 @@
       const elapsed = document.getElementById("elapsed");
       const parserSelect = document.getElementById("parserSelect");
       const jsonCheckbox = document.getElementById("json");
+      const servings = document.getElementById("servings");
       document.getElementById("version").textContent = version();
       let initalExtensions;
 
       const search = new URLSearchParams(window.location.search);
-      if (search.has("mode")) {
-        parserSelect.value = search.get("mode");
-      }
       if (search.has("json")) {
         jsonCheckbox.checked = search.get("json") === "true";
       }
       if (search.has("extensions")) {
         initalExtensions = Number(search.get("extensions"));
+        set_extensions(initalExtensions)
       } else {
         initalExtensions = get_extensions();
+      }
+      let mode = search.get("mode") || localStorage.getItem("mode");
+      if (mode !== null) {
+        parserSelect.value = mode;
+        setMode(mode);
       }
 
       function parse() {
@@ -219,9 +249,6 @@
             const { value, error } = parse_full(input, jsonCheckbox.checked);
             output.textContent = value;
             errors.innerHTML = error;
-            if (error.length > 0) {
-              errorsDetails.open = true;
-            }
             break;
           }
           case "events": {
@@ -234,36 +261,35 @@
             const { value, error } = parse_ast(input, jsonCheckbox.checked);
             output.textContent = value;
             errors.innerHTML = error;
-            if (error.length > 0) {
-              errorsDetails.open = true;
-            }
+            break;
+          }
+          case "render": {
+            const { value, error } = parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber );
+            output.innerHTML = value;
+            errors.innerHTML = error;
             break;
           }
         }
+        errorsDetails.open = errors.childElementCount !== 0
       }
 
-      parse();
       editor.on("change", debounce(parse, 100));
-      parserSelect.addEventListener("change", (ev) => {
-        const params = new URLSearchParams(window.location.search);
-        params.set("mode", ev.target.value);
-        window.history.replaceState(
-          null,
-          "",
-          window.location.pathname + "?" + params.toString()
-        );
-        parse();
-      });
+      parserSelect.addEventListener("change", (ev) => setMode(ev.target.value));
       jsonCheckbox.addEventListener("change", (ev) => {
         const params = new URLSearchParams(window.location.search);
-        params.set("json", ev.target.checked);
+        if (ev.target.checked) {
+          params.set("json", "true");
+        } else {
+          params.delete("json")
+        }
         window.history.replaceState(
           null,
           "",
           window.location.pathname + "?" + params.toString()
         );
         parse()
-      })
+      });
+      servings.addEventListener("change", () => parse());
 
       const extensionsContainer = document.getElementById("extensions-container");
       const extensions = [
@@ -278,7 +304,7 @@
         "TEXT_STEPS",
         "RANGE_VALUES",
         "TIMER_REQUIRES_TIME",
-        "INTERMEDIATE_INGREDIENTS",
+        "INTERMEDIATE_PREPARATIONS",
       ].forEach((e, i) => {
         let bits = 1 << i;
         if (i == 11) {
@@ -318,7 +344,22 @@
         parse();
       }
 
+      function setMode(mode) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("mode", mode);
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + "?" + params.toString()
+        );
+        document.getElementById("jsoncontainer").hidden = mode === "render" || mode === "events";
+        document.getElementById("servingscontainer").hidden = mode !== "render";
+        localStorage.setItem("mode", mode);
+        parse();
+      }
+
       editor.focus();
+      parse();
     }
 
     function debounce(fn, delay) {

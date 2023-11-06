@@ -162,6 +162,21 @@ export function parse_full(input, json) {
     return FallibleResult.__wrap(ret);
 }
 
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
+/**
+* @param {string} input
+* @param {number | undefined} scale
+* @returns {FallibleResult}
+*/
+export function parse_render(input, scale) {
+    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.parse_render(ptr0, len0, !isLikeNone(scale), isLikeNone(scale) ? 0 : scale);
+    return FallibleResult.__wrap(ret);
+}
+
 /**
 */
 export class FallibleResult {
