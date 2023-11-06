@@ -525,7 +525,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             }
 
             if let Some(note) = &located_ingredient.note {
-                self.ctx.error(note_reference_error(note.span(), implicit));
+                self.ctx.error(note_reference_error(
+                    note.span(),
+                    implicit,
+                    definition_location.span(),
+                ));
             }
 
             // When the ingredient is not defined in a step, only the definition
@@ -750,7 +754,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             assert!(definition.relation.is_definition());
 
             if let Some(note) = &located_cookware.note {
-                self.ctx.error(note_reference_error(note.span(), implicit));
+                self.ctx.error(note_reference_error(
+                    note.span(),
+                    implicit,
+                    definition_location.span(),
+                ));
             }
 
             // See ingredients for explanation
@@ -1220,9 +1228,12 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<
     Some((before, temperature, after))
 }
 
-fn note_reference_error(span: Span, implicit: bool) -> SourceDiag {
+fn note_reference_error(span: Span, implicit: bool, def_span: Span) -> SourceDiag {
+    let span = Span::new(span.start().saturating_sub(1), span.end() + 1);
+
     let mut e = error!("Note not allowed in reference", label!(span, "remove this"))
-        .hint("Add the note in the definition of the ingredient");
+        .hint("Add the note in the definition of the ingredient")
+        .label(label!(Span::pos(def_span.end()), "add the note here"));
     if implicit {
         e.add_hint(IMPLICIT_REF_WARN);
     }
