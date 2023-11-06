@@ -1,9 +1,9 @@
 use crate::error::PassResult;
 use crate::ScalableRecipe;
 
-mod ast_walker;
+mod event_consumer;
 
-pub use ast_walker::parse_events;
+pub use event_consumer::parse_events;
 
 pub type AnalysisResult = PassResult<ScalableRecipe>;
 
