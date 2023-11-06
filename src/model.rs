@@ -105,7 +105,7 @@ impl Content {
     ///
     /// # Panics
     /// If the content is [`Content::Text`]
-    pub fn as_step(&self) -> &Step {
+    pub fn unwrap_step(&self) -> &Step {
         match self {
             Content::Step(s) => s,
             Content::Text(_) => panic!("content is text"),
@@ -116,7 +116,7 @@ impl Content {
     ///
     /// # Panics
     /// If the content is [`Content::Step`]
-    pub fn as_text(&self) -> &str {
+    pub fn unwrap_text(&self) -> &str {
         match self {
             Content::Step(_) => panic!("content is step"),
             Content::Text(t) => t.as_str(),
