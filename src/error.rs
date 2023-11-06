@@ -402,7 +402,7 @@ impl<T> PassResult<T> {
         Err(self.report)
     }
 
-    /// Transform into a [`Report`] discarding the output
+    /// Transform into a [`SourceReport`] discarding the output
     pub fn into_report(self) -> SourceReport {
         self.report
     }
@@ -450,8 +450,7 @@ pub trait RichError: std::error::Error {
 /// Writes a rich error report
 ///
 /// This function should not be used in a loop as each call will
-/// perform a light parse of the whole source code. To print many rich errors
-/// use [`Report`].
+/// perform a light parse of the whole source code.
 pub fn write_rich_error(
     error: &dyn RichError,
     file_name: &str,

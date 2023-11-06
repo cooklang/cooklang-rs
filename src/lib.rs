@@ -10,9 +10,9 @@
 //! - A parser for cooklang aisle configuration file.
 //!
 //! # Basic usage
-//! If you just want to parse a **single** `cooklang` file, see [`parse`].
+//! If you just want **to parse a single** `cooklang` file, see [`parse`].
 //!
-//! As soon as you are going to parse more than one, or want to change the
+//! If you are going to parse more than one, or want to change the
 //! configuration of the parser, construct a parser instance yourself.
 //!
 //! To construct a parser use [`CooklangParser::new`] or
@@ -93,7 +93,7 @@ pub use metadata::Metadata;
 pub use model::*;
 pub use quantity::{
     GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
-    TotalQuantity, UnitInfo, Value,
+    UnitInfo, Value,
 };
 use serde::{Deserialize, Serialize};
 pub use span::Span;

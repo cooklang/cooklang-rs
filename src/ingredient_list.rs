@@ -5,14 +5,20 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::{
-    aisle::AisleConf, convert::Converter, model::Ingredient, quantity::GroupedQuantity,
-    scale::ScaleOutcome, ScaledRecipe, Value,
+    aisle::AisleConf,
+    convert::Converter,
+    model::Ingredient,
+    quantity::{GroupedQuantity, GroupedValue},
+    scale::ScaleOutcome,
+    Cookware, ScaledRecipe, Value,
 };
 
-/// Ingredient with all quantities from it's references and itself grouped
+/// Ingredient with all quantities from it's references and itself grouped.
+///
+/// Created from [`ScaledRecipe::group_ingredients`].
 #[derive(Debug, Clone, Serialize)]
 pub struct GroupedIngredient<'a> {
-    /// Index of the ingredient definition in the [Recipe::ingredients](crate::model::Recipe::ingredients)
+    /// Index of the ingredient definition in the [`Recipe::ingredients`](crate::model::Recipe::ingredients)
     pub index: usize,
     /// Ingredient definition
     pub ingredient: &'a Ingredient<Value>,
@@ -20,21 +26,34 @@ pub struct GroupedIngredient<'a> {
     pub quantity: GroupedQuantity,
     /// Scale outcome, if scaled to a custom target
     ///
-    /// If any scaling outcome was [ScaleOutcome::Error], this will be an error.
+    /// If any scaling outcome was [`ScaleOutcome::Error`], this will be an error.
     /// It will only be one and no particular order is guaranteed.
     ///
-    /// If any scaling outcome was [ScaleOutcome::Fixed], this will be the fixed.
+    /// If any scaling outcome was [`ScaleOutcome::Fixed`], this will be the fixed.
     pub outcome: Option<ScaleOutcome>,
 }
 
+/// Cookware item with all amounts from it's references and itself grouped.
+///
+/// Created forom [`ScaledRecipe::group_cookware`].
+pub struct GroupedCookware<'a> {
+    /// Index of the ingredient definition in the [`Recipe::cookware``](crate::model::Recipe::cookware)
+    pub index: usize,
+    /// Cookware definition
+    pub cookware: &'a Cookware<Value>,
+    /// Grouped amount of itself and all of it references
+    pub amount: GroupedValue,
+}
+
 impl ScaledRecipe {
-    /// List of ingredient **definitions** with quantities of all of it references
-    /// grouped.
+    /// List of ingredient **definitions** with quantities of all of it
+    /// references grouped.
     ///
-    /// Order is the recipe order.
+    /// Order is the recipe order. This is for a single recipe. If you need to
+    /// merge different recipes, see [`IngredientList`].
     ///
     /// ```
-    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
+    /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}")
     ///                 .into_output()
@@ -47,20 +66,12 @@ impl ScaledRecipe {
     ///
     /// let flour = &grouped[0];
     /// assert_eq!(flour.ingredient.name, "flour");
-    /// assert_eq!(
-    ///     flour.quantity.total(),
-    ///     TotalQuantity::Single(
-    ///         Quantity::new(
-    ///             Value::from(1.1),
-    ///             Some("kg".to_string()) // Unit fit to kilograms
-    ///         )
-    ///     )
-    /// );
+    /// assert_eq!(flour.quantity.to_string(), "1.1 kg");
     ///
     /// // Water is second, because it is after flour in the recipe
     /// let water = &grouped[1];
     /// assert_eq!(water.ingredient.name, "water");
-    /// assert_eq!(water.quantity.total(), TotalQuantity::None);
+    /// assert!(water.quantity.is_empty());
     /// ```
     pub fn group_ingredients<'a>(&'a self, converter: &Converter) -> Vec<GroupedIngredient<'a>> {
         let mut list = Vec::new();
@@ -95,11 +106,32 @@ impl ScaledRecipe {
         }
         list
     }
+
+    /// List of cookware **definitions** with amount of all of it
+    /// references grouped.
+    ///
+    /// Order is the recipe order.
+    pub fn group_cookware(&self) -> Vec<GroupedCookware> {
+        let mut list = Vec::new();
+        for (index, cookware) in self.cookware.iter().enumerate() {
+            if !cookware.relation.is_definition() {
+                continue;
+            }
+            let amount = cookware.group_amounts(&self.cookware);
+            list.push(GroupedCookware {
+                index,
+                cookware,
+                amount,
+            })
+        }
+        list
+    }
 }
 
 /// List of ingredients with quantities.
 ///
-/// Sorted by name.
+/// Sorted by name. This is used to combine multiple recipes into a single
+/// list.
 #[derive(Debug, Default)]
 pub struct IngredientList(BTreeMap<String, GroupedQuantity>);
 

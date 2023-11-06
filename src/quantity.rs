@@ -527,10 +527,16 @@ impl TryAdd for Value {
 
 /// Group of quantities
 ///
-/// This support efficient adding of new quantities, merging other groups and
-/// calculating the [`TotalQuantity`].
+/// This support efficient adding of new quantities, merging other groups..
 ///
 /// This is used to create, and merge ingredients lists.
+///
+/// This can return many quantities to avoid loosing information when not all
+/// quantities are compatible. If a single total can be calculated, it will be
+/// single quantity. If the total cannot be calculated because 2 or more units
+/// can't be added, it contains all the quantities added where possible.
+///
+/// The display impl is a comma separated list of all the quantities.
 #[derive(Default, Debug, Clone, Serialize)]
 pub struct GroupedQuantity {
     /// known units
@@ -598,18 +604,9 @@ impl GroupedQuantity {
 
     /// Merge the group with another one
     pub fn merge(&mut self, other: &Self, converter: &Converter) {
-        for q in other.all_quantities() {
+        for q in other.iter() {
             self.add(q, converter)
         }
-    }
-
-    fn all_quantities(&self) -> impl Iterator<Item = &ScaledQuantity> + '_ {
-        self.known
-            .values()
-            .filter_map(|q| q.as_ref())
-            .chain(self.unknown.values())
-            .chain(self.other.iter())
-            .chain(self.no_unit.iter())
     }
 
     /// Calls [`Quantity::fit`] on all possible underlying units
@@ -627,86 +624,128 @@ impl GroupedQuantity {
         Ok(())
     }
 
-    /// Get the [`TotalQuantity`]
-    pub fn total(&self) -> TotalQuantity {
-        let mut all = self.all_quantities().cloned().peekable();
-
-        let Some(first) = all.next() else {
-            return TotalQuantity::None;
-        };
-
-        if all.peek().is_none() {
-            TotalQuantity::Single(first)
-        } else {
-            let mut many = Vec::with_capacity(1 + all.size_hint().0);
-            many.push(first);
-            for q in all {
-                many.push(q);
-            }
-            TotalQuantity::Many(many)
-        }
+    pub fn is_empty(&self) -> bool {
+        self.iter().next().is_none()
     }
-}
 
-/// Total quantity from a [`GroupedQuantity`]
-///
-/// [`TotalQuantity::Many`] is needed to avoid loosing information when not all
-/// quantities are compatible. This happens when the total cannot be calculated
-/// because 2 or more units can't be added. In this case, the vec contains all
-/// the quantities added where possible.
-///
-/// For example:
-/// ```
-/// # use cooklang::quantity::*;
-/// # use cooklang::convert::Converter;
-/// # let converter = Converter::bundled();
-/// let a = Quantity::new(Value::from(2.0), Some("l".into()));
-/// let b = Quantity::new(Value::from(200.0), Some("ml".into()));
-/// let c = Quantity::new(Value::from(1.0), Some("bottle".into()));
-///
-/// let mut group = GroupedQuantity::empty();
-/// group.add(&a, &converter);
-/// group.add(&b, &converter);
-/// group.add(&c, &converter);
-/// let total = group.total();
-/// assert_eq!(
-///     total,
-///     TotalQuantity::Many(vec![
-///         Quantity::new(Value::from(2.2), Some("l".into())),
-///         Quantity::new(Value::from(1.0), Some("bottle".into()))
-///     ])
-/// );
-/// ```
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(untagged)]
-pub enum TotalQuantity {
-    /// No quantity
-    None,
-    /// A single quantity
-    Single(ScaledQuantity),
-    /// Many quantities when they can't be added
-    Many(Vec<ScaledQuantity>),
-}
+    pub fn iter(&self) -> impl Iterator<Item = &ScaledQuantity> {
+        self.known
+            .values()
+            .filter_map(|q| q.as_ref())
+            .chain(self.unknown.values())
+            .chain(self.other.iter())
+            .chain(self.no_unit.iter())
+    }
 
-impl TotalQuantity {
-    /// Get the total quantity as a vec of quantities
-    ///
-    /// - [`TotalQuantity::None`] is an empty vec.
-    /// - [`TotalQuantity::Single`] is a vec with one item.
-    /// - [`TotalQuantity::Many`] is just it's inner vec.
+    pub fn len(&self) -> usize {
+        self.known.values().filter(|q| q.is_some()).count()
+            + self.unknown.len()
+            + self.other.len()
+            + (self.no_unit.is_some() as usize)
+    }
+
+    /// Turn the group into a single vec
     pub fn into_vec(self) -> Vec<ScaledQuantity> {
-        match self {
-            TotalQuantity::None => vec![],
-            TotalQuantity::Single(q) => vec![q],
-            TotalQuantity::Many(many) => many,
+        let len = self.len();
+        let mut v = Vec::with_capacity(len);
+        for q in self
+            .known
+            .into_values()
+            .filter_map(std::convert::identity)
+            .chain(self.unknown.into_values())
+            .chain(self.other.into_iter())
+            .chain(self.no_unit.into_iter())
+        {
+            v.push(q)
         }
+        debug_assert_eq!(len, v.len(), "misscalculated groupedquantity len");
+        v
     }
 }
 
-impl From<TotalQuantity> for Vec<ScaledQuantity> {
-    fn from(value: TotalQuantity) -> Self {
-        value.into_vec()
+impl Display for GroupedQuantity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        display_comma_separated(f, self.iter())
     }
+}
+
+/// Same as [`GroupedQuantity`] but for [`Value`]
+#[derive(Default)]
+pub struct GroupedValue(Vec<Value>);
+
+impl GroupedValue {
+    /// Creates a new empty group
+    pub fn empty() -> Self {
+        Self::default()
+    }
+
+    /// Adds a new value to the group
+    pub fn add(&mut self, value: &Value) {
+        if self.0.is_empty() {
+            self.0.push(value.clone());
+            return;
+        }
+
+        if value.is_text() {
+            self.0.push(value.clone());
+        } else if self.0[0].is_text() {
+            self.0.insert(0, value.clone());
+        } else {
+            self.0[0] = self.0[0]
+                .try_add(&value)
+                .expect("non text to non text value add error");
+        }
+    }
+
+    /// Merge this group to another one
+    pub fn merge(&mut self, other: &Self) {
+        for q in &other.0 {
+            self.add(q)
+        }
+    }
+
+    /// Checks if the group is empty
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Get the number of values in the group
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Iterate over the grouped values
+    pub fn iter(&self) -> impl Iterator<Item = &Value> {
+        self.0.iter()
+    }
+
+    /// Turn the group into a single vec
+    pub fn into_vec(self) -> Vec<Value> {
+        self.0
+    }
+}
+
+impl Display for GroupedValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        display_comma_separated(f, self.iter())
+    }
+}
+
+fn display_comma_separated<T>(
+    f: &mut impl std::fmt::Write,
+    mut iter: impl Iterator<Item = T>,
+) -> std::fmt::Result
+where
+    T: Display,
+{
+    match iter.next() {
+        Some(first) => write!(f, "{first}")?,
+        None => return Ok(()),
+    }
+    for q in iter {
+        write!(f, ", {q}")?;
+    }
+    Ok(())
 }
 
 // All the fractions stuff

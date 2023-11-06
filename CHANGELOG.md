@@ -14,6 +14,8 @@
   `ScalableRecipe` directly.
 - Change the return type of the recipe ref checker.
 - Reworked error model.
+- Removed `Ingredient::total_quantity`.
+- Change `Cookware::group_amounts` return type.
 
 ### Features
 - New warning for bad single word names. It could be confusing not getting any
@@ -29,6 +31,8 @@
   minutes.
 - New warning for overriding special recipe total time with composed time and
   vice versa.
+- Added `ScaledRecipe::group_cookware`.
+- Rework `GroupedQuantity` API and add `GroupedValue`.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

@@ -8,7 +8,7 @@ use crate::{
     ast::Modifiers,
     convert::Converter,
     metadata::Metadata,
-    quantity::{Quantity, QuantityAddError, QuantityValue, ScalableValue, ScaledQuantity},
+    quantity::{GroupedValue, Quantity, QuantityValue, ScalableValue, ScaledQuantity},
     GroupedQuantity, Value,
 };
 
@@ -203,31 +203,12 @@ impl<V: QuantityValue> Ingredient<V> {
 }
 
 impl Ingredient<Value> {
-    /// Calculates the total quantity adding all the quantities from the
-    /// references.
-    pub fn total_quantity<'a>(
-        &'a self,
-        all_ingredients: &'a [Self],
-        converter: &Converter,
-    ) -> Result<Option<ScaledQuantity>, QuantityAddError> {
-        let mut quantities = self.all_quantities(all_ingredients);
-
-        let Some(mut total) = quantities.next().cloned() else {
-            return Ok(None);
-        };
-        for q in quantities {
-            total = total.try_add(q, converter)?;
-        }
-        let _ = total.fit(converter);
-
-        Ok(Some(total))
-    }
-
     /// Groups all quantities from itself and it's references (if any).
     /// ```
-    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
+    /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
-    /// let recipe = parser.parse("@flour{1000%g} @&flour{100%g}")
+    /// let recipe = parser
+    ///                 .parse("@flour{1000%g} @&flour{200%g} @&flour{1%bag}")
     ///                 .into_output()
     ///                 .unwrap()
     ///                 .default_scale();
@@ -239,15 +220,19 @@ impl Ingredient<Value> {
     ///                         &recipe.ingredients,
     ///                         parser.converter()
     ///                     );
-    ///
+    /// assert_eq!(grouped_flour.to_string(), "1.2 kg, 1 bag");
     /// assert_eq!(
-    ///     grouped_flour.total(),
-    ///     TotalQuantity::Single(
+    ///     grouped_flour.into_vec(),
+    ///     vec![
     ///         Quantity::new(
-    ///             Value::from(1.1),
-    ///             Some("kg".to_string()) // Unit fit to kilograms
-    ///         )
-    ///     )
+    ///             Value::from(1.2),
+    ///             Some("kg".to_string())  // Unit fit to kilograms
+    ///         ),
+    ///         Quantity::new(
+    ///             Value::from(1.0),
+    ///             Some("bag".to_string()) // Can't add this unit to kg
+    ///         ),
+    ///     ]
     /// );
     /// ```
     pub fn group_quantities(
@@ -317,7 +302,7 @@ impl Cookware<Value> {
     /// values.
     ///
     /// ```
-    /// # use cooklang::{CooklangParser, Extensions, Converter, TotalQuantity, Value, Quantity};
+    /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser.parse("#pan{3} #&pan{1} #&pan{big}")
     ///                 .into_output()
@@ -329,39 +314,21 @@ impl Cookware<Value> {
     ///
     /// let grouped_pans = pan.group_amounts(&recipe.cookware);
     ///
+    /// assert_eq!(grouped_pans.to_string(), "4, big");
     /// assert_eq!(
-    ///     grouped_pans,
+    ///     grouped_pans.into_vec(),
     ///     vec![
     ///         Value::from(4.0),
     ///         Value::from("big".to_string()),
     ///     ]
     /// );
     /// ```
-    pub fn group_amounts(&self, all_cookware: &[Self]) -> Vec<Value> {
-        use crate::quantity::TryAdd;
-
-        let mut amounts = self.all_amounts(all_cookware);
-        let mut r = Vec::new();
-        loop {
-            match amounts.next() {
-                Some(v) if v.is_text() => r.push(v.clone()),
-                Some(v) => {
-                    r.insert(0, v.clone());
-                    break;
-                }
-                None => return r,
-            }
+    pub fn group_amounts(&self, all_cookware: &[Self]) -> GroupedValue {
+        let mut g = GroupedValue::empty();
+        for a in self.all_amounts(all_cookware) {
+            g.add(a);
         }
-        for v in amounts {
-            if v.is_text() {
-                r.push(v.clone());
-            } else {
-                r[0] = r[0]
-                    .try_add(v)
-                    .expect("non text to non text value add error");
-            }
-        }
-        r
+        g
     }
 
     /// Gets an iterator over all quantities of this ingredient and its references.
@@ -528,18 +495,16 @@ impl IngredientRelation {
 
     /// Checks if the relation is a regular reference to an ingredient
     pub fn is_regular_reference(&self) -> bool {
-        use IngredientReferenceTarget::*;
+        use IngredientReferenceTarget as Target;
         self.references_to()
-            .map(|(_, target)| target == Ingredient)
-            .unwrap_or(false)
+            .is_some_and(|(_, target)| target == Target::Ingredient)
     }
 
     /// Checks if the relation is an intermediate reference to a step or section
     pub fn is_intermediate_reference(&self) -> bool {
-        use IngredientReferenceTarget::*;
+        use IngredientReferenceTarget as Target;
         self.references_to()
-            .map(|(_, target)| matches!(target, Step | Section))
-            .unwrap_or(false)
+            .is_some_and(|(_, target)| matches!(target, Target::Step | Target::Section))
     }
 
     /// Check if the relation is a definition
