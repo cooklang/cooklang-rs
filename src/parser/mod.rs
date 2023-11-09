@@ -54,23 +54,26 @@
 
 mod block_parser;
 mod metadata;
+mod model;
 mod quantity;
 mod section;
 mod step;
 mod text_block;
 mod token_stream;
 
+pub use model::*;
+
 use std::collections::VecDeque;
 
 use crate::{
-    ast::{self, Text},
-    error::{PassResult, SourceDiag, SourceReport},
+    error::SourceDiag,
     lexer::T,
     located::Located,
     parser::{
         metadata::metadata_entry, section::section, step::parse_step, text_block::parse_text_block,
     },
     span::Span,
+    text::Text,
     Extensions,
 };
 
@@ -97,11 +100,11 @@ pub enum Event<'i> {
     /// Text item
     Text(Text<'i>),
     /// Ingredient item
-    Ingredient(Located<ast::Ingredient<'i>>),
+    Ingredient(Located<Ingredient<'i>>),
     /// Cookware item
-    Cookware(Located<ast::Cookware<'i>>),
+    Cookware(Located<Cookware<'i>>),
     /// Timer item
-    Timer(Located<ast::Timer<'i>>),
+    Timer(Located<Timer<'i>>),
 
     /// Parser error
     ///
@@ -115,6 +118,7 @@ pub enum Event<'i> {
     Warning(SourceDiag),
 }
 
+/// For [`Event::Start`] and [`Event::End`]
 #[derive(Debug, Clone, PartialEq)]
 pub enum BlockKind {
     /// A recipe step
@@ -370,57 +374,6 @@ fn parse_multiline_block(bp: &mut BlockParser) {
     }
 }
 
-/// Builds an [`Ast`](ast::Ast) given an [`Event`] iterator
-///
-/// Probably the iterator you want is an instance of [`PullParser`].
-#[tracing::instrument(level = "debug", skip_all)]
-pub fn build_ast<'input>(
-    events: impl Iterator<Item = Event<'input>>,
-) -> PassResult<ast::Ast<'input>> {
-    let mut blocks = Vec::new();
-    let mut items = Vec::new();
-    let mut ctx = SourceReport::empty();
-    for event in events {
-        match event {
-            Event::Metadata { key, value } => blocks.push(ast::Block::Metadata { key, value }),
-            Event::Section { name } => blocks.push(ast::Block::Section { name }),
-            Event::Start(_kind) => items.clear(),
-            Event::End(kind) => {
-                match kind {
-                    BlockKind::Step => {
-                        if !items.is_empty() {
-                            blocks.push(ast::Block::Step {
-                                items: std::mem::take(&mut items),
-                            })
-                        }
-                    }
-                    BlockKind::Text => {
-                        let texts = std::mem::take(&mut items)
-                            .into_iter()
-                            .map(|i| {
-                                if let ast::Item::Text(t) = i {
-                                    t
-                                } else {
-                                    panic!("Not text in text block: {i:?}");
-                                }
-                            })
-                            .collect();
-                        blocks.push(ast::Block::TextBlock(texts))
-                    }
-                };
-            }
-            Event::Text(t) => items.push(ast::Item::Text(t)),
-            Event::Ingredient(c) => items.push(ast::Item::Ingredient(Box::new(c))),
-            Event::Cookware(c) => items.push(ast::Item::Cookware(Box::new(c))),
-            Event::Timer(c) => items.push(ast::Item::Timer(Box::new(c))),
-            Event::Error(e) => ctx.push(e),
-            Event::Warning(w) => ctx.push(w),
-        }
-    }
-    let ast = ast::Ast { blocks };
-    PassResult::new(Some(ast), ctx)
-}
-
 /// get the span for a slice of tokens. panics if the slice is empty
 pub(crate) fn tokens_span(tokens: &[Token]) -> Span {
     debug_assert!(!tokens.is_empty(), "tokens_span tokens empty");
@@ -507,7 +460,7 @@ mod tests {
                 items: vec![Item::Text({
                     let mut t = Text::empty(0);
                     t.append_str("  This is a step           ", 0);
-                    t.append_fragment(TextFragment::soft_break("\n", 37));
+                    t.append_fragment(crate::text::TextFragment::soft_break("\n", 37));
                     t.append_str(" and this line continues  ", 39);
                     t
                 })]

@@ -6,22 +6,10 @@
 //! [`Recipe`](crate::model::Recipe). So this is just an optional intermediate
 //! representation of the file and not a complete parsed recipe.
 
-mod text;
-
-use crate::{error::Recover, located::Located, quantity::Value, span::Span};
-pub use text::{Text, TextFragment};
+use crate::{error::Recover, located::Located, quantity::Value, span::Span, text::Text};
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
-
-/// Abstract syntax tree of a cooklang file
-///
-/// The AST is (mostly) borrowed from the input and offers location information of each
-/// element back to the source file.
-#[derive(Debug, Serialize, Clone)]
-pub struct Ast<'a> {
-    pub blocks: Vec<Block<'a>>,
-}
 
 /// Lines that form a recipe.
 ///

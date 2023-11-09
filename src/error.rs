@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use crate::Span;
 
-/// Handy label creation
+/// Handy label creation for [`SourceDiag`]
 #[macro_export]
 macro_rules! label {
     ($span:expr) => {

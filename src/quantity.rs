@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    ast,
     convert::{ConvertError, Converter, PhysicalQuantity, Unit},
+    parser,
 };
 
 /// A quantity used in components
@@ -270,19 +270,19 @@ impl<V: QuantityValue> Quantity<V> {
 }
 
 impl ScalableValue {
-    pub(crate) fn from_ast(value: ast::QuantityValue) -> Self {
+    pub(crate) fn from_ast(value: parser::QuantityValue) -> Self {
         match value {
-            ast::QuantityValue::Single {
+            parser::QuantityValue::Single {
                 value,
                 auto_scale: None,
                 ..
             } => Self::Fixed(value.into_inner()),
-            ast::QuantityValue::Single {
+            parser::QuantityValue::Single {
                 value,
                 auto_scale: Some(_),
                 ..
             } => Self::Linear(value.into_inner()),
-            ast::QuantityValue::Many(v) => Self::ByServings(
+            parser::QuantityValue::Many(v) => Self::ByServings(
                 v.into_iter()
                     .map(crate::located::Located::into_inner)
                     .collect(),
@@ -651,7 +651,7 @@ impl GroupedQuantity {
         for q in self
             .known
             .into_values()
-            .filter_map(std::convert::identity)
+            .flatten()
             .chain(self.unknown.into_values())
             .chain(self.other.into_iter())
             .chain(self.no_unit.into_iter())
@@ -670,7 +670,7 @@ impl Display for GroupedQuantity {
 }
 
 /// Same as [`GroupedQuantity`] but for [`Value`]
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Serialize)]
 pub struct GroupedValue(Vec<Value>);
 
 impl GroupedValue {
@@ -692,7 +692,7 @@ impl GroupedValue {
             self.0.insert(0, value.clone());
         } else {
             self.0[0] = self.0[0]
-                .try_add(&value)
+                .try_add(value)
                 .expect("non text to non text value add error");
         }
     }

@@ -2,9 +2,9 @@ use std::collections::VecDeque;
 
 use super::{token_stream::Token, tokens_span, Event};
 use crate::{
-    ast::{self, TextFragment},
     error::SourceDiag,
     lexer::{TokenKind, T},
+    text::{Text, TextFragment},
     Extensions, Span,
 };
 
@@ -124,10 +124,10 @@ impl<'t, 'i> BlockParser<'t, 'i> {
         tokens_span(self.tokens)
     }
 
-    pub(crate) fn text(&self, offset: usize, tokens: &[Token]) -> ast::Text<'i> {
+    pub(crate) fn text(&self, offset: usize, tokens: &[Token]) -> Text<'i> {
         debug_assert_adjacent!(tokens);
 
-        let mut t = ast::Text::empty(offset);
+        let mut t = Text::empty(offset);
         if tokens.is_empty() {
             return t;
         }

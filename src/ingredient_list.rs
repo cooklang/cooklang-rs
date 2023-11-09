@@ -36,6 +36,7 @@ pub struct GroupedIngredient<'a> {
 /// Cookware item with all amounts from it's references and itself grouped.
 ///
 /// Created forom [`ScaledRecipe::group_cookware`].
+#[derive(Debug, Clone, Serialize)]
 pub struct GroupedCookware<'a> {
     /// Index of the ingredient definition in the [`Recipe::cookware``](crate::model::Recipe::cookware)
     pub index: usize,
@@ -153,7 +154,7 @@ impl IngredientList {
     /// This is a convenience method instead of manually calling [`IngredientList::add_ingredient`]
     /// for each one.
     ///
-    /// Only ingredients for which [`should_be_listed`](crate::ast::Modifiers::should_be_listed)
+    /// Only ingredients for which [`should_be_listed`](crate::Modifiers::should_be_listed)
     /// is true are added.
     ///
     /// Scaling outcomes are ignored, but logged with [tracing] if they are an

@@ -1,13 +1,8 @@
 use smallvec::SmallVec;
 
 use crate::{
-    ast::{self, IntermediateData, IntermediateRefMode, IntermediateTargetKind, Modifiers, Text},
-    error::label,
-    error::Recover,
-    lexer::T,
-    located::Located,
-    span::Span,
-    Extensions,
+    error::label, error::Recover, lexer::T, located::Located, parser::model::*, span::Span,
+    text::Text, Extensions,
 };
 
 use super::{
@@ -366,7 +361,7 @@ fn ingredient<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         .map(|tokens| parse_quantity(bp, tokens).quantity);
 
     Some(Event::Ingredient(Located::new(
-        ast::Ingredient {
+        Ingredient {
             modifiers,
             intermediate_data,
             name,
@@ -409,7 +404,7 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
                 .hint("Cookware items can't have units"),
             );
         }
-        if let ast::QuantityValue::Single {
+        if let QuantityValue::Single {
             auto_scale: Some(auto_scale),
             ..
         } = &q.quantity.value
@@ -443,7 +438,7 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     }
 
     Some(Event::Cookware(Located::new(
-        ast::Cookware {
+        Cookware {
             name,
             alias,
             quantity,
@@ -472,7 +467,7 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
 
     let mut quantity = body.quantity.map(|tokens| {
         let q = parse_quantity(bp, tokens);
-        if let ast::QuantityValue::Single {
+        if let QuantityValue::Single {
             auto_scale: Some(auto_scale),
             ..
         } = &q.quantity.value
@@ -529,7 +524,7 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     }
 
     Some(Event::Timer(Located::new(
-        ast::Timer { name, quantity },
+        Timer { name, quantity },
         start..end,
     )))
 }

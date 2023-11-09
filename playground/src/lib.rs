@@ -1,4 +1,4 @@
-use cooklang::parser::build_ast;
+use cooklang::ast::build_ast;
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use std::fmt::Write;

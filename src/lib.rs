@@ -42,10 +42,10 @@
 //!
 //! Recipes can be scaled and converted. But the following applies:
 //! - Parsing returns a [`ScalableRecipe`].
-//! - Only [`ScalableRecipe`] can be [`scale`](ScalableRecipe::scale)d or
-//!   [`default_scale`](ScalableRecipe::default_scale)d **only once** to obtain
+//! - Only [`ScalableRecipe`] can be [`scaled`](ScalableRecipe::scale) or
+//!   [`default_scaled`](ScalableRecipe::default_scale) **only once** to obtain
 //!   a [`ScaledRecipe`].
-//! - Only [`ScaledRecipe`] can be [`convert`](ScaledRecipe::convert)ed.
+//! - Only [`ScaledRecipe`] can be [`converted`](ScaledRecipe::convert).
 
 #![warn(rustdoc::broken_intra_doc_links, clippy::doc_markdown)]
 
@@ -80,10 +80,12 @@ pub mod parser;
 pub mod quantity;
 pub mod scale;
 pub mod span;
+pub mod text;
 
 mod lexer;
 
 use bitflags::bitflags;
+use serde::{Deserialize, Serialize};
 
 use error::{CowStr, PassResult};
 
@@ -91,12 +93,13 @@ pub use convert::Converter;
 pub use located::Located;
 pub use metadata::Metadata;
 pub use model::*;
+pub use parser::Modifiers;
 pub use quantity::{
     GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
     UnitInfo, Value,
 };
-use serde::{Deserialize, Serialize};
 pub use span::Span;
+pub use text::Text;
 
 bitflags! {
     /// Extensions bitflags

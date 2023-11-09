@@ -3,14 +3,17 @@ use std::str::FromStr;
 
 use regex::Regex;
 
-use crate::ast::{self, IntermediateData, Modifiers, Text};
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
 use crate::metadata::SpecialKey;
-use crate::parser::{BlockKind, Event};
+use crate::parser::{
+    self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
+    Modifiers,
+};
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
+use crate::text::Text;
 use crate::{model::*, Extensions, RecipeRefCheckResult, RecipeRefChecker};
 
 use super::{AnalysisResult, DefineMode, DuplicateMode};
@@ -101,8 +104,8 @@ struct RecipeCollector<'i, 'c> {
 
 #[derive(Default)]
 struct Locations<'i> {
-    ingredients: Vec<Located<ast::Ingredient<'i>>>,
-    cookware: Vec<Located<ast::Cookware<'i>>>,
+    ingredients: Vec<Located<parser::Ingredient<'i>>>,
+    cookware: Vec<Located<parser::Cookware<'i>>>,
     metadata: HashMap<SpecialKey, (Text<'i>, Text<'i>)>,
 }
 
@@ -419,7 +422,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         s
     }
 
-    fn ingredient(&mut self, ingredient: Located<ast::Ingredient<'i>>) -> usize {
+    fn ingredient(&mut self, ingredient: Located<parser::Ingredient<'i>>) -> usize {
         let located_ingredient = ingredient.clone();
         let (ingredient, location) = ingredient.take_pair();
 
@@ -612,8 +615,8 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         &mut self,
         inter_data: Located<IntermediateData>,
     ) -> Result<IngredientRelation, SourceDiag> {
-        use ast::IntermediateRefMode::*;
-        use ast::IntermediateTargetKind::*;
+        use IntermediateRefMode as Mode;
+        use IntermediateTargetKind as Kind;
         assert!(!inter_data.val.is_negative());
         let val = inter_data.val as u32;
 
@@ -621,14 +624,14 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
         if val == 0 {
             match inter_data.ref_mode {
-                Number => {
+                Mode::Number => {
                     return Err(error!(
                         format!("{INVALID}: number is 0"),
                         label!(inter_data.span())
                     )
                     .hint("Step and section numbers start at 1"));
                 }
-                Relative => {
+                Mode::Relative => {
                     return Err(error!(
                         format!("{INVALID}: relative reference to self"),
                         label!(inter_data.span())
@@ -647,7 +650,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         };
 
         let relation = match (inter_data.target_kind, inter_data.ref_mode) {
-            (Step, Number) => {
+            (Kind::Step, Mode::Number) => {
                 let index = self
                     .current_section
                     .content
@@ -670,7 +673,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
                 IngredientRelation::reference(index.unwrap(), IngredientReferenceTarget::Step)
             }
-            (Step, Relative) => {
+            (Kind::Step, Mode::Relative) => {
                 let index = self
                     .current_section
                     .content
@@ -690,7 +693,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
                 IngredientRelation::reference(index.unwrap(), IngredientReferenceTarget::Step)
             }
-            (Section, Number) => {
+            (Kind::Section, Mode::Number) => {
                 let index = (val - 1) as usize; // direct index, but make it 0 indexed
 
                 if index >= self.content.sections.len() {
@@ -706,7 +709,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
                 IngredientRelation::reference(index, IngredientReferenceTarget::Section)
             }
-            (Section, Relative) => {
+            (Kind::Section, Mode::Relative) => {
                 let val = val as usize; // number of sections to go back
 
                 // content.sections holds the past sections
@@ -730,7 +733,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         Ok(relation)
     }
 
-    fn cookware(&mut self, cookware: Located<ast::Cookware<'i>>) -> usize {
+    fn cookware(&mut self, cookware: Located<parser::Cookware<'i>>) -> usize {
         let located_cookware = cookware.clone();
         let (cookware, location) = cookware.take_pair();
 
@@ -809,7 +812,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         self.content.cookware.len() - 1
     }
 
-    fn timer(&mut self, timer: Located<ast::Timer<'i>>) -> usize {
+    fn timer(&mut self, timer: Located<parser::Timer<'i>>) -> usize {
         let located_timer = timer.clone();
         let (timer, _span) = timer.take_pair();
         let quantity = timer.quantity.map(|q| {
@@ -861,20 +864,20 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
     fn quantity(
         &mut self,
-        quantity: Located<ast::Quantity<'i>>,
+        quantity: Located<parser::Quantity<'i>>,
         is_ingredient: bool,
     ) -> Quantity<ScalableValue> {
-        let ast::Quantity { value, unit, .. } = quantity.into_inner();
+        let parser::Quantity { value, unit, .. } = quantity.into_inner();
         Quantity::new(
             self.value(value, is_ingredient),
             unit.map(|t| t.text_trimmed().into_owned()),
         )
     }
 
-    fn value(&mut self, value: ast::QuantityValue, is_ingredient: bool) -> ScalableValue {
+    fn value(&mut self, value: parser::QuantityValue, is_ingredient: bool) -> ScalableValue {
         let mut marker_span = None;
         match &value {
-            ast::QuantityValue::Single {
+            parser::QuantityValue::Single {
                 value,
                 auto_scale: Some(auto_scale_marker),
             } => {
@@ -889,7 +892,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     );
                 }
             }
-            ast::QuantityValue::Many(v) => {
+            parser::QuantityValue::Many(v) => {
                 const CONFLICT: &str = "Many values conflict";
                 if let Some(s) = &self.content.metadata.servings {
                     let servings_meta_span = self

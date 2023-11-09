@@ -5,9 +5,9 @@ use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ast::Modifiers,
     convert::Converter,
     metadata::Metadata,
+    parser::Modifiers,
     quantity::{GroupedValue, Quantity, QuantityValue, ScalableValue, ScaledQuantity},
     GroupedQuantity, Value,
 };

@@ -198,14 +198,6 @@ impl Cursor<'_> {
         TokenKind::Newline
     }
 
-    /// Tokenize number-like
-    ///
-    /// 0 => int (0)
-    /// 01 => word (no leading 0)
-    /// 0. => word
-    /// 0.[0-9]+ => float
-    /// [1-9]+ => int
-    ///
     fn number(&mut self, c: char) -> TokenKind {
         debug_assert!(self.prev().is_ascii_digit());
         self.eat_while(|c| c.is_ascii_digit());

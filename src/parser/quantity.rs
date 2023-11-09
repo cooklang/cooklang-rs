@@ -1,7 +1,6 @@
 use smallvec::SmallVec;
 
 use crate::{
-    ast,
     error::Recover,
     error::{label, SourceDiag},
     lexer::T,
@@ -11,10 +10,10 @@ use crate::{
     Extensions,
 };
 
-use super::{error, mt, token_stream::Token, tokens_span, BlockParser};
+use super::{error, model::*, mt, token_stream::Token, tokens_span, BlockParser};
 
 pub struct ParsedQuantity<'a> {
-    pub quantity: Located<ast::Quantity<'a>>,
+    pub quantity: Located<Quantity<'a>>,
     pub unit_separator: Option<Span>,
 }
 
@@ -53,7 +52,7 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
             bp.consume_while(|t| t != T![%]);
             let text = bp.text(bp.span().start(), bp.parsed());
             let text_val = Value::Text(text.text_trimmed().into_owned());
-            value = ast::QuantityValue::Single {
+            value = QuantityValue::Single {
                 value: Located::new(text_val, text.span()),
                 auto_scale: None,
             };
@@ -79,7 +78,7 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
     let (unit_separator, unit) = unit.unzip();
 
     ParsedQuantity {
-        quantity: Located::new(ast::Quantity { value, unit }, tokens_span(bp.tokens())),
+        quantity: Located::new(Quantity { value, unit }, tokens_span(bp.tokens())),
         unit_separator,
     }
 }
@@ -132,8 +131,8 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     let unit = bp.text(unit_tokens.first().unwrap().span.start(), unit_tokens);
     Some(ParsedQuantity {
         quantity: Located::new(
-            ast::Quantity {
-                value: ast::QuantityValue::Single {
+            Quantity {
+                value: QuantityValue::Single {
                     value,
                     auto_scale: None,
                 },
@@ -145,7 +144,7 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     })
 }
 
-fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
+fn many_values(bp: &mut BlockParser) -> QuantityValue {
     let mut values: Vec<Located<Value>> = vec![];
     let mut auto_scale = None;
 
@@ -167,7 +166,7 @@ fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
     }
 
     match values.len() {
-        1 => ast::QuantityValue::Single {
+        1 => QuantityValue::Single {
             value: values.pop().unwrap(),
             auto_scale,
         },
@@ -178,7 +177,7 @@ fn many_values(bp: &mut BlockParser) -> ast::QuantityValue {
                     .hint("A quantity cannot have the auto scaling marker (*) and have many values at the same time")
                 )
             }
-            ast::QuantityValue::Many(values)
+            QuantityValue::Many(values)
         }
         _ => unreachable!(), // first iter is guaranteed
     }
@@ -349,10 +348,8 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        ast::{QuantityValue, Text},
-        parser::token_stream::TokenStream,
-    };
+    use super::*;
+    use crate::{parser::TokenStream, text::Text};
     use test_case::test_case;
 
     macro_rules! t {
@@ -391,7 +388,6 @@ mod tests {
         };
     }
 
-    use super::*;
     #[test]
     fn basic_quantity() {
         let (q, s, _) = t!("100%ml");
