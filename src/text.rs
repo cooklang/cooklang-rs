@@ -1,7 +1,6 @@
 use std::{borrow::Cow, fmt::Debug};
 
 use serde::Serialize;
-use smallvec::SmallVec;
 
 use crate::{located::Located, span::Span};
 
@@ -13,18 +12,54 @@ use crate::{located::Located, span::Span};
 /// ignores the location.
 #[derive(Clone, Serialize)]
 pub struct Text<'a> {
-    /// A starting offset is needed if there are no fragments
-    offset: usize,
-    /// Most texts will be only one fragment, when there are no comments or
-    /// escaped characters
-    fragments: SmallVec<[TextFragment<'a>; 1]>,
+    data: TextData<'a>,
+}
+
+#[derive(Clone, Serialize)]
+enum TextData<'a> {
+    Empty { offset: usize },
+    Single { fragment: TextFragment<'a> },
+    Fragmented { fragments: Vec<TextFragment<'a>> },
+}
+
+impl<'a> TextData<'a> {
+    fn push(&mut self, fragment: TextFragment<'a>) {
+        match self {
+            TextData::Empty { .. } => *self = Self::Single { fragment },
+            TextData::Single { fragment: current } => {
+                *self = Self::Fragmented {
+                    fragments: vec![*current, fragment],
+                }
+            }
+            TextData::Fragmented { fragments } => fragments.push(fragment),
+        }
+    }
+
+    fn as_slice(&self) -> &[TextFragment<'a>] {
+        match self {
+            TextData::Empty { .. } => &[],
+            TextData::Single { fragment } => std::slice::from_ref(fragment),
+            TextData::Fragmented { fragments } => fragments.as_slice(),
+        }
+    }
+
+    fn span(&self) -> Span {
+        match self {
+            TextData::Empty { offset } => Span::pos(*offset),
+            TextData::Single { fragment } => fragment.span(),
+            TextData::Fragmented { fragments } => {
+                let start = fragments.first().unwrap().span().start();
+                let end = fragments.last().unwrap().span().end();
+                Span::new(start, end)
+            }
+        }
+    }
 }
 
 impl<'a> Text<'a> {
     pub(crate) fn empty(offset: usize) -> Self {
         Self {
-            fragments: smallvec::smallvec![],
-            offset,
+            data: TextData::Empty { offset },
         }
     }
 
@@ -37,9 +72,10 @@ impl<'a> Text<'a> {
 
     pub(crate) fn append_fragment(&mut self, fragment: TextFragment<'a>) {
         assert!(self.span().end() <= fragment.offset);
-        if !fragment.text.is_empty() {
-            self.fragments.push(fragment);
+        if fragment.text.is_empty() {
+            return;
         }
+        self.data.push(fragment);
     }
 
     pub(crate) fn append_str(&mut self, s: &'a str, offset: usize) {
@@ -52,12 +88,7 @@ impl<'a> Text<'a> {
     /// as [`Span`] is only a start an end. To be able to get multiple spans, see
     /// [`Self::fragments`].
     pub fn span(&self) -> Span {
-        if self.fragments.is_empty() {
-            return Span::pos(self.offset);
-        }
-        let start = self.offset;
-        let end = self.fragments.last().unwrap().end();
-        Span::new(start, end)
+        self.data.span()
     }
 
     /// Get the text of all the fragments concatenated
@@ -68,7 +99,7 @@ impl<'a> Text<'a> {
         // but most Text instances will only be one fragment anyways
 
         let mut s = Cow::default();
-        for f in &self.fragments {
+        for f in self.fragments() {
             let text = match f.kind {
                 TextFragmentKind::Text => f.text,
                 TextFragmentKind::SoftBreak => " ",
@@ -106,12 +137,12 @@ impl<'a> Text<'a> {
 
     /// Checks that the text is not empty or blank, i.e. whitespace does not count
     pub fn is_text_empty(&self) -> bool {
-        self.fragments.iter().all(|f| f.text.trim().is_empty())
+        self.fragments().iter().all(|f| f.text.trim().is_empty())
     }
 
     /// Get all the [`TextFragment`]s that compose the text
     pub fn fragments(&self) -> &[TextFragment<'a>] {
-        &self.fragments
+        self.data.as_slice()
     }
 
     /// Convenience method to the the text in [`Located`]
@@ -133,17 +164,18 @@ impl std::fmt::Display for Text<'_> {
 
 impl std::fmt::Debug for Text<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.fragments.len() {
-            0 => write!(f, "<empty> @ {}", self.offset),
-            1 => self.fragments[0].fmt(f),
-            _ => f.debug_list().entries(&self.fragments).finish(),
+        let fragments = self.fragments();
+        match fragments.len() {
+            0 => write!(f, "<empty> @ {:?}", self.span()),
+            1 => fragments[0].fmt(f),
+            _ => f.debug_list().entries(fragments).finish(),
         }
     }
 }
 
 impl PartialEq for Text<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.fragments == other.fragments
+        self.fragments() == other.fragments()
     }
 }
 
@@ -214,7 +246,7 @@ impl Debug for TextFragment<'_> {
             TextFragmentKind::Text => write!(f, "{:?}", self.text),
             TextFragmentKind::SoftBreak => write!(f, "SoftBreak({:?})", self.text),
         }?;
-        write!(f, " @ {}", self.offset)
+        write!(f, " @ {:?}", self.span())
     }
 }
 
