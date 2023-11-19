@@ -19,10 +19,10 @@ pub struct ParsedQuantity<'a> {
 
 /// "parent" block parser. This is just to emit error/warnings and get the text. No tokens will be consumed
 /// `tokens` inside '{' '}'. must not be empty
-pub(crate) fn parse_quantity<'input>(
-    bp: &mut BlockParser<'_, 'input>,
+pub(crate) fn parse_quantity<'i>(
+    bp: &mut BlockParser<'_, 'i>,
     tokens: &[Token],
-) -> ParsedQuantity<'input> {
+) -> ParsedQuantity<'i> {
     assert!(!tokens.is_empty(), "empty quantity tokens. this is a bug.");
 
     // create an insolated sub-block for the quantity tokens
@@ -277,7 +277,7 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Sou
         _ => None,
     };
     if r.is_some() {
-        return r.map(|r| r.map(|v| Value::Number(Number::Regular(v))));
+        return r.map(|r| r.map(Value::from));
     }
 
     // remove spaces and comments in between other tokens

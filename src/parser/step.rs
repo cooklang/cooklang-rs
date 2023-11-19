@@ -51,22 +51,14 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
         let quantity = line.until(|t| t == T!['}'])?;
         let close_span_end = line.bump(T!['}']).span.end();
         let close_span = Span::new(close_span_start, close_span_end);
-        if quantity
+        let quantity_not_empty = quantity
             .iter()
-            .any(|t| !matches!(t.kind, T![ws] | T![block comment]))
-        {
-            Some(Body {
-                name,
-                close: Some(close_span),
-                quantity: Some(quantity),
-            })
-        } else {
-            Some(Body {
-                name,
-                close: Some(close_span),
-                quantity: None,
-            })
-        }
+            .any(|t| !matches!(t.kind, T![ws] | T![block comment]));
+        Some(Body {
+            name,
+            close: Some(close_span),
+            quantity: quantity_not_empty.then_some(quantity),
+        })
     })
     .or_else(|| {
         bp.with_recover(|bp| {
@@ -123,7 +115,7 @@ fn modifiers<'t>(bp: &mut BlockParser<'t, '_>) -> &'t [Token] {
     &bp.tokens()[start..bp.current]
 }
 
-fn note<'input>(bp: &mut BlockParser<'_, 'input>) -> Option<Text<'input>> {
+fn note<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Text<'i>> {
     bp.extension(Extensions::COMPONENT_NOTE)
         .then(|| {
             bp.with_recover(|line| {
@@ -287,12 +279,12 @@ fn parse_intermediate_ref_data(
     Some(Located::new(data, tokens_span(slice)))
 }
 
-fn parse_alias<'input>(
+fn parse_alias<'i>(
     container: &'static str,
-    bp: &mut BlockParser<'_, 'input>,
+    bp: &mut BlockParser<'_, 'i>,
     tokens: &[Token],
     name_offset: usize,
-) -> (Text<'input>, Option<Text<'input>>) {
+) -> (Text<'i>, Option<Text<'i>>) {
     if let Some(alias_sep) = bp
         .extension(Extensions::COMPONENT_ALIAS)
         .then(|| tokens.iter().position(|t| t.kind == T![|]))

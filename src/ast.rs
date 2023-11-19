@@ -18,7 +18,7 @@ pub struct Ast<'a> {
 ///
 /// Probably the iterator you want is an instance of [`PullParser`](crate::parser::PullParser).
 #[tracing::instrument(level = "debug", skip_all)]
-pub fn build_ast<'input>(events: impl Iterator<Item = Event<'input>>) -> PassResult<Ast<'input>> {
+pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<'i>> {
     let mut blocks = Vec::new();
     let mut items = Vec::new();
     let mut ctx = SourceReport::empty();

@@ -4,13 +4,13 @@
 pub use crate::lexer::TokenKind;
 use crate::{lexer::Cursor, span::Span};
 
-pub struct TokenStream<'input> {
-    cursor: Cursor<'input>,
+pub struct TokenStream<'i> {
+    cursor: Cursor<'i>,
     consumed: usize,
 }
 
-impl<'input> TokenStream<'input> {
-    pub fn new(input: &'input str) -> Self {
+impl<'i> TokenStream<'i> {
+    pub fn new(input: &'i str) -> Self {
         Self {
             cursor: Cursor::new(input),
             consumed: 0,
@@ -18,7 +18,7 @@ impl<'input> TokenStream<'input> {
     }
 }
 
-impl<'input> Iterator for TokenStream<'input> {
+impl<'i> Iterator for TokenStream<'i> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {
