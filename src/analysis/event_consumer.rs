@@ -33,6 +33,7 @@ macro_rules! warning {
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
 pub fn parse_events<'i>(
     events: impl Iterator<Item = Event<'i>>,
+    input: &'i str,
     extensions: Extensions,
     converter: &Converter,
     recipe_ref_checker: Option<RecipeRefChecker>,
@@ -57,6 +58,7 @@ pub fn parse_events<'i>(
         .flatten();
 
     let col = RecipeCollector {
+        input,
         extensions,
         temperature_regex,
         converter,
@@ -85,6 +87,7 @@ pub fn parse_events<'i>(
 }
 
 struct RecipeCollector<'i, 'c> {
+    input: &'i str,
     extensions: Extensions,
     temperature_regex: Option<&'c Regex>,
     converter: &'c Converter,
@@ -113,7 +116,12 @@ const IMPLICIT_REF_WARN: &str = "The reference (&) is implicit";
 
 impl<'i, 'c> RecipeCollector<'i, 'c> {
     fn parse_events(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
-        let mut items = Vec::new();
+        enum BlockBuffer {
+            Step(Vec<Item>),
+            Text(String),
+        }
+        let mut current_block = None;
+
         let events = events.by_ref();
         while let Some(event) = events.next() {
             match event {
@@ -126,14 +134,33 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     self.current_section =
                         Section::new(name.map(|t| t.text_trimmed().into_owned()));
                 }
-                Event::Start(_kind) => items.clear(),
-                Event::End(kind) => {
-                    let new_content = match kind {
-                        _ if self.define_mode == DefineMode::Text => {
-                            Content::Text(self.text_block(items))
+                Event::Start(kind) => {
+                    let buffer = if self.define_mode == DefineMode::Text {
+                        BlockBuffer::Text(String::new())
+                    } else {
+                        match kind {
+                            BlockKind::Step => BlockBuffer::Step(Vec::new()),
+                            BlockKind::Text => BlockBuffer::Text(String::new()),
                         }
-                        BlockKind::Step => Content::Step(self.step(items)),
-                        BlockKind::Text => Content::Text(self.text_block(items)),
+                    };
+                    current_block = Some(buffer)
+                }
+                Event::End(kind) => {
+                    let new_content = match current_block {
+                        Some(BlockBuffer::Step(items)) => {
+                            assert_eq!(kind, BlockKind::Step);
+                            Content::Step(Step {
+                                items,
+                                number: self.step_counter,
+                            })
+                        }
+                        Some(BlockBuffer::Text(text)) => {
+                            assert!(
+                                kind == BlockKind::Text || self.define_mode == DefineMode::Text,
+                            );
+                            Content::Text(text)
+                        }
+                        None => panic!("End event without Start"),
                     };
 
                     // If define mode is ingredients, don't add the
@@ -146,12 +173,16 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         self.current_section.content.push(new_content);
                     }
 
-                    items = Vec::new();
+                    current_block = None;
                 }
                 item @ (Event::Text(_)
                 | Event::Ingredient(_)
                 | Event::Cookware(_)
-                | Event::Timer(_)) => items.push(item),
+                | Event::Timer(_)) => match &mut current_block {
+                    Some(BlockBuffer::Step(items)) => self.in_step(item, items),
+                    Some(BlockBuffer::Text(text)) => self.in_text(item, text),
+                    None => panic!("Content outside block"),
+                },
 
                 Event::Error(e) => {
                     // on a parser error, collect all other parser errors and
@@ -316,110 +347,91 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         self.ctx.warn(warn);
     }
 
-    fn step(&mut self, items: Vec<Event<'i>>) -> Step {
-        let mut new_items = Vec::new();
-
-        for item in items {
-            match item {
-                Event::Text(text) => {
-                    let t = text.text();
-                    if self.define_mode == DefineMode::Components {
-                        // only issue warnings for alphanumeric characters
-                        // so that the user can format the text with spaces,
-                        // hypens or whatever.
-                        if t.contains(|c: char| c.is_alphanumeric()) {
-                            self.ctx.warn(warning!(
-                                "Ignoring text in define components mode",
-                                label!(text.span())
-                            ));
-                        }
-                        continue; // ignore text
+    fn in_step(&mut self, item: Event<'i>, items: &mut Vec<Item>) {
+        match item {
+            Event::Text(text) => {
+                let t = text.text();
+                if self.define_mode == DefineMode::Components {
+                    // only issue warnings for alphanumeric characters
+                    // so that the user can format the text with spaces,
+                    // hypens or whatever.
+                    if t.contains(|c: char| c.is_alphanumeric()) {
+                        self.ctx.warn(warning!(
+                            "Ignoring text in define components mode",
+                            label!(text.span())
+                        ));
                     }
+                    return; // ignore text
+                }
 
-                    // it's only some if the extension is enabled
-                    if let Some(re) = &self.temperature_regex {
-                        debug_assert!(self.extensions.contains(Extensions::TEMPERATURE));
+                // it's only some if the extension is enabled
+                if let Some(re) = &self.temperature_regex {
+                    debug_assert!(self.extensions.contains(Extensions::TEMPERATURE));
 
-                        let mut haystack = t.as_ref();
-                        while let Some((before, temperature, after)) =
-                            find_temperature(haystack, re)
-                        {
-                            if !before.is_empty() {
-                                new_items.push(Item::Text {
-                                    value: before.to_string(),
-                                });
-                            }
-
-                            new_items.push(Item::InlineQuantity {
-                                index: self.content.inline_quantities.len(),
-                            });
-                            self.content.inline_quantities.push(temperature);
-
-                            haystack = after;
-                        }
-                        if !haystack.is_empty() {
-                            new_items.push(Item::Text {
-                                value: haystack.to_string(),
+                    let mut haystack = t.as_ref();
+                    while let Some((before, temperature, after)) = find_temperature(haystack, re) {
+                        if !before.is_empty() {
+                            items.push(Item::Text {
+                                value: before.to_string(),
                             });
                         }
-                    } else {
-                        new_items.push(Item::Text {
-                            value: t.into_owned(),
+
+                        items.push(Item::InlineQuantity {
+                            index: self.content.inline_quantities.len(),
+                        });
+                        self.content.inline_quantities.push(temperature);
+
+                        haystack = after;
+                    }
+                    if !haystack.is_empty() {
+                        items.push(Item::Text {
+                            value: haystack.to_string(),
                         });
                     }
+                } else {
+                    items.push(Item::Text {
+                        value: t.into_owned(),
+                    });
                 }
+            }
 
-                Event::Ingredient(..) | Event::Cookware(..) | Event::Timer(..) => {
-                    let new_component = match item {
-                        Event::Ingredient(i) => Item::Ingredient {
-                            index: self.ingredient(i),
-                        },
-                        Event::Cookware(c) => Item::Cookware {
-                            index: self.cookware(c),
-                        },
-                        Event::Timer(t) => Item::Timer {
-                            index: self.timer(t),
-                        },
-                        _ => unreachable!(),
-                    };
-                    new_items.push(new_component);
-                }
-                _ => panic!("Unexpected event in step: {item:?}"),
-            };
-        }
+            Event::Ingredient(i) => items.push(Item::Ingredient {
+                index: self.ingredient(i),
+            }),
+            Event::Cookware(i) => items.push(Item::Cookware {
+                index: self.cookware(i),
+            }),
+            Event::Timer(i) => items.push(Item::Timer {
+                index: self.timer(i),
+            }),
 
-        Step {
-            items: new_items,
-            number: self.step_counter,
-        }
+            _ => panic!("Unexpected event in step: {item:?}"),
+        };
     }
 
-    fn text_block(&mut self, items: Vec<Event<'i>>) -> String {
-        let mut s = String::new();
-        for ev in items {
-            match ev {
-                Event::Text(t) => s += t.text().as_ref(),
-                Event::Ingredient(_) | Event::Cookware(_) | Event::Timer(_) => {
-                    assert_eq!(
-                        self.define_mode,
-                        DefineMode::Text,
-                        "Non text event in text block outside define mode text"
-                    );
+    fn in_text(&mut self, ev: Event<'i>, s: &mut String) {
+        match ev {
+            Event::Text(t) => s.push_str(t.text().as_ref()),
+            Event::Ingredient(_) | Event::Cookware(_) | Event::Timer(_) => {
+                assert_eq!(
+                    self.define_mode,
+                    DefineMode::Text,
+                    "Non text event in text block outside define mode text"
+                );
 
-                    // ignore component
-                    let (c, s) = match ev {
-                        Event::Ingredient(i) => ("ingredient", i.span()),
-                        Event::Cookware(c) => ("cookware", c.span()),
-                        Event::Timer(t) => ("timer", t.span()),
-                        _ => unreachable!(),
-                    };
-                    self.ctx
-                        .warn(warning!(format!("Ignoring {c} in text mode"), label!(s)));
-                }
-                _ => panic!("Unexpected event in text block: {ev:?}"),
+                // ignore component
+                let (c, span) = match ev {
+                    Event::Ingredient(i) => ("ingredient", i.span()),
+                    Event::Cookware(c) => ("cookware", c.span()),
+                    Event::Timer(t) => ("timer", t.span()),
+                    _ => unreachable!(),
+                };
+                self.ctx
+                    .warn(warning!(format!("Ignoring {c} in text mode"), label!(span)));
+                s.push_str(&self.input[span.range()]);
             }
+            _ => panic!("Unexpected event in text block: {ev:?}"),
         }
-        s
     }
 
     fn ingredient(&mut self, ingredient: Located<parser::Ingredient<'i>>) -> usize {

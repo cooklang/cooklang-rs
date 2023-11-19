@@ -33,6 +33,7 @@
   vice versa.
 - Added `ScaledRecipe::group_cookware`.
 - Rework `GroupedQuantity` API and add `GroupedValue`.
+- Ignored ingredients in text mode are now added as text.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

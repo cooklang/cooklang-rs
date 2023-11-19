@@ -263,6 +263,7 @@ impl CooklangParser {
         let mut parser = parser::PullParser::new(input, self.extensions);
         analysis::parse_events(
             &mut parser,
+            input,
             self.extensions,
             &self.converter,
             recipe_ref_checker,
@@ -276,8 +277,14 @@ impl CooklangParser {
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
         let parser = parser::PullParser::new(input, self.extensions);
         let meta_events = parser.into_meta_iter();
-        analysis::parse_events(meta_events, Extensions::empty(), &self.converter, None)
-            .map(|c| c.metadata)
+        analysis::parse_events(
+            meta_events,
+            input,
+            Extensions::empty(),
+            &self.converter,
+            None,
+        )
+        .map(|c| c.metadata)
     }
 }
 
