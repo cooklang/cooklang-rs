@@ -29,6 +29,7 @@ ariadne = "0.3"
 either = "1.8"
 finl_unicode = { version = "1.2", features = ["categories"], default-features = false }
 smallvec = { version = "1", features = ["serde"] }
+unicase = "2.7.0"
 
 [dev-dependencies]
 serde_json = "1"

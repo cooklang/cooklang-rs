@@ -965,15 +965,16 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         location: Span,
         modifiers_location: Span,
     ) -> Option<(usize, bool)> {
+        let new_name = unicase::UniCase::new(new.name());
+
         let all = C::all(&self.content);
-        let new_name = new.name().to_lowercase();
         // find the LAST component with the same name, lazy
         let same_name_cell = std::cell::OnceCell::new();
         let same_name = || {
             *same_name_cell.get_or_init(|| {
                 C::all(&self.content).iter().rposition(|other: &C| {
                     !other.modifiers().contains(Modifiers::REF)
-                        && new_name == other.name().to_lowercase()
+                        && new_name == unicase::UniCase::new(other.name())
                 })
             })
         };
