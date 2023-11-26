@@ -1,11 +1,12 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
-use cooklang::{parser::PullParser, CooklangParser, Extensions};
+use cooklang::CooklangParser;
 
 const TEST_RECIPE: &str = include_str!("./test_recipe.cook");
+const COMPLEX_TEST_RECIPE: &str = include_str!("./complex_test_recipe.cook");
 
-fn complete_recipe(c: &mut Criterion) {
-    let mut group = c.benchmark_group("complete_recipe");
+fn canonical(c: &mut Criterion) {
+    let mut group = c.benchmark_group("canonical");
 
     let canonical = CooklangParser::canonical();
     let extended = CooklangParser::extended();
@@ -13,29 +14,23 @@ fn complete_recipe(c: &mut Criterion) {
     group.bench_with_input("cooklang-rs-canonical", TEST_RECIPE, |b, input| {
         b.iter(|| canonical.parse(input))
     });
-    group.bench_with_input("cooklang-rs-extended", TEST_RECIPE, |b, input| {
+    group.bench_with_input("cooklang-rs", TEST_RECIPE, |b, input| {
         b.iter(|| extended.parse(input))
     });
-}
-
-fn just_events(c: &mut Criterion) {
-    let mut group = c.benchmark_group("just_events");
-
-    group.bench_with_input("cooklang-rs-extended", TEST_RECIPE, |b, input| {
-        b.iter(|| PullParser::new(input, Extensions::all()).count())
-    });
-    group.bench_with_input("cooklang-rs-canonical", TEST_RECIPE, |b, input| {
-        b.iter(|| PullParser::new(input, Extensions::empty()).count())
+    group.bench_with_input("cooklang-rs-meta", TEST_RECIPE, |b, input| {
+        b.iter(|| extended.parse_metadata(input))
     });
 }
 
-fn just_metadata(c: &mut Criterion) {
-    let mut group = c.benchmark_group("just_metadata");
-    let parser = CooklangParser::default();
-    group.bench_with_input("cooklang-rs", TEST_RECIPE, |b, input| {
-        b.iter(|| parser.parse_metadata(input))
+fn extended(c: &mut Criterion) {
+    let parser = CooklangParser::extended();
+
+    let mut group = c.benchmark_group("extended");
+
+    group.bench_with_input("cooklang-rs", COMPLEX_TEST_RECIPE, |b, input| {
+        b.iter(|| parser.parse(input))
     });
 }
 
-criterion_group!(benches, complete_recipe, just_events, just_metadata);
+criterion_group!(benches, canonical, extended);
 criterion_main!(benches);

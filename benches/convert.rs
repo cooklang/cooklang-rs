@@ -4,8 +4,8 @@ use cooklang::{
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-fn imperial(c: &mut Criterion) {
-    let mut group = c.benchmark_group("imperial conversions (fractions)");
+fn conversions(c: &mut Criterion) {
+    let mut group = c.benchmark_group("conversions");
     let converter = Converter::default();
 
     let input = vec![
@@ -23,7 +23,7 @@ fn imperial(c: &mut Criterion) {
 
     let input = black_box(input);
 
-    group.bench_function("default-converter", |b| {
+    group.bench_with_input("fractions", &input, |b, input| {
         b.iter(|| {
             let mut input = input.clone();
             for q in &mut input {
@@ -32,28 +32,7 @@ fn imperial(c: &mut Criterion) {
             }
         })
     });
-}
-
-fn metric(c: &mut Criterion) {
-    let mut group = c.benchmark_group("metric conversions (no fractions)");
-    let converter = Converter::default();
-
-    let input = vec![
-        (1.5, "tsp"),
-        (2.0, "tsp"),
-        (3.0, "tsp"),
-        (3.5, "tbsp"),
-        (300.0, "ml"),
-        (1.5, "l"),
-        (20.0, "g"),
-    ]
-    .into_iter()
-    .map(|(v, u)| Quantity::new(Value::Number(v.into()), Some(u.to_string())))
-    .collect::<Vec<_>>();
-
-    let input = black_box(input);
-
-    group.bench_function("default-converter", |b| {
+    group.bench_with_input("regular", &input, |b, input| {
         b.iter(|| {
             let mut input = input.clone();
             for q in &mut input {
@@ -64,5 +43,5 @@ fn metric(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, imperial, metric);
+criterion_group!(benches, conversions);
 criterion_main!(benches);

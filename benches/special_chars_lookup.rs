@@ -47,7 +47,7 @@ fn test(f: fn(char) -> bool) {
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let mut g = c.benchmark_group("special chars");
+    let mut g = c.benchmark_group("special-chars");
     g.bench_function("none", |b| b.iter(|| test(|_| false)));
     g.bench_function("str", |b| b.iter(|| test(is_special_str)));
     g.bench_function("list", |b| b.iter(|| test(is_special_list)));
