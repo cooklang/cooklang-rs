@@ -10,6 +10,5 @@ fn imperial(value: f64, unit: &str) -> String {
     let converter = Converter::default();
     let mut q = Quantity::new(Value::from(value), Some(unit.to_string()));
     let _ = q.convert(System::Imperial, &converter);
-    let _ = q.fit(&converter);
     q.to_string()
 }

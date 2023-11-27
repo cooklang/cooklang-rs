@@ -510,6 +510,13 @@ impl ScaledQuantity {
         Ok(())
     }
 
+    /// Fits the quantity as an approximation.
+    ///
+    /// - Finds all the conversions where an approximation is possible
+    /// - Get's the best one
+    /// - Convert the value(s)
+    ///
+    /// Returns Ok(true) only if the value could be approximated.
     fn fit_fraction(
         &mut self,
         unit: &Arc<Unit>,
@@ -520,7 +527,7 @@ impl ScaledQuantity {
         };
 
         let Some(system) = unit.system else {
-            return Ok(self.try_fraction(converter));
+            return Ok(self.try_fraction(converter)); // no system, just keep the same unit
         };
 
         let value = match self.value {
@@ -548,8 +555,8 @@ impl ScaledQuantity {
             let key = |v| match v {
                 Number::Fraction {
                     den, err, whole, ..
-                } => (den, whole, err.abs()),
-                Number::Regular(whole) => (1.0, whole, 0.0),
+                } => (den, whole as f64, err.abs()),
+                Number::Regular(whole) => (1, whole, 0.0),
             };
             let a = key(*a);
             let b = key(*b);
@@ -594,10 +601,10 @@ impl ScaledQuantity {
         }
 
         match &mut self.value {
-            Value::Number(n) => n.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole),
+            Value::Number(n) => n.try_approx(cfg.accuracy, cfg.max_denominator, cfg.max_whole),
             Value::Range { start, end } => {
-                start.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
-                    || end.to_fraction(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
+                start.try_approx(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
+                    || end.try_approx(cfg.accuracy, cfg.max_denominator, cfg.max_whole)
             }
             Value::Text(_) => false,
         }

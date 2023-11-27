@@ -318,12 +318,12 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, SourceDiag> {
     let a = int(a, line)?;
     let b = int(b, line)?;
 
-    if b == 0.0 {
+    if b == 0 {
         Err(error!("Division by zero", label!(span))
             .hint("Change this please, we don't want an infinite amount of anything"))
     } else {
         Ok(Number::Fraction {
-            whole: 0.0,
+            whole: 0,
             num: a,
             den: b,
             err: 0.0,
@@ -331,12 +331,11 @@ fn frac(a: Token, b: Token, line: &BlockParser) -> Result<Number, SourceDiag> {
     }
 }
 
-fn int(tok: Token, block: &BlockParser) -> Result<f64, SourceDiag> {
+fn int(tok: Token, block: &BlockParser) -> Result<u32, SourceDiag> {
     assert_eq!(tok.kind, T![int]);
     block
         .token_str(tok)
-        .parse::<u32>()
-        .map(|i| i as f64)
+        .parse()
         .map_err(|e| error!("Error parsing integer number", label!(tok.span)).set_source(e))
 }
 
@@ -451,9 +450,9 @@ mod tests {
                     Value::Range {
                         start: 1.0.into(),
                         end: Number::Fraction {
-                            whole: 2.0,
-                            num: 1.0,
-                            den: 2.0,
+                            whole: 2,
+                            num: 1,
+                            den: 2,
                             err: 0.0
                         }
                     },
@@ -567,11 +566,11 @@ mod tests {
         assert_eq!(q.unit, None);
     }
 
-    #[test_case("1/2" => (0.0, 1.0, 2.0); "fraction")]
-    #[test_case("0 1/2" => (0.0, 1.0, 2.0); "zero whole")]
+    #[test_case("1/2" => (0, 1, 2); "fraction")]
+    #[test_case("0 1/2" => (0, 1, 2); "zero whole")]
     #[test_case("01/2" => panics "not number"; "bad fraction")]
-    #[test_case("2 1/2" => (2.0, 1.0, 2.0); "mixed value")]
-    fn fractional_val(s: &str) -> (f64, f64, f64) {
+    #[test_case("2 1/2" => (2, 1, 2); "mixed value")]
+    fn fractional_val(s: &str) -> (u32, u32, u32) {
         let (q, _, _) = t!(s);
         let QuantityValue::Single { value, .. } = q.value else {
             panic!("not single value")

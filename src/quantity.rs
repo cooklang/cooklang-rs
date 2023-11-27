@@ -68,10 +68,10 @@ pub enum Value {
 /// assert_eq!(num.to_string(), "14");
 /// let num = Number::Regular(14.57893);
 /// assert_eq!(num.to_string(), "14.579");
-/// let num = Number::Fraction { whole: 0.0, num: 1.0, den: 2.0, err: 0.0 };
+/// let num = Number::Fraction { whole: 0, num: 1, den: 2, err: 0.0 };
 /// assert_eq!(num.to_string(), "1/2");
 /// assert_eq!(num.value(), 0.5);
-/// let num = Number::Fraction { whole: 2.0, num: 1.0, den: 2.0, err: 0.001 };
+/// let num = Number::Fraction { whole: 2, num: 1, den: 2, err: 0.001 };
 /// assert_eq!(num.to_string(), "2 1/2");
 /// assert_eq!(num.value(), 2.501);
 /// ```
@@ -89,11 +89,11 @@ pub enum Number {
     /// fraction. Use the alternate (`#`) for the [`Display`] impl to include
     /// the error (if any).
     Fraction {
-        whole: f64,
-        num: f64,
-        den: f64,
+        whole: u32,
+        num: u32,
+        den: u32,
         err: f64,
-    }, // These can be u32, but whatever
+    },
 }
 
 impl From<Number> for f64 {
@@ -120,7 +120,7 @@ impl Number {
                 num,
                 den,
                 err,
-            } => whole + err + num / den,
+            } => whole as f64 + err + num as f64 / den as f64,
         }
     }
 }
@@ -345,10 +345,10 @@ impl Display for Number {
                     return write!(f, "{}", 0.0);
                 }
 
-                match (round_float(whole), round_float(num), round_float(den)) {
-                    (whole, num, _) if whole == 0.0 && num == 0.0 => write!(f, "{}", 0.0),
-                    (whole, num, den) if whole == 0.0 => write!(f, "{num}/{den}"),
-                    (whole, num, _) if num == 0.0 => write!(f, "{whole}"),
+                match (whole, num, den) {
+                    (0, 0, _) => write!(f, "{}", 0.0),
+                    (0, num, den) => write!(f, "{num}/{den}"),
+                    (whole, 0, _) => write!(f, "{whole}"),
                     (whole, num, den) => write!(f, "{whole} {num}/{den}"),
                 }?;
 
@@ -831,74 +831,83 @@ impl FractionTableCache {
 }
 
 impl Number {
-    /// Tries to create a new exact number within a margin of error
+    /// Tries to create a new approximate number within a margin of error.
     ///
-    /// This creates a fraction if there's any error or an exact whole regular number.
-    /// That regular number is never 0 with an error, but can be 0 exact.
+    /// It returns none if:
+    /// - The value is an integer
+    /// - It can't be represented with the given restrictions as a fraction.
+    /// - The number is not positive.
     ///
-    /// `max_err` is a value between 0 and 1 representing the error percent.
+    /// It will return `Number::Regular` when the number is an integer.
+    ///
+    /// `accuracy` is a value between 0 and 1 representing the error percent.
     ///
     /// `max_den` is the maximum denominator. The denominator is one a list of
     /// "common" fractions: 2, 3, 4, 5, 8, 10, 16, 32, 64. 64 is the max.
     ///
-    /// `max_whole` determines the maximum value of the intenger. Setting this to
-    /// 0 only allows fractions < 1.
+    /// `max_whole` determines the maximum value of the integer. Setting this to
+    /// 0 only allows fractions < 1. Exact values higher than this are also
+    /// rejected.
     ///
     /// # Panics
-    /// - If `max_err > 1` or `max_err < 0`.
+    /// - If `accuracy > 1` or `accuracy < 0`.
     /// - If `max_den > 64`
     pub fn new_approx(value: f64, accuracy: f32, max_den: u32, max_whole: u32) -> Option<Self> {
         assert!((0.0..=1.0).contains(&accuracy));
         assert!(max_den <= 64);
-        if (max_whole == 0 && value > 1.0) || value <= 0.0 || !value.is_finite() {
+        if value <= 0.0 || !value.is_finite() {
             return None;
         }
 
         let max_err = accuracy as f64 * value;
 
-        let whole = value.floor();
+        let whole = value.trunc() as u32;
         let decimal = value.fract();
-        if (whole as u32) > max_whole {
+
+        if whole > max_whole || whole == u32::MAX {
             return None;
         }
 
-        if decimal < max_err {
-            if decimal == 0.0 {
-                return Some(Self::Regular(whole));
-            } else {
-                return None;
-            }
+        if decimal == 0.0 {
+            return Some(Self::Regular(value));
         }
 
-        if (1.0 - decimal < max_err) && (whole as u32) < max_whole {
-            let err = 1.0 - decimal;
-            let num = if err == 0.0 {
-                Self::Regular(whole + 1.0)
-            } else {
-                Self::Fraction {
-                    whole: whole + 1.0,
-                    num: 0.0,
-                    den: 1.0,
-                    err,
-                }
-            };
-            return Some(num);
+        // Round down
+        if decimal < max_err && whole > 0 {
+            return Some(Self::Fraction {
+                whole,
+                num: 0,
+                den: 1,
+                err: decimal,
+            });
+        }
+
+        // Round up
+        if (1.0 - decimal < max_err) && whole < max_whole {
+            return Some(Self::Fraction {
+                whole: whole + 1,
+                num: 0,
+                den: 1,
+                err: 1.0 - decimal,
+            });
         }
 
         let table = FRACTIONS_TABLES.get(max_den);
         let (num, den) = table.lookup(decimal, max_err)?;
-        let num = num as f64;
-        let den = den as f64;
 
+        let approx_value = whole as f64 + num as f64 / den as f64;
+        let err = value - approx_value;
         Some(Self::Fraction {
             whole,
             num,
             den,
-            err: value - (whole + num / den),
+            err,
         })
     }
 
-    pub fn to_fraction(&mut self, accuracy: f32, max_den: u32, max_whole: u32) -> bool {
+    /// Tries to approximate the number to a fraction if possible and not an
+    /// integer
+    pub fn try_approx(&mut self, accuracy: f32, max_den: u32, max_whole: u32) -> bool {
         match Self::new_approx(self.value(), accuracy, max_den, max_whole) {
             Some(f) => {
                 *self = f;
@@ -906,5 +915,38 @@ impl Number {
             }
             None => false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_case::test_case;
+
+    macro_rules! frac {
+        ($whole:expr) => {
+            frac!($whole, 0, 1)
+        };
+        ($num:expr, $den:expr) => {
+            frac!(0, $num, $den)
+        };
+        ($whole:expr, $num:expr, $den:expr) => {
+            Some(Number::Fraction {
+                whole: $whole,
+                num: $num,
+                den: $den,
+                ..
+            })
+        };
+    }
+
+    #[test_case(1.0 => matches Some(Number::Regular(v)) if v == 1.0 ; "no exact")]
+    #[test_case(0.01 => None ; "no approx 0")]
+    #[test_case(1.9999 => matches frac!(2) ; "round up")]
+    #[test_case(1.0001 => matches frac!(1) ; "round down")]
+    #[test_case(1.5 => matches frac!(1, 1, 2) ; "trivial frac")]
+    #[test_case(0.2501 => matches frac!(1, 4) ; "frac with err")]
+    fn fractions(value: f64) -> Option<Number> {
+        Number::new_approx(value, 0.05, 4, u32::MAX)
     }
 }
