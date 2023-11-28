@@ -838,7 +838,11 @@ impl Number {
     /// - It can't be represented with the given restrictions as a fraction.
     /// - The number is not positive.
     ///
-    /// It will return `Number::Regular` when the number is an integer.
+    /// It will return `Number::Regular` when the number is an integer with less
+    /// than a 1e-10 margin of error.
+    ///
+    /// Otherwise it will return a `Number::Fraction`. `num` can be 0 if the
+    /// value is rounded to an integer.
     ///
     /// `accuracy` is a value between 0 and 1 representing the error percent.
     ///
@@ -868,27 +872,18 @@ impl Number {
             return None;
         }
 
-        if decimal == 0.0 {
+        if decimal < 1e-10 {
             return Some(Self::Regular(value));
         }
 
-        // Round down
-        if decimal < max_err && whole > 0 {
+        let rounded = value.round() as u32;
+        let round_err = value - value.round();
+        if round_err.abs() < max_err && rounded > 0 && rounded <= max_whole {
             return Some(Self::Fraction {
-                whole,
+                whole: rounded,
                 num: 0,
                 den: 1,
-                err: decimal,
-            });
-        }
-
-        // Round up
-        if (1.0 - decimal < max_err) && whole < max_whole {
-            return Some(Self::Fraction {
-                whole: whole + 1,
-                num: 0,
-                den: 1,
-                err: 1.0 - decimal,
+                err: round_err,
             });
         }
 
@@ -940,13 +935,20 @@ mod tests {
         };
     }
 
-    #[test_case(1.0 => matches Some(Number::Regular(v)) if v == 1.0 ; "no exact")]
+    #[test_case(1.0 => matches Some(Number::Regular(v)) if v == 1.0 ; "exact")]
+    #[test_case(1.00000000001 => matches Some(Number::Regular(v)) if 1.0 - v < 1e-10 && v > 1.0 ; "exactish")]
     #[test_case(0.01 => None ; "no approx 0")]
     #[test_case(1.9999 => matches frac!(2) ; "round up")]
     #[test_case(1.0001 => matches frac!(1) ; "round down")]
+    #[test_case(400.0001 => matches frac!(400) ; "not wrong round up")]
+    #[test_case(399.9999 => matches frac!(400) ; "not wrong round down")]
     #[test_case(1.5 => matches frac!(1, 1, 2) ; "trivial frac")]
     #[test_case(0.2501 => matches frac!(1, 4) ; "frac with err")]
     fn fractions(value: f64) -> Option<Number> {
-        Number::new_approx(value, 0.05, 4, u32::MAX)
+        let num = Number::new_approx(value, 0.05, 4, u32::MAX);
+        if let Some(num) = num {
+            assert!((num.value() - value).abs() < 10e-9);
+        }
+        num
     }
 }
