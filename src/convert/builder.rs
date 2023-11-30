@@ -1,17 +1,11 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use enum_map::{enum_map, EnumMap};
 use thiserror::Error;
 
 use super::{
     convert_f64,
-    units_file::{
-        self, BestUnits, Extend, FractionsConfigHelper, Precedence, SIPrefix, UnitEntry, Units,
-        UnitsFile, SI,
-    },
+    units_file::{self, BestUnits, Extend, Precedence, SIPrefix, UnitEntry, Units, UnitsFile, SI},
     BestConversions, BestConversionsStore, Converter, Fractions, PhysicalQuantity, System, Unit,
     UnitIndex, UnknownUnit,
 };
@@ -23,13 +17,35 @@ use super::{
 /// another added before, or be overwritten by others after.
 #[derive(Debug, Default)]
 pub struct ConverterBuilder {
-    all_units: Vec<Unit>,
+    all_units: Vec<UnitBuilder>,
     unit_index: UnitIndex,
     extend: Vec<Extend>,
     si: SI,
     fractions: Vec<units_file::Fractions>,
     best_units: EnumMap<PhysicalQuantity, Option<BestUnits>>,
     default_system: System,
+}
+
+#[derive(Debug)]
+struct UnitBuilder {
+    unit: Unit,
+    is_expanded: bool,
+    expand_si: bool,
+    expanded_units: Option<EnumMap<SIPrefix, usize>>,
+}
+
+impl std::ops::Deref for UnitBuilder {
+    type Target = Unit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.unit
+    }
+}
+
+impl std::ops::DerefMut for UnitBuilder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.unit
+    }
 }
 
 impl ConverterBuilder {
@@ -68,19 +84,22 @@ impl ConverterBuilder {
             // Add all units to an index
             let mut add_units =
                 |units: Vec<UnitEntry>, system| -> Result<(), ConverterBuilderError> {
-                    for unit in units {
+                    for entry in units {
                         let unit = Unit {
-                            names: unit.names,
-                            symbols: unit.symbols,
-                            aliases: unit.aliases,
-                            ratio: unit.ratio,
-                            difference: unit.difference,
+                            names: entry.names,
+                            symbols: entry.symbols,
+                            aliases: entry.aliases,
+                            ratio: entry.ratio,
+                            difference: entry.difference,
                             physical_quantity: group.quantity,
-                            expand_si: unit.expand_si,
-                            expanded_units: None,
                             system,
                         };
-                        let _id = self.add_unit(unit)?;
+                        let _id = self.add_unit(UnitBuilder {
+                            unit,
+                            is_expanded: false,
+                            expand_si: entry.expand_si,
+                            expanded_units: None,
+                        })?;
                     }
                     Ok(())
                 };
@@ -156,51 +175,16 @@ impl ConverterBuilder {
             }
         }
 
-        // apply the extend groups
-        for extend_group in self.extend {
-            let mut to_update = HashSet::new();
-
-            let Extend {
-                precedence,
-                names,
-                symbols,
-                aliases,
-            } = extend_group;
-
-            for (k, aliases) in aliases {
-                let id = self.unit_index.get_unit_id(k.as_str())?;
-                self.unit_index.add_unit_keys(id, aliases.iter().cloned())?;
-                join_alias_vec(&mut self.all_units[id].aliases, aliases, precedence);
-            }
-
-            for (k, names) in names {
-                let id = self.unit_index.get_unit_id(k.as_str())?;
-                self.unit_index.add_unit_keys(id, names.iter().cloned())?;
-                join_alias_vec(&mut self.all_units[id].names, names, precedence);
-                if self.all_units[id].expand_si {
-                    to_update.insert(id);
-                }
-            }
-
-            for (k, symbols) in symbols {
-                let id = self.unit_index.get_unit_id(k.as_str())?;
-                self.unit_index.add_unit_keys(id, symbols.iter().cloned())?;
-                join_alias_vec(&mut self.all_units[id].symbols, symbols, precedence);
-                if self.all_units[id].expand_si {
-                    to_update.insert(id);
-                }
-            }
-            // update expansions of the modified units at the end of each group
-            // so updates from prior ones are available to the next.
-            for id in to_update {
-                update_expanded_units(&mut self.unit_index, &mut self.all_units, &self.si, id)?;
-            }
-        }
+        apply_extend_groups(
+            self.extend,
+            &mut self.all_units,
+            &mut self.unit_index,
+            &self.si,
+        )?;
 
         let best = enum_map! {
             q =>  {
                 if let Some(best_units) = &self.best_units[q] {
-                    unify_best_units_systems(best_units, &self.unit_index, &mut self.all_units)?;
                     BestConversionsStore::new(best_units, &self.unit_index, &self.all_units)?
                 } else {
                     return Err(ConverterBuilderError::EmptyBest { reason: "no best units given", quantity: q })
@@ -216,38 +200,14 @@ impl ConverterBuilder {
             index
         };
 
-        let mut specialization = HashMap::new();
-        let mut metric = FractionsConfigHelper::default();
-        let mut imperial = FractionsConfigHelper::default();
-        for cfg in self.fractions.iter() {
-            if let Some(cfg) = cfg.metric {
-                metric = cfg.get();
-            }
-            if let Some(cfg) = cfg.imperial {
-                imperial = cfg.get();
-            }
-        }
-        for cfg in self.fractions.iter() {
-            for (key, cfg) in &cfg.specialization {
-                let cfg = cfg.get();
-                let unit_id = self.unit_index.get_unit_id(key)?;
-                let unit = &self.all_units[unit_id];
-                let cfg = match unit.system {
-                    Some(System::Metric) => cfg.merge(metric),
-                    Some(System::Imperial) => cfg.merge(imperial),
-                    None => cfg,
-                };
-                specialization.insert(unit_id, cfg.define());
-            }
-        }
-        let fractions = Fractions {
-            metric: metric.define(),
-            imperial: imperial.define(),
-            specialization,
-        };
+        let fractions = build_fractions_config(&self.fractions, &self.unit_index, &self.all_units)?;
 
         Ok(Converter {
-            all_units: self.all_units.into_iter().map(Arc::new).collect(),
+            all_units: self
+                .all_units
+                .into_iter()
+                .map(|u| Arc::new(u.unit))
+                .collect(),
             unit_index: self.unit_index,
             quantity_index,
             best,
@@ -257,7 +217,7 @@ impl ConverterBuilder {
         })
     }
 
-    fn add_unit(&mut self, unit: Unit) -> Result<usize, ConverterBuilderError> {
+    fn add_unit(&mut self, unit: UnitBuilder) -> Result<usize, ConverterBuilderError> {
         let id = self.all_units.len();
         self.unit_index.add_unit(&unit, id)?;
         self.all_units.push(unit);
@@ -269,7 +229,7 @@ impl BestConversionsStore {
     fn new(
         best_units: &BestUnits,
         unit_index: &UnitIndex,
-        all_units: &[Unit],
+        all_units: &[UnitBuilder],
     ) -> Result<Self, ConverterBuilderError> {
         let v = match best_units {
             BestUnits::Unified(names) => {
@@ -288,7 +248,7 @@ impl BestConversions {
     fn new(
         units: &[String],
         unit_index: &UnitIndex,
-        all_units: &[Unit],
+        all_units: &[UnitBuilder],
     ) -> Result<Self, ConverterBuilderError> {
         let mut units = units
             .iter()
@@ -318,55 +278,73 @@ impl BestConversions {
     }
 }
 
-fn unify_best_units_systems(
-    best_units: &BestUnits,
-    unit_index: &UnitIndex,
-    all_units: &mut [Unit],
+fn apply_extend_groups(
+    extend: Vec<Extend>,
+    all_units: &mut [UnitBuilder],
+    unit_index: &mut UnitIndex,
+    si: &SI,
 ) -> Result<(), ConverterBuilderError> {
-    match best_units {
-        BestUnits::Unified(_) => {}
-        BestUnits::BySystem { metric, imperial } => {
-            unify_units_systems(metric, System::Metric, unit_index, all_units)?;
-            unify_units_systems(imperial, System::Imperial, unit_index, all_units)?;
-        }
-    }
-    Ok(())
-}
+    for extend_group in extend {
+        let Extend { precedence, units } = extend_group;
 
-/// Checks that the best units refs are of the given system.
-/// If the unit has no system, set it to the given one.
-fn unify_units_systems(
-    units: &[String],
-    system: System,
-    unit_index: &UnitIndex,
-    all_units: &mut [Unit],
-) -> Result<(), ConverterBuilderError> {
-    for unit in units {
-        let unit_id = unit_index.get_unit_id(unit)?;
-        match all_units[unit_id].system {
-            Some(unit_system) => {
-                if system != unit_system {
-                    return Err(ConverterBuilderError::IncorrectUnitSystem {
-                        unit: all_units[unit_id].clone().into(),
-                        contained: system,
-                        got: unit_system,
-                    });
-                }
+        let mut to_update = Vec::with_capacity(units.len());
+
+        // First resolve keys with current config
+        for (k, entry) in units {
+            let id = unit_index.get_unit_id(k.as_str())?;
+            if to_update.iter().any(|&(eid, _)| eid == id) {
+                return Err(ConverterBuilderError::DuplicateExtendUnit { key: k });
             }
-            None => all_units[unit_id].system = Some(system),
+            if all_units[id].is_expanded
+                && (entry.ratio.is_some()
+                    || entry.difference.is_some()
+                    || entry.names.is_some()
+                    || entry.symbols.is_some())
+            {
+                return Err(ConverterBuilderError::InvalidExtendExpanded { key: k });
+            }
+            to_update.push((id, entry));
+        }
+
+        // Then apply updates
+        for (id, entry) in to_update {
+            // remove all entries from the unit and expansions from the index
+            unit_index.remove_unit_rec(all_units, &all_units[id]);
+            let unit = &mut all_units[id];
+
+            // edit the unit
+            if let Some(ratio) = entry.ratio {
+                unit.ratio = ratio;
+            }
+            if let Some(difference) = entry.difference {
+                unit.difference = difference;
+            }
+            if let Some(names) = entry.names {
+                join_alias_vec(&mut unit.names, names, precedence);
+            }
+            if let Some(symbols) = entry.symbols {
+                join_alias_vec(&mut unit.symbols, symbols, precedence);
+            }
+            if let Some(aliases) = entry.aliases {
+                join_alias_vec(&mut unit.aliases, aliases, precedence);
+            }
+
+            // (re)add the new entries to the index
+            if all_units[id].expand_si {
+                update_expanded_units(id, all_units, unit_index, si)?;
+            }
+            unit_index.add_unit(&all_units[id], id)?;
         }
     }
     Ok(())
 }
 
 fn update_expanded_units(
-    unit_index: &mut UnitIndex,
-    all_units: &mut [Unit],
-    si: &SI,
     id: usize,
+    all_units: &mut [UnitBuilder],
+    unit_index: &mut UnitIndex,
+    si: &SI,
 ) -> Result<(), ConverterBuilderError> {
-    // remove all entries from the unit and expansions from the index
-    unit_index.remove_unit_rec(all_units, &all_units[id]);
     // update the expanded units
     let new_units = expand_si(&all_units[id], si)?;
     for (prefix, expanded_unit) in new_units.into_iter() {
@@ -376,26 +354,78 @@ fn update_expanded_units(
         all_units[expanded_id].aliases = old_unit_aliases;
         unit_index.add_unit(&all_units[expanded_id], expanded_id)?;
     }
-    // (re)add the new entries to the index
-    unit_index.add_unit(&all_units[id], id)?;
     Ok(())
 }
 
-fn join_alias_vec<I: IntoIterator<Item = Arc<str>>>(
-    target: &mut Vec<Arc<str>>,
-    src: I,
-    src_precedence: Precedence,
-) {
+fn build_fractions_config(
+    fractions: &[units_file::Fractions],
+    unit_index: &UnitIndex,
+    all_units: &[UnitBuilder],
+) -> Result<Fractions, ConverterBuilderError> {
+    let mut all = None;
+
+    for cfg in fractions.iter() {
+        all = cfg.all.map(|c| c.get());
+    }
+
+    let mut metric = None;
+    let mut imperial = None;
+    let mut quantity = HashMap::new();
+
+    for cfg in fractions.iter() {
+        metric = cfg.metric.map(|c| c.get());
+        imperial = cfg.imperial.map(|c| c.get());
+        for (q, cfg) in &cfg.quantity {
+            quantity.insert(*q, cfg.get());
+        }
+    }
+
+    let mut unit = HashMap::new();
+    for cfg in fractions.iter() {
+        for (key, cfg) in &cfg.unit {
+            let unit_id = unit_index.get_unit_id(key)?;
+            let u = &all_units[unit_id];
+
+            let inherit = [
+                quantity.get(&u.physical_quantity),
+                u.system.and_then(|s| match s {
+                    System::Metric => metric.as_ref(),
+                    System::Imperial => imperial.as_ref(),
+                }),
+                all.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
+            .copied()
+            .reduce(|acc, e| acc.merge(e));
+
+            let mut cfg = cfg.get();
+            if let Some(inherit) = inherit {
+                cfg = cfg.merge(inherit)
+            }
+            unit.insert(unit_id, cfg.define());
+        }
+    }
+    Ok(Fractions {
+        all: all.map(|c| c.define()),
+        metric: metric.map(|c| c.define()),
+        imperial: imperial.map(|c| c.define()),
+        quantity: quantity.into_iter().map(|(q, c)| (q, c.define())).collect(),
+        unit,
+    })
+}
+
+fn join_alias_vec(target: &mut Vec<Arc<str>>, mut src: Vec<Arc<str>>, src_precedence: Precedence) {
     match src_precedence {
         Precedence::Before => {
-            target.splice(0..0, src);
+            src.append(target);
+            *target = src;
         }
         Precedence::After => {
-            target.extend(src);
+            target.append(&mut src);
         }
         Precedence::Override => {
-            target.clear();
-            target.extend(src);
+            *target = src;
         }
     }
 }
@@ -423,7 +453,11 @@ fn join_prefixes(
     }
 }
 
-fn expand_si(unit: &Unit, si: &SI) -> Result<EnumMap<SIPrefix, Unit>, ConverterBuilderError> {
+fn expand_si(
+    unit: &UnitBuilder,
+    si: &SI,
+) -> Result<EnumMap<SIPrefix, UnitBuilder>, ConverterBuilderError> {
+    assert!(unit.expand_si);
     let (Some(prefixes), Some(symbol_prefixes)) = (&si.prefixes, &si.symbol_prefixes) else {
         return Err(ConverterBuilderError::EmptySIPrefixes);
     };
@@ -440,6 +474,9 @@ fn expand_si(unit: &Unit, si: &SI) -> Result<EnumMap<SIPrefix, Unit>, ConverterB
                 .flat_map(|p| unit.symbols.iter().map(move |n| format!("{p}{n}").into()))
                 .collect();
 
+            UnitBuilder {
+                unit:
+
             Unit {
                 names,
                 symbols,
@@ -447,10 +484,11 @@ fn expand_si(unit: &Unit, si: &SI) -> Result<EnumMap<SIPrefix, Unit>, ConverterB
                 ratio: unit.ratio * prefix.ratio(),
                 difference: unit.difference,
                 physical_quantity: unit.physical_quantity,
-                expand_si: false,
-                expanded_units: None,
                 system: unit.system,
-            }
+            },                expand_si: false,
+            expanded_units: None,
+            is_expanded: true
+        }
         }
     };
 
@@ -464,7 +502,7 @@ impl UnitIndex {
         }
     }
 
-    fn remove_unit_rec(&mut self, all_units: &[Unit], unit: &Unit) {
+    fn remove_unit_rec(&mut self, all_units: &[UnitBuilder], unit: &UnitBuilder) {
         if let Some(expanded_units) = &unit.expanded_units {
             for (_, expanded) in expanded_units {
                 self.remove_unit_rec(all_units, &all_units[*expanded]);
@@ -473,21 +511,6 @@ impl UnitIndex {
         self.remove_unit(unit);
     }
 
-    fn add_unit_keys(
-        &mut self,
-        unit_id: usize,
-        keys: impl IntoIterator<Item = Arc<str>>,
-    ) -> Result<(), ConverterBuilderError> {
-        for key in keys {
-            if self.0.insert(Arc::clone(&key), unit_id).is_some() {
-                return Err(ConverterBuilderError::DuplicateUnit {
-                    name: key.to_string(),
-                });
-            }
-        }
-
-        Ok(())
-    }
     fn add_unit(&mut self, unit: &Unit, id: usize) -> Result<usize, ConverterBuilderError> {
         let mut added = 0;
         for key in unit.all_keys() {
@@ -518,6 +541,12 @@ pub enum ConverterBuilderError {
     #[error("Duplicate unit: {name}")]
     DuplicateUnit { name: String },
 
+    #[error("Duplicate unit in extend, another key points to the same unit: {key}")]
+    DuplicateExtendUnit { key: String },
+
+    #[error("Can only edit aliases in auto expanded unit: {key}")]
+    InvalidExtendExpanded { key: String },
+
     #[error(transparent)]
     UnknownUnit(#[from] UnknownUnit),
 
@@ -535,11 +564,4 @@ pub enum ConverterBuilderError {
 
     #[error("No SI prefixes found when expandind SI on a unit")]
     EmptySIPrefixes,
-
-    #[error("Best units' unit incorrect system: in {contained} units, unit '{unit}' was {got}")]
-    IncorrectUnitSystem {
-        unit: Box<Unit>,
-        contained: System,
-        got: System,
-    },
 }

@@ -20,12 +20,14 @@ milli = ["m"]
 metric = false
 imperial = true
 
-[fractions.specialization]
+[fractions.quantity]
+time = false
+temperature = false
+
+[fractions.unit]
 tsp = { max_whole = 5, max_denominator = 2 }
 tbsp = { max_whole = 4, max_denominator = 3 }
 lb = { max_denominator = 8 }
-F = false
-C = false
 
 [[quantity]]
 quantity = "volume"

@@ -22,8 +22,6 @@ use crate::{
 pub use builder::{ConverterBuilder, ConverterBuilderError};
 pub use units_file::UnitsFile;
 
-use units_file::SIPrefix;
-
 mod builder;
 pub mod units_file;
 
@@ -165,17 +163,8 @@ impl Converter {
             .unit_index
             .get_unit_id(unit.symbol())
             .expect("unit not found");
-        self.fractions_config_unit_id(unit.system, unit_id)
-    }
-
-    fn fractions_config_unit_id(&self, system: Option<System>, unit_id: usize) -> FractionsConfig {
-        let specialized = self.fractions.specialization.get(&unit_id).copied();
-
-        specialized.unwrap_or_else(|| match system {
-            Some(System::Metric) => self.fractions.metric,
-            Some(System::Imperial) => self.fractions.imperial,
-            None => FractionsConfig::default(),
-        })
+        self.fractions
+            .config(unit.system, unit.physical_quantity, unit_id)
     }
 
     /// Determines if the unit should be tried to be converted into a fraction
@@ -183,11 +172,7 @@ impl Converter {
     /// # Panics
     /// If the unit is not known.
     pub(crate) fn should_fit_fraction(&self, unit: &Unit) -> bool {
-        match unit.system {
-            Some(System::Metric) => self.fractions.metric.enabled,
-            Some(System::Imperial) => self.fractions.imperial.enabled,
-            None => FractionsConfig::default().enabled,
-        }
+        self.fractions_config(unit).enabled
     }
 }
 
@@ -219,9 +204,33 @@ impl PartialEq for Converter {
 
 #[derive(Debug, Clone, Default)]
 struct Fractions {
-    metric: FractionsConfig,
-    imperial: FractionsConfig,
-    specialization: HashMap<usize, FractionsConfig>,
+    all: Option<FractionsConfig>,
+    metric: Option<FractionsConfig>,
+    imperial: Option<FractionsConfig>,
+    quantity: HashMap<PhysicalQuantity, FractionsConfig>,
+    unit: HashMap<usize, FractionsConfig>,
+}
+
+impl Fractions {
+    fn config(
+        &self,
+        system: Option<System>,
+        quantity: PhysicalQuantity,
+        unit_id: usize,
+    ) -> FractionsConfig {
+        self.unit
+            .get(&unit_id)
+            .or_else(|| self.quantity.get(&quantity))
+            .or_else(|| {
+                system.and_then(|s| match s {
+                    System::Metric => self.metric.as_ref(),
+                    System::Imperial => self.imperial.as_ref(),
+                })
+            })
+            .or(self.all.as_ref())
+            .copied()
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -279,10 +288,6 @@ pub struct Unit {
     pub physical_quantity: PhysicalQuantity,
     /// The unit [System] this unit belongs to, if any
     pub system: Option<System>,
-    #[serde(skip)]
-    expand_si: bool,
-    #[serde(skip)]
-    expanded_units: Option<EnumMap<SIPrefix, usize>>,
 }
 
 impl Unit {
@@ -401,6 +406,7 @@ impl BestConversions {
     Serialize,
     PartialOrd,
     Ord,
+    Hash,
     strum::Display,
     strum::EnumString,
     enum_map::Enum,
@@ -542,7 +548,11 @@ impl ScaledQuantity {
             .iter()
             .filter_map(|&(_, new_unit_id)| {
                 let new_unit = &converter.all_units[new_unit_id];
-                let cfg = converter.fractions_config_unit_id(new_unit.system, new_unit_id);
+                let cfg = converter.fractions.config(
+                    new_unit.system,
+                    new_unit.physical_quantity,
+                    new_unit_id,
+                );
                 if !cfg.enabled {
                     return None;
                 }

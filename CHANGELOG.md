@@ -16,6 +16,9 @@
 - Reworked error model.
 - Removed `Ingredient::total_quantity`.
 - Change `Cookware::group_amounts` return type.
+- Several changes in UnitsFile:
+  - System is no longer set when declaring a unit with an unspecified system as best of a specific system.
+  - `extend.names`, `extend.aliases` and `extend.symbols` are now combined in `extend.units`.
 
 ### Features
 - New warning for bad single word names. It could be confusing not getting any
@@ -34,6 +37,12 @@
 - Added `ScaledRecipe::group_cookware`.
 - Rework `GroupedQuantity` API and add `GroupedValue`.
 - Ignored ingredients in text mode are now added as text.
+- Several features in UnitsFile to make it more intuitive:
+  - The best unit of a system can now be from any system. It's up to the user if
+    they want to mix them.
+  - New `extend.units`, which allows to edit the conversions.
+  - Improve and actually make usable the fractions configuration. Now with an
+    `all` and `quantity.<physical_quantity>` options.
 
 ### Fixed
 - Text steps were ignored in `components` mode.

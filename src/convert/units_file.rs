@@ -28,10 +28,9 @@ pub struct UnitsFile {
     pub si: Option<SI>,
     /// Automatic conversion to fractions
     ///
-    /// Configured for each system, if enabled, a decimal value will be
-    /// converted to a fraction if possible.
+    /// If enabled, a decimal value will be converted to a fraction if possible.
     pub fractions: Option<Fractions>,
-    /// Extend units from other layers before
+    /// Extend and/or edit units from other layers before
     pub extend: Option<Extend>,
     /// Declare new units
     #[serde(default)]
@@ -93,37 +92,52 @@ impl SIPrefix {
     }
 }
 
+/// Configuration for fractions
+///
+/// A unit can have more than one layer, which are applied in the order:
+/// - `all`
+/// - `metric` / `imperial`
+/// - `quantity`
+/// - `unit`
 #[derive(Debug, Clone, Deserialize, Default)]
+#[serde(default, deny_unknown_fields)]
 pub struct Fractions {
-    pub metric: Option<FractionsWrapper>,
-    pub imperial: Option<FractionsWrapper>,
-    pub specialization: HashMap<String, FractionsWrapper>,
+    /// The base configuration
+    pub all: Option<FractionsConfigWrapper>,
+    /// For metric units
+    pub metric: Option<FractionsConfigWrapper>,
+    /// For imperial units
+    pub imperial: Option<FractionsConfigWrapper>,
+    /// For each [`PhysicalQuantity`]
+    pub quantity: HashMap<PhysicalQuantity, FractionsConfigWrapper>,
+    /// For specific units. The keys are any unit name, symbol, or alias.
+    pub unit: HashMap<String, FractionsConfigWrapper>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(untagged)]
-pub enum FractionsWrapper {
+pub enum FractionsConfigWrapper {
     Toggle(bool),
     Custom(FractionsConfigHelper),
 }
 
-impl FractionsWrapper {
+impl FractionsConfigWrapper {
     pub fn get(self) -> FractionsConfigHelper {
         match self {
-            FractionsWrapper::Toggle(enabled) => FractionsConfigHelper {
+            FractionsConfigWrapper::Toggle(enabled) => FractionsConfigHelper {
                 enabled: Some(enabled),
                 ..Default::default()
             },
-            FractionsWrapper::Custom(cfg) => FractionsConfigHelper {
-                enabled: Some(cfg.enabled.unwrap_or(true)),
-                ..cfg
-            },
+            FractionsConfigWrapper::Custom(cfg) => cfg,
         }
     }
 }
 
+/// Fractions configuration layer
+///
+/// See [`FractionsConfig`]
 #[derive(Debug, Clone, Copy, Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct FractionsConfigHelper {
     pub enabled: Option<bool>,
     pub accuracy: Option<f32>,
@@ -132,16 +146,16 @@ pub struct FractionsConfigHelper {
 }
 
 impl FractionsConfigHelper {
-    pub fn merge(self, parent: FractionsConfigHelper) -> Self {
+    pub(crate) fn merge(self, other: FractionsConfigHelper) -> Self {
         Self {
-            enabled: self.enabled.or(parent.enabled),
-            accuracy: self.accuracy.or(parent.accuracy),
-            max_denominator: self.max_denominator.or(parent.max_denominator),
-            max_whole: self.max_whole.or(parent.max_whole),
+            enabled: self.enabled.or(other.enabled),
+            accuracy: self.accuracy.or(other.accuracy),
+            max_denominator: self.max_denominator.or(other.max_denominator),
+            max_whole: self.max_whole.or(other.max_whole),
         }
     }
 
-    pub fn define(self) -> FractionsConfig {
+    pub(crate) fn define(self) -> FractionsConfig {
         let d = FractionsConfig::default();
         FractionsConfig {
             enabled: self.enabled.unwrap_or(d.enabled),
@@ -163,12 +177,8 @@ impl FractionsConfigHelper {
 pub struct Extend {
     /// Precedence when joining to other layers
     pub precedence: Precedence,
-    /// Map for new names
-    pub names: HashMap<String, Vec<Arc<str>>>,
-    /// Map for new symbols
-    pub symbols: HashMap<String, Vec<Arc<str>>>,
-    /// Map for new aliases
-    pub aliases: HashMap<String, Vec<Arc<str>>>,
+    /// Map for units to edit
+    pub units: HashMap<String, ExtendUnitEntry>,
 }
 
 /// Precedence when joining a list to other layers
@@ -185,6 +195,23 @@ pub enum Precedence {
     After,
     /// The list will replace the current ones
     Override,
+}
+
+/// Editable unit
+///
+/// See [`Unit`](super::Unit). If the unit is automatially generated (expanded) from another
+/// one, only aliases can be set.
+#[derive(Debug, Deserialize, Clone, Default)]
+#[serde(default)]
+pub struct ExtendUnitEntry {
+    pub ratio: Option<f64>,
+    pub difference: Option<f64>,
+    #[serde(alias = "name")]
+    pub names: Option<Vec<Arc<str>>>,
+    #[serde(alias = "symbol")]
+    pub symbols: Option<Vec<Arc<str>>>,
+    #[serde(alias = "alias")]
+    pub aliases: Option<Vec<Arc<str>>>,
 }
 
 /// Configuration of a group of units belonging to a [physical quantity]
@@ -264,15 +291,17 @@ pub struct UnitEntry {
     /// Names. For example: `grams`
     ///
     /// This will expand with [`SI`] configuration.
+    #[serde(alias = "name")]
     pub names: Vec<Arc<str>>,
     /// Symbols. For example: `g`
     ///
     /// This will expand with [`SI`] configuration.
+    #[serde(alias = "symbol")]
     pub symbols: Vec<Arc<str>>,
     /// Whatever other way you want to call the unit.
     ///
     /// This **WILL NOT** expand with [`SI`] configuration.
-    #[serde(default)]
+    #[serde(default, alias = "alias")]
     pub aliases: Vec<Arc<str>>,
     /// Conversion ratio.
     ///
