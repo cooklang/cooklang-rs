@@ -10,7 +10,7 @@ use test_case::test_case;
 #[test_case(499.999, "lb" => "500 lb")]
 #[test_case(1.5, "F" => "1.5 °F")]
 fn imperial(value: f64, unit: &str) -> String {
-    let converter = Converter::default();
+    let converter = Converter::bundled();
     let mut q = Quantity::new(Value::from(value), Some(unit.to_string()));
     let _ = q.convert(System::Imperial, &converter);
     q.to_string()

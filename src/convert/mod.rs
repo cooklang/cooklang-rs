@@ -158,6 +158,7 @@ impl Converter {
     ///
     /// # Panics
     /// If the unit is not known.
+    #[tracing::instrument(level = "trace", skip_all, fields(unit = %unit), ret)]
     pub(crate) fn fractions_config(&self, unit: &Unit) -> FractionsConfig {
         let unit_id = self
             .unit_index
@@ -237,7 +238,7 @@ impl Fractions {
 pub struct FractionsConfig {
     pub enabled: bool,
     pub accuracy: f32,
-    pub max_denominator: u32,
+    pub max_denominator: u8,
     pub max_whole: u32,
 }
 

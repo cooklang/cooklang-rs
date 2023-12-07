@@ -1,13 +1,9 @@
 //! Quantity model
 
-use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
-    fmt::Display,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use enum_map::EnumMap;
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -750,82 +746,73 @@ where
 
 // All the fractions stuff
 
-struct FractionLookupTable {
-    max_denom: u32,
-    table: BTreeMap<i32, (u32, u32)>,
-}
+static TABLE: Lazy<FractionLookupTable> = Lazy::new(FractionLookupTable::new);
+
+#[derive(Debug)]
+struct FractionLookupTable(Vec<(i16, (u8, u8))>);
 
 impl FractionLookupTable {
-    const FIX_RATIO: f64 = 1000.0;
+    const FIX_RATIO: f64 = 1e4;
+    const DENOMS: &'static [u8] = &[2, 3, 4, 8, 10, 16];
 
-    #[tracing::instrument(level = "trace", name = "new_fraction_lookup")]
-    pub fn new(max_denom: u32) -> Self {
-        let mut table: BTreeMap<i32, (u32, u32)> = BTreeMap::new();
+    pub fn new() -> Self {
+        debug_assert!(!Self::DENOMS.is_empty());
+        debug_assert!(Self::DENOMS.windows(2).all(|w| w[0] < w[1]));
+        let mut table = Vec::new();
 
-        let denoms = [2, 3, 4, 5, 8, 10, 16, 32, 64];
-
-        for den in denoms.into_iter().take_while(|&den| den <= max_denom) {
+        for &den in Self::DENOMS {
             for num in 1..den {
                 // not include 1
                 let val = num as f64 / den as f64;
 
                 // convert to fixed decimal
-                let fixed = (val * Self::FIX_RATIO) as i32;
+                let fixed = (val * Self::FIX_RATIO) as i16;
 
                 // only insert if not already in
                 //
                 // Because we are iterating from low to high denom, then the value
                 // will only be present with the smallest possible denom.
-                table.entry(fixed).or_insert((num, den));
+                if let Err(pos) = table.binary_search_by_key(&fixed, |&(x, _)| x) {
+                    table.insert(pos, (fixed, (num, den)));
+                }
             }
         }
 
-        Self { table, max_denom }
+        table.shrink_to_fit();
+
+        Self(table)
     }
 
-    #[tracing::instrument(level = "trace", name = "fraction_table_lookup", skip(self))]
-    pub fn lookup(&self, value: f64, max_err: f64) -> Option<(u32, u32)> {
-        let value = (value * Self::FIX_RATIO) as i32;
-        let max_err = (max_err * Self::FIX_RATIO) as i32;
+    pub fn lookup(&self, val: f64, max_den: u8) -> Option<(u8, u8)> {
+        let fixed = (val * Self::FIX_RATIO) as i16;
+        let t = self.0.as_slice();
+        let pos = t.binary_search_by_key(&fixed, |&(x, _)| x);
 
-        self.table
-            .range((
-                std::ops::Bound::Included(value - max_err),
-                std::ops::Bound::Included(value + max_err),
-            ))
-            .min_by_key(|frac_val| (value - frac_val.0).abs())
-            .map(|entry| *entry.1)
-    }
-}
-
-static FRACTIONS_TABLES: FractionTableCache = FractionTableCache::new(10);
-
-struct FractionTableCache {
-    size: usize,
-    cache: Mutex<VecDeque<Arc<FractionLookupTable>>>,
-}
-
-impl FractionTableCache {
-    pub const fn new(size: usize) -> Self {
-        Self {
-            size,
-            cache: Mutex::new(VecDeque::new()),
+        let found = pos.is_ok_and(|i| {
+            let (x, (_, d)) = t[i];
+            x == fixed && d <= max_den
+        });
+        if found {
+            return Some(t[pos.unwrap()].1);
         }
-    }
 
-    #[tracing::instrument(level = "trace", name = "fraction_table_cache_get", skip(self))]
-    pub fn get(&self, max_denom: u32) -> Arc<FractionLookupTable> {
-        let mut cache = self.cache.lock().unwrap();
-        // rust borrow checker has some problems here with `find`... idk
-        if let Some(idx) = cache.iter().position(|t| t.max_denom == max_denom) {
-            Arc::clone(&cache[idx])
-        } else {
-            if cache.len() == self.size {
-                cache.pop_front();
+        let pos = pos.unwrap_or_else(|i| i);
+
+        let high = t[pos..].iter().find(|(_, (_, d))| *d <= max_den).copied();
+        let low = t[..pos].iter().rfind(|(_, (_, d))| *d <= max_den).copied();
+
+        match (low, high) {
+            (None, Some((_, f))) | (Some((_, f)), None) => Some(f),
+            (Some((a_val, a)), Some((b_val, b))) => {
+                let a_err = (a_val - fixed).abs();
+                let b_err = (b_val - fixed).abs();
+                if a_err.cmp(&b_err).then(a.1.cmp(&b.1)).is_le() {
+                    Some(a)
+                } else {
+                    Some(b)
+                }
             }
-            let new = Arc::new(FractionLookupTable::new(max_denom));
-            cache.push_back(Arc::clone(&new));
-            new
+            (None, None) => None,
         }
     }
 }
@@ -856,7 +843,7 @@ impl Number {
     /// # Panics
     /// - If `accuracy > 1` or `accuracy < 0`.
     /// - If `max_den > 64`
-    pub fn new_approx(value: f64, accuracy: f32, max_den: u32, max_whole: u32) -> Option<Self> {
+    pub fn new_approx(value: f64, accuracy: f32, max_den: u8, max_whole: u32) -> Option<Self> {
         assert!((0.0..=1.0).contains(&accuracy));
         assert!(max_den <= 64);
         if value <= 0.0 || !value.is_finite() {
@@ -887,22 +874,23 @@ impl Number {
             });
         }
 
-        let table = FRACTIONS_TABLES.get(max_den);
-        let (num, den) = table.lookup(decimal, max_err)?;
-
+        let (num, den) = TABLE.lookup(decimal, max_den)?;
         let approx_value = whole as f64 + num as f64 / den as f64;
         let err = value - approx_value;
+        if err.abs() > max_err {
+            return None;
+        }
         Some(Self::Fraction {
             whole,
-            num,
-            den,
+            num: num as u32,
+            den: den as u32,
             err,
         })
     }
 
     /// Tries to approximate the number to a fraction if possible and not an
     /// integer
-    pub fn try_approx(&mut self, accuracy: f32, max_den: u32, max_whole: u32) -> bool {
+    pub fn try_approx(&mut self, accuracy: f32, max_den: u8, max_whole: u32) -> bool {
         match Self::new_approx(self.value(), accuracy, max_den, max_whole) {
             Some(f) => {
                 *self = f;

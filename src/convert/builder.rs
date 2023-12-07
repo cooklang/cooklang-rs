@@ -255,7 +255,7 @@ impl BestConversions {
             .map(|n| unit_index.get_unit_id(n))
             .collect::<Result<Vec<_>, _>>()?;
 
-        units.sort_unstable_by(|a, b| {
+        units.sort_by(|a, b| {
             let a = &all_units[*a];
             let b = &all_units[*b];
             a.ratio
@@ -365,7 +365,7 @@ fn build_fractions_config(
     let mut all = None;
 
     for cfg in fractions.iter() {
-        all = cfg.all.map(|c| c.get());
+        all = cfg.all.map(|c| c.get()).or(all);
     }
 
     let mut metric = None;
@@ -373,8 +373,8 @@ fn build_fractions_config(
     let mut quantity = HashMap::new();
 
     for cfg in fractions.iter() {
-        metric = cfg.metric.map(|c| c.get());
-        imperial = cfg.imperial.map(|c| c.get());
+        metric = cfg.metric.map(|c| c.get()).or(metric);
+        imperial = cfg.imperial.map(|c| c.get()).or(imperial);
         for (q, cfg) in &cfg.quantity {
             quantity.insert(*q, cfg.get());
         }

@@ -141,7 +141,8 @@ impl FractionsConfigWrapper {
 pub struct FractionsConfigHelper {
     pub enabled: Option<bool>,
     pub accuracy: Option<f32>,
-    pub max_denominator: Option<u32>,
+    #[serde(alias = "max_den")]
+    pub max_denominator: Option<u8>,
     pub max_whole: Option<u32>,
 }
 
@@ -163,7 +164,7 @@ impl FractionsConfigHelper {
             max_denominator: self
                 .max_denominator
                 .unwrap_or(d.max_denominator)
-                .clamp(1, 64),
+                .clamp(1, 16),
             max_whole: self.max_whole.unwrap_or(d.max_whole),
         }
     }
