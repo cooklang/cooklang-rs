@@ -56,9 +56,7 @@ pub fn parse_ast(input: &str, json: bool) -> FallibleResult {
         None => "<no ouput>".to_string(),
     };
     let mut buf = Vec::new();
-    report
-        .write("playground", input, false, true, &mut buf)
-        .unwrap();
+    report.write("playground", input, true, &mut buf).unwrap();
     let ansi_error = String::from_utf8_lossy(&buf);
     let error =
         ansi_to_html::convert_escaped(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
@@ -87,9 +85,7 @@ pub fn parse_full(input: &str, json: bool) -> FallibleResult {
         None => "<no ouput>".to_string(),
     };
     let mut buf = Vec::new();
-    report
-        .write("playground", input, false, true, &mut buf)
-        .unwrap();
+    report.write("playground", input, true, &mut buf).unwrap();
     let ansi_error = String::from_utf8_lossy(&buf);
     let error =
         ansi_to_html::convert_escaped(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
@@ -119,9 +115,7 @@ pub fn parse_render(input: &str, scale: Option<u32>) -> FallibleResult {
         None => "<no ouput>".to_string(),
     };
     let mut buf = Vec::new();
-    report
-        .write("playground", input, false, true, &mut buf)
-        .unwrap();
+    report.write("playground", input, true, &mut buf).unwrap();
     let ansi_error = String::from_utf8_lossy(&buf);
     let error =
         ansi_to_html::convert_escaped(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());

@@ -134,19 +134,24 @@ impl FractionsConfigWrapper {
 }
 
 /// Fractions configuration layer
-///
-/// See [`FractionsConfig`]
 #[derive(Debug, Clone, Copy, Deserialize, Default)]
 #[serde(default, deny_unknown_fields)]
 pub struct FractionsConfigHelper {
+    /// If fractions are enabled. Defaults to `false`
     pub enabled: Option<bool>,
+    /// Max percent of error allowed (0 to 1). Defaults to `0.05` (5%).
     pub accuracy: Option<f32>,
+    /// Max denominator allowed (1 to 16). Defaults to 4.
     #[serde(alias = "max_den")]
     pub max_denominator: Option<u8>,
+    /// Max whole number allowed. Defaults to [`u32::MAX`].
     pub max_whole: Option<u32>,
 }
 
 impl FractionsConfigHelper {
+    /// Merges this layer with another
+    ///
+    /// It keeps the values defined in `self` and falls back to `other`.
     pub(crate) fn merge(self, other: FractionsConfigHelper) -> Self {
         Self {
             enabled: self.enabled.or(other.enabled),
@@ -156,6 +161,9 @@ impl FractionsConfigHelper {
         }
     }
 
+    /// Defines the configuration to a [`FractionsConfig`]
+    ///
+    /// Non set values will take [`FractionsConfig::default`].
     pub(crate) fn define(self) -> FractionsConfig {
         let d = FractionsConfig::default();
         FractionsConfig {

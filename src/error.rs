@@ -5,7 +5,6 @@ use std::borrow::Cow;
 use crate::Span;
 
 /// Handy label creation for [`SourceDiag`]
-#[macro_export]
 macro_rules! label {
     ($span:expr) => {
         ($span.to_owned().into(), None)
@@ -17,13 +16,11 @@ macro_rules! label {
         label!($span, format!($fmt, $($arg),+))
     }
 }
-pub use label;
+pub(crate) use label;
 
 pub type CowStr = Cow<'static, str>;
 
 /// A label is a pair of a code location and an optional hint at that location
-///
-/// See the [`label`] macro for creating this
 pub type Label = (Span, Option<CowStr>);
 
 /// A diagnostic of source code
@@ -83,7 +80,7 @@ impl PartialEq for SourceDiag {
 
 impl SourceDiag {
     /// Creates a new error
-    pub fn error(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
+    pub(crate) fn error(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
         Self {
             severity: Severity::Error,
             message: message.into(),
@@ -95,7 +92,7 @@ impl SourceDiag {
     }
 
     /// Creates a new warning
-    pub fn warning(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
+    pub(crate) fn warning(message: impl Into<CowStr>, label: Label, stage: Stage) -> Self {
         Self {
             severity: Severity::Warning,
             message: message.into(),
@@ -109,7 +106,7 @@ impl SourceDiag {
     /// Creates a new unlabeled diagnostic
     ///
     /// This means there's no error location
-    pub fn unlabeled(message: impl Into<CowStr>, severity: Severity, stage: Stage) -> Self {
+    pub(crate) fn unlabeled(message: impl Into<CowStr>, severity: Severity, stage: Stage) -> Self {
         Self {
             severity,
             stage,
@@ -131,30 +128,30 @@ impl SourceDiag {
     }
 
     /// Adds a new label
-    pub fn label(mut self, label: Label) -> Self {
+    pub(crate) fn label(mut self, label: Label) -> Self {
         self.add_label(label);
         self
     }
     /// Adds a new label
-    pub fn add_label(&mut self, label: Label) -> &mut Self {
+    pub(crate) fn add_label(&mut self, label: Label) -> &mut Self {
         self.labels.push(label);
         self
     }
 
     /// Adds a new hint
-    pub fn hint(mut self, hint: impl Into<CowStr>) -> Self {
+    pub(crate) fn hint(mut self, hint: impl Into<CowStr>) -> Self {
         self.add_hint(hint);
         self
     }
     /// Adds a new hint
-    pub fn add_hint(&mut self, hint: impl Into<CowStr>) -> &mut Self {
+    pub(crate) fn add_hint(&mut self, hint: impl Into<CowStr>) -> &mut Self {
         self.hints.push(hint.into());
         self
     }
     /// Sets the error source
     ///
     /// This is where [`std::error::Error::source`] get's the information
-    pub fn set_source(mut self, source: impl std::error::Error + 'static) -> Self {
+    pub(crate) fn set_source(mut self, source: impl std::error::Error + 'static) -> Self {
         self.source = Some(std::sync::Arc::new(source));
         self
     }
@@ -286,6 +283,11 @@ impl SourceReport {
         )
     }
 
+    /// Removes the warnings leaving only errors
+    pub fn remove_warnings(&mut self) {
+        self.buf.retain(SourceDiag::is_error)
+    }
+
     /// Consumes the report and returns [`Vec`] of [`SourceDiag`]
     pub fn into_vec(self) -> Vec<SourceDiag> {
         self.buf
@@ -296,16 +298,13 @@ impl SourceReport {
         &self,
         file_name: &str,
         source_code: &str,
-        hide_warnings: bool,
         color: bool,
         w: &mut impl std::io::Write,
     ) -> std::io::Result<()> {
         let mut cache = DummyCache::new(file_name, source_code);
 
-        if !hide_warnings {
-            for err in self.warnings() {
-                build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
-            }
+        for err in self.warnings() {
+            build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
         }
         for err in self.errors() {
             build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
@@ -313,36 +312,12 @@ impl SourceReport {
         Ok(())
     }
     /// Print a formatted report to stdout
-    pub fn print(
-        &self,
-        file_name: &str,
-        source_code: &str,
-        hide_warnings: bool,
-        color: bool,
-    ) -> std::io::Result<()> {
-        self.write(
-            file_name,
-            source_code,
-            hide_warnings,
-            color,
-            &mut std::io::stdout().lock(),
-        )
+    pub fn print(&self, file_name: &str, source_code: &str, color: bool) -> std::io::Result<()> {
+        self.write(file_name, source_code, color, &mut std::io::stdout().lock())
     }
     /// Print a formatted report to stderr
-    pub fn eprint(
-        &self,
-        file_name: &str,
-        source_code: &str,
-        hide_warnings: bool,
-        color: bool,
-    ) -> std::io::Result<()> {
-        self.write(
-            file_name,
-            source_code,
-            hide_warnings,
-            color,
-            &mut std::io::stderr().lock(),
-        )
+    pub fn eprint(&self, file_name: &str, source_code: &str, color: bool) -> std::io::Result<()> {
+        self.write(file_name, source_code, color, &mut std::io::stderr().lock())
     }
 }
 
@@ -378,10 +353,10 @@ impl<T> PassResult<T> {
         &self.report
     }
 
-    /// Check if the result is invalid.
+    /// Check if the result is valid.
     ///
-    /// Output, if any, should be discarded or used knowing that it contains
-    /// errors or is incomplete.
+    /// If the result is invalid, the output, if any, should be discarded or
+    /// used knowing that it contains errors or be incomplete.
     pub fn is_valid(&self) -> bool {
         self.has_output() && !self.report.has_errors()
     }
@@ -391,15 +366,17 @@ impl<T> PassResult<T> {
         self.output.as_ref()
     }
 
-    /// Transform into a common rust [`Result`]
+    /// Transform into a common Rust [`Result`]
+    ///
+    /// If the result is valid, the [`Ok`] variant holds the ouput and a
+    /// report with only warnings. Otherwise [`Err`] holds a report with the
+    /// errors (and warnings).
     pub fn into_result(mut self) -> Result<(T, SourceReport), SourceReport> {
-        if let Some(o) = self.output.take() {
-            if !self.report.has_errors() {
-                self.report.set_severity(Some(Severity::Warning));
-                return Ok((o, self.report));
-            }
+        if !self.is_valid() {
+            return Err(self.report);
         }
-        Err(self.report)
+        self.report.set_severity(Some(Severity::Warning));
+        Ok((self.output.unwrap(), self.report))
     }
 
     /// Transform into a [`SourceReport`] discarding the output
@@ -407,7 +384,7 @@ impl<T> PassResult<T> {
         self.report
     }
 
-    /// Take the output discarding the errors/warnings
+    /// Take the output, leaving `None` in the result
     pub fn take_output(&mut self) -> Option<T> {
         self.output.take()
     }

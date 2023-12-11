@@ -15,13 +15,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match cooklang::parse(&input).into_result() {
         Ok((recipe, warnings)) => {
-            warnings.eprint(&in_file, &input, false, true)?;
+            warnings.eprint(&in_file, &input, true)?;
             if let Some(mut out) = out_file {
                 write!(out, "{:#?}", recipe)?;
             }
         }
         Err(e) => {
-            e.eprint(&in_file, &input, false, true)?;
+            e.eprint(&in_file, &input, true)?;
             Err("failed to parse")?;
         }
     }

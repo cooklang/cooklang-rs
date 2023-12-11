@@ -1,9 +1,9 @@
 //! Support for **configurable** unit conversion
 //!
 //! This includes:
-//!     - A layered configuration system
-//!     - Conversions between systems
-//!     - Conversions to the best fit possible
+//! - A layered configuration system
+//! - Conversions between systems
+//! - Conversions to the best fit possible
 
 use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 
@@ -102,11 +102,6 @@ impl Converter {
         self.all_units.len()
     }
 
-    /// Get a detailed count of the known units. See [`UnitCount`].
-    pub fn unit_count_detailed(&self) -> UnitCount {
-        UnitCount::new(self)
-    }
-
     /// Get an iterator of all the known units.
     pub fn all_units(&self) -> impl Iterator<Item = &Unit> {
         self.all_units.iter().map(|u| u.as_ref())
@@ -149,6 +144,7 @@ impl Converter {
         }
     }
 
+    /// Find a unit by any of it's names, symbols or aliases
     pub fn find_unit(&self, unit: &str) -> Option<Arc<Unit>> {
         let uid = self.unit_index.get_unit_id(unit).ok()?;
         Some(self.all_units[uid].clone())
@@ -235,7 +231,7 @@ impl Fractions {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct FractionsConfig {
+pub(crate) struct FractionsConfig {
     pub enabled: bool,
     pub accuracy: f32,
     pub max_denominator: u8,
@@ -907,36 +903,5 @@ impl Converter {
                 .size_limit(500_000)
                 .build()
         })
-    }
-}
-
-/// Detailed count of units
-pub struct UnitCount {
-    /// Total number of units
-    pub all: usize,
-    /// Number of units by system
-    pub by_system: EnumMap<System, usize>,
-    /// Number of units by quantity
-    pub by_quantity: EnumMap<PhysicalQuantity, usize>,
-}
-
-impl UnitCount {
-    /// Calcualte the unit count
-    pub fn new(converter: &Converter) -> Self {
-        Self {
-            all: converter.all_units.len(),
-            by_system: converter
-                .all_units
-                .iter()
-                .fold(EnumMap::default(), |mut m, u| {
-                    if let Some(s) = u.system {
-                        m[s] += 1
-                    }
-                    m
-                }),
-            by_quantity: enum_map::enum_map! {
-                q => converter.quantity_index[q].len()
-            },
-        }
     }
 }

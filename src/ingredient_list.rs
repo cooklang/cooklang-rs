@@ -38,7 +38,7 @@ pub struct GroupedIngredient<'a> {
 /// Created forom [`ScaledRecipe::group_cookware`].
 #[derive(Debug, Clone, Serialize)]
 pub struct GroupedCookware<'a> {
-    /// Index of the ingredient definition in the [`Recipe::cookware``](crate::model::Recipe::cookware)
+    /// Index of the item definition in the [`Recipe::cookware`](crate::model::Recipe::cookware)
     pub index: usize,
     /// Cookware definition
     pub cookware: &'a Cookware<Value>,
@@ -131,8 +131,9 @@ impl ScaledRecipe {
 
 /// List of ingredients with quantities.
 ///
-/// Sorted by name. This is used to combine multiple recipes into a single
-/// list.
+/// This will only store the ingredient name and quantity. Sorted by name. This
+/// is used to combine multiple recipes into a single list. For ingredients of a
+/// single recipe, check [`ScaledRecipe::group_ingredients`].
 #[derive(Debug, Default)]
 pub struct IngredientList(BTreeMap<String, GroupedQuantity>);
 
@@ -194,6 +195,7 @@ impl IngredientList {
         self.0.entry(name).or_default().merge(quantity, converter)
     }
 
+    /// Cheks if the list is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }

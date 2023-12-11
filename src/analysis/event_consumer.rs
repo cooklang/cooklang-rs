@@ -30,6 +30,11 @@ macro_rules! warning {
     };
 }
 
+/// Takes an iterator of [events](`Event`) and converts to a full recipe.
+///
+/// The `input` must be the same that the [events](`Event`) are generated from.
+///
+/// Probably the iterator you want is an instance of [`PullParser`](crate::parser::PullParser).
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
 pub fn parse_events<'i>(
     events: impl Iterator<Item = Event<'i>>,

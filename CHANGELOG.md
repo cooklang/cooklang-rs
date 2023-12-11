@@ -19,6 +19,9 @@
 - Several changes in UnitsFile:
   - System is no longer set when declaring a unit with an unspecified system as best of a specific system.
   - `extend.names`, `extend.aliases` and `extend.symbols` are now combined in `extend.units`.
+- Removed `UnitCount` and `Converter::unit_count_detailed`.
+- Removed `hide_warnings` arg from `SourceReport` `write`, `print` and `eprint` methods.
+  Use `SourceReport::zip` or `SourceReport::remove_warnings`.
 
 ### Features
 - New warning for bad single word names. It could be confusing not getting any
@@ -45,6 +48,7 @@
     `all` and `quantity.<physical_quantity>` options.
 - An empty unit after the separator (%) is now a warning and it counts as there
   is no unit.
+- Added `SourceReport::remove_warnings`.
 
 ### Fixed
 - Text steps were ignored in `components` mode.
