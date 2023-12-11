@@ -103,18 +103,20 @@ impl ConverterBuilder {
                     }
                     Ok(())
                 };
-            match group.units {
-                Units::Unified(units) => add_units(units, None)?,
-                Units::BySystem {
-                    metric,
-                    imperial,
-                    unspecified,
-                } => {
-                    add_units(metric, Some(System::Metric))?;
-                    add_units(imperial, Some(System::Imperial))?;
-                    add_units(unspecified, None)?;
-                }
-            };
+            if let Some(units) = group.units {
+                match units {
+                    Units::Unified(units) => add_units(units, None)?,
+                    Units::BySystem {
+                        metric,
+                        imperial,
+                        unspecified,
+                    } => {
+                        add_units(metric, Some(System::Metric))?;
+                        add_units(imperial, Some(System::Imperial))?;
+                        add_units(unspecified, None)?;
+                    }
+                };
+            }
 
             // store best units. this will always override
             if let Some(best_units) = group.best {

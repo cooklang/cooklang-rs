@@ -234,7 +234,8 @@ pub struct QuantityGroup {
     #[serde(default)]
     pub best: Option<BestUnits>,
     /// Definition of units
-    pub units: Units,
+    #[serde(default)]
+    pub units: Option<Units>,
 }
 
 /// List of best units
