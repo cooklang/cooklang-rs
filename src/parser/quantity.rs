@@ -10,7 +10,7 @@ use crate::{
     Extensions,
 };
 
-use super::{error, model::*, mt, token_stream::Token, tokens_span, BlockParser};
+use super::{error, model::*, mt, token_stream::Token, tokens_span, warning, BlockParser};
 
 pub struct ParsedQuantity<'a> {
     pub quantity: Located<Quantity<'a>>,
@@ -66,16 +66,20 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
         }
     };
 
-    if let Some((sep, unit)) = &unit {
-        if unit.is_text_empty() {
-            bp.error(
-                error!("Empty quantity unit", label!(unit.span(), "add unit here"))
-                    .label(label!(sep, "or remove this")),
-            )
+    let (unit_separator, mut unit) = unit.unzip();
+    if let Some(unit_text) = &unit {
+        if unit_text.is_text_empty() {
+            bp.warn(
+                warning!(
+                    "Empty quantity unit",
+                    label!(unit_text.span(), "add unit here")
+                )
+                .label(label!(unit_separator.unwrap(), "or remove this"))
+                .hint("It will be as if the quantity has no unit"),
+            );
+            unit = None;
         }
     }
-
-    let (unit_separator, unit) = unit.unzip();
 
     ParsedQuantity {
         quantity: Located::new(Quantity { value, unit }, tokens_span(bp.tokens())),
@@ -173,8 +177,13 @@ fn many_values(bp: &mut BlockParser) -> QuantityValue {
         2.. => {
             if let Some(span) = auto_scale {
                 bp.error(
-                    error!("Invalid quantity value: auto scale is not compatible with multiple values", label!(span, "remove this"))
-                    .hint("A quantity cannot have the auto scaling marker (*) and have many values at the same time")
+                    error!(
+                        "Invalid quantity value: auto scale is not compatible with multiple values",
+                        label!(span, "remove this")
+                    )
+                    .hint(
+                        "A quantity cannot have both the auto scaling marker (*) and many values",
+                    ),
                 )
             }
             QuantityValue::Many(values)

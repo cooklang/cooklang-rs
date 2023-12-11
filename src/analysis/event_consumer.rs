@@ -322,11 +322,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         };
 
         let overrides = locs(&[new])[0];
-        let overriden = match new {
-            SpecialKey::Time => locs(&[SpecialKey::PrepTime, SpecialKey::CookTime]),
-            SpecialKey::PrepTime | SpecialKey::CookTime => locs(&[SpecialKey::Time]),
+        let overriden_keys: &[SpecialKey] = match new {
+            SpecialKey::Time => &[SpecialKey::PrepTime, SpecialKey::CookTime],
+            SpecialKey::PrepTime | SpecialKey::CookTime => &[SpecialKey::Time],
             _ => panic!("unknown time special key"),
         };
+        let overriden = locs(overriden_keys);
+        for k in overriden_keys {
+            self.locations.metadata.remove(k); // remove the overriden keys
+        }
         if overriden.is_empty() {
             return;
         }
@@ -522,7 +526,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                                     (label!(new, b_q.to_string()), label!(old, a_q.to_string()))
                                 }
                                 crate::quantity::IncompatibleUnits::UnknownDifferentUnits { .. } => {
-                                    (label!(new, "differs from this"), label!(old, "this unit"))
+                                    (label!(new, "this unit"), label!(old, "differs from this"))
                                 }
                             };
 
@@ -832,13 +836,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 let located_quantity = located_timer.quantity.as_ref().unwrap();
                 if quantity.value.is_text() {
-                    self.ctx.error(
-                        error!(
-                            format!("Timer value is text: {}", quantity.value),
-                            label!(located_quantity.value.span(), "this should be numeric")
-                        )
-                        .hint("A timer duration cannot be text"),
-                    );
+                    self.ctx.error(error!(
+                        format!("Timer value is text: {}", quantity.value),
+                        label!(located_quantity.value.span(), "expected a number here")
+                    ));
                 }
                 if let Some(unit) = quantity.unit() {
                     let unit_span = located_quantity.unit.as_ref().unwrap().span();
@@ -929,7 +930,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                 } else {
                     self.ctx.error(error!(
                         format!(
-                            "{CONFLICT}: not servings defined but {} values in the quantity",
+                            "{CONFLICT}: no servings defined but {} values in the quantity",
                             v.len()
                         ),
                         label!(value.span())
@@ -1012,7 +1013,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         if new.modifiers().contains(Modifiers::NEW | Modifiers::REF) {
             self.ctx.error(conflicing_modifiers(
                 *new.modifiers(),
-                "NEW (+) can never be combined with REF (&)".into(),
+                "New (+) can never be combined with ref (&)".into(),
                 false,
             ));
             return None;
@@ -1263,7 +1264,7 @@ fn conflicting_reference_quantity_error(
 ) -> SourceDiag {
     let mut e = error!(
         "Conflicting component reference quantities",
-        label!(ref_quantity_span, "remove this")
+        label!(ref_quantity_span, "reference with quantity here")
     )
     .label(label!(
         def_span,

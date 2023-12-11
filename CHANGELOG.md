@@ -43,6 +43,8 @@
   - New `extend.units`, which allows to edit the conversions.
   - Improve and actually make usable the fractions configuration. Now with an
     `all` and `quantity.<physical_quantity>` options.
+- An empty unit after the separator (%) is now a warning and it counts as there
+  is no unit.
 
 ### Fixed
 - Text steps were ignored in `components` mode.
