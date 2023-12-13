@@ -90,6 +90,11 @@
       justify-content: flex-end;
     }
 
+    #extra .container {
+      display: flex;
+      gap: 1rem;
+    }
+
     #extra fieldset {
       width: fit-content;
     }
@@ -137,6 +142,20 @@
       color: crimson;
       font-weight: bold;
     }
+
+    .codeblock ul {
+      margin: 0;
+      padding: 0;
+    }
+
+    .codeblock li.metadata {
+      list-style: none;
+    }
+
+    .metadata .key {
+      font-weight: bold;
+      color: green;
+    }
   </style>
 </head>
 
@@ -172,10 +191,17 @@
         <details id="extra">
           <summary>More options</summary>
 
-          <fieldset>
-            <legend>Extensions</legend>
-            <div id="extensions-container"></div>
-          </fieldset>
+          <div class="container">
+            <div>
+              <input type="checkbox" name="loadUnits" id="loadUnits">
+              <label for="loadUnits">Load units</label>
+            </div>
+  
+            <fieldset>
+              <legend>Extensions</legend>
+              <div id="extensions-container"></div>
+            </fieldset>
+          </div>
         </details>
       </div>
     </div>
@@ -193,15 +219,7 @@
   </main>
 
   <script type="module">
-    import init, {
-      parse_events,
-      parse_full,
-      parse_ast,
-      parse_render,
-      set_extensions,
-      get_extensions,
-      version
-    } from "./pkg/cooklang_playground.js";
+    import init, { State,version } from "./pkg/cooklang_playground.js";
 
     async function run() {
       await init();
@@ -222,18 +240,22 @@
       const parserSelect = document.getElementById("parserSelect");
       const jsonCheckbox = document.getElementById("json");
       const servings = document.getElementById("servings");
+      const loadUnits = document.getElementById("loadUnits");
       document.getElementById("version").textContent = version();
-      let initalExtensions;
+
+      const state = new State();
 
       const search = new URLSearchParams(window.location.search);
       if (search.has("json")) {
         jsonCheckbox.checked = search.get("json") === "true";
       }
+      if (search.has("loadUnits")) {
+        const load = search.get("loadUnits") === "true"
+        state.load_units = load;
+      }
+      loadUnits.checked = state.load_units;
       if (search.has("extensions")) {
-        initalExtensions = Number(search.get("extensions"));
-        set_extensions(initalExtensions)
-      } else {
-        initalExtensions = get_extensions();
+        state.extensions = Number(search.get("extensions"));
       }
       let mode = search.get("mode") || localStorage.getItem("mode");
       if (mode !== null) {
@@ -246,25 +268,25 @@
         window.sessionStorage.setItem("input", input);
         switch (parserSelect.value) {
           case "full": {
-            const { value, error } = parse_full(input, jsonCheckbox.checked);
+            const { value, error } = state.parse_full(input, jsonCheckbox.checked);
             output.textContent = value;
             errors.innerHTML = error;
             break;
           }
           case "events": {
-            const events = parse_events(input);
+            const events = state.parse_events(input);
             output.textContent = events;
             errors.innerHTML = "";
             break;
           }
           case "ast": {
-            const { value, error } = parse_ast(input, jsonCheckbox.checked);
+            const { value, error } = state.parse_ast(input, jsonCheckbox.checked);
             output.textContent = value;
             errors.innerHTML = error;
             break;
           }
           case "render": {
-            const { value, error } = parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber );
+            const { value, error } = state.parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber );
             output.innerHTML = value;
             errors.innerHTML = error;
             break;
@@ -281,6 +303,21 @@
           params.set("json", "true");
         } else {
           params.delete("json")
+        }
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + "?" + params.toString()
+        );
+        parse()
+      });
+      loadUnits.addEventListener("change", (ev) => {
+        const params = new URLSearchParams(window.location.search);
+        state.load_units = !!ev.target.checked;
+        if (ev.target.checked) {
+          params.delete("loadUnits")
+        } else {
+          params.set("loadUnits", "false");
         }
         window.history.replaceState(
           null,
@@ -314,7 +351,7 @@
         elem.setAttribute("type", "checkbox");
         elem.setAttribute("id", e);
         elem.setAttribute("data-ext-bits", bits);
-        elem.checked = (initalExtensions & bits) === bits;
+        elem.checked = (state.extensions & bits) === bits;
         const label = document.createElement("label");
         label.setAttribute("for", e);
         label.textContent = e;
@@ -332,7 +369,7 @@
           e |= bits;
         });
         console.log(e);
-        set_extensions(e);
+        state.extensions = e;
 
         const params = new URLSearchParams(window.location.search);
         params.set("extensions", e);

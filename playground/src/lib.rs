@@ -1,12 +1,9 @@
 use cooklang::ast::build_ast;
+use cooklang::error::SourceReport;
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use std::fmt::Write;
-use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
-
-static EXTENSIONS: Mutex<Extensions> = Mutex::new(Extensions::all());
-static COOKLANG_PARSER: Mutex<Option<CooklangParser>> = Mutex::new(None);
 
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -14,25 +11,114 @@ pub fn version() -> String {
 }
 
 #[wasm_bindgen]
-pub fn set_extensions(bits: u32) {
-    let extensions = Extensions::from_bits_truncate(bits);
-    *EXTENSIONS.lock().unwrap() = extensions;
-    *COOKLANG_PARSER.lock().unwrap() = Some(CooklangParser::new(extensions, Converter::default()));
+pub struct State {
+    parser: CooklangParser,
+    load_units: bool,
+    extensions: Extensions,
 }
 
 #[wasm_bindgen]
-pub fn get_extensions() -> u32 {
-    EXTENSIONS.lock().unwrap().bits()
-}
-
-#[wasm_bindgen]
-pub fn parse_events(input: &str) -> String {
-    let mut s = String::new();
-    let events = PullParser::new(input, *EXTENSIONS.lock().unwrap());
-    for e in events {
-        writeln!(s, "{e:#?}").unwrap();
+impl State {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Self {
+        Self {
+            parser: CooklangParser::new(Extensions::all(), Converter::bundled()),
+            load_units: true,
+            extensions: Extensions::all(),
+        }
     }
-    s
+
+    #[wasm_bindgen(getter)]
+    pub fn load_units(&self) -> bool {
+        self.load_units
+    }
+    #[wasm_bindgen(setter)]
+    pub fn set_load_units(&mut self, load: bool) {
+        self.load_units = load;
+        self.update_parser();
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn extensions(&self) -> u32 {
+        self.extensions.bits()
+    }
+    #[wasm_bindgen(setter)]
+    pub fn set_extensions(&mut self, bits: u32) {
+        self.extensions = Extensions::from_bits_truncate(bits);
+        self.update_parser();
+    }
+
+    pub fn parse_events(&self, input: &str) -> String {
+        let mut s = String::new();
+        let events = PullParser::new(input, self.extensions);
+        for e in events {
+            writeln!(s, "{e:#?}").unwrap();
+        }
+        s
+    }
+
+    pub fn parse_ast(&self, input: &str, json: bool) -> FallibleResult {
+        let events = PullParser::new(input, self.extensions);
+        let (ast, report) = build_ast(events).into_tuple();
+        let value = match ast {
+            Some(ast) => {
+                if json {
+                    serde_json::to_string_pretty(&ast).unwrap()
+                } else {
+                    format!("{ast:#?}")
+                }
+            }
+            None => "<no ouput>".to_string(),
+        };
+        FallibleResult::new(value, report, input)
+    }
+
+    pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
+        let (recipe, report) = self.parser.parse(input).into_tuple();
+        let value = match recipe {
+            Some(r) => {
+                if json {
+                    serde_json::to_string_pretty(&r).unwrap()
+                } else {
+                    format!("{r:#?}")
+                }
+            }
+            None => "<no ouput>".to_string(),
+        };
+        FallibleResult::new(value, report, input)
+    }
+
+    pub fn parse_render(&self, input: &str, scale: Option<u32>) -> FallibleResult {
+        let (recipe, report) = self.parser.parse(input).into_tuple();
+        let value = match recipe {
+            Some(r) => {
+                let r = if let Some(scale) = scale {
+                    r.scale(scale, self.parser.converter())
+                } else {
+                    r.default_scale()
+                };
+                render(r, self.parser.converter())
+            }
+            None => "<no ouput>".to_string(),
+        };
+        FallibleResult::new(value, report, input)
+    }
+}
+
+impl State {
+    fn build_parser(&self) -> CooklangParser {
+        let ext = self.extensions;
+        let converter = if self.load_units {
+            Converter::bundled()
+        } else {
+            Converter::empty()
+        };
+        CooklangParser::new(ext, converter)
+    }
+
+    fn update_parser(&mut self) {
+        self.parser = self.build_parser();
+    }
 }
 
 #[wasm_bindgen(getter_with_clone)]
@@ -41,90 +127,31 @@ pub struct FallibleResult {
     pub error: String,
 }
 
-#[wasm_bindgen]
-pub fn parse_ast(input: &str, json: bool) -> FallibleResult {
-    let events = PullParser::new(input, *EXTENSIONS.lock().unwrap());
-    let (ast, report) = build_ast(events).into_tuple();
-    let value = match ast {
-        Some(ast) => {
-            if json {
-                serde_json::to_string_pretty(&ast).unwrap()
-            } else {
-                format!("{ast:#?}")
-            }
-        }
-        None => "<no ouput>".to_string(),
-    };
-    let mut buf = Vec::new();
-    report.write("playground", input, true, &mut buf).unwrap();
-    let ansi_error = String::from_utf8_lossy(&buf);
-    let error =
-        ansi_to_html::convert_escaped(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
-    FallibleResult { value, error }
-}
-
-#[wasm_bindgen]
-pub fn parse_full(input: &str, json: bool) -> FallibleResult {
-    let mut parser_ref = COOKLANG_PARSER.lock().unwrap();
-    if parser_ref.is_none() {
-        *parser_ref = Some(CooklangParser::new(
-            *EXTENSIONS.lock().unwrap(),
-            Converter::default(),
-        ));
+impl FallibleResult {
+    pub fn new(value: String, report: SourceReport, input: &str) -> Self {
+        let mut buf = Vec::new();
+        report.write("playground", input, true, &mut buf).unwrap();
+        let ansi_error = String::from_utf8_lossy(&buf);
+        let error = ansi_to_html::convert(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
+        FallibleResult { value, error }
     }
-    let parser = parser_ref.as_ref().unwrap();
-    let (recipe, report) = parser.parse(input).into_tuple();
-    let value = match recipe {
-        Some(r) => {
-            if json {
-                serde_json::to_string_pretty(&r).unwrap()
-            } else {
-                format!("{r:#?}")
-            }
-        }
-        None => "<no ouput>".to_string(),
-    };
-    let mut buf = Vec::new();
-    report.write("playground", input, true, &mut buf).unwrap();
-    let ansi_error = String::from_utf8_lossy(&buf);
-    let error =
-        ansi_to_html::convert_escaped(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
-    FallibleResult { value, error }
-}
-
-#[wasm_bindgen]
-pub fn parse_render(input: &str, scale: Option<u32>) -> FallibleResult {
-    let mut parser_ref = COOKLANG_PARSER.lock().unwrap();
-    if parser_ref.is_none() {
-        *parser_ref = Some(CooklangParser::new(
-            *EXTENSIONS.lock().unwrap(),
-            Converter::default(),
-        ));
-    }
-    let parser = parser_ref.as_ref().unwrap();
-    let (recipe, report) = parser.parse(input).into_tuple();
-    let value = match recipe {
-        Some(r) => {
-            let r = if let Some(scale) = scale {
-                r.scale(scale, parser.converter())
-            } else {
-                r.default_scale()
-            };
-            render(r, parser.converter())
-        }
-        None => "<no ouput>".to_string(),
-    };
-    let mut buf = Vec::new();
-    report.write("playground", input, true, &mut buf).unwrap();
-    let ansi_error = String::from_utf8_lossy(&buf);
-    let error =
-        ansi_to_html::convert_escaped(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
-    FallibleResult { value, error }
 }
 
 fn render(r: cooklang::ScaledRecipe, converter: &Converter) -> String {
     let ingredient_list = r.group_ingredients(converter);
     maud::html! {
+        @if !r.metadata.map.is_empty() {
+            ul {
+                @for (key, value) in &r.metadata.map {
+                    li.metadata {
+                        span.key { (key) } ":" (value)
+                    }
+                }
+            }
+
+            hr {}
+        }
+
         @if !ingredient_list.is_empty() {
             h2 { "Ingredients:" }
             ul {
@@ -159,8 +186,8 @@ fn render(r: cooklang::ScaledRecipe, converter: &Converter) -> String {
         @for (s_index, section) in r.sections.iter().enumerate() {
             @let s_num = s_index + 1;
             @if let Some(name) = &section.name {
-                h3 { (s_num) " " (name) }
-            } @else if s_num > 1 {
+                h3 { "(" (s_num) ") " (name) }
+            } @else if r.sections.len() > 1 {
                 h3 { "Section " (s_num) }
             }
 
