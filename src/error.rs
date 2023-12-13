@@ -394,6 +394,14 @@ impl<T> PassResult<T> {
         self.output
     }
 
+    /// Unwraps the inner output
+    ///
+    /// # Panics
+    /// If the output is `None`.
+    pub fn unwrap_output(self) -> T {
+        self.output.unwrap()
+    }
+
     /// Get output, errors and warnings in a tuple
     pub fn into_tuple(self) -> (Option<T>, SourceReport) {
         (self.output, self.report)

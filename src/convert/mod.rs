@@ -719,7 +719,7 @@ pub(crate) fn convert_f64(value: f64, from: &Unit, to: &Unit) -> f64 {
 /// Error when try to convert an unknown unit
 #[derive(Debug, Error)]
 #[error("Unknown unit: '{0}'")]
-pub struct UnknownUnit(String);
+pub struct UnknownUnit(pub String);
 
 /// Input value for [`Converter::convert`]
 #[derive(PartialEq, Clone, Debug)]

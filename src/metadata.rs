@@ -1,6 +1,6 @@
 //! Metadata of a recipe
 
-use std::str::FromStr;
+use std::{num::ParseFloatError, str::FromStr};
 
 pub use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ macro_rules! regex {
 pub(crate) use regex;
 
 use crate::{
-    convert::{ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity},
+    convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
     Converter,
 };
 
@@ -176,63 +176,107 @@ impl Metadata {
     /// removed
     pub fn map_filtered(&self) -> IndexMap<String, String> {
         let mut new_map = self.map.clone();
-        new_map.retain(|key, _| SpecialKey::from_str(key).is_ok());
+        new_map.retain(|key, _| SpecialKey::from_str(key).is_err());
         new_map
     }
 }
 
 /// Returns minutes
-fn parse_time(s: &str, converter: &Converter) -> Result<u32, std::num::ParseIntError> {
-    match parse_time_with_units(s, converter) {
-        Some(time) => Ok(time),
-        None => s.parse(),
+fn parse_time(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
+    if s.is_empty() {
+        return Err(ParseTimeError::Empty);
+    }
+    let r = parse_time_with_units(s, converter);
+    // if any error, try to fall back to a full float parse
+    if r.is_err() {
+        let minutes = s.parse::<f64>().map(|m| m.round() as u32);
+        if let Ok(minutes) = minutes {
+            return Ok(minutes);
+        }
+    }
+    // otherwise return the result whatever it was
+    r
+}
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum ParseTimeError {
+    #[error("A value is missing a unit")]
+    MissingUnit,
+    #[error("Could not find minutes in the configuration")]
+    MinutesNotFound,
+    #[error(transparent)]
+    ConvertError(#[from] ConvertError),
+    #[error(transparent)]
+    ParseFloatError(#[from] ParseFloatError),
+    #[error("An empty value is not valid")]
+    Empty,
+}
+
+fn dynamic_time_units(
+    value: f64,
+    unit: &str,
+    converter: &Converter,
+) -> Result<f64, ParseTimeError> {
+    // TODO maybe make this configurable? It will work for 99% of users...
+    let minutes = converter
+        .find_unit("min")
+        .or_else(|| converter.find_unit("minute"))
+        .or_else(|| converter.find_unit("minutes"))
+        .or_else(|| converter.find_unit("m"))
+        .ok_or(ParseTimeError::MinutesNotFound)?;
+    if minutes.physical_quantity != PhysicalQuantity::Time {
+        return Err(ParseTimeError::MinutesNotFound);
+    }
+    let (value, _) = converter.convert(
+        ConvertValue::Number(value),
+        ConvertUnit::Key(unit),
+        ConvertTo::from(&minutes),
+    )?;
+    match value {
+        ConvertValue::Number(n) => Ok(n),
+        _ => unreachable!(),
     }
 }
 
-fn parse_time_with_units(s: &str, converter: &Converter) -> Option<u32> {
+fn hard_coded_time_units(value: f64, unit: &str) -> Result<f64, ParseTimeError> {
+    let minutes = match unit {
+        "s" | "sec" | "secs" | "second" | "seconds" => value / 60.0,
+        "m" | "min" | "minute" | "minutes" => value,
+        "h" | "hour" | "hours" => value * 60.0,
+        "d" | "day" | "days" => value * 24.0 * 60.0,
+        _ => return Err(ConvertError::UnknownUnit(UnknownUnit(unit.to_string())).into()),
+    };
+    Ok(minutes)
+}
+
+fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
+    let to_minutes = |value, unit| {
+        if converter.unit_count() == 0 {
+            hard_coded_time_units(value, unit)
+        } else {
+            dynamic_time_units(value, unit, converter)
+        }
+    };
+
     let mut total = 0.0;
-    let minutes = converter.find_unit("min")?; // TODO maybe make this configurable? It will work for 99% of users...
-    if minutes.physical_quantity != PhysicalQuantity::Time {
-        return None;
-    }
-    let to_minutes = ConvertTo::from(&minutes);
-
     let mut parts = s.split_whitespace();
-
     while let Some(part) = parts.next() {
         let first_non_digit_pos = part
             .char_indices()
-            .find_map(|(pos, c)| (!c.is_numeric()).then_some(pos));
+            .find_map(|(pos, c)| (!c.is_numeric() && c != '.').then_some(pos));
         let (number, unit) = if let Some(mid) = first_non_digit_pos {
             // if the part contains a non numeric char, split it in two and it will
             // be the unit
             part.split_at(mid)
         } else {
             // otherwise, take the next part as the unit
-            let next = parts.next()?;
+            let next = parts.next().ok_or(ParseTimeError::MissingUnit)?;
             (part, next)
         };
-
-        let number = number.parse::<u32>().ok()?;
-        let (value, _) = converter
-            .convert(
-                ConvertValue::Number(number as f64),
-                ConvertUnit::Key(unit),
-                to_minutes,
-            )
-            .ok()?;
-        match value {
-            ConvertValue::Number(m) => total += m,
-            ConvertValue::Range(_) => unreachable!(),
-        }
+        let number = number.parse::<f64>()?;
+        total += to_minutes(number, unit)?;
     }
-
-    let total = total.round() as u32;
-    if total == 0 {
-        None
-    } else {
-        Some(total)
-    }
+    Ok(total.round() as u32)
 }
 
 impl NameAndUrl {
@@ -305,6 +349,8 @@ pub(crate) enum MetadataError {
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("Duplicate servings: {servings:?}")]
     DuplicateServings { servings: Vec<u32> },
+    #[error(transparent)]
+    ParseTimeError(#[from] ParseTimeError),
 }
 
 /// Checks that a tag is valid
@@ -374,8 +420,8 @@ mod tests {
     #[test]
     fn test_parse_time_with_units() {
         let converter = Converter::bundled();
-        let t = |s: &str| parse_time_with_units(s, &converter);
-        assert_eq!(t(""), None);
+        let t = |s: &str| parse_time_with_units(s, &converter).ok();
+        assert_eq!(t(""), Some(0));
         assert_eq!(t("1"), None);
         assert_eq!(t("1 kilometer"), None);
         assert_eq!(t("1min"), Some(1));
@@ -387,7 +433,7 @@ mod tests {
         assert_eq!(t("90 minutes"), Some(90));
         assert_eq!(t("30 secs 30 secs"), Some(1)); // sum
         assert_eq!(t("45 secs"), Some(1)); // round up
-        assert_eq!(t("25 secs"), None); // round down
+        assert_eq!(t("25 secs"), Some(0)); // round down
         assert_eq!(t("1 min 25 secs"), Some(1)); // round down
         assert_eq!(t("   0  hours 90min 59 sec "), Some(91));
     }
