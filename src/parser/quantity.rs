@@ -277,10 +277,7 @@ fn numeric_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, Sou
     // to allow unnecesary large values for recipes :)
     let r = match trimmed_tokens {
         &[mt![int]] => Some(float(trimmed_tokens, bp)),
-        &[mt![int], p @ mt![punctuation], mt![int | zeroint]]
-        | &[p @ mt![punctuation], mt![int | zeroint]]
-            if bp.token_str(p) == "." =>
-        {
+        &[mt![int], mt![.], mt![int | zeroint]] | &[mt![.], mt![int | zeroint]] => {
             Some(float(trimmed_tokens, bp))
         }
         _ => None,

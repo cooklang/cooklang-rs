@@ -56,6 +56,8 @@ pub enum TokenKind {
     OpenParen,
     /// ")"
     CloseParen,
+    /// "."
+    Dot,
 
     /// "14", "0", but not "014"
     Int,
@@ -81,61 +83,61 @@ pub enum TokenKind {
     Eof,
 }
 
-fn is_newline(c: char, first: char) -> bool {
-    c == '\n' || (c == '\r' && first == '\n')
-}
-
 fn is_whitespace(c: char) -> bool {
     c.is_separator_space() || c == '\t'
 }
 
-fn is_special(c: char) -> bool {
-    // faster than str::contains and equally as fast as match, at least in
-    // rustc 1.73.0
-    const SPECIAL_CHARS_LIST: &[char] = &[
-        '>', ':', '@', '#', '~', '?', '+', '-', '/', '*', '&', '|', '=', '%', '{', '}', '(', ')',
-    ];
-    SPECIAL_CHARS_LIST.contains(&c)
-}
-
 fn is_word_char(c: char) -> bool {
-    !is_whitespace(c) && c != '\n' && c != '\r' && !is_special(c) && !c.is_punctuation()
+    // this is critical code for performance, check lexer benchmark before and after chaging it
+    match c {
+        c if c.is_alphabetic() => true, // quick return true
+        ' ' | '\n' | '\r' | '\t' | '0'..='9' | '.' => false, // common chars that break a word
+        '>' | ':' | '@' | '#' | '~' | '?' | '+' | '-' | '/' | '*' | '&' | '|' | '=' | '%' | '{'
+        | '}' | '(' | ')' => false,
+        c if c.is_separator_space() || c.is_punctuation() => false,
+        _ => true,
+    }
 }
 
 impl Cursor<'_> {
     pub fn advance_token(&mut self) -> Token {
-        let first_char = match self.bump() {
+        let current = match self.bump() {
             Some(c) => c,
             None => return Token::new(TokenKind::Eof, 0),
         };
 
-        let token_kind = match first_char {
-            // escape next symbol
+        let token_kind = match current {
             '\\' => {
-                self.bump();
+                self.bump(); // any
                 TokenKind::Escaped
             }
 
-            // multi char tokens
-            '>' if self.first() == '>' => {
-                self.bump();
-                TokenKind::MetadataStart
+            '>' => {
+                if self.first() == '>' {
+                    self.bump(); // '>'
+                    TokenKind::MetadataStart
+                } else {
+                    TokenKind::TextStep
+                }
             }
-            '-' if self.first() == '-' => self.line_comment(),
+            '-' => match self.first() {
+                '-' => self.line_comment(),
+                _ => TokenKind::Minus,
+            },
             '[' if self.first() == '-' => self.block_comment(),
-            c if is_whitespace(c) => self.whitespace(),
-            c if is_newline(c, self.first()) => self.newline(c),
-            c if c.is_ascii_digit() => self.number(c),
+            '\n' => TokenKind::Newline,
+            '\r' if self.first() == '\n' => {
+                self.bump(); // '\n'
+                TokenKind::Newline
+            }
+            c @ '0'..='9' => self.number(c),
 
-            // single char tokens
-            '>' => TokenKind::TextStep,
             ':' => TokenKind::Colon,
             '@' => TokenKind::At,
             '#' => TokenKind::Hash,
             '~' => TokenKind::Tilde,
             '?' => TokenKind::Question,
             '+' => TokenKind::Plus,
-            '-' => TokenKind::Minus,
             '/' => TokenKind::Slash,
             '*' => TokenKind::Star,
             '&' => TokenKind::And,
@@ -146,7 +148,9 @@ impl Cursor<'_> {
             '}' => TokenKind::CloseBrace,
             '(' => TokenKind::OpenParen,
             ')' => TokenKind::CloseParen,
+            '.' => TokenKind::Dot,
 
+            c if is_whitespace(c) => self.whitespace(),
             c if c.is_punctuation() => TokenKind::Punctuation,
 
             // anything else, word
@@ -159,6 +163,8 @@ impl Cursor<'_> {
 
     fn line_comment(&mut self) -> TokenKind {
         debug_assert!(self.prev() == '-' && self.first() == '-');
+        // this makes the next newline don't have the '\r' if on windows, but
+        // I don't think that's a problem
         self.eat_while(|c| c != '\n');
         TokenKind::LineComment
     }
@@ -188,14 +194,6 @@ impl Cursor<'_> {
         debug_assert!(is_whitespace(self.prev()));
         self.eat_while(is_whitespace);
         TokenKind::Whitespace
-    }
-
-    fn newline(&mut self, c: char) -> TokenKind {
-        debug_assert!(is_newline(self.prev(), self.first()));
-        if c == '\r' {
-            self.bump(); // \n
-        }
-        TokenKind::Newline
     }
 
     fn number(&mut self, c: char) -> TokenKind {
@@ -266,6 +264,9 @@ macro_rules! T {
     [')'] => {
         $crate::lexer::TokenKind::CloseParen
     };
+    [.] => {
+        $crate::lexer::TokenKind::Dot
+    };
     [word] => {
         $crate::lexer::TokenKind::Word
     };
@@ -332,11 +333,17 @@ mod tests {
     #[test]
     fn word() {
         t!("basic", vec![Word]);
-        t!("word.word", vec![Word, Punctuation, Word]);
+        t!("word.word", vec![Word, Dot, Word]);
         t!("word⸫word", vec![Word, Punctuation, Word]);
         t!("👀", vec![Word]);
         t!("👀more", vec![Word]);
         t!("thing👀more", vec![Word]);
+
+        t!("word3,", vec![Word, Int, Punctuation]);
+        t!("word03.", vec![Word, ZeroInt, Dot]);
+        t!("phraseends.3", vec![Word, Dot, Int]);
+        t!("phraseends. 3", vec![Word, Dot, Whitespace, Int]);
+        t!("phraseends .3", vec![Word, Whitespace, Dot, Int]);
 
         t!("two words", vec![Word, Whitespace, Word]);
         t!("two words", vec![Word, Whitespace, Word]); // unicode whitespace U+2009
@@ -354,16 +361,13 @@ mod tests {
         t!("1", vec![Int]);
         t!("0", vec![Int]);
         t!("01", vec![ZeroInt]);
-        t!("01.3", vec![ZeroInt, Punctuation, Int]);
-        t!("1.3", vec![Int, Punctuation, Int]);
-        t!(".3", vec![Punctuation, Int]);
-        t!("0.3", vec![Int, Punctuation, Int]);
-        t!("0.03", vec![Int, Punctuation, ZeroInt]);
-        t!("{.3}", vec![OpenBrace, Punctuation, Int, CloseBrace]);
-        t!("phraseends.3", vec![Word, Punctuation, Int]);
-        t!("phraseends .3", vec![Word, Whitespace, Punctuation, Int]);
-        t!("14.", vec![Int, Punctuation]);
-        t!("word3.", vec![Word, Punctuation]);
+        t!("01.3", vec![ZeroInt, Dot, Int]);
+        t!("1.3", vec![Int, Dot, Int]);
+        t!(".3", vec![Dot, Int]);
+        t!("0.3", vec![Int, Dot, Int]);
+        t!("0.03", vec![Int, Dot, ZeroInt]);
+        t!("{.3}", vec![OpenBrace, Dot, Int, CloseBrace]);
+        t!("14.", vec![Int, Dot]);
     }
 
     #[test]
@@ -429,9 +433,9 @@ Use @sauce{100%ml} and @love.
         t!(input, vec![
             L,
             MetadataStart, S, Word, Colon, S, Word, L,
-            Word, S, Word, S, Word, S, Word, Punctuation, L,
+            Word, S, Word, S, Word, S, Word, Dot, L,
             L,
-            Word, S, At, Word, OpenBrace, Int, Percent, Word, CloseBrace, S, Word, S, At, Word, Punctuation, L
+            Word, S, At, Word, OpenBrace, Int, Percent, Word, CloseBrace, S, Word, S, At, Word, Dot, L
         ]);
     }
 }
