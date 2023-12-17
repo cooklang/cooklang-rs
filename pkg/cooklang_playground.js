@@ -46,21 +46,6 @@ export function version() {
     }
 }
 
-/**
-* @param {number} bits
-*/
-export function set_extensions(bits) {
-    wasm.set_extensions(bits);
-}
-
-/**
-* @returns {number}
-*/
-export function get_extensions() {
-    const ret = wasm.get_extensions();
-    return ret >>> 0;
-}
-
 let WASM_VECTOR_LEN = 0;
 
 const cachedTextEncoder = (typeof TextEncoder !== 'undefined' ? new TextEncoder('utf-8') : { encode: () => { throw Error('TextEncoder not available') } } );
@@ -115,68 +100,10 @@ function passStringToWasm0(arg, malloc, realloc) {
     WASM_VECTOR_LEN = offset;
     return ptr;
 }
-/**
-* @param {string} input
-* @returns {string}
-*/
-export function parse_events(input) {
-    let deferred2_0;
-    let deferred2_1;
-    try {
-        const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        wasm.parse_events(retptr, ptr0, len0);
-        var r0 = getInt32Memory0()[retptr / 4 + 0];
-        var r1 = getInt32Memory0()[retptr / 4 + 1];
-        deferred2_0 = r0;
-        deferred2_1 = r1;
-        return getStringFromWasm0(r0, r1);
-    } finally {
-        wasm.__wbindgen_add_to_stack_pointer(16);
-        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
-    }
-}
-
-/**
-* @param {string} input
-* @param {boolean} json
-* @returns {FallibleResult}
-*/
-export function parse_ast(input, json) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parse_ast(ptr0, len0, json);
-    return FallibleResult.__wrap(ret);
-}
-
-/**
-* @param {string} input
-* @param {boolean} json
-* @returns {FallibleResult}
-*/
-export function parse_full(input, json) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parse_full(ptr0, len0, json);
-    return FallibleResult.__wrap(ret);
-}
 
 function isLikeNone(x) {
     return x === undefined || x === null;
 }
-/**
-* @param {string} input
-* @param {number | undefined} scale
-* @returns {FallibleResult}
-*/
-export function parse_render(input, scale) {
-    const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len0 = WASM_VECTOR_LEN;
-    const ret = wasm.parse_render(ptr0, len0, !isLikeNone(scale), isLikeNone(scale) ? 0 : scale);
-    return FallibleResult.__wrap(ret);
-}
-
 /**
 */
 export class FallibleResult {
@@ -253,6 +180,110 @@ export class FallibleResult {
         const ptr0 = passStringToWasm0(arg0, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         wasm.__wbg_set_fallibleresult_error(this.__wbg_ptr, ptr0, len0);
+    }
+}
+/**
+*/
+export class State {
+
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+
+        return ptr;
+    }
+
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_state_free(ptr);
+    }
+    /**
+    */
+    constructor() {
+        const ret = wasm.state_new();
+        this.__wbg_ptr = ret >>> 0;
+        return this;
+    }
+    /**
+    * @returns {boolean}
+    */
+    get load_units() {
+        const ret = wasm.state_load_units(this.__wbg_ptr);
+        return ret !== 0;
+    }
+    /**
+    * @param {boolean} load
+    */
+    set load_units(load) {
+        wasm.state_set_load_units(this.__wbg_ptr, load);
+    }
+    /**
+    * @returns {number}
+    */
+    get extensions() {
+        const ret = wasm.state_extensions(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+    * @param {number} bits
+    */
+    set extensions(bits) {
+        wasm.state_set_extensions(this.__wbg_ptr, bits);
+    }
+    /**
+    * @param {string} input
+    * @returns {string}
+    */
+    parse_events(input) {
+        let deferred2_0;
+        let deferred2_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            wasm.state_parse_events(retptr, this.__wbg_ptr, ptr0, len0);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            deferred2_0 = r0;
+            deferred2_1 = r1;
+            return getStringFromWasm0(r0, r1);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
+    }
+    /**
+    * @param {string} input
+    * @param {boolean} json
+    * @returns {FallibleResult}
+    */
+    parse_ast(input, json) {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.state_parse_ast(this.__wbg_ptr, ptr0, len0, json);
+        return FallibleResult.__wrap(ret);
+    }
+    /**
+    * @param {string} input
+    * @param {boolean} json
+    * @returns {FallibleResult}
+    */
+    parse_full(input, json) {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.state_parse_full(this.__wbg_ptr, ptr0, len0, json);
+        return FallibleResult.__wrap(ret);
+    }
+    /**
+    * @param {string} input
+    * @param {number | undefined} [scale]
+    * @returns {FallibleResult}
+    */
+    parse_render(input, scale) {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.state_parse_render(this.__wbg_ptr, ptr0, len0, !isLikeNone(scale), isLikeNone(scale) ? 0 : scale);
+        return FallibleResult.__wrap(ret);
     }
 }
 
