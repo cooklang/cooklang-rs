@@ -17,9 +17,7 @@ pub fn parse_recipe(input: String) -> CooklangRecipe {
     let converter = Converter::empty();
 
     let mut parser = PullParser::new(&input, extensions);
-    let parsed = parse_events(&mut parser, &input, extensions, &converter, None)
-        .take_output()
-        .unwrap();
+    let parsed = parse_events(&mut parser, &input, extensions, &converter, None).unwrap_output();
 
     into_simple_recipe(&parsed)
 }
@@ -40,8 +38,7 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
         None,
     )
     .map(|c| c.metadata.map)
-    .take_output()
-    .unwrap();
+    .unwrap_output();
 
     // converting IndexMap into HashMap
     let _ = &(parsed).iter().for_each(|(key, value)| {

@@ -2,6 +2,14 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.11.0 - 2023-12-26
+### Breaking changes
+- Remove `PassResult::take_output`.
+- `Metadata::map_filtered` now returns an iterator instead of a copy of the map.
+
+### Fixed
+- Implement `Clone` for `PassResult`.
+
 ## 0.10.0 - 2023-12-17
 ### Breaking changes
 - Reworked intermediate references. Index is gone, now you reference the step or

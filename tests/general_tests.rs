@@ -79,7 +79,7 @@ fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
         Extensions::all() ^ Extensions::MULTILINE_STEPS,
         Default::default(),
     );
-    let r = parser.parse(src).take_output().unwrap();
+    let r = parser.parse(src).unwrap_output();
     let numbers: Vec<Vec<Option<u32>>> = r
         .sections
         .into_iter()
@@ -111,14 +111,14 @@ fn empty_not_empty() {
 
     // should be the same with multiline and without
     let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert!(r.sections.is_empty());
 
     let parser = CooklangParser::new(
         Extensions::all() ^ Extensions::MULTILINE_STEPS,
         Default::default(),
     );
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert!(r.sections.is_empty());
 }
 
@@ -139,14 +139,14 @@ fn empty_steps() {
 
     // should be the same with multiline and without
     let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert!(r.sections[0].content.is_empty());
 
     let parser = CooklangParser::new(
         Extensions::all() ^ Extensions::MULTILINE_STEPS,
         Default::default(),
     );
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert!(r.sections[0].content.is_empty());
 }
 
@@ -160,7 +160,7 @@ fn whitespace_line_block_separator() {
 
     // should be the same with multiline and without
     let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert_eq!(r.sections[0].content.len(), 2);
 }
 
@@ -173,7 +173,7 @@ fn single_line_no_separator() {
         = section
     "#};
     let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert_eq!(r.sections.len(), 2);
     assert_eq!(r.sections[0].content.len(), 2);
     assert_eq!(r.sections[1].content.len(), 0);
@@ -184,7 +184,7 @@ fn single_line_no_separator() {
 fn multiple_temperatures() {
     let input = "text 2ºC more text 150 F end text";
     let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).take_output().unwrap();
+    let r = parser.parse(input).unwrap_output();
     assert_eq!(r.inline_quantities.len(), 2);
     assert_eq!(r.inline_quantities[0].value, 2.0.into());
     assert_eq!(r.inline_quantities[0].unit_text(), Some("ºC"));
@@ -220,7 +220,7 @@ fn no_steps_component_mode() {
         = section
         step
     "#};
-    let r = cooklang::parse(input).take_output().unwrap();
+    let r = cooklang::parse(input).unwrap_output();
     assert_eq!(r.sections.len(), 1);
     assert_eq!(r.sections[0].name.as_deref(), Some("section"));
     assert!(matches!(
@@ -233,19 +233,13 @@ fn no_steps_component_mode() {
 fn text_steps_extension() {
     let input = "> text";
 
-    let r = CooklangParser::extended()
-        .parse(input)
-        .take_output()
-        .unwrap();
+    let r = CooklangParser::extended().parse(input).unwrap_output();
     assert!(matches!(
         r.sections[0].content.as_slice(),
         [Content::Text(_)]
     ));
 
-    let r = CooklangParser::canonical()
-        .parse(input)
-        .take_output()
-        .unwrap();
+    let r = CooklangParser::canonical().parse(input).unwrap_output();
     assert!(matches!(
         r.sections[0].content.as_slice(),
         [Content::Step(_)]

@@ -172,12 +172,13 @@ impl Metadata {
         Ok(())
     }
 
-    /// Returns a copy of [`Self::map`] but with all *special* metadata values
-    /// removed
-    pub fn map_filtered(&self) -> IndexMap<String, String> {
-        let mut new_map = self.map.clone();
-        new_map.retain(|key, _| SpecialKey::from_str(key).is_err());
-        new_map
+    /// Iterates over [`Self::map`] but with all *special* metadata values
+    /// skipped
+    pub fn map_filtered(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.map
+            .iter()
+            .filter(|(key, _)| SpecialKey::from_str(key).is_err())
+            .map(|(key, value)| (key.as_str(), value.as_str()))
     }
 }
 

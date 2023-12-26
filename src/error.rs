@@ -332,7 +332,7 @@ impl std::fmt::Display for SourceReport {
 impl std::error::Error for SourceReport {}
 
 /// Output from the different passes of the parsing process
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PassResult<T> {
     output: Option<T>,
     report: SourceReport,
@@ -348,7 +348,7 @@ impl<T> PassResult<T> {
         self.output.is_some()
     }
 
-    /// Check if the result has errors.
+    /// Get the report
     pub fn report(&self) -> &SourceReport {
         &self.report
     }
@@ -364,6 +364,15 @@ impl<T> PassResult<T> {
     /// Get the output
     pub fn output(&self) -> Option<&T> {
         self.output.as_ref()
+    }
+
+    /// Get the output only if it's valid
+    pub fn valid_output(&self) -> Option<&T> {
+        if self.is_valid() {
+            self.output()
+        } else {
+            None
+        }
     }
 
     /// Transform into a common Rust [`Result`]
@@ -382,11 +391,6 @@ impl<T> PassResult<T> {
     /// Transform into a [`SourceReport`] discarding the output
     pub fn into_report(self) -> SourceReport {
         self.report
-    }
-
-    /// Take the output, leaving `None` in the result
-    pub fn take_output(&mut self) -> Option<T> {
-        self.output.take()
     }
 
     /// Transform into the ouput discarding errors/warnings
