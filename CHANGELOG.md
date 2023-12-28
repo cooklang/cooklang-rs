@@ -2,6 +2,12 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.11.1 - 2023-12-28
+### Fixed
+- Add missing auto traits to `SourceReport` and all of it's dependent structs.
+  Notably, it was missing `Send` and `Sync`, which were implemented in
+  previous releases.
+
 ## 0.11.0 - 2023-12-26
 ### Breaking changes
 - Remove `PassResult::take_output`.

@@ -1,6 +1,6 @@
 //! Error type, formatting and utilities.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, panic::RefUnwindSafe};
 
 use crate::Span;
 
@@ -34,7 +34,7 @@ pub struct SourceDiag {
     /// Report message describing the problem
     pub message: CowStr,
     /// Lower level error that produced the problem, if any
-    source: Option<std::sync::Arc<dyn std::error::Error>>,
+    source: Option<std::sync::Arc<dyn std::error::Error + Send + Sync + RefUnwindSafe + 'static>>,
     /// Spans of the code that helps the user find the error
     ///
     /// It should be ordered from high to low importance. The first is the
@@ -68,7 +68,11 @@ impl RichError for SourceDiag {
 
 impl std::error::Error for SourceDiag {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_deref()
+        // idk why I can't .as_deref but I can do this
+        match &self.source {
+            Some(err) => Some(err),
+            None => None,
+        }
     }
 }
 
@@ -151,7 +155,10 @@ impl SourceDiag {
     /// Sets the error source
     ///
     /// This is where [`std::error::Error::source`] get's the information
-    pub(crate) fn set_source(mut self, source: impl std::error::Error + 'static) -> Self {
+    pub(crate) fn set_source(
+        mut self,
+        source: impl std::error::Error + Send + Sync + RefUnwindSafe + 'static,
+    ) -> Self {
         self.source = Some(std::sync::Arc::new(source));
         self
     }
