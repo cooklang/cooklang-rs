@@ -537,14 +537,18 @@ fn build_report<'a>(
 // This is a ariadne cache that only supports one file.
 // If needed it can be expanded to a full cache as the source id is already
 // stored in CharsSpan (the ariadne::Span)
-struct DummyCache(String, ariadne::Source);
-impl DummyCache {
-    fn new(file_name: &str, src_code: &str) -> Self {
-        Self(file_name.into(), src_code.into())
+struct DummyCache<'a>(String, ariadne::Source<&'a str>);
+impl<'a> DummyCache<'a> {
+    fn new(file_name: &str, src_code: &'a str) -> Self {
+        Self(file_name.into(), ariadne::Source::from(src_code))
     }
 }
-impl ariadne::Cache<()> for DummyCache {
-    fn fetch(&mut self, _id: &()) -> Result<&ariadne::Source, Box<dyn std::fmt::Debug + '_>> {
+impl<'s> ariadne::Cache<()> for DummyCache<'s> {
+    type Storage = &'s str;
+    fn fetch(
+        &mut self,
+        _id: &(),
+    ) -> Result<&ariadne::Source<Self::Storage>, Box<dyn std::fmt::Debug + '_>> {
         Ok(&self.1)
     }
 
