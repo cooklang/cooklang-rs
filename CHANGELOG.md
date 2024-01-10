@@ -1,6 +1,9 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+### Breaking
+- (De)Serializing `ScaleOutcome` was not camel case, so (de)serialization has changed
+  from previous versions.
 
 ## 0.11.1 - 2023-12-28
 ### Fixed

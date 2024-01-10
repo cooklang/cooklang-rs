@@ -62,8 +62,8 @@ pub struct SI {
 ///
 /// [SI]: https://en.wikipedia.org/wiki/International_System_of_Units
 #[derive(Debug, Deserialize, Clone, Copy, strum::Display, strum::AsRefStr, enum_map::Enum)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
 pub enum SIPrefix {
     Kilo,
     Hecto,
@@ -195,7 +195,7 @@ pub struct Extend {
 /// This is important in, for example, the case of symbols. The first symbol
 /// is the one that will be used for formatting.
 #[derive(Debug, Default, Deserialize, Clone, Copy, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
 pub enum Precedence {
     /// The list will be added before the current ones (*higher priority*)
     #[default]

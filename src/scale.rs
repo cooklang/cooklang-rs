@@ -80,6 +80,7 @@ pub struct ScaledData {
 
 /// Possible outcomes from scaling a component
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ScaleOutcome {
     /// Success
     Scaled,

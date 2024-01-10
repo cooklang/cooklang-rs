@@ -408,8 +408,8 @@ impl BestConversions {
     strum::EnumString,
     enum_map::Enum,
 )]
-#[serde(rename_all = "snake_case")]
-#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
 pub enum PhysicalQuantity {
     Volume,
     Mass,
@@ -766,8 +766,8 @@ pub enum ConvertTo<'a> {
     strum::EnumString,
     enum_map::Enum,
 )]
-#[serde(rename_all = "snake_case")]
-#[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "camelCase")]
+#[strum(serialize_all = "camelCase")]
 pub enum System {
     #[default]
     Metric,
