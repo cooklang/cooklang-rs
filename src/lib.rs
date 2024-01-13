@@ -278,7 +278,7 @@ impl CooklangParser {
         analysis::parse_events(
             meta_events,
             input,
-            Extensions::empty(),
+            Extensions::SPECIAL_METADATA & self.extensions,
             &self.converter,
             None,
         )
