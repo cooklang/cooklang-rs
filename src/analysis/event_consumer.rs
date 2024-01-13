@@ -274,10 +274,14 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             .insert(key_t.to_string(), value_t.to_string());
 
         // check if it's a special key
-        if !self.extensions.contains(Extensions::SPECIAL_METADATA) {
-            return;
-        }
         if let Ok(sp_key) = SpecialKey::from_str(&key_t) {
+            // always parse servings
+            if sp_key != SpecialKey::Servings
+                && !self.extensions.contains(Extensions::SPECIAL_METADATA)
+            {
+                return;
+            }
+
             // try to insert it
             let res =
                 self.content
