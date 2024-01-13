@@ -204,3 +204,16 @@ Just an extra rule that makes timers like `~name` invalid.
 
 [^2]: Currently this is done in the analysis pass. So in the AST there is no
 concept of inline quantities.
+
+## Special metadata
+This extension enables extra parsing for some special metadata keys. These are:
+
+- `tags`. Comma separated list of tags.
+- `emoji`. Emoji or emoji shortcode, checked that it's an actual emoji.
+- `author`. Name, URL or both with the format `name <URL>`.
+- `source`. Same as `author`.
+- `time`. Time string with unit support. Like `2 hour 30 min`. This overrides past `prep_time`/`cook_time`.
+- `prep_time`. Same format as `time`. Overrides past `time` but not `prep_time`.
+- `cook_time`. Same format as `time`. Overrides past `time` but not `cook_time`.
+
+_(`servings` is always parsed)_

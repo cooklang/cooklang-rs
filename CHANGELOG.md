@@ -2,6 +2,7 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.12.0 - 2024-01-13
 ### Features
 - Special metadata keys are now an extension.
 - Improve `Metadata` memory layout and interface.

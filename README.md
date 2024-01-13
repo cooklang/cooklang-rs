@@ -13,6 +13,7 @@ off**, so the parser can be used for regular cooklang if you don't like them.
 You can see a detailed list of all extensions explained [here](./extensions.md).
 
 The parser also includes:
+
 - Rich error report with annotated code spans. ([like this
   one](https://github.com/Zheoni/cooklang-chef/blob/main/images/error_report.png))
 - Unit conversion.
