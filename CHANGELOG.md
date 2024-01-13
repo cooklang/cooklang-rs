@@ -1,9 +1,19 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+### Features
+- Special metadata keys are now an extension.
+- Improve `Metadata` memory layout and interface.
+- Emoji can now also be a shortcode like `:taco:`.
+
 ### Breaking
 - (De)Serializing `ScaleOutcome` was not camel case, so (de)serialization has changed
   from previous versions.
+- (De)Serializing format change of `Metadata` special values. Now all special
+  key values whose parsed values have some different representation are under
+  the `special` field.
+- Removed all fields except `map` from `Metadata`, now they are methods.
 
 ## 0.11.1 - 2023-12-28
 ### Fixed

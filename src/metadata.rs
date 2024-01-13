@@ -1,6 +1,6 @@
 //! Metadata of a recipe
 
-use std::{num::ParseFloatError, str::FromStr};
+use std::{collections::HashMap, num::ParseFloatError, str::FromStr};
 
 pub use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -27,32 +27,123 @@ use crate::{
 
 /// Metadata of a recipe
 ///
-/// The fields on this struct are the parsed values with some special meaning.
 /// The raw key/value pairs from the recipe are in the `map` field.
-///
-/// This struct is non exhaustive because adding a new special metadata value
-/// is not a breaking change.
+/// Many methods on this struct are the parsed values with some special meaning.
+/// They return `None` if the key is missing or the value failed to parse.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-#[non_exhaustive]
 pub struct Metadata {
-    /// Description of the recipe
-    pub description: Option<String>,
-    /// List of tags
-    pub tags: Vec<String>,
-    /// Emoji for the recipe
-    pub emoji: Option<String>,
-    /// Author
-    pub author: Option<NameAndUrl>,
-    /// Source
-    ///
-    /// This *where* the recipe was obtained from. It's different from author.
-    pub source: Option<NameAndUrl>,
-    /// Time it takes to prepare/cook the recipe
-    pub time: Option<RecipeTime>,
-    /// Servings the recipe is made for
-    pub servings: Option<Vec<u32>>,
+    special: HashMap<SpecialKey, SpecialValue>,
     /// All the raw key/value pairs from the recipe
     pub map: IndexMap<String, String>,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    strum::Display,
+    strum::EnumString,
+    strum::AsRefStr,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub(crate) enum SpecialKey {
+    Description,
+    #[strum(serialize = "tag", to_string = "tags")]
+    Tags,
+    Emoji,
+    Author,
+    Source,
+    Time,
+    #[strum(serialize = "prep_time", to_string = "prep time")]
+    PrepTime,
+    #[strum(serialize = "cook_time", to_string = "cook time")]
+    CookTime,
+    Servings,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(untagged)]
+enum SpecialValue {
+    Tags(Vec<String>),
+    NameAndUrl(NameAndUrl),
+    Time(RecipeTime),
+    Servings(Vec<u32>),
+    String(String),
+}
+
+macro_rules! unwrap_value {
+    ($variant:ident, $value:expr) => {
+        if let crate::metadata::SpecialValue::$variant(inner) = $value {
+            inner
+        } else {
+            panic!(
+                "Unexpected special value variant. Expected '{}' but got '{:?}'",
+                stringify!(SpecialValue::$variant),
+                $value
+            );
+        }
+    };
+}
+
+impl Metadata {
+    /// Description of the recipe
+    pub fn description(&self) -> Option<&str> {
+        self.map
+            .get(SpecialKey::Description.as_ref())
+            .map(|s| s.as_str())
+    }
+
+    /// Emoji for the recipe
+    pub fn emoji(&self) -> Option<&str> {
+        self.special
+            .get(&SpecialKey::Emoji)
+            .map(|v| unwrap_value!(String, v).as_str())
+    }
+
+    /// List of tags
+    pub fn tags(&self) -> Option<&[String]> {
+        self.special
+            .get(&SpecialKey::Tags)
+            .map(|v| unwrap_value!(Tags, v).as_slice())
+    }
+
+    /// Author
+    ///
+    /// This *who* wrote the recipe.
+    pub fn author(&self) -> Option<&NameAndUrl> {
+        self.special
+            .get(&SpecialKey::Author)
+            .map(|v| unwrap_value!(NameAndUrl, v))
+    }
+
+    /// Source
+    ///
+    /// This *where* the recipe was obtained from.
+    pub fn source(&self) -> Option<&NameAndUrl> {
+        self.special
+            .get(&SpecialKey::Source)
+            .map(|v| unwrap_value!(NameAndUrl, v))
+    }
+
+    /// Time it takes to prepare/cook the recipe
+    pub fn time(&self) -> Option<&RecipeTime> {
+        self.special
+            .get(&SpecialKey::Time)
+            .map(|v| unwrap_value!(Time, v))
+    }
+
+    /// Servings the recipe is made for
+    pub fn servings(&self) -> Option<&[u32]> {
+        self.special
+            .get(&SpecialKey::Servings)
+            .map(|v| unwrap_value!(Servings, v).as_slice())
+    }
 }
 
 /// Combination of name and URL.
@@ -84,32 +175,17 @@ pub enum RecipeTime {
     },
 }
 
-#[derive(Debug, Clone, Copy, strum::Display, strum::EnumString, PartialEq, Eq, Hash)]
-#[strum(serialize_all = "snake_case")]
-pub(crate) enum SpecialKey {
-    Description,
-    #[strum(serialize = "tag", to_string = "tags")]
-    Tags,
-    Emoji,
-    Author,
-    Source,
-    Time,
-    #[strum(serialize = "prep_time", to_string = "prep time")]
-    PrepTime,
-    #[strum(serialize = "cook_time", to_string = "cook time")]
-    CookTime,
-    Servings,
-}
-
 impl Metadata {
-    pub(crate) fn insert_special_key(
+    pub(crate) fn insert_special(
         &mut self,
         key: SpecialKey,
         value: String,
         converter: &Converter,
     ) -> Result<(), MetadataError> {
         match key {
-            SpecialKey::Description => self.description = Some(value),
+            SpecialKey::Description => {
+                self.map.insert(key.as_ref().to_string(), value);
+            }
             SpecialKey::Tags => {
                 let new_tags = value
                     .split(',')
@@ -118,37 +194,57 @@ impl Metadata {
                 if new_tags.iter().any(|t| !is_valid_tag(t)) {
                     return Err(MetadataError::InvalidTag { tag: value });
                 }
-                self.tags.extend(new_tags);
+
+                let tags_val = self
+                    .special
+                    .entry(key)
+                    .or_insert_with(|| SpecialValue::Tags(Vec::new()));
+                unwrap_value!(Tags, tags_val).extend(new_tags);
             }
             SpecialKey::Emoji => {
-                if emojis::get(&value).is_some() {
-                    self.emoji = Some(value);
+                let emoji = if value.starts_with(':') && value.ends_with(':') {
+                    emojis::get_by_shortcode(&value[1..value.len() - 1])
+                } else {
+                    emojis::get(&value)
+                };
+                if let Some(emoji) = emoji {
+                    self.special
+                        .insert(key, SpecialValue::String(emoji.to_string()));
                 } else {
                     return Err(MetadataError::NotEmoji { value });
                 }
             }
-            SpecialKey::Author => self.author = Some(NameAndUrl::parse(&value)),
-            SpecialKey::Source => self.source = Some(NameAndUrl::parse(&value)),
-            SpecialKey::Time => self.time = Some(RecipeTime::Total(parse_time(&value, converter)?)),
+            SpecialKey::Author | SpecialKey::Source => {
+                self.special
+                    .insert(key, SpecialValue::NameAndUrl(NameAndUrl::parse(&value)));
+            }
+            SpecialKey::Time => {
+                let time = RecipeTime::Total(parse_time(&value, converter)?);
+                self.special.insert(key, SpecialValue::Time(time));
+            }
             SpecialKey::PrepTime => {
-                let cook_time = self.time.and_then(|t| match t {
+                let cook_time = self.time().and_then(|t| match t {
                     RecipeTime::Total(_) => None,
-                    RecipeTime::Composed { cook_time, .. } => cook_time,
+                    RecipeTime::Composed { cook_time, .. } => *cook_time,
                 });
-                self.time = Some(RecipeTime::Composed {
+                let time = RecipeTime::Composed {
                     prep_time: Some(parse_time(&value, converter)?),
                     cook_time,
-                });
+                };
+                self.special
+                    .insert(SpecialKey::Time, SpecialValue::Time(time));
             }
             SpecialKey::CookTime => {
-                let prep_time = self.time.and_then(|t| match t {
+                let prep_time = self.time().and_then(|t| match t {
                     RecipeTime::Total(_) => None,
-                    RecipeTime::Composed { prep_time, .. } => prep_time,
+                    RecipeTime::Composed { prep_time, .. } => *prep_time,
                 });
-                self.time = Some(RecipeTime::Composed {
+                let time = RecipeTime::Composed {
                     prep_time,
                     cook_time: Some(parse_time(&value, converter)?),
-                });
+                };
+                self.special
+                    .insert(SpecialKey::Time, SpecialValue::Time(time));
             }
             SpecialKey::Servings => {
                 let servings = value
@@ -166,10 +262,37 @@ impl Metadata {
                 if l != dedup_l {
                     return Err(MetadataError::DuplicateServings { servings });
                 }
-                self.servings = Some(servings);
+                self.special
+                    .insert(SpecialKey::Servings, SpecialValue::Servings(servings));
             }
         }
         Ok(())
+    }
+
+    /// Parse the inner [map](Self::map) updating the special keys
+    ///
+    /// This can be useful if you edit the inner values of the metadata map and
+    /// want the special keys to refresh.
+    ///
+    /// The error variant of the result contains the key value pairs that had
+    /// an error parsing. Even if [`Err`] is returned, some values may have been
+    /// updated.
+    pub fn parse_special(&mut self, converter: &Converter) -> Result<(), Vec<(String, String)>> {
+        let mut new = Self::default();
+        let mut errors = Vec::new();
+        for (key, val) in &self.map {
+            if let Ok(sp_key) = SpecialKey::from_str(key) {
+                if new.insert_special(sp_key, val.clone(), converter).is_err() {
+                    errors.push((key.clone(), val.clone()));
+                }
+            }
+        }
+        self.special = new.special;
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
     }
 
     /// Iterates over [`Self::map`] but with all *special* metadata values
@@ -462,5 +585,65 @@ mod tests {
         t("cook time", SpecialKey::CookTime);
         t_alias("cook_time", SpecialKey::CookTime);
         t("servings", SpecialKey::Servings);
+    }
+
+    // To ensure no panics in unwrap_value
+    #[test]
+    fn special_key_access() {
+        let converter = Converter::empty();
+        let mut m = Metadata::default();
+
+        let _ = m.insert_special(
+            SpecialKey::Description,
+            "Description".to_string(),
+            &converter,
+        );
+        assert!(matches!(m.description(), Some(_)));
+
+        let _ = m.insert_special(SpecialKey::Tags, "t1, t2".to_string(), &converter);
+        assert!(matches!(m.tags(), Some(_)));
+
+        let _ = m.insert_special(SpecialKey::Emoji, "⛄".to_string(), &converter);
+        assert!(matches!(m.emoji(), Some(_)));
+
+        let _ = m.insert_special(SpecialKey::Author, "Rachel".to_string(), &converter);
+        assert!(matches!(m.author(), Some(_)));
+
+        let _ = m.insert_special(SpecialKey::Source, "Mom's cookbook".to_string(), &converter);
+        assert!(matches!(m.source(), Some(_)));
+
+        let _ = m.insert_special(SpecialKey::PrepTime, "3 min".to_string(), &converter);
+        assert!(matches!(m.time(), Some(_)));
+        m.special.remove(&SpecialKey::Time);
+
+        let _ = m.insert_special(SpecialKey::CookTime, "3 min".to_string(), &converter);
+        assert!(matches!(m.time(), Some(_)));
+        m.special.remove(&SpecialKey::Time);
+
+        let _ = m.insert_special(SpecialKey::Time, "3 min".to_string(), &converter);
+        assert!(matches!(m.time(), Some(_)));
+        m.special.remove(&SpecialKey::Time);
+
+        let _ = m.insert_special(SpecialKey::Servings, "3|4".to_string(), &converter);
+        assert!(matches!(m.servings(), Some(_)));
+    }
+
+    #[test]
+    fn shortcode_emoji() {
+        let converter = Converter::empty();
+
+        let mut m = Metadata::default();
+        let r = m.insert_special(SpecialKey::Emoji, "taco".to_string(), &converter);
+        assert!(r.is_err());
+
+        let mut m = Metadata::default();
+        let r = m.insert_special(SpecialKey::Emoji, ":taco:".to_string(), &converter);
+        assert!(r.is_ok());
+        assert_eq!(m.emoji(), Some("🌮"));
+
+        let mut m = Metadata::default();
+        let r = m.insert_special(SpecialKey::Emoji, "🌮".to_string(), &converter);
+        assert!(r.is_ok());
+        assert_eq!(m.emoji(), Some("🌮"));
     }
 }

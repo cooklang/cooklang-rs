@@ -125,7 +125,7 @@ impl ScalableRecipe {
     /// Note that this returns a [`ScaledRecipe`] wich doesn't implement this
     /// method. A recipe can only be scaled once.
     pub fn scale(self, target: u32, converter: &Converter) -> ScaledRecipe {
-        let target = if let Some(servings) = self.metadata.servings.as_ref() {
+        let target = if let Some(servings) = self.metadata.servings() {
             let base = servings.first().copied().unwrap_or(1);
             ScaleTarget::new(base, target, servings)
         } else {

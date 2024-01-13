@@ -274,13 +274,15 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             .insert(key_t.to_string(), value_t.to_string());
 
         // check if it's a special key
+        if !self.extensions.contains(Extensions::SPECIAL_METADATA) {
+            return;
+        }
         if let Ok(sp_key) = SpecialKey::from_str(&key_t) {
             // try to insert it
-            let res = self.content.metadata.insert_special_key(
-                sp_key,
-                value_t.to_string(),
-                self.converter,
-            );
+            let res =
+                self.content
+                    .metadata
+                    .insert_special(sp_key, value_t.to_string(), self.converter);
             if let Err(err) = res {
                 self.ctx.warn(
                     warning!(
@@ -912,7 +914,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             }
             parser::QuantityValue::Many(v) => {
                 const CONFLICT: &str = "Many values conflict";
-                if let Some(s) = &self.content.metadata.servings {
+                if let Some(s) = &self.content.metadata.servings() {
                     let servings_meta_span = self
                         .locations
                         .metadata

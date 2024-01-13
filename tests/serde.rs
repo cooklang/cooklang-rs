@@ -8,6 +8,9 @@ use cooklang::parse;
 
 const RECIPE: &str = r#"
 
+>> description: desc
+>> time: 3 min
+
 A step with @ingredients{}. References to @&ingredients{}, #cookware,
 ~timers{3%min}.
 
