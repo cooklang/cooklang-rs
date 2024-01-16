@@ -28,7 +28,7 @@ tracing = "0.1"
 ariadne = "0.4"
 either = "1.8"
 finl_unicode = { version = "1.2", features = ["categories"], default-features = false }
-smallvec = { version = "1", features = ["serde"] }
+smallvec = { version = "1" }
 unicase = "2.7.0"
 
 [dev-dependencies]

@@ -470,8 +470,12 @@ impl ScaledQuantity {
     #[tracing::instrument(level = "trace", name = "convert", skip_all)]
     fn convert_impl(&mut self, to: ConvertTo, converter: &Converter) -> Result<(), ConvertError> {
         let unit_info = self.unit().map(|u| u.unit_info_or_parse(converter));
+        let original_system;
         let unit = match unit_info {
-            Some(UnitInfo::Known(ref u)) => ConvertUnit::Unit(u),
+            Some(UnitInfo::Known(ref u)) => {
+                original_system = u.system;
+                ConvertUnit::Unit(u)
+            }
             Some(UnitInfo::Unknown) => {
                 return Err(ConvertError::UnknownUnit(UnknownUnit(
                     self.unit_text().unwrap().to_string(),
@@ -483,10 +487,16 @@ impl ScaledQuantity {
 
         let (new_value, new_unit) = converter.convert(value, unit, to)?;
         *self = Quantity::with_known_unit(new_value.into(), Arc::clone(&new_unit));
-        if matches!(to, ConvertTo::Unit(_)) {
-            self.try_fraction(converter);
-        } else if converter.should_fit_fraction(&new_unit) {
-            self.fit_fraction(&new_unit, converter)?;
+        match to {
+            ConvertTo::Unit(_) => {
+                self.try_fraction(converter);
+            }
+            ConvertTo::Best(target_system) => {
+                self.fit_fraction(&new_unit, Some(target_system), converter)?;
+            }
+            ConvertTo::SameSystem => {
+                self.fit_fraction(&new_unit, original_system, converter)?;
+            }
         }
         Ok(())
     }
@@ -503,7 +513,9 @@ impl ScaledQuantity {
         };
 
         // If configured, try fitting as a fraction
-        if converter.should_fit_fraction(&unit) && self.fit_fraction(&unit, converter)? {
+        if converter.should_fit_fraction(&unit)
+            && self.fit_fraction(&unit, unit.system, converter)?
+        {
             return Ok(());
         }
 
@@ -523,13 +535,14 @@ impl ScaledQuantity {
     fn fit_fraction(
         &mut self,
         unit: &Arc<Unit>,
+        target_system: Option<System>,
         converter: &Converter,
     ) -> Result<bool, ConvertError> {
         let approx = |val: f64, cfg: FractionsConfig| {
             Number::new_approx(val, cfg.accuracy, cfg.max_denominator, cfg.max_whole)
         };
 
-        let Some(system) = unit.system else {
+        let Some(system) = target_system else {
             return Ok(self.try_fraction(converter)); // no system, just keep the same unit
         };
 
