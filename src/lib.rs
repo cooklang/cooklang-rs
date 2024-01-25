@@ -87,8 +87,9 @@ mod lexer;
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
-use error::{CowStr, PassResult};
+use error::PassResult;
 
+pub use analysis::ParseOptions;
 pub use convert::Converter;
 pub use located::Located;
 pub use metadata::Metadata;
@@ -176,6 +177,8 @@ impl Default for Extensions {
 /// The default parser enables all extensions.
 ///
 /// The 2 main methods are [`CooklangParser::parse`] and [`CooklangParser::parse_metadata`].
+///
+/// You can also skip using this struct and use [`parser::PullParser`] and [`analysis::parse_events`].
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct CooklangParser {
     extensions: Extensions,
@@ -184,27 +187,6 @@ pub struct CooklangParser {
 
 pub type RecipeResult = PassResult<ScalableRecipe>;
 pub type MetadataResult = PassResult<Metadata>;
-
-/// Function to check if a reference to a recipe exist
-///
-/// It takes the name of the ingredient
-pub type RecipeRefChecker<'a> = Box<dyn Fn(&str) -> RecipeRefCheckResult + 'a>;
-
-/// Result of [`RecipeRefChecker`]
-pub enum RecipeRefCheckResult {
-    /// The recipe is found
-    Found,
-    /// The recipe is not found
-    NotFound { hints: Vec<CowStr> },
-}
-impl From<bool> for RecipeRefCheckResult {
-    fn from(value: bool) -> Self {
-        match value {
-            true => Self::Found,
-            false => Self::NotFound { hints: vec![] },
-        }
-    }
-}
 
 impl CooklangParser {
     /// Creates a new parser.
@@ -246,33 +228,36 @@ impl CooklangParser {
 
     /// Parse a recipe
     pub fn parse(&self, input: &str) -> RecipeResult {
-        self.parse_with_recipe_ref_checker(input, None)
+        self.parse_with_options(input, ParseOptions::default())
     }
 
-    /// Same as [`Self::parse`] but with a function that checks if a recipe
-    /// reference exists. If the function returns `false` for a recipe reference,
-    /// it will be considered an error.
+    /// Same as [`Self::parse`] but with aditional options
     #[tracing::instrument(level = "debug", name = "parse", skip_all, fields(len = input.len()))]
-    pub fn parse_with_recipe_ref_checker(
-        &self,
-        input: &str,
-        recipe_ref_checker: Option<RecipeRefChecker>,
-    ) -> RecipeResult {
+    pub fn parse_with_options(&self, input: &str, options: ParseOptions) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
         analysis::parse_events(
             &mut parser,
             input,
             self.extensions,
             &self.converter,
-            recipe_ref_checker,
+            options,
         )
     }
 
     /// Parse only the metadata of a recipe
     ///
     /// This is a bit faster than [`Self::parse`] if you only want the metadata
-    #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
     pub fn parse_metadata(&self, input: &str) -> MetadataResult {
+        self.parse_metadata_with_options(input, ParseOptions::default())
+    }
+
+    /// Same as [`Self::parse_metadata`] but with aditional options
+    #[tracing::instrument(level = "debug", name = "metadata", skip_all, fields(len = input.len()))]
+    pub fn parse_metadata_with_options(
+        &self,
+        input: &str,
+        options: ParseOptions,
+    ) -> MetadataResult {
         let parser = parser::PullParser::new(input, self.extensions);
         let meta_events = parser.into_meta_iter();
         analysis::parse_events(
@@ -280,7 +265,7 @@ impl CooklangParser {
             input,
             Extensions::SPECIAL_METADATA & self.extensions,
             &self.converter,
-            None,
+            options,
         )
         .map(|c| c.metadata)
     }

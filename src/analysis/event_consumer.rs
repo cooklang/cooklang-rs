@@ -14,7 +14,7 @@ use crate::parser::{
 use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
 use crate::span::Span;
 use crate::text::Text;
-use crate::{model::*, Extensions, RecipeRefCheckResult, RecipeRefChecker};
+use crate::{model::*, Extensions, ParseOptions};
 
 use super::{AnalysisResult, DefineMode, DuplicateMode};
 
@@ -36,12 +36,12 @@ macro_rules! warning {
 ///
 /// Probably the iterator you want is an instance of [`PullParser`](crate::parser::PullParser).
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
-pub fn parse_events<'i>(
+pub fn parse_events<'i, 'c>(
     events: impl Iterator<Item = Event<'i>>,
     input: &'i str,
     extensions: Extensions,
     converter: &Converter,
-    recipe_ref_checker: Option<RecipeRefChecker>,
+    parse_options: ParseOptions,
 ) -> AnalysisResult {
     let mut ctx = SourceReport::empty();
     let temperature_regex = extensions
@@ -67,7 +67,7 @@ pub fn parse_events<'i>(
         extensions,
         temperature_regex,
         converter,
-        recipe_ref_checker,
+        parse_options,
 
         content: ScalableRecipe {
             metadata: Default::default(),
@@ -96,7 +96,7 @@ struct RecipeCollector<'i, 'c> {
     extensions: Extensions,
     temperature_regex: Option<&'c Regex>,
     converter: &'c Converter,
-    recipe_ref_checker: Option<RecipeRefChecker<'c>>,
+    parse_options: ParseOptions<'c>,
 
     content: ScalableRecipe,
     current_section: Section,
@@ -265,6 +265,19 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                 }
             }
             return;
+        }
+
+        // run custom validator if any
+        if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
+            let (res, incl) = validator(&key_t, &value_t);
+            if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
+                diag.add_label(label!(key.span()));
+                diag.add_label(label!(value.span()));
+                self.ctx.push(diag);
+            }
+            if !incl {
+                return;
+            }
         }
 
         // insert the value into the map
@@ -617,18 +630,13 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         if new_igr.modifiers.contains(Modifiers::RECIPE)
             && !new_igr.modifiers.contains(Modifiers::REF)
         {
-            if let Some(checker) = &self.recipe_ref_checker {
-                let res = (*checker)(&new_igr.name);
-
-                if let RecipeRefCheckResult::NotFound { hints } = res {
-                    let mut w = warning!(
-                        format!("Referenced recipe not found: {}", new_igr.name),
-                        label!(location)
-                    );
-                    for hint in hints {
-                        w.add_hint(hint);
-                    }
-                    self.ctx.warn(w)
+            if let Some(checker) = self.parse_options.recipe_ref_check.as_mut() {
+                let res = checker(&new_igr.name);
+                if let Some(mut diag) = res
+                    .into_source_diag(|| format!("Referenced recipe not found: {}", new_igr.name))
+                {
+                    diag.add_label(label!(location));
+                    self.ctx.push(diag);
                 }
             }
         }

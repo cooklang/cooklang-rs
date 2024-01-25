@@ -191,19 +191,27 @@ impl Metadata {
                 self.map.insert(key.as_ref().to_string(), value);
             }
             SpecialKey::Tags => {
-                let new_tags = value
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .collect::<Vec<_>>();
-                if new_tags.iter().any(|t| !is_valid_tag(t)) {
-                    return Err(MetadataError::InvalidTag { tag: value });
+                // take current
+                let mut tags = if let Some(entry) = self.special.remove(&key) {
+                    unwrap_value!(Tags, entry)
+                } else {
+                    Vec::new()
+                };
+                for tag in value.split(',') {
+                    let tag = tag.trim().to_string();
+                    // no empty
+                    if tag.is_empty() {
+                        continue;
+                    }
+                    // no duplicates
+                    if tags.contains(&tag) {
+                        continue;
+                    }
+                    // add tag
+                    tags.push(tag);
                 }
-
-                let tags_val = self
-                    .special
-                    .entry(key)
-                    .or_insert_with(|| SpecialValue::Tags(Vec::new()));
-                unwrap_value!(Tags, tags_val).extend(new_tags);
+                // add to the map
+                self.special.insert(key, SpecialValue::Tags(tags));
             }
             SpecialKey::Emoji => {
                 let emoji = if value.starts_with(':') && value.ends_with(':') {
@@ -471,8 +479,6 @@ impl RecipeTime {
 pub(crate) enum MetadataError {
     #[error("Value is not an emoji: {value}")]
     NotEmoji { value: String },
-    #[error("Invalid tag: {tag}")]
-    InvalidTag { tag: String },
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("Duplicate servings: {servings:?}")]
@@ -481,69 +487,9 @@ pub(crate) enum MetadataError {
     ParseTimeError(#[from] ParseTimeError),
 }
 
-/// Checks that a tag is valid
-///
-/// A tag is valid when:
-/// - The length is 1 <= len <= 32
-/// - lowercase letters, numbers and '-'
-/// - starts with a letters
-/// - '-' have to be surrounded by letters or numbers, no two '-' can be together
-pub fn is_valid_tag(tag: &str) -> bool {
-    let tag_len = 1..=32;
-    let re = regex!(r"^\p{Ll}[\p{Ll}\d]*(-[\p{Ll}\d]+)*$");
-
-    tag_len.contains(&tag.chars().count()) && re.is_match(tag)
-}
-
-/// Transform the input text into a valid tag*
-///
-/// *Length is not checked
-pub fn tagify(text: &str) -> String {
-    let text = text
-        .trim()
-        .replace(|c: char| (c.is_whitespace() || c == '_'), "-")
-        .replace(|c: char| !(c.is_alphanumeric() || c == '-'), "")
-        .trim_matches('-')
-        .to_lowercase();
-
-    let slug = regex!(r"--+").replace_all(&text, "-");
-
-    slug.into()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_is_valid_tag() {
-        assert!(is_valid_tag("uwu"));
-        assert!(is_valid_tag("italian-food"));
-        assert!(is_valid_tag("contains-number-1"));
-        assert!(is_valid_tag("unicode-ñçá"));
-        assert!(!is_valid_tag(""));
-        assert!(!is_valid_tag("1ow"));
-        assert!(!is_valid_tag("111"));
-        assert!(!is_valid_tag("1starts-with-number"));
-        assert!(!is_valid_tag("many---hyphens"));
-        assert!(!is_valid_tag("other/characters"));
-        assert!(!is_valid_tag("other@[]chara€cters"));
-    }
-
-    #[test]
-    fn test_tagify() {
-        assert_eq!(tagify("text"), "text");
-        assert_eq!(tagify("text with spaces"), "text-with-spaces");
-        assert_eq!(
-            tagify("text with      many\tspaces"),
-            "text-with-many-spaces"
-        );
-        assert_eq!(tagify("text with CAPS"), "text-with-caps");
-        assert_eq!(tagify("text with CAPS"), "text-with-caps");
-        assert_eq!(tagify("text_with_underscores"), "text-with-underscores");
-        assert_eq!(tagify("WhATever_--thiS - - is"), "whatever-this-is");
-        assert_eq!(tagify("Sensible recipe name"), "sensible-recipe-name");
-    }
 
     #[test]
     fn test_parse_time_with_units() {
@@ -591,44 +537,46 @@ mod tests {
         t("servings", SpecialKey::Servings);
     }
 
+    macro_rules! insert {
+        ($m:expr, $converter:expr, $key:expr, $val:literal) => {
+            $m.insert_special($key, $val.to_string(), &$converter)
+        };
+    }
+
     // To ensure no panics in unwrap_value
     #[test]
     fn special_key_access() {
         let converter = Converter::empty();
         let mut m = Metadata::default();
 
-        let _ = m.insert_special(
-            SpecialKey::Description,
-            "Description".to_string(),
-            &converter,
-        );
+        let _ = insert!(m, converter, SpecialKey::Description, "Description");
         assert!(matches!(m.description(), Some(_)));
 
-        let _ = m.insert_special(SpecialKey::Tags, "t1, t2".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::Tags, "t1, t2");
         assert!(matches!(m.tags(), Some(_)));
 
-        let _ = m.insert_special(SpecialKey::Emoji, "⛄".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::Emoji, "⛄");
         assert!(matches!(m.emoji(), Some(_)));
 
-        let _ = m.insert_special(SpecialKey::Author, "Rachel".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::Author, "Rachel");
         assert!(matches!(m.author(), Some(_)));
 
-        let _ = m.insert_special(SpecialKey::Source, "Mom's cookbook".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::Source, "Mom's cookbook");
         assert!(matches!(m.source(), Some(_)));
 
-        let _ = m.insert_special(SpecialKey::PrepTime, "3 min".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::PrepTime, "3 min");
         assert!(matches!(m.time(), Some(_)));
         m.special.remove(&SpecialKey::Time);
 
-        let _ = m.insert_special(SpecialKey::CookTime, "3 min".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::CookTime, "3 min");
         assert!(matches!(m.time(), Some(_)));
         m.special.remove(&SpecialKey::Time);
 
-        let _ = m.insert_special(SpecialKey::Time, "3 min".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::Time, "3 min");
         assert!(matches!(m.time(), Some(_)));
         m.special.remove(&SpecialKey::Time);
 
-        let _ = m.insert_special(SpecialKey::Servings, "3|4".to_string(), &converter);
+        let _ = insert!(m, converter, SpecialKey::Servings, "3|4");
         assert!(matches!(m.servings(), Some(_)));
     }
 
@@ -637,16 +585,16 @@ mod tests {
         let converter = Converter::empty();
 
         let mut m = Metadata::default();
-        let r = m.insert_special(SpecialKey::Emoji, "taco".to_string(), &converter);
+        let r = insert!(m, converter, SpecialKey::Emoji, "taco");
         assert!(r.is_err());
 
         let mut m = Metadata::default();
-        let r = m.insert_special(SpecialKey::Emoji, ":taco:".to_string(), &converter);
+        let r = insert!(m, converter, SpecialKey::Emoji, ":taco:");
         assert!(r.is_ok());
         assert_eq!(m.emoji(), Some("🌮"));
 
         let mut m = Metadata::default();
-        let r = m.insert_special(SpecialKey::Emoji, "🌮".to_string(), &converter);
+        let r = insert!(m, converter, SpecialKey::Emoji, "🌮");
         assert!(r.is_ok());
         assert_eq!(m.emoji(), Some("🌮"));
     }
