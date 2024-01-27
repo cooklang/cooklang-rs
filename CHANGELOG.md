@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+## 0.13.0
 ## Features
 - The parser now has the option to check every metadata entry with a custom
   function. See `ParseOptions`.
