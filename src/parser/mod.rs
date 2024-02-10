@@ -304,8 +304,8 @@ where
         let mut bp = BlockParser::new(&self.block, self.input, &mut self.queue, self.extensions);
         if let Some(ev) = metadata_entry(&mut bp) {
             bp.event(ev);
+            bp.finish(); // only finish if a metadata is parsed, as other blocks are not consumed
         }
-        bp.finish();
 
         Some(())
     }

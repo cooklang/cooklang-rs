@@ -94,7 +94,7 @@ fn is_word_char(c: char) -> bool {
         ' ' | '\n' | '\r' | '\t' | '0'..='9' | '.' => false, // common chars that break a word
         '>' | ':' | '@' | '#' | '~' | '?' | '+' | '-' | '/' | '*' | '&' | '|' | '=' | '%' | '{'
         | '}' | '(' | ')' => false,
-        c if c.is_separator_space() || c.is_punctuation() => false,
+        c if c.is_separator_space() || c.is_punctuation() => false, // '\' (escape) is punctuation and not common, so I will leave it here
         _ => true,
     }
 }
