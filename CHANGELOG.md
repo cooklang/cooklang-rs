@@ -2,12 +2,16 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.13.1
+### Fixed
+- Panic when parsing just metadata.
+
 ## 0.13.0
-## Features
+### Features
 - The parser now has the option to check every metadata entry with a custom
   function. See `ParseOptions`.
 
-## Breaking
+### Breaking
 - Replace recipe ref checks API with `ParseOptions`. This now also holds the
   metadata validator.
 - Tags are no longer check. Use a custom entry validator if you need it.

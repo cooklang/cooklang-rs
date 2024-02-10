@@ -1,6 +1,6 @@
 [package]
 name = "cooklang"
-version = "0.13.0"
+version = "0.13.1"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
@@ -14,7 +14,7 @@ readme = "README.md"
 bitflags = { version = "2", features = ["serde"] }
 regex = "1"
 serde = { version = "1", features = ["derive", "rc"] }
-strum = { version = "0.25", features = ["derive"] }
+strum = { version = "0.26.1", features = ["derive"] }
 thiserror = "1"
 url = { version = "2", features = ["serde"] }
 pest = { version = "2", optional = true }
