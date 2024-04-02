@@ -220,7 +220,7 @@ _(`servings` is always parsed)_
 
 ### Name with URL
 
-When using a name with an URL, the name can contain, besides alphanumerics, only space, `,`, `.`, `-`, `_`, `\`` and `'`.
+When using a name with an URL, the name can contain, besides alphanumerics, only space, `,`, `.`, `-`, `_`, `#`, `` ` `` and `'`.
 
 Example: `Mom's Cookbook <https://moms-cookbook.url>` -> name: `Mom's Cookbook` url: `https://moms-cookbook.url`
 
