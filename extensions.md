@@ -210,10 +210,18 @@ This extension enables extra parsing for some special metadata keys. These are:
 
 - `tags`. Comma separated list of tags.
 - `emoji`. Emoji or emoji shortcode, checked that it's an actual emoji.
-- `author`. Name, URL or both with the format `name <URL>`.
+- `author`. Name, URL or [both](#Name-with-URL) with the format `name <URL>`. 
 - `source`. Same as `author`.
 - `time`. Time string with unit support. Like `2 hour 30 min`. This overrides past `prep_time`/`cook_time`.
 - `prep_time`. Same format as `time`. Overrides past `time` but not `prep_time`.
 - `cook_time`. Same format as `time`. Overrides past `time` but not `cook_time`.
 
 _(`servings` is always parsed)_
+
+### Name with URL
+
+When using a name with an URL, the name can contain, besides alphanumerics, only space, `,`, `.`, `-`, `_`, `\`` and `'`.
+
+Example: `Mom's Cookbook <https://moms-cookbook.url>` -> name: `Mom's Cookbook` url: `https://moms-cookbook.url`
+
+
