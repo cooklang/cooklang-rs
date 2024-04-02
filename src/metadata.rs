@@ -426,7 +426,7 @@ impl NameAndUrl {
     /// The Url validated, so it has to be correct. If no url is found or it's
     /// invalid, everything will be the name.
     pub fn parse(s: &str) -> Self {
-        let re = regex!(r"^(\w+(?:\s\w+)*)\s+<([^>]+)>$");
+        let re = regex!(r"^([\w,.#`'\-]+(?:[\s\w,.#`'\-]+)*)\s+<([^>]+)>$");
         if let Some(captures) = re.captures(s) {
             let name = &captures[1];
             if let Ok(url) = Url::parse(captures[2].trim()) {
@@ -510,6 +510,60 @@ mod tests {
         assert_eq!(t("25 secs"), Some(0)); // round down
         assert_eq!(t("1 min 25 secs"), Some(1)); // round down
         assert_eq!(t("   0  hours 90min 59 sec "), Some(91));
+    }
+
+    #[test]
+    fn parse_name_and_url() {
+        let t = |s: &str, name: &str, url: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.url.as_ref().unwrap().as_str(), url);
+            assert_eq!(name_and_url.name.as_ref().unwrap().as_str(), name);
+        };
+
+        let t_no_url = |s: &str, name: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.name.as_ref().unwrap().as_str(), name);
+            assert_eq!(name_and_url.url, None);
+        };
+
+        let t_no_name = |s: &str, url: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.name, None);
+            assert_eq!(name_and_url.url.as_ref().unwrap().as_str(), url);
+        };
+
+        t("Rachel <https://rachel.url>", "Rachel", "https://rachel.url/");
+        t_no_url("Rachel", "Rachel");
+
+        t("Rachel Peterson <https://rachel.url>", "Rachel Peterson", "https://rachel.url/");
+        t_no_url("Rachel Peterson", "Rachel Peterson");
+
+        t("Rachel R. Peterson <https://rachel.url>", "Rachel R. Peterson", "https://rachel.url/");
+        t_no_url("Rachel R. Peterson", "Rachel R. Peterson");
+
+        t("Rachel Peter-son <https://rachel.url>", "Rachel Peter-son", "https://rachel.url/");
+        t_no_url("Rachel Peter-son", "Rachel Peter-son");
+
+        t("Rachel`s Cookbook <https://rachel.url>", "Rachel`s Cookbook", "https://rachel.url/");
+        t_no_url("Rachel`s Cookbook", "Rachel`s Cookbook");
+
+        t("Rachel's Cookbook <https://rachel.url>", "Rachel's Cookbook", "https://rachel.url/");
+        t_no_url("Rachel's Cookbook", "Rachel's Cookbook");
+
+        t("#rachel <https://rachel.url>", "#rachel", "https://rachel.url/");
+        t_no_url("#rachel", "#rachel");
+
+        t_no_name("https://rachel.url", "https://rachel.url/");
+
+        //If there is no "name-part", but the URL is encapsulated with "<..>", it will be interpreted as name
+        t_no_url("<https://rachel.url>", "<https://rachel.url>");
+
+        //First word tailored with ":": The whole string will always be interpreted as an URL
+        t_no_name("Rachel: Best recipes <https://rachel.url>", "rachel: Best recipes <https://rachel.url>");
+        t_no_name("Rachel: Best recipes", "rachel: Best recipes");
+
+        //Non-first word tailored with ":", but "name-part" contains ":": The whole string will always be interpreted as name
+        t_no_url("Rachel Peterson: Best recipes <https://rachel.url>", "Rachel Peterson: Best recipes <https://rachel.url>");
     }
 
     #[test]
