@@ -421,32 +421,40 @@ impl NameAndUrl {
     /// The string is of the form:
     /// - `Name <Url>`
     /// - `Url`
+    /// - `<Url>`
     /// - `Name`
     ///
     /// The Url validated, so it has to be correct. If no url is found or it's
     /// invalid, everything will be the name.
     pub fn parse(s: &str) -> Self {
-        let re = regex!(r"^(\w+(?:\s\w+)*)\s+<([^>]+)>$");
-        if let Some(captures) = re.captures(s) {
-            let name = &captures[1];
+        let regex_encapsulated_url = regex!(r"^(.*)\s?<([^>]+)>$");
+        if let Some(captures) = regex_encapsulated_url.captures(s) {
             if let Ok(url) = Url::parse(captures[2].trim()) {
-                return NameAndUrl {
-                    name: Some(name.to_string()),
-                    url: Some(url),
-                };
+                if url.has_host() {
+                    return Self::name_and_url(Self::create_name(&captures[1]), Some(url));
+                }
             }
         }
 
-        if let Ok(url) = Url::parse(s) {
-            NameAndUrl {
-                name: None,
-                url: Some(url),
+        if let Ok(url) = Url::parse(s.trim()) {
+            if url.has_host() {
+                return Self::name_and_url(None, Some(url));
             }
+        }
+
+        Self::name_and_url(Self::create_name(s), None)
+    }
+
+    fn name_and_url(name: Option<String>, url: Option<Url>) -> NameAndUrl {
+        NameAndUrl { name, url }
+    }
+
+    fn create_name(name: &str) -> Option<String> {
+        let name = name.trim();
+        if name.len() > 0 {
+            Some(name.to_string())
         } else {
-            NameAndUrl {
-                name: Some(s.to_string()),
-                url: None,
-            }
+            None
         }
     }
 
@@ -541,6 +549,96 @@ mod tests {
         ($m:expr, $converter:expr, $key:expr, $val:literal) => {
             $m.insert_special($key, $val.to_string(), &$converter)
         };
+    }
+
+    #[test]
+    fn parse_name_and_url() {
+        let t = |s: &str, name: &str, url: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.url.as_ref().unwrap().as_str(), url);
+            assert_eq!(name_and_url.name.as_ref().unwrap().as_str(), name);
+        };
+
+        let t_no_url = |s: &str, name: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.name.as_ref().unwrap().as_str(), name);
+            assert_eq!(name_and_url.url, None);
+        };
+
+        let t_no_name = |s: &str, url: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.name, None);
+            assert_eq!(name_and_url.url.as_ref().unwrap().as_str(), url);
+        };
+
+        let t_no_name_no_url = |s: &str| {
+            let name_and_url = NameAndUrl::parse(s);
+            assert_eq!(name_and_url.name, None);
+            assert_eq!(name_and_url.url, None);
+        };
+
+        t(
+            "Rachel <https://rachel.url>",
+            "Rachel",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel R. Peterson <https://rachel.url>",
+            "Rachel R. Peterson",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel Peterson <https://rachel.url>",
+            "Rachel Peterson",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel Peter-son <https://rachel.url>",
+            "Rachel Peter-son",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel`s Cookbook <https://rachel.url>",
+            "Rachel`s Cookbook",
+            "https://rachel.url/",
+        );
+        t(
+            "#rachel <https://rachel.url>",
+            "#rachel",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel: Best recipes <https://rachel.url>",
+            "Rachel: Best recipes",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel Peterson: Best recipes <https://rachel.url>",
+            "Rachel Peterson: Best recipes",
+            "https://rachel.url/",
+        );
+        t(
+            "Rachel Peterson: Best recipes <smb://rachel.url>",
+            "Rachel Peterson: Best recipes",
+            "smb://rachel.url",
+        );
+        t_no_url("Rachel", "Rachel");
+        t_no_url("Rachel Peterson", "Rachel Peterson");
+        t_no_url("Rachel R. Peterson", "Rachel R. Peterson");
+        t_no_url("Rachel Peter-son", "Rachel Peter-son");
+        t_no_url("Rachel`s Cookbook", "Rachel`s Cookbook");
+        t_no_url("Rachel's Cookbook", "Rachel's Cookbook");
+        t_no_url("#rachel", "#rachel");
+        t_no_url("<#rach>el", "<#rach>el");
+        t_no_url("<>", "<>");
+        t_no_url("< >", "< >");
+        t_no_url("Rachel:// Peterson", "Rachel:// Peterson");
+        t_no_url("Rachel: Best recipes", "Rachel: Best recipes");
+        t_no_name("https://rachel.url", "https://rachel.url/");
+        t_no_name("<https://rachel.url>", "https://rachel.url/");
+        t_no_name("   <https://rachel.url>", "https://rachel.url/");
+        t_no_name_no_url("");
+        t_no_name_no_url("   ");
     }
 
     // To ensure no panics in unwrap_value
