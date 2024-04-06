@@ -427,35 +427,32 @@ impl NameAndUrl {
     /// The Url validated, so it has to be correct. If no url is found or it's
     /// invalid, everything will be the name.
     pub fn parse(s: &str) -> Self {
-        let regex_encapsulated_url = regex!(r"^(.*)\s?<([^>]+)>$");
+        let regex_encapsulated_url = regex!(r"^([^<]*)<([^<>]+)>$");
         if let Some(captures) = regex_encapsulated_url.captures(s) {
             if let Ok(url) = Url::parse(captures[2].trim()) {
-                if url.has_host() {
-                    return Self::name_and_url(Self::create_name(&captures[1]), Some(url));
-                }
+                // if the user has written the URL inside '<..>', keep it even
+                // if it has no host
+                return Self::new(Some(&captures[1]), Some(url));
             }
         }
 
         if let Ok(url) = Url::parse(s.trim()) {
+            // Safety check so a URL like `Rachel: best recipes`, where "Rachel"
+            // is the protocol, doesn't get detected.
             if url.has_host() {
-                return Self::name_and_url(None, Some(url));
+                return Self::new(None, Some(url));
             }
         }
 
-        Self::name_and_url(Self::create_name(s), None)
+        Self::new(Some(s), None)
     }
 
-    fn name_and_url(name: Option<String>, url: Option<Url>) -> NameAndUrl {
-        NameAndUrl { name, url }
-    }
-
-    fn create_name(name: &str) -> Option<String> {
-        let name = name.trim();
-        if name.len() > 0 {
-            Some(name.to_string())
-        } else {
-            None
-        }
+    fn new(name: Option<&str>, url: Option<Url>) -> Self {
+        let name = name
+            .map(|n| n.trim())
+            .filter(|n| n.len() > 0)
+            .map(String::from);
+        Self { name, url }
     }
 
     /// Get the name
@@ -634,6 +631,14 @@ mod tests {
         t_no_url("< >", "< >");
         t_no_url("Rachel:// Peterson", "Rachel:// Peterson");
         t_no_url("Rachel: Best recipes", "Rachel: Best recipes");
+        t_no_url(
+            "Rachel <https://two.rachel.url> <https://rachel.url>",
+            "Rachel <https://two.rachel.url> <https://rachel.url>",
+        );
+        t_no_url(
+            "Rachel <<https://bad.rachel.url>",
+            "Rachel <<https://bad.rachel.url>",
+        );
         t_no_name("https://rachel.url", "https://rachel.url/");
         t_no_name("<https://rachel.url>", "https://rachel.url/");
         t_no_name("   <https://rachel.url>", "https://rachel.url/");
