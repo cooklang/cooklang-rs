@@ -95,6 +95,7 @@ function passStringToWasm0(arg, malloc, realloc) {
         const ret = encodeString(arg, view);
 
         offset += ret.written;
+        ptr = realloc(ptr, len, offset, 1) >>> 0;
     }
 
     WASM_VECTOR_LEN = offset;
@@ -104,6 +105,10 @@ function passStringToWasm0(arg, malloc, realloc) {
 function isLikeNone(x) {
     return x === undefined || x === null;
 }
+
+const FallibleResultFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_fallibleresult_free(ptr >>> 0));
 /**
 */
 export class FallibleResult {
@@ -112,14 +117,14 @@ export class FallibleResult {
         ptr = ptr >>> 0;
         const obj = Object.create(FallibleResult.prototype);
         obj.__wbg_ptr = ptr;
-
+        FallibleResultFinalization.register(obj, obj.__wbg_ptr, obj);
         return obj;
     }
 
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
-
+        FallibleResultFinalization.unregister(this);
         return ptr;
     }
 
@@ -182,6 +187,10 @@ export class FallibleResult {
         wasm.__wbg_set_fallibleresult_error(this.__wbg_ptr, ptr0, len0);
     }
 }
+
+const StateFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_state_free(ptr >>> 0));
 /**
 */
 export class State {
@@ -189,7 +198,7 @@ export class State {
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
         this.__wbg_ptr = 0;
-
+        StateFinalization.unregister(this);
         return ptr;
     }
 
