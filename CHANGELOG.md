@@ -2,6 +2,11 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.13.2 - 2024/04/07
+- Fixed name and url parsing in `author` and `source` special metadata keys.
+  Before, the name was too restrictive and some names could be miss interpreted
+  as URLs. (thanks to @Someone0nEarth)
+
 ## 0.13.1
 ### Fixed
 - Panic when parsing just metadata.
