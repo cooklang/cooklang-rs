@@ -1,6 +1,6 @@
 //! Utility to represent a location in the source code
 
-use std::ops::{Deref, Range};
+use std::ops::Range;
 
 /// Location in the source code
 ///
@@ -56,30 +56,6 @@ impl std::fmt::Debug for Span {
     }
 }
 
-impl Span {
-    pub(crate) fn to_chars_span<Id>(self, all_source: &str, source_id: Id) -> CharsSpan<Id> {
-        let start = all_source[..self.start].chars().count();
-        let len = all_source[self.range()].chars().count();
-        CharsSpan {
-            span: Span::new(start, start + len),
-            source_id,
-        }
-    }
-}
-
-pub(crate) struct CharsSpan<Id> {
-    span: Span,
-    source_id: Id,
-}
-
-impl<Id> Deref for CharsSpan<Id> {
-    type Target = Span;
-
-    fn deref(&self) -> &Self::Target {
-        &self.span
-    }
-}
-
 impl From<Range<usize>> for Span {
     fn from(value: Range<usize>) -> Self {
         Self::new(value.start, value.end)
@@ -101,24 +77,5 @@ impl<T> From<crate::located::Located<T>> for Span {
 impl crate::error::Recover for Span {
     fn recover() -> Self {
         Self::new(0, 0)
-    }
-}
-
-impl<Id> ariadne::Span for CharsSpan<Id>
-where
-    Id: ToOwned + PartialEq,
-{
-    type SourceId = Id;
-
-    fn source(&self) -> &Self::SourceId {
-        &self.source_id
-    }
-
-    fn start(&self) -> usize {
-        self.span.start
-    }
-
-    fn end(&self) -> usize {
-        self.span.end
     }
 }

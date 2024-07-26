@@ -308,13 +308,13 @@ impl SourceReport {
         color: bool,
         w: &mut impl std::io::Write,
     ) -> std::io::Result<()> {
-        let mut cache = DummyCache::new(file_name, source_code);
+        let lidx = codesnake::LineIndex::new(source_code);
 
         for err in self.warnings() {
-            build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
+            write_report(&mut *w, err, &lidx, file_name, color)?;
         }
         for err in self.errors() {
-            build_report(err, file_name, source_code, color).write(&mut cache, &mut *w)?;
+            write_report(&mut *w, err, &lidx, file_name, color)?;
         }
         Ok(())
     }
@@ -454,107 +454,101 @@ pub fn write_rich_error(
     color: bool,
     w: impl std::io::Write,
 ) -> std::io::Result<()> {
-    let mut cache = DummyCache::new(file_name, source_code);
-    let report = build_report(error, file_name, source_code, color);
-    report.write(&mut cache, w)
+    let lidx = codesnake::LineIndex::new(source_code);
+    write_report(w, error, &lidx, file_name, color)
 }
 
-fn build_report<'a>(
+#[derive(Default)]
+struct ColorGenerator(usize);
+
+impl ColorGenerator {
+    const COLORS: &'static [yansi::Color] = &[
+        yansi::Color::BrightMagenta,
+        yansi::Color::BrightGreen,
+        yansi::Color::BrightCyan,
+        yansi::Color::BrightBlue,
+        yansi::Color::BrightGreen,
+        yansi::Color::BrightYellow,
+        yansi::Color::BrightRed,
+    ];
+
+    fn next(&mut self) -> yansi::Color {
+        let c = Self::COLORS[self.0];
+        if self.0 == Self::COLORS.len() - 1 {
+            self.0 = 0;
+        } else {
+            self.0 += 1;
+        }
+        c
+    }
+}
+
+fn write_report<'a>(
+    mut w: impl std::io::Write,
     err: &'a dyn RichError,
+    lidx: &codesnake::LineIndex,
     file_name: &str,
-    src_code: &str,
-    color: bool,
-) -> ariadne::Report<'a> {
-    use ariadne::{Color, ColorGenerator, Fmt, Label, Report};
+    _color: bool,
+) -> std::io::Result<()> {
+    use yansi::Paint;
+
+    let mut cg = ColorGenerator::default();
 
     let labels = err.labels();
-    let labels = labels
-        .iter()
-        .map(|(s, t)| (s.to_chars_span(src_code, file_name).range(), t))
-        .collect::<Vec<_>>();
-
-    // The start of the first span
-    let offset = labels.first().map(|l| l.0.start).unwrap_or_default();
-
-    let kind = match err.severity() {
-        Severity::Error => ariadne::ReportKind::Error,
-        Severity::Warning => ariadne::ReportKind::Warning,
-    };
-
-    let mut r =
-        Report::build(kind, (), offset).with_config(ariadne::Config::default().with_color(color));
-
-    if let Some(source) = err.source() {
-        let arrow_color = if color {
-            match kind {
-                ariadne::ReportKind::Error => Color::Red,
-                ariadne::ReportKind::Warning => Color::Yellow,
-                ariadne::ReportKind::Advice => Color::Fixed(147),
-                ariadne::ReportKind::Custom(_, c) => c,
-            }
-        } else {
-            Color::Default
-        };
-        let message = format!("{err}\n  {} {source}", "╰▶ ".fg(arrow_color));
-        r.set_message(message);
-    } else {
-        r.set_message(err);
+    let mut colored_labels = Vec::with_capacity(labels.len());
+    for (s, t) in labels.iter() {
+        let color = cg.next();
+        let l = codesnake::Label::new(s.range(), t.clone().unwrap_or("".into()))
+            .with_style(move |s| s.paint(color).to_string());
+        colored_labels.push(l);
     }
 
-    let mut c = ColorGenerator::new();
-    r.add_labels(labels.into_iter().enumerate().map(|(order, (span, text))| {
-        let mut l = Label::new(span)
-            .with_order(order as i32)
-            .with_color(c.next());
-        if let Some(text) = text {
-            l = l.with_message(text);
-        }
-        l
-    }));
+    let block = codesnake::Block::new(&lidx, colored_labels).expect("invalid report spans");
+
+    let sev_color = match err.severity() {
+        Severity::Error => yansi::Color::Red,
+        Severity::Warning => yansi::Color::Yellow,
+    };
+    match err.severity() {
+        Severity::Error => writeln!(w, "{} {err}", "Error:".paint(sev_color))?,
+        Severity::Warning => writeln!(w, "{} {err}", "Warning: ".paint(sev_color))?,
+    }
+    if let Some(source) = err.source() {
+        writeln!(w, "  {} {source}", "╰▶ ".paint(sev_color))?;
+    }
+
+    let block = block.map_code(|c| codesnake::CodeWidth::new(c, c.len()));
+
+    writeln!(
+        w,
+        "{}{}{}{}",
+        block.prologue(),
+        "[".dim(),
+        file_name,
+        "]".dim()
+    )?;
+    write!(w, "{block}")?;
+    writeln!(w, "{}", block.epilogue())?;
 
     let hints = err.hints();
     let mut hints = hints.iter();
 
     if let Some(help) = hints.next() {
-        r.set_help(help);
+        writeln!(w, "{} {}", "Help:".green(), help)?;
     }
 
     if let Some(note) = hints.next() {
-        r.set_note(note);
+        writeln!(w, "{} {}", "Note:".green(), note)?;
     }
 
     #[cfg(debug_assertions)]
     if hints.next().is_some() {
         tracing::warn!(
             hints = ?err.hints(),
-            "this function only supports 2 hints, more will be ignored",
+            "the report builder only supports 2 hints, more will be ignored",
         );
     }
-
-    r.finish()
-}
-
-// This is a ariadne cache that only supports one file.
-// If needed it can be expanded to a full cache as the source id is already
-// stored in CharsSpan (the ariadne::Span)
-struct DummyCache<'a>(String, ariadne::Source<&'a str>);
-impl<'a> DummyCache<'a> {
-    fn new(file_name: &str, src_code: &'a str) -> Self {
-        Self(file_name.into(), ariadne::Source::from(src_code))
-    }
-}
-impl<'s> ariadne::Cache<()> for DummyCache<'s> {
-    type Storage = &'s str;
-    fn fetch(
-        &mut self,
-        _id: &(),
-    ) -> Result<&ariadne::Source<Self::Storage>, Box<dyn std::fmt::Debug + '_>> {
-        Ok(&self.1)
-    }
-
-    fn display<'a>(&self, _id: &'a ()) -> Option<Box<dyn std::fmt::Display + 'a>> {
-        Some(Box::new(self.0.clone()))
-    }
+    Ok(())
 }
 
 /// Like [`Default`] but for situations where a default value does not make sense
