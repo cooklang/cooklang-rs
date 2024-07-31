@@ -19,9 +19,8 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
         block.warn(
             warning!(
                 "A section block is invalid and it will be a step",
-                label!(block.span()),
+                label!(tokens_span(block.rest()), "remove this"),
             )
-            .label(label!(tokens_span(block.rest()), "remove this"))
             .hint("After the ending `=` the line must end for it to be a valid section"),
         );
         return None;

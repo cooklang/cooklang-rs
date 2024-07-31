@@ -591,7 +591,7 @@ fn check_note(bp: &mut BlockParser, container: &'static str) {
                     format!("A {container} cannot have a note, it will be text"),
                     label!(Span::new(start, end)),
                 )
-                .label(label!(Span::pos(start), "add a space here"))
+                .label(label!(Span::pos(start - 1), "add a space here")) // this at least will be the marker character
                 .hint("Notes are only available in ingredients and cookware items"),
             );
             None::<()> // always backtrack
