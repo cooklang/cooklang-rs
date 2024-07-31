@@ -494,12 +494,18 @@ fn write_report<'a>(
 
     let mut cg = ColorGenerator::default();
 
-    let labels = err.labels();
+    let mut labels = err.labels();
+    // codesnake requires the labels to be sorted
+    labels.to_mut().sort_unstable_by_key(|l| l.0);
+
     let mut colored_labels = Vec::with_capacity(labels.len());
     for (s, t) in labels.iter() {
         let color = cg.next();
-        let l = codesnake::Label::new(s.range(), t.clone().unwrap_or("".into()))
-            .with_style(move |s| s.paint(color).to_string());
+        let mut l =
+            codesnake::Label::new(s.range()).with_style(move |s| s.paint(color).to_string());
+        if let Some(text) = t {
+            l = l.with_text(text)
+        }
         colored_labels.push(l);
     }
 
