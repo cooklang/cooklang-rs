@@ -509,8 +509,6 @@ fn write_report<'a>(
         colored_labels.push(l);
     }
 
-    let block = codesnake::Block::new(&lidx, colored_labels).expect("invalid report spans");
-
     let sev_color = match err.severity() {
         Severity::Error => yansi::Color::Red,
         Severity::Warning => yansi::Color::Yellow,
@@ -522,6 +520,11 @@ fn write_report<'a>(
     if let Some(source) = err.source() {
         writeln!(w, "  {} {source}", "╰▶ ".paint(sev_color))?;
     }
+
+    let Some(block) = codesnake::Block::new(&lidx, colored_labels) else {
+        tracing::error!("Failed to format code span, this is a bug.");
+        return Ok(());
+    };
 
     let block = block.map_code(|c| codesnake::CodeWidth::new(c, c.len()));
 
