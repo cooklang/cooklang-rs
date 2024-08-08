@@ -526,7 +526,13 @@ fn write_report<'a>(
         return Ok(());
     };
 
-    let block = block.map_code(|c| codesnake::CodeWidth::new(c, c.len()));
+    let mut prev_empty = false;
+    let block = block.map_code(|s| {
+        let sub = usize::from(core::mem::replace(&mut prev_empty, s.is_empty()));
+        let s = s.replace('\t', "    ");
+        let w = unicode_width::UnicodeWidthStr::width(&*s);
+        codesnake::CodeWidth::new(s, core::cmp::max(w, 1) - sub)
+    });
 
     writeln!(
         w,
