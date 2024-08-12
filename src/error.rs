@@ -483,14 +483,16 @@ impl ColorGenerator {
     }
 }
 
-fn write_report<'a>(
+fn write_report(
     mut w: impl std::io::Write,
-    err: &'a dyn RichError,
+    err: &dyn RichError,
     lidx: &codesnake::LineIndex,
     file_name: &str,
-    _color: bool,
+    color: bool,
 ) -> std::io::Result<()> {
     use yansi::Paint;
+
+    let cond = yansi::Condition::cached(color);
 
     let mut cg = ColorGenerator::default();
 
@@ -500,9 +502,9 @@ fn write_report<'a>(
 
     let mut colored_labels = Vec::with_capacity(labels.len());
     for (s, t) in labels.iter() {
-        let color = cg.next();
-        let mut l =
-            codesnake::Label::new(s.range()).with_style(move |s| s.paint(color).to_string());
+        let c = cg.next();
+        let mut l = codesnake::Label::new(s.range())
+            .with_style(move |s| s.paint(c).whenever(cond).to_string());
         if let Some(text) = t {
             l = l.with_text(text)
         }
@@ -514,14 +516,14 @@ fn write_report<'a>(
         Severity::Warning => yansi::Color::Yellow,
     };
     match err.severity() {
-        Severity::Error => writeln!(w, "{} {err}", "Error:".paint(sev_color))?,
-        Severity::Warning => writeln!(w, "{} {err}", "Warning:".paint(sev_color))?,
+        Severity::Error => writeln!(w, "{} {err}", "Error:".paint(sev_color).whenever(cond))?,
+        Severity::Warning => writeln!(w, "{} {err}", "Warning:".paint(sev_color).whenever(cond))?,
     }
     if let Some(source) = err.source() {
-        writeln!(w, "  {} {source}", "╰▶ ".paint(sev_color))?;
+        writeln!(w, "  {} {source}", "╰▶ ".paint(sev_color).whenever(cond))?;
     }
 
-    let Some(block) = codesnake::Block::new(&lidx, colored_labels) else {
+    let Some(block) = codesnake::Block::new(lidx, colored_labels) else {
         tracing::error!("Failed to format code span, this is a bug.");
         return Ok(());
     };
@@ -538,9 +540,9 @@ fn write_report<'a>(
         w,
         "{}{}{}{}",
         block.prologue(),
-        "[".dim(),
+        "[".dim().whenever(cond),
         file_name,
-        "]".dim()
+        "]".dim().whenever(cond)
     )?;
     write!(w, "{block}")?;
     writeln!(w, "{}", block.epilogue())?;
@@ -549,11 +551,11 @@ fn write_report<'a>(
     let mut hints = hints.iter();
 
     if let Some(help) = hints.next() {
-        writeln!(w, "{} {}", "Help:".green(), help)?;
+        writeln!(w, "{} {}", "Help:".green().whenever(cond), help)?;
     }
 
     if let Some(note) = hints.next() {
-        writeln!(w, "{} {}", "Note:".green(), note)?;
+        writeln!(w, "{} {}", "Note:".green().whenever(cond), note)?;
     }
 
     #[cfg(debug_assertions)]
