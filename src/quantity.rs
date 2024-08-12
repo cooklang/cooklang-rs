@@ -393,6 +393,8 @@ pub enum QuantityAddError {
 pub enum IncompatibleUnits {
     #[error("Missing unit: one unit is '{found}' but the other quantity is missing an unit")]
     MissingUnit {
+        /// `Left`: Missing on the left hand side quantity
+        /// `Right`: Missing on the right hand side quantity
         found: either::Either<QuantityUnit, QuantityUnit>,
     },
     #[error("Different physical quantity: '{a}' '{b}'")]

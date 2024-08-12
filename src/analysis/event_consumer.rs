@@ -217,9 +217,9 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         let invalid_value = |possible| {
             error!(
                 format!("Invalid value for config key '{key_t}': {value_t}"),
-                label!(value.span(), "this value is not supported")
+                label!(value.span(), "this value")
             )
-            .label(label!(key.span(), "by this key"))
+            .label(label!(key.span(), "this key does not support"))
             .hint(format!("Possible values are: {possible:?}"))
         };
 
@@ -309,7 +309,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                         ),
                         label!(value.span(), "this value"),
                     )
-                    .label(label!(key.span(), "is not supported by this key"))
+                    .label(label!(key.span(), "this key does not support"))
                     .hint("It will be a regular metadata entry")
                     .set_source(err),
                 );
@@ -534,12 +534,14 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                                 .map(|l| l.span())
                                 .unwrap_or(new_q_loc.span());
 
-                            let (new_label, old_label) = match &e {
+                            let (main_label, support_label) = match &e {
                                 crate::quantity::IncompatibleUnits::MissingUnit { found } => {
-                                    let m = "this is missing a unit";
-                                    let f = "matching this one";
+                                    let m = "value missing unit";
+                                    let f = "found unit";
                                     match found {
+                                        // new is mising
                                         either::Either::Left(_) => (label!(new, m), label!(old, f)),
+                                        // old is missing
                                         either::Either::Right(_) => (label!(new, f), label!(old, m)),
                                     }
                                 }
@@ -550,16 +552,16 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                                     (label!(new, b_q.to_string()), label!(old, a_q.to_string()))
                                 }
                                 crate::quantity::IncompatibleUnits::UnknownDifferentUnits { .. } => {
-                                    (label!(new, "this unit"), label!(old, "differs from this"))
+                                    (label!(new), label!(old))
                                 }
                             };
 
                             self.ctx.warn(
                                 warning!(
                                     "Incompatible units prevent calculating total amount",
-                                    new_label
+                                    main_label
                                 )
-                                .label(old_label)
+                                .label(support_label)
                                 .set_source(e),
                             )
                         }
@@ -1283,11 +1285,11 @@ fn conflicting_reference_quantity_error(
 ) -> SourceDiag {
     let mut e = error!(
         "Conflicting component reference quantities",
-        label!(ref_quantity_span, "reference with quantity here")
+        label!(ref_quantity_span, "reference with quantity")
     )
     .label(label!(
         def_span,
-        "definition with quantity outside a step here"
+        "definition with quantity outside a step"
     ))
     .hint("If the component is not defined in a step and has a quantity, its references cannot have a quantity");
     if implicit {
@@ -1303,12 +1305,9 @@ fn text_val_in_ref_warn(
 ) -> SourceDiag {
     let mut w = warning!(
         "Text value may prevent calculating total amount",
-        label!(text_quantity_span, "this text")
+        label!(text_quantity_span, "can't operate with text value")
     )
-    .label(label!(
-        number_quantity_span,
-        "cannot be added to this value"
-    ))
+    .label(label!(number_quantity_span, "numeric value"))
     .hint("Use numeric values so they can be added together");
     if implicit {
         w.add_hint(IMPLICIT_REF_WARN);

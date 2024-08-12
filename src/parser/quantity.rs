@@ -72,10 +72,9 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
             bp.warn(
                 warning!(
                     "Empty quantity unit",
-                    label!(unit_text.span(), "add unit here")
+                    label!(unit_separator.unwrap(), "remove this")
                 )
-                .label(label!(unit_separator.unwrap(), "or remove this"))
-                .hint("It will be as if the quantity has no unit"),
+                .hint("Add a unit or remove the separator"),
             );
             unit = None;
         }

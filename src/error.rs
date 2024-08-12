@@ -515,7 +515,7 @@ fn write_report<'a>(
     };
     match err.severity() {
         Severity::Error => writeln!(w, "{} {err}", "Error:".paint(sev_color))?,
-        Severity::Warning => writeln!(w, "{} {err}", "Warning: ".paint(sev_color))?,
+        Severity::Warning => writeln!(w, "{} {err}", "Warning:".paint(sev_color))?,
     }
     if let Some(source) = err.source() {
         writeln!(w, "  {} {source}", "╰▶ ".paint(sev_color))?;
