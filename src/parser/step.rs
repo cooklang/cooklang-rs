@@ -303,16 +303,16 @@ fn parse_alias<'i>(
                     format!("Invalid {container}: multiple aliases"),
                     label!(bad_bit, "more than one alias defined here"),
                 )
-                .hint("A component can only have one alias. Remove the extra '|'"),
+                .hint("A component can only have one alias"),
             );
             None
         } else if alias_text.is_text_empty() {
             bp.error(
                 error!(
                     format!("Invalid {container}: empty alias"),
-                    label!(alias_text.span(), "add alias here"),
+                    label!(alias_sep.span, "remove this"),
                 )
-                .label(label!(alias_sep.span, "or remove this")),
+                .hint("Either remove the `|` or add an alias"),
             );
             None
         } else {
@@ -591,7 +591,7 @@ fn check_note(bp: &mut BlockParser, container: &'static str) {
                     format!("A {container} cannot have a note, it will be text"),
                     label!(Span::new(start, end)),
                 )
-                .label(label!(Span::pos(start), "add a space here"))
+                .label(label!(Span::pos(start - 1), "add a space here")) // this at least will be the marker character
                 .hint("Notes are only available in ingredients and cookware items"),
             );
             None::<()> // always backtrack
