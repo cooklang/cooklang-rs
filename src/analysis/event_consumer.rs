@@ -1251,10 +1251,7 @@ impl RefComponent for Cookware<ScalableValue> {
 }
 
 fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<Value>, &'a str)> {
-    let Some(caps) = re.captures(text) else {
-        return None;
-    };
-
+    let caps = re.captures(text)?;
     let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
     let unit = caps.get(3).unwrap().range();
     let unit_text = text[unit].to_string();

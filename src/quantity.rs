@@ -758,7 +758,11 @@ impl FractionLookupTable {
     const DENOMS: &'static [u8] = &[2, 3, 4, 8, 10, 16];
 
     pub fn new() -> Self {
-        debug_assert!(!Self::DENOMS.is_empty());
+        #[allow(clippy::const_is_empty)]
+        {
+            // I really want to be sure clippy
+            debug_assert!(!Self::DENOMS.is_empty());
+        }
         debug_assert!(Self::DENOMS.windows(2).all(|w| w[0] < w[1]));
         let mut table = Vec::new();
 

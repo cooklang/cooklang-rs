@@ -450,7 +450,7 @@ impl NameAndUrl {
     fn new(name: Option<&str>, url: Option<Url>) -> Self {
         let name = name
             .map(|n| n.trim())
-            .filter(|n| n.len() > 0)
+            .filter(|n| !n.is_empty())
             .map(String::from);
         Self { name, url }
     }

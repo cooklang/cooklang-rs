@@ -281,7 +281,7 @@ pub struct Unit {
     pub ratio: f64,
     /// Difference offset to the conversion ratio
     pub difference: f64,
-    /// The [PhysicalQuantity] this unit belongs to
+    /// The [`PhysicalQuantity`] this unit belongs to
     pub physical_quantity: PhysicalQuantity,
     /// The unit [System] this unit belongs to, if any
     pub system: Option<System>,

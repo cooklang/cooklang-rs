@@ -245,7 +245,7 @@ impl IntoIterator for IngredientList {
 pub struct CategorizedIngredientList {
     /// One ingredient list per category
     ///
-    /// Because this is a [BTreeMap], the categories are sorted by name
+    /// Because this is a [`BTreeMap`], the categories are sorted by name
     pub categories: BTreeMap<String, IngredientList>,
     /// Ingredients with no category assigned
     pub other: IngredientList,
