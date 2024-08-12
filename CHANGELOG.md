@@ -2,6 +2,10 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.13.3 - 2024/08/12
+- Replace `ariadne` dependency with `codesnake`. Because of this, errors may
+  have some minor differences.
+
 ## 0.13.2 - 2024/04/07
 - Fixed name and url parsing in `author` and `source` special metadata keys.
   Before, the name was too restrictive and some names could be miss interpreted
