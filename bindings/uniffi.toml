@@ -1,0 +1,9 @@
+[bindings.kotlin]
+package_name = "org.cooklang.parser"
+generate_immutable_records = true
+android = true
+
+[bindings.swift]
+ffi_module_name = "CooklangParserFFI"
+module_name = "CooklangParser"
+generate_immutable_records = true

@@ -1,6 +1,6 @@
 [package]
 name = "cooklang-bindings"
-version = "0.0.2"
+version = "0.13.3"
 edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Cooklang Uniffi bindings"
@@ -12,17 +12,11 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0"
 cooklang = { path = ".." }
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", branch = "main" }
-
-[dev-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", features = ["bindgen-tests"], branch = "main" }
-
-[build-dependencies]
-uniffi = { git = "https://github.com/mozilla/uniffi-rs", features= ["build"], branch = "main" }
+uniffi = "0.28.1"
+clap_derive = { version = "4.0.0-rc.1" }
 
 [lib]
 crate-type = ["cdylib", "staticlib"]
-
 
 [[bin]]
 # workaround: https://mozilla.github.io/uniffi-rs/tutorial/foreign_language_bindings.html#creating-the-bindgen-binary
