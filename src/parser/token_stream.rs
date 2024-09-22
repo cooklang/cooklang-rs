@@ -16,6 +16,10 @@ impl<'i> TokenStream<'i> {
             consumed: 0,
         }
     }
+
+    pub fn offset(&mut self, offset: usize) {
+        self.consumed += offset;
+    }
 }
 
 impl<'i> Iterator for TokenStream<'i> {

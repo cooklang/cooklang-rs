@@ -130,6 +130,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         let events = events.by_ref();
         while let Some(event) = events.next() {
             match event {
+                Event::YAMLFrontMatter(_yaml_text) => todo!(),
                 Event::Metadata { key, value } => self.metadata(key, value),
                 Event::Section { name } => {
                     self.step_counter = 1;
