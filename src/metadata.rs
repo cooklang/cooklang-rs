@@ -39,6 +39,8 @@ pub struct Metadata {
     special: HashMap<SpecialKey, SpecialValue>,
     /// All the raw key/value pairs from the recipe
     pub map: IndexMap<String, String>,
+    #[serde(skip)]
+    pub frontmatter: Option<yaml_rust2::yaml::Hash>,
 }
 
 #[derive(

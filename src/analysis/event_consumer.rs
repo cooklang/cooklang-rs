@@ -130,7 +130,36 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         let events = events.by_ref();
         while let Some(event) = events.next() {
             match event {
-                Event::YAMLFrontMatter(_yaml_text) => todo!(),
+                Event::YAMLFrontMatter(yaml_text) => {
+                    match yaml_rust2::YamlLoader::load_from_str(&yaml_text.text()) {
+                        Ok(docs) => {
+                            if docs.is_empty() {
+                                continue; // next event, nothing to do here
+                            }
+                            if docs.len() > 1 {
+                                // I think this is unreacheable but just in case
+                                self.ctx.warn(warning!("More than one YAML document found, only the first one will be used.", label!(yaml_text.span())));
+                            }
+                            if self.content.metadata.frontmatter.is_some() {
+                                // This can never happen as the YAMLFrontMatter event is only emitted once
+                                panic!("Multiple frontmatters events");
+                            }
+                            let yaml = docs.into_iter().next().unwrap();
+                            if let Some(hashmap) = yaml.into_hash() {
+                                self.content.metadata.frontmatter = Some(hashmap);
+                            } else {
+                                self.ctx.error(error!(
+                                    "Invalid YAML hash map",
+                                    label!(yaml_text.span())
+                                ));
+                            }
+                        }
+                        Err(err) => {
+                            println!("Error: {err}");
+                            todo!()
+                        }
+                    }
+                }
                 Event::Metadata { key, value } => self.metadata(key, value),
                 Event::Section { name } => {
                     self.step_counter = 1;
