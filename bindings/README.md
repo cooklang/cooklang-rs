@@ -142,3 +142,52 @@ Biuld foreight language bindings (this will output Kotlin code into `./out` dir:
       --out-dir out
 
 See example of a Gradle config [here](https://github.com/cooklang/cooklang-android/blob/main/app/build.gradle#L77-L132) with all required tasks.
+
+
+
+## Building for iOS
+
+### Prepare
+
+Install `rustup` https://www.rust-lang.org/tools/install.
+
+Then add iOS targets.
+
+    rustup target add aarch64-apple-ios
+    rustup target add x86_64-apple-ios
+
+Install iOS SDK https://developer.apple.com/xcode/resources/.
+
+Add ndk linkers to the PATH variable. Example for ~/.zshrc:
+
+    export PATH=$PATH:/Users/dubadub/Library/Android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/darwin-x86_64/bin/
+
+### Build
+
+Build library:
+
+    cargo build --lib --target=x86_64-apple-ios --release
+
+Biuld foreight language bindings (this will output Swift code into `./out` dir:
+
+    cargo run --features="uniffi/cli"  \
+      --bin uniffi-bindgen generate \
+      --config uniffi.toml \
+      --library ../target/x86_64-apple-ios/release/libcooklang_bindings.a \
+      --language swift \
+      --out-dir out
+
+See example of a Xcode project [here](https://github.com/cooklang/cooklang-ios/blob/main/Cooklang.xcodeproj).
+
+Combine into universal library:
+
+    mkdir -p ../target/universal/release
+    lipo -create -output ../target/universal/release/libcooklang_bindings.a \
+      ../target/x86_64-apple-ios/release/libcooklang_bindings.a \
+      ../target/aarch64-apple-ios/release/libcooklang_bindings.a
+
+
+xcodebuild -create-xcframework \
+  -library ../target/aarch64-apple-ios/release/libcooklang_bindings.a \
+  -library ../target/x86_64-apple-ios/release/libcooklang_bindings.a \
+  -output CooklangParserFFI.xcframework
