@@ -34,13 +34,12 @@ use crate::{
 /// Also, most of these values will not have been parsed if the
 /// [`SPECIAL_METADATA`](crate::Extensions::SPECIAL_METADATA) extension is not
 /// enabled.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
+    // TODO rework special, insert_special, parse_special and getters
     special: HashMap<SpecialKey, SpecialValue>,
     /// All the raw key/value pairs from the recipe
-    pub map: IndexMap<String, String>,
-    #[serde(skip)]
-    pub frontmatter: Option<yaml_rust2::yaml::Hash>,
+    pub map: serde_yaml::Mapping,
 }
 
 #[derive(
@@ -60,7 +59,7 @@ pub struct Metadata {
 #[strum(serialize_all = "snake_case")]
 pub(crate) enum SpecialKey {
     Description,
-    #[strum(serialize = "tag", to_string = "tags")]
+    #[strum(serialize = "tags", to_string = "tag")]
     Tags,
     Emoji,
     Author,
@@ -97,12 +96,162 @@ macro_rules! unwrap_value {
     };
 }
 
+pub trait CooklangValueExt {
+    /// Returns `Some` only if the value is a string and it's an emoji.
+    ///
+    /// It can be a literal emoji (`🦀`) or a shortcode like `:crab:`
+    fn as_emoji(&self) -> Option<&str>;
+
+    /// Comma (',') separated string or YAML sequence of string
+    ///
+    /// Duplicates and empty entries removed.
+    fn as_tags(&self) -> Option<Vec<&str>>;
+
+    /// Pipe ('|') separated string or YAML sequence of numbers
+    ///
+    /// Duplicates not allowed.
+    fn as_servings(&self) -> Option<Vec<u32>>;
+
+    /// Get a [`NameAndUrl`]
+    ///
+    /// This can be a single string or a YAML mapping with `name` and `url` fields.
+    /// For the string formats see [`NameAndUrl::parse`].
+    fn as_name_and_url(&self) -> Option<NameAndUrl>;
+
+    /// Gets a value as minutes
+    ///
+    /// It can be a natural (positive) number or a string. The string can have
+    /// units and multiple parts. If the units are missing, minutes is assumed.
+    ///
+    /// ```
+    /// let converter = cooklang::Converter::default(); // you probably aready have a converter in `CooklangParser::converter`
+    /// let s = serde_yaml::Value::from("1h 30min");
+    /// assert_eq!(s.as_minutes(&cooklang::), Some(90));
+    /// ```
+    fn as_minutes(&self, converter: &Converter) -> Option<u32>;
+
+    /// Like [`serde_yaml::Value::as_u64`] but ensuring the value fits in a u32
+    fn as_u32(&self) -> Option<u32>;
+}
+
+impl CooklangValueExt for serde_yaml::Value {
+    fn as_emoji(&self) -> Option<&str> {
+        value_as_emoji(self).ok()
+    }
+
+    fn as_tags(&self) -> Option<Vec<&str>> {
+        value_as_tags(self).ok()
+    }
+
+    fn as_servings(&self) -> Option<Vec<u32>> {
+        value_as_servings(self).ok()
+    }
+
+    fn as_name_and_url(&self) -> Option<NameAndUrl> {
+        if let Some(s) = self.as_str() {
+            Some(NameAndUrl::parse(s))
+        } else if let Some(map) = self.as_mapping() {
+            let name = map.get("name")?.as_str()?;
+            let url_str = map.get("url")?.as_str()?;
+            let url = Url::parse(url_str).ok()?;
+            Some(NameAndUrl::new(Some(name), Some(url)))
+        } else {
+            None
+        }
+    }
+
+    fn as_minutes(&self, converter: &Converter) -> Option<u32> {
+        value_as_minutes(self, converter).ok()
+    }
+
+    #[inline]
+    fn as_u32(&self) -> Option<u32> {
+        self.as_u64()?.try_into().ok()
+    }
+}
+
+fn value_as_emoji(val: &serde_yaml::Value) -> Result<&str, MetadataError> {
+    let s = val.as_str().ok_or(MetadataError::UnexpectedType)?;
+    let emoji = if s.starts_with(':') && s.ends_with(':') {
+        emojis::get_by_shortcode(&s[1..s.len() - 1])
+    } else {
+        emojis::get(s)
+    };
+    emoji
+        .map(|e| e.as_str())
+        .ok_or_else(|| MetadataError::NotEmoji {
+            value: s.to_string(),
+        })
+}
+
+fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<&str>, MetadataError> {
+    let entries = if let Some(s) = val.as_str() {
+        s.split(',').map(|e| e.trim()).collect()
+    } else if let Some(seq) = val.as_sequence() {
+        seq.into_iter()
+            .map(|val| val.as_str())
+            .collect::<Option<Vec<&str>>>()
+            .ok_or(MetadataError::UnexpectedType)?
+    } else {
+        return Err(MetadataError::UnexpectedType);
+    };
+    let mut tags = Vec::with_capacity(entries.len());
+    for tag in entries {
+        if tag.is_empty() || tags.contains(&tag) {
+            continue;
+        }
+        tags.push(tag);
+    }
+    Ok(tags)
+}
+
+fn value_as_servings(val: &serde_yaml::Value) -> Result<Vec<u32>, MetadataError> {
+    let servings: Vec<u32> = if let Some(s) = val.as_str() {
+        s.split('|')
+            .map(str::trim)
+            .map(str::parse)
+            .collect::<Result<Vec<_>, _>>()?
+    } else if let Some(seq) = val.as_sequence() {
+        let mut v = Vec::with_capacity(seq.len());
+        for e in seq {
+            let n = e.as_u32().ok_or(MetadataError::UnexpectedType)?;
+            v.push(n);
+        }
+        v
+    } else {
+        return Err(MetadataError::UnexpectedType);
+    };
+
+    let l = servings.len();
+    let dedup_l = {
+        let mut temp = servings.clone();
+        temp.sort_unstable();
+        temp.dedup();
+        temp.len()
+    };
+    if l != dedup_l {
+        return Err(MetadataError::DuplicateServings { servings });
+    }
+    Ok(servings)
+}
+
+fn value_as_minutes(val: &serde_yaml::Value, converter: &Converter) -> Result<u32, MetadataError> {
+    if let Some(s) = val.as_str() {
+        let t = parse_time(s, converter)?;
+        Ok(t)
+    } else if let Some(n) = val.as_u32() {
+        Ok(n)
+    } else {
+        Err(MetadataError::UnexpectedType)
+    }
+}
+
 impl Metadata {
     /// Description of the recipe
     pub fn description(&self) -> Option<&str> {
-        self.map
-            .get(SpecialKey::Description.as_ref())
-            .map(|s| s.as_str())
+        self.special
+            .get(&SpecialKey::Description)
+            .map(|s| unwrap_value!(String, s).as_str())
     }
 
     /// Emoji for the recipe
@@ -185,12 +334,16 @@ impl Metadata {
     pub(crate) fn insert_special(
         &mut self,
         key: SpecialKey,
-        value: String,
+        value: &serde_yaml::Value,
         converter: &Converter,
     ) -> Result<(), MetadataError> {
         match key {
             SpecialKey::Description => {
-                self.map.insert(key.as_ref().to_string(), value);
+                let desc_string = value
+                    .as_str()
+                    .ok_or(MetadataError::UnexpectedType)?
+                    .to_string();
+                self.special.insert(key, SpecialValue::String(desc_string));
             }
             SpecialKey::Tags => {
                 // take current
@@ -199,41 +352,31 @@ impl Metadata {
                 } else {
                     Vec::new()
                 };
-                for tag in value.split(',') {
-                    let tag = tag.trim().to_string();
-                    // no empty
-                    if tag.is_empty() {
-                        continue;
+                let new_tags = value_as_tags(&value)?;
+                for tag in new_tags {
+                    for t in &tags {
+                        if tag == t.as_str() {
+                            continue;
+                        }
                     }
-                    // no duplicates
-                    if tags.contains(&tag) {
-                        continue;
-                    }
-                    // add tag
-                    tags.push(tag);
+                    tags.push(tag.to_string());
                 }
                 // add to the map
                 self.special.insert(key, SpecialValue::Tags(tags));
             }
             SpecialKey::Emoji => {
-                let emoji = if value.starts_with(':') && value.ends_with(':') {
-                    emojis::get_by_shortcode(&value[1..value.len() - 1])
-                } else {
-                    emojis::get(&value)
-                };
-                if let Some(emoji) = emoji {
-                    self.special
-                        .insert(key, SpecialValue::String(emoji.to_string()));
-                } else {
-                    return Err(MetadataError::NotEmoji { value });
-                }
+                let emoji = value_as_emoji(&value)?;
+                self.special
+                    .insert(key, SpecialValue::String(emoji.to_string()));
             }
             SpecialKey::Author | SpecialKey::Source => {
-                self.special
-                    .insert(key, SpecialValue::NameAndUrl(NameAndUrl::parse(&value)));
+                let nau = value
+                    .as_name_and_url()
+                    .ok_or(MetadataError::UnexpectedType)?;
+                self.special.insert(key, SpecialValue::NameAndUrl(nau));
             }
             SpecialKey::Time => {
-                let time = RecipeTime::Total(parse_time(&value, converter)?);
+                let time = RecipeTime::Total(value_as_minutes(&value, converter)?);
                 self.special.insert(key, SpecialValue::Time(time));
             }
             SpecialKey::PrepTime => {
@@ -242,7 +385,7 @@ impl Metadata {
                     RecipeTime::Composed { cook_time, .. } => *cook_time,
                 });
                 let time = RecipeTime::Composed {
-                    prep_time: Some(parse_time(&value, converter)?),
+                    prep_time: Some(value_as_minutes(&value, converter)?),
                     cook_time,
                 };
                 self.special
@@ -255,27 +398,13 @@ impl Metadata {
                 });
                 let time = RecipeTime::Composed {
                     prep_time,
-                    cook_time: Some(parse_time(&value, converter)?),
+                    cook_time: Some(value_as_minutes(&value, converter)?),
                 };
                 self.special
                     .insert(SpecialKey::Time, SpecialValue::Time(time));
             }
             SpecialKey::Servings => {
-                let servings = value
-                    .split('|')
-                    .map(str::trim)
-                    .map(str::parse)
-                    .collect::<Result<Vec<_>, _>>()?;
-                let l = servings.len();
-                let dedup_l = {
-                    let mut s = servings.clone();
-                    s.sort_unstable();
-                    s.dedup();
-                    s.len()
-                };
-                if l != dedup_l {
-                    return Err(MetadataError::DuplicateServings { servings });
-                }
+                let servings = value_as_servings(&value)?;
                 self.special
                     .insert(SpecialKey::Servings, SpecialValue::Servings(servings));
             }
@@ -291,12 +420,18 @@ impl Metadata {
     /// The error variant of the result contains the key value pairs that had
     /// an error parsing. Even if [`Err`] is returned, some values may have been
     /// updated.
-    pub fn parse_special(&mut self, converter: &Converter) -> Result<(), Vec<(String, String)>> {
+    pub fn parse_special(
+        &mut self,
+        converter: &Converter,
+    ) -> Result<(), Vec<(serde_yaml::Value, serde_yaml::Value)>> {
         let mut new = Self::default();
         let mut errors = Vec::new();
         for (key, val) in &self.map {
-            if let Ok(sp_key) = SpecialKey::from_str(key) {
-                if new.insert_special(sp_key, val.clone(), converter).is_err() {
+            let Some(key_t) = key.as_str() else {
+                continue;
+            };
+            if let Ok(sp_key) = SpecialKey::from_str(key_t) {
+                if new.insert_special(sp_key, val, converter).is_err() {
                     errors.push((key.clone(), val.clone()));
                 }
             }
@@ -311,11 +446,14 @@ impl Metadata {
 
     /// Iterates over [`Self::map`] but with all *special* metadata values
     /// skipped
-    pub fn map_filtered(&self) -> impl Iterator<Item = (&str, &str)> {
-        self.map
-            .iter()
-            .filter(|(key, _)| SpecialKey::from_str(key).is_err())
-            .map(|(key, value)| (key.as_str(), value.as_str()))
+    pub fn map_filtered(&self) -> impl Iterator<Item = (&serde_yaml::Value, &serde_yaml::Value)> {
+        self.map.iter().filter(|(key, _)| {
+            if let Some(key_t) = key.as_str() {
+                SpecialKey::from_str(key_t).is_err()
+            } else {
+                true
+            }
+        })
     }
 }
 
@@ -484,6 +622,8 @@ impl RecipeTime {
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub(crate) enum MetadataError {
+    #[error("Unexpected value data type")]
+    UnexpectedType,
     #[error("Value is not an emoji: {value}")]
     NotEmoji { value: String },
     #[error(transparent)]
@@ -546,7 +686,7 @@ mod tests {
 
     macro_rules! insert {
         ($m:expr, $converter:expr, $key:expr, $val:literal) => {
-            $m.insert_special($key, $val.to_string(), &$converter)
+            $m.insert_special($key, &serde_yaml::Value::from($val), &$converter)
         };
     }
 

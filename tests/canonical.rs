@@ -4,7 +4,6 @@ use cooklang::{
     quantity::{ScalableValue, Value},
     Content, Converter, CooklangParser, Extensions, Item, ScalableRecipe,
 };
-use indexmap::IndexMap;
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -16,7 +15,7 @@ struct TestCase {
 #[derive(Deserialize, PartialEq, Debug)]
 struct TestResult {
     steps: Vec<TestStep>,
-    metadata: IndexMap<String, String>,
+    metadata: serde_yaml::Mapping,
 }
 
 #[derive(Deserialize, PartialEq, Debug)]

@@ -131,28 +131,9 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         while let Some(event) = events.next() {
             match event {
                 Event::YAMLFrontMatter(yaml_text) => {
-                    match yaml_rust2::YamlLoader::load_from_str(&yaml_text.text()) {
-                        Ok(docs) => {
-                            if docs.is_empty() {
-                                continue; // next event, nothing to do here
-                            }
-                            if docs.len() > 1 {
-                                // I think this is unreacheable but just in case
-                                self.ctx.warn(warning!("More than one YAML document found, only the first one will be used.", label!(yaml_text.span())));
-                            }
-                            if self.content.metadata.frontmatter.is_some() {
-                                // This can never happen as the YAMLFrontMatter event is only emitted once
-                                panic!("Multiple frontmatters events");
-                            }
-                            let yaml = docs.into_iter().next().unwrap();
-                            if let Some(hashmap) = yaml.into_hash() {
-                                self.content.metadata.frontmatter = Some(hashmap);
-                            } else {
-                                self.ctx.error(error!(
-                                    "Invalid YAML hash map",
-                                    label!(yaml_text.span())
-                                ));
-                            }
+                    match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_text.text()) {
+                        Ok(yaml_map) => {
+                            self.content.metadata.map = yaml_map;
                         }
                         Err(err) => {
                             println!("Error: {err}");
@@ -288,10 +269,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                             "Possible config keys are '[mode]', '[duplicate]' and '[auto scale]'",
                         ),
                     );
-                    self.content
-                        .metadata
-                        .map
-                        .insert(key_t.into_owned(), value_t.into_owned());
+                    self.content.metadata.map.insert(
+                        serde_yaml::Value::String(key_t.into_owned()),
+                        serde_yaml::Value::String(value_t.into_owned()),
+                    );
                 }
             }
             return;
@@ -311,10 +292,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         }
 
         // insert the value into the map
-        self.content
-            .metadata
-            .map
-            .insert(key_t.to_string(), value_t.to_string());
+        self.content.metadata.map.insert(
+            serde_yaml::Value::String(key_t.to_string()),
+            serde_yaml::Value::String(value_t.to_string()),
+        );
 
         // check if it's a special key
         if let Ok(sp_key) = SpecialKey::from_str(&key_t) {
@@ -326,10 +307,11 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             }
 
             // try to insert it
-            let res =
-                self.content
-                    .metadata
-                    .insert_special(sp_key, value_t.to_string(), self.converter);
+            let res = self.content.metadata.insert_special(
+                sp_key,
+                &serde_yaml::Value::String(value_t.to_string()),
+                self.converter,
+            );
             if let Err(err) = res {
                 self.ctx.warn(
                     warning!(

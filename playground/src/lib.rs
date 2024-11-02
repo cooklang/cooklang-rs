@@ -144,7 +144,7 @@ fn render(r: cooklang::ScaledRecipe, converter: &Converter) -> String {
             ul {
                 @for (key, value) in &r.metadata.map {
                     li.metadata {
-                        span.key { (key) } ":" (value)
+                        span.key { (key.as_str().unwrap_or("<not string key>")) } ":" (value.as_str().unwrap_or("<not string value>")) // TODO
                     }
                 }
             }
