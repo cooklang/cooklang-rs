@@ -150,6 +150,7 @@ where
     block: Vec<Token>,
     queue: VecDeque<Event<'i>>,
     extensions: Extensions,
+    old_style_metadata: bool,
 }
 
 impl<'i> PullParser<'i, TokenStream<'i>> {
@@ -163,9 +164,24 @@ impl<'i> PullParser<'i, TokenStream<'i>> {
             )));
             let mut tokens = TokenStream::new(fm.cooklang_text);
             tokens.offset(fm.cooklang_offset);
-            Self::new_from_token_iter(input, extensions, tokens, events)
+            Self {
+                input,
+                tokens: tokens.peekable(),
+                block: Vec::new(),
+                extensions,
+                queue: events,
+                old_style_metadata: false,
+            }
         } else {
-            Self::new_from_token_iter(input, extensions, TokenStream::new(input), VecDeque::new())
+            let tokens = TokenStream::new(input);
+            Self {
+                input,
+                tokens: tokens.peekable(),
+                block: Vec::new(),
+                extensions,
+                queue: VecDeque::new(),
+                old_style_metadata: true,
+            }
         }
     }
 }
@@ -174,21 +190,6 @@ impl<'i, T> PullParser<'i, T>
 where
     T: Iterator<Item = Token>,
 {
-    pub(crate) fn new_from_token_iter(
-        input: &'i str,
-        extensions: Extensions,
-        tokens: T,
-        events: VecDeque<Event<'i>>,
-    ) -> Self {
-        Self {
-            input,
-            tokens: tokens.peekable(),
-            block: Vec::new(),
-            extensions,
-            queue: events,
-        }
-    }
-
     /// Transforms the parser into another [`Event`] iterator that only
     /// generates [`Event::Metadata`] blocks.
     ///
@@ -295,13 +296,16 @@ where
         }
 
         let mut bp = BlockParser::new(trimmed_block, self.input, &mut self.queue, self.extensions);
-        parse_block(&mut bp);
+        parse_block(&mut bp, self.old_style_metadata);
         bp.finish();
 
         Some(())
     }
 
     fn next_metadata_block(&mut self) -> Option<()> {
+        if !self.old_style_metadata {
+            return None;
+        }
         self.block.clear();
 
         // eat until meta is found
@@ -354,9 +358,9 @@ where
     }
 }
 
-fn parse_block(block: &mut BlockParser) {
+fn parse_block(block: &mut BlockParser, old_style_metadata: bool) {
     let meta_or_section = match block.peek() {
-        T![meta] => block.with_recover(metadata_entry),
+        T![meta] if old_style_metadata => block.with_recover(metadata_entry),
         T![=] => block.with_recover(section),
         _ => None,
     };
