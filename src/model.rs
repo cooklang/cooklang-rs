@@ -47,7 +47,7 @@ pub struct Recipe<D, V: QuantityValue> {
 ///
 /// Note that this doesn't implement [`Recipe::convert`]. Only scaled recipes
 /// can be converted.
-pub type ScalableRecipe = Recipe<(), ScalableValue>;
+pub type ScalableRecipe = Recipe<crate::scale::Servings, ScalableValue>;
 
 /// A recipe after being scaled
 ///

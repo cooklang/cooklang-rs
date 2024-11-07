@@ -1,6 +1,6 @@
 //! Metadata of a recipe
 
-use std::{collections::HashMap, num::ParseFloatError, str::FromStr};
+use std::{num::ParseFloatError, str::FromStr};
 
 pub use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -36,8 +36,6 @@ use crate::{
 /// enabled.
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
-    // TODO rework special, insert_special, parse_special and getters
-    special: HashMap<SpecialKey, SpecialValue>,
     /// All the raw key/value pairs from the recipe
     pub map: serde_yaml::Mapping,
 }
@@ -57,9 +55,9 @@ pub struct Metadata {
 )]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
-pub(crate) enum SpecialKey {
+pub(crate) enum StdKey {
     Description,
-    #[strum(serialize = "tags", to_string = "tag")]
+    #[strum(serialize = "tag", to_string = "tags")]
     Tags,
     Emoji,
     Author,
@@ -72,31 +70,105 @@ pub(crate) enum SpecialKey {
     Servings,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-enum SpecialValue {
-    Tags(Vec<String>),
-    NameAndUrl(NameAndUrl),
-    Time(RecipeTime),
-    Servings(Vec<u32>),
-    String(String),
-}
+impl Metadata {
+    pub fn get(&self, index: impl serde_yaml::mapping::Index) -> Option<&serde_yaml::Value> {
+        self.map.get(index)
+    }
 
-macro_rules! unwrap_value {
-    ($variant:ident, $value:expr) => {
-        if let crate::metadata::SpecialValue::$variant(inner) = $value {
-            inner
+    pub fn get_mut(
+        &mut self,
+        index: impl serde_yaml::mapping::Index,
+    ) -> Option<&mut serde_yaml::Value> {
+        self.map.get_mut(index)
+    }
+
+    /// Iterates over all entries except the standard keys
+    pub fn map_filtered(&self) -> impl Iterator<Item = (&serde_yaml::Value, &serde_yaml::Value)> {
+        self.map.iter().filter(|(key, _)| {
+            if let Some(key_t) = key.as_str() {
+                StdKey::from_str(key_t).is_err()
+            } else {
+                true
+            }
+        })
+    }
+
+    /// Description of the recipe
+    ///
+    /// Just the `description` key as a string.
+    pub fn description(&self) -> Option<&str> {
+        self.get(StdKey::Description.as_ref())
+            .and_then(|v| v.as_str())
+    }
+
+    /// Emoji for the recipe
+    ///
+    /// The `emoji` key [`as_emoji`](CooklangValueExt::as_emoji)
+    pub fn emoji(&self) -> Option<&str> {
+        self.get(StdKey::Emoji.as_ref()).and_then(|v| v.as_emoji())
+    }
+
+    /// List of tags
+    ///
+    /// The `tags` key [`as_tags`](CooklangValueExt::as_tags)
+    pub fn tags(&self) -> Option<Vec<&str>> {
+        self.get(StdKey::Tags.as_ref()).and_then(|v| v.as_tags())
+    }
+
+    /// Author
+    ///
+    /// This *who* wrote the recipe.
+    ///
+    /// The `author` key [`as_name_and_url`](CooklangValueExt::as_value_and_url).
+    pub fn author(&self) -> Option<NameAndUrl> {
+        self.get(StdKey::Author.as_ref())
+            .and_then(|v| v.as_name_and_url())
+    }
+
+    /// Source
+    ///
+    /// This *where* the recipe was obtained from.
+    ///
+    /// The `source` key [`as_name_and_url`](CooklangValueExt::as_value_and_url).
+    pub fn source(&self) -> Option<NameAndUrl> {
+        self.get(StdKey::Source.as_ref())
+            .and_then(|v| v.as_name_and_url())
+    }
+
+    /// Time it takes to prepare/cook the recipe
+    ///
+    /// The `time` key [`as_time`](CooklangValueExt::as_time). Or, if missing,
+    /// the combination of the `prep_time` and `cook_time` keys
+    /// [`as_minutes`](CooklangValueExt::as_minutes).
+    pub fn time(&self, converter: &Converter) -> Option<RecipeTime> {
+        if let Some(time_val) = self.get(StdKey::Time.as_ref()) {
+            time_val.as_time(converter)
         } else {
-            panic!(
-                "Unexpected special value variant. Expected '{}' but got '{:?}'",
-                stringify!(SpecialValue::$variant),
-                $value
-            );
+            let prep_time = self
+                .get(StdKey::PrepTime.as_ref())
+                .and_then(|v| v.as_minutes(converter));
+            let cook_time = self
+                .get(StdKey::CookTime.as_ref())
+                .and_then(|v| v.as_minutes(converter));
+            if prep_time.is_some() || cook_time.is_some() {
+                Some(RecipeTime::Composed {
+                    prep_time,
+                    cook_time,
+                })
+            } else {
+                None
+            }
         }
-    };
+    }
+
+    /// Servings the recipe is made for
+    pub fn servings(&self) -> Option<Vec<u32>> {
+        self.get(StdKey::Servings.as_ref())
+            .and_then(|v| v.as_servings())
+    }
 }
 
-pub trait CooklangValueExt {
+pub trait CooklangValueExt: private::Sealed {
     /// Returns `Some` only if the value is a string and it's an emoji.
     ///
     /// It can be a literal emoji (`🦀`) or a shortcode like `:crab:`
@@ -123,15 +195,25 @@ pub trait CooklangValueExt {
     /// It can be a natural (positive) number or a string. The string can have
     /// units and multiple parts. If the units are missing, minutes is assumed.
     ///
-    /// ```
-    /// let converter = cooklang::Converter::default(); // you probably aready have a converter in `CooklangParser::converter`
-    /// let s = serde_yaml::Value::from("1h 30min");
-    /// assert_eq!(s.as_minutes(&cooklang::), Some(90));
-    /// ```
+    /// Examples:
+    /// - `30` 30 minutes
+    /// - `1h` 60 minutes
+    /// - `1h 30min` 90 minutes
     fn as_minutes(&self, converter: &Converter) -> Option<u32>;
+
+    /// Get a [`RecipeTime`]
+    ///
+    /// This can be a single number or string like in [`as_minutes`] or a mapping
+    /// of `prep_time` and `cook_time` where each of them is a number or string.
+    fn as_time(&self, converter: &Converter) -> Option<RecipeTime>;
 
     /// Like [`serde_yaml::Value::as_u64`] but ensuring the value fits in a u32
     fn as_u32(&self) -> Option<u32>;
+}
+
+mod private {
+    pub trait Sealed {}
+    impl Sealed for serde_yaml::Value {}
 }
 
 impl CooklangValueExt for serde_yaml::Value {
@@ -162,6 +244,10 @@ impl CooklangValueExt for serde_yaml::Value {
 
     fn as_minutes(&self, converter: &Converter) -> Option<u32> {
         value_as_minutes(self, converter).ok()
+    }
+
+    fn as_time(&self, converter: &Converter) -> Option<RecipeTime> {
+        value_as_time(self, converter).ok()
     }
 
     #[inline]
@@ -246,58 +332,44 @@ fn value_as_minutes(val: &serde_yaml::Value, converter: &Converter) -> Result<u3
     }
 }
 
-impl Metadata {
-    /// Description of the recipe
-    pub fn description(&self) -> Option<&str> {
-        self.special
-            .get(&SpecialKey::Description)
-            .map(|s| unwrap_value!(String, s).as_str())
+fn value_as_time(
+    val: &serde_yaml::Value,
+    converter: &Converter,
+) -> Result<RecipeTime, MetadataError> {
+    let total_res = value_as_minutes(val, converter);
+    match total_res {
+        Ok(total) => Ok(RecipeTime::Total(total)),
+        Err(MetadataError::UnexpectedType) => {
+            let map = val.as_mapping().ok_or(MetadataError::UnexpectedType)?;
+            let prep_time = map
+                .get(StdKey::PrepTime.as_ref())
+                .map(|v| value_as_minutes(v, converter))
+                .transpose()?;
+            let cook_time = map
+                .get(StdKey::CookTime.as_ref())
+                .map(|v| value_as_minutes(v, converter))
+                .transpose()?;
+            Ok(RecipeTime::Composed {
+                prep_time,
+                cook_time,
+            })
+        }
+        Err(other) => Err(other),
     }
+}
 
-    /// Emoji for the recipe
-    pub fn emoji(&self) -> Option<&str> {
-        self.special
-            .get(&SpecialKey::Emoji)
-            .map(|v| unwrap_value!(String, v).as_str())
-    }
-
-    /// List of tags
-    pub fn tags(&self) -> Option<&[String]> {
-        self.special
-            .get(&SpecialKey::Tags)
-            .map(|v| unwrap_value!(Tags, v).as_slice())
-    }
-
-    /// Author
-    ///
-    /// This *who* wrote the recipe.
-    pub fn author(&self) -> Option<&NameAndUrl> {
-        self.special
-            .get(&SpecialKey::Author)
-            .map(|v| unwrap_value!(NameAndUrl, v))
-    }
-
-    /// Source
-    ///
-    /// This *where* the recipe was obtained from.
-    pub fn source(&self) -> Option<&NameAndUrl> {
-        self.special
-            .get(&SpecialKey::Source)
-            .map(|v| unwrap_value!(NameAndUrl, v))
-    }
-
-    /// Time it takes to prepare/cook the recipe
-    pub fn time(&self) -> Option<&RecipeTime> {
-        self.special
-            .get(&SpecialKey::Time)
-            .map(|v| unwrap_value!(Time, v))
-    }
-
-    /// Servings the recipe is made for
-    pub fn servings(&self) -> Option<&[u32]> {
-        self.special
-            .get(&SpecialKey::Servings)
-            .map(|v| unwrap_value!(Servings, v).as_slice())
+pub(crate) fn check_std_entry(
+    key: StdKey,
+    value: &serde_yaml::Value,
+    converter: &Converter,
+) -> Result<Option<crate::scale::Servings>, MetadataError> {
+    match key {
+        StdKey::Tags => value_as_tags(value).map(|_| None),
+        StdKey::Emoji => value_as_emoji(value).map(|_| None),
+        StdKey::Time => value_as_time(value, converter).map(|_| None),
+        StdKey::PrepTime | StdKey::CookTime => value_as_minutes(value, converter).map(|_| None),
+        StdKey::Servings => value_as_servings(value).map(|s| Some(crate::scale::Servings(Some(s)))),
+        _ => Ok(None),
     }
 }
 
@@ -328,133 +400,6 @@ pub enum RecipeTime {
         #[serde(alias = "cook")]
         cook_time: Option<u32>,
     },
-}
-
-impl Metadata {
-    pub(crate) fn insert_special(
-        &mut self,
-        key: SpecialKey,
-        value: &serde_yaml::Value,
-        converter: &Converter,
-    ) -> Result<(), MetadataError> {
-        match key {
-            SpecialKey::Description => {
-                let desc_string = value
-                    .as_str()
-                    .ok_or(MetadataError::UnexpectedType)?
-                    .to_string();
-                self.special.insert(key, SpecialValue::String(desc_string));
-            }
-            SpecialKey::Tags => {
-                // take current
-                let mut tags = if let Some(entry) = self.special.remove(&key) {
-                    unwrap_value!(Tags, entry)
-                } else {
-                    Vec::new()
-                };
-                let new_tags = value_as_tags(&value)?;
-                for tag in new_tags {
-                    for t in &tags {
-                        if tag == t.as_str() {
-                            continue;
-                        }
-                    }
-                    tags.push(tag.to_string());
-                }
-                // add to the map
-                self.special.insert(key, SpecialValue::Tags(tags));
-            }
-            SpecialKey::Emoji => {
-                let emoji = value_as_emoji(&value)?;
-                self.special
-                    .insert(key, SpecialValue::String(emoji.to_string()));
-            }
-            SpecialKey::Author | SpecialKey::Source => {
-                let nau = value
-                    .as_name_and_url()
-                    .ok_or(MetadataError::UnexpectedType)?;
-                self.special.insert(key, SpecialValue::NameAndUrl(nau));
-            }
-            SpecialKey::Time => {
-                let time = RecipeTime::Total(value_as_minutes(&value, converter)?);
-                self.special.insert(key, SpecialValue::Time(time));
-            }
-            SpecialKey::PrepTime => {
-                let cook_time = self.time().and_then(|t| match t {
-                    RecipeTime::Total(_) => None,
-                    RecipeTime::Composed { cook_time, .. } => *cook_time,
-                });
-                let time = RecipeTime::Composed {
-                    prep_time: Some(value_as_minutes(&value, converter)?),
-                    cook_time,
-                };
-                self.special
-                    .insert(SpecialKey::Time, SpecialValue::Time(time));
-            }
-            SpecialKey::CookTime => {
-                let prep_time = self.time().and_then(|t| match t {
-                    RecipeTime::Total(_) => None,
-                    RecipeTime::Composed { prep_time, .. } => *prep_time,
-                });
-                let time = RecipeTime::Composed {
-                    prep_time,
-                    cook_time: Some(value_as_minutes(&value, converter)?),
-                };
-                self.special
-                    .insert(SpecialKey::Time, SpecialValue::Time(time));
-            }
-            SpecialKey::Servings => {
-                let servings = value_as_servings(&value)?;
-                self.special
-                    .insert(SpecialKey::Servings, SpecialValue::Servings(servings));
-            }
-        }
-        Ok(())
-    }
-
-    /// Parse the inner [map](Self::map) updating the special keys
-    ///
-    /// This can be useful if you edit the inner values of the metadata map and
-    /// want the special keys to refresh.
-    ///
-    /// The error variant of the result contains the key value pairs that had
-    /// an error parsing. Even if [`Err`] is returned, some values may have been
-    /// updated.
-    pub fn parse_special(
-        &mut self,
-        converter: &Converter,
-    ) -> Result<(), Vec<(serde_yaml::Value, serde_yaml::Value)>> {
-        let mut new = Self::default();
-        let mut errors = Vec::new();
-        for (key, val) in &self.map {
-            let Some(key_t) = key.as_str() else {
-                continue;
-            };
-            if let Ok(sp_key) = SpecialKey::from_str(key_t) {
-                if new.insert_special(sp_key, val, converter).is_err() {
-                    errors.push((key.clone(), val.clone()));
-                }
-            }
-        }
-        self.special = new.special;
-        if errors.is_empty() {
-            Ok(())
-        } else {
-            Err(errors)
-        }
-    }
-
-    /// Iterates over [`Self::map`] but with all *special* metadata values
-    /// skipped
-    pub fn map_filtered(&self) -> impl Iterator<Item = (&serde_yaml::Value, &serde_yaml::Value)> {
-        self.map.iter().filter(|(key, _)| {
-            if let Some(key_t) = key.as_str() {
-                SpecialKey::from_str(key_t).is_err()
-            } else {
-                true
-            }
-        })
-    }
 }
 
 /// Returns minutes
@@ -661,33 +606,27 @@ mod tests {
 
     #[test]
     fn special_keys() {
-        let t = |s: &str, key: SpecialKey| {
-            assert_eq!(SpecialKey::from_str(s).unwrap(), key);
+        let t = |s: &str, key: StdKey| {
+            assert_eq!(StdKey::from_str(s).unwrap(), key);
             assert_eq!(key.to_string(), s);
         };
-        let t_alias = |s: &str, key: SpecialKey| {
-            assert_eq!(SpecialKey::from_str(s).unwrap(), key);
+        let t_alias = |s: &str, key: StdKey| {
+            assert_eq!(StdKey::from_str(s).unwrap(), key);
             assert_ne!(key.to_string(), s);
         };
 
-        t("description", SpecialKey::Description);
-        t("tags", SpecialKey::Tags);
-        t_alias("tag", SpecialKey::Tags);
-        t("emoji", SpecialKey::Emoji);
-        t("author", SpecialKey::Author);
-        t("source", SpecialKey::Source);
-        t("time", SpecialKey::Time);
-        t("prep time", SpecialKey::PrepTime);
-        t_alias("prep_time", SpecialKey::PrepTime);
-        t("cook time", SpecialKey::CookTime);
-        t_alias("cook_time", SpecialKey::CookTime);
-        t("servings", SpecialKey::Servings);
-    }
-
-    macro_rules! insert {
-        ($m:expr, $converter:expr, $key:expr, $val:literal) => {
-            $m.insert_special($key, &serde_yaml::Value::from($val), &$converter)
-        };
+        t("description", StdKey::Description);
+        t("tags", StdKey::Tags);
+        t_alias("tag", StdKey::Tags);
+        t("emoji", StdKey::Emoji);
+        t("author", StdKey::Author);
+        t("source", StdKey::Source);
+        t("time", StdKey::Time);
+        t("prep time", StdKey::PrepTime);
+        t_alias("prep_time", StdKey::PrepTime);
+        t("cook time", StdKey::CookTime);
+        t_alias("cook_time", StdKey::CookTime);
+        t("servings", StdKey::Servings);
     }
 
     #[test]
@@ -788,59 +727,18 @@ mod tests {
         t_no_name_no_url("   ");
     }
 
-    // To ensure no panics in unwrap_value
-    #[test]
-    fn special_key_access() {
-        let converter = Converter::empty();
-        let mut m = Metadata::default();
-
-        let _ = insert!(m, converter, SpecialKey::Description, "Description");
-        assert!(matches!(m.description(), Some(_)));
-
-        let _ = insert!(m, converter, SpecialKey::Tags, "t1, t2");
-        assert!(matches!(m.tags(), Some(_)));
-
-        let _ = insert!(m, converter, SpecialKey::Emoji, "⛄");
-        assert!(matches!(m.emoji(), Some(_)));
-
-        let _ = insert!(m, converter, SpecialKey::Author, "Rachel");
-        assert!(matches!(m.author(), Some(_)));
-
-        let _ = insert!(m, converter, SpecialKey::Source, "Mom's cookbook");
-        assert!(matches!(m.source(), Some(_)));
-
-        let _ = insert!(m, converter, SpecialKey::PrepTime, "3 min");
-        assert!(matches!(m.time(), Some(_)));
-        m.special.remove(&SpecialKey::Time);
-
-        let _ = insert!(m, converter, SpecialKey::CookTime, "3 min");
-        assert!(matches!(m.time(), Some(_)));
-        m.special.remove(&SpecialKey::Time);
-
-        let _ = insert!(m, converter, SpecialKey::Time, "3 min");
-        assert!(matches!(m.time(), Some(_)));
-        m.special.remove(&SpecialKey::Time);
-
-        let _ = insert!(m, converter, SpecialKey::Servings, "3|4");
-        assert!(matches!(m.servings(), Some(_)));
-    }
-
     #[test]
     fn shortcode_emoji() {
-        let converter = Converter::empty();
-
-        let mut m = Metadata::default();
-        let r = insert!(m, converter, SpecialKey::Emoji, "taco");
+        let v = serde_yaml::Value::from("taco");
+        let r = value_as_emoji(&v);
         assert!(r.is_err());
 
-        let mut m = Metadata::default();
-        let r = insert!(m, converter, SpecialKey::Emoji, ":taco:");
-        assert!(r.is_ok());
-        assert_eq!(m.emoji(), Some("🌮"));
+        let v = serde_yaml::Value::from(":taco:");
+        let r = value_as_emoji(&v);
+        assert_eq!(r.unwrap(), "🌮");
 
-        let mut m = Metadata::default();
-        let r = insert!(m, converter, SpecialKey::Emoji, "🌮");
-        assert!(r.is_ok());
-        assert_eq!(m.emoji(), Some("🌮"));
+        let v = serde_yaml::Value::from("🌮");
+        let r = value_as_emoji(&v);
+        assert_eq!(r.unwrap(), "🌮");
     }
 }

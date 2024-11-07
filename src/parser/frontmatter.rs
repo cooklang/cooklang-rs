@@ -1,5 +1,5 @@
 #[derive(Debug)]
-pub struct FrontMatter<'i> {
+pub struct FrontMatterSplit<'i> {
     pub yaml_text: &'i str,
     pub yaml_offset: usize,
     pub cooklang_text: &'i str,
@@ -8,13 +8,13 @@ pub struct FrontMatter<'i> {
 
 const YAML_FENCE: &str = "---";
 
-pub fn parse_frontmatter(input: &str) -> Option<FrontMatter> {
+pub fn parse_frontmatter(input: &str) -> Option<FrontMatterSplit> {
     let mut fences = fences(input, YAML_FENCE);
     let (_, yaml_start) = fences.next()?;
     let (yaml_end, cooklang_start) = fences.next()?;
     let yaml_text = &input[yaml_start..yaml_end];
     let cooklang_text = &input[cooklang_start..];
-    Some(FrontMatter {
+    Some(FrontMatterSplit {
         yaml_text,
         yaml_offset: yaml_start,
         cooklang_text,
