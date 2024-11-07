@@ -494,23 +494,6 @@ fn write_report(
 
     let cond = yansi::Condition::cached(color);
 
-    let mut cg = ColorGenerator::default();
-
-    let mut labels = err.labels();
-    // codesnake requires the labels to be sorted
-    labels.to_mut().sort_unstable_by_key(|l| l.0);
-
-    let mut colored_labels = Vec::with_capacity(labels.len());
-    for (s, t) in labels.iter() {
-        let c = cg.next();
-        let mut l = codesnake::Label::new(s.range())
-            .with_style(move |s| s.paint(c).whenever(cond).to_string());
-        if let Some(text) = t {
-            l = l.with_text(text)
-        }
-        colored_labels.push(l);
-    }
-
     let sev_color = match err.severity() {
         Severity::Error => yansi::Color::Red,
         Severity::Warning => yansi::Color::Yellow,
@@ -523,29 +506,48 @@ fn write_report(
         writeln!(w, "  {} {source}", "╰▶ ".paint(sev_color).whenever(cond))?;
     }
 
-    let Some(block) = codesnake::Block::new(lidx, colored_labels) else {
-        tracing::error!("Failed to format code span, this is a bug.");
-        return Ok(());
-    };
+    let mut cg = ColorGenerator::default();
 
-    let mut prev_empty = false;
-    let block = block.map_code(|s| {
-        let sub = usize::from(core::mem::replace(&mut prev_empty, s.is_empty()));
-        let s = s.replace('\t', "    ");
-        let w = unicode_width::UnicodeWidthStr::width(&*s);
-        codesnake::CodeWidth::new(s, core::cmp::max(w, 1) - sub)
-    });
+    let mut labels = err.labels();
+    if !labels.is_empty() {
+        // codesnake requires the labels to be sorted
+        labels.to_mut().sort_unstable_by_key(|l| l.0);
 
-    writeln!(
-        w,
-        "{}{}{}{}",
-        block.prologue(),
-        "[".dim().whenever(cond),
-        file_name,
-        "]".dim().whenever(cond)
-    )?;
-    write!(w, "{block}")?;
-    writeln!(w, "{}", block.epilogue())?;
+        let mut colored_labels = Vec::with_capacity(labels.len());
+        for (s, t) in labels.iter() {
+            let c = cg.next();
+            let mut l = codesnake::Label::new(s.range())
+                .with_style(move |s| s.paint(c).whenever(cond).to_string());
+            if let Some(text) = t {
+                l = l.with_text(text)
+            }
+            colored_labels.push(l);
+        }
+
+        let Some(block) = codesnake::Block::new(lidx, colored_labels) else {
+            tracing::error!("Failed to format code span, this is a bug.");
+            return Ok(());
+        };
+
+        let mut prev_empty = false;
+        let block = block.map_code(|s| {
+            let sub = usize::from(core::mem::replace(&mut prev_empty, s.is_empty()));
+            let s = s.replace('\t', "    ");
+            let w = unicode_width::UnicodeWidthStr::width(&*s);
+            codesnake::CodeWidth::new(s, core::cmp::max(w, 1) - sub)
+        });
+
+        writeln!(
+            w,
+            "{}{}{}{}",
+            block.prologue(),
+            "[".dim().whenever(cond),
+            file_name,
+            "]".dim().whenever(cond)
+        )?;
+        write!(w, "{block}")?;
+        writeln!(w, "{}", block.epilogue())?;
+    }
 
     let hints = err.hints();
     let mut hints = hints.iter();
