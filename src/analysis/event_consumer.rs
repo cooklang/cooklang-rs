@@ -83,6 +83,7 @@ pub fn parse_events<'i, 'c>(
         define_mode: DefineMode::All,
         duplicate_mode: DuplicateMode::New,
         auto_scale_ingredients: false,
+        old_style_metadata: true,
         ctx,
 
         locations: Default::default(),
@@ -104,6 +105,7 @@ struct RecipeCollector<'i, 'c> {
     define_mode: DefineMode,
     duplicate_mode: DuplicateMode,
     auto_scale_ingredients: bool,
+    old_style_metadata: bool,
     ctx: SourceReport,
 
     locations: Locations<'i>,
@@ -131,6 +133,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         while let Some(event) = events.next() {
             match event {
                 Event::YAMLFrontMatter(yaml_text) => {
+                    self.old_style_metadata = false;
                     match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_text.text()) {
                         Ok(yaml_map) => {
                             self.content.metadata.map = yaml_map;
@@ -304,10 +307,12 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                             "Possible config keys are '[mode]', '[duplicate]' and '[auto scale]'",
                         ),
                     );
-                    self.content.metadata.map.insert(
-                        serde_yaml::Value::String(key_t.into_owned()),
-                        serde_yaml::Value::String(value_t.into_owned()),
-                    );
+                    if self.old_style_metadata {
+                        self.content.metadata.map.insert(
+                            serde_yaml::Value::String(key_t.into_owned()),
+                            serde_yaml::Value::String(value_t.into_owned()),
+                        );
+                    }
                 }
             }
             return;

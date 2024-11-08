@@ -360,7 +360,17 @@ where
 
 fn parse_block(block: &mut BlockParser, old_style_metadata: bool) {
     let meta_or_section = match block.peek() {
-        T![meta] if old_style_metadata => block.with_recover(metadata_entry),
+        T![meta] => block.with_recover(|bp| {
+            metadata_entry(bp).filter(|ev| {
+                let Event::Metadata { key, .. } = ev else {
+                    unreachable!()
+                };
+                let key_t = key.text_outer_trimmed();
+                let is_config_key = key_t.starts_with('[') && key_t.ends_with(']');
+                let modes_active = bp.extension(Extensions::MODES);
+                return (is_config_key && modes_active) || old_style_metadata;
+            })
+        }),
         T![=] => block.with_recover(section),
         _ => None,
     };
