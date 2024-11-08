@@ -73,4 +73,5 @@ impl CheckResult {
 }
 
 pub type RecipeRefCheck<'a> = Box<dyn FnMut(&str) -> CheckResult + 'a>;
-pub type MetadataValidator<'a> = Box<dyn FnMut(&str, &str) -> (CheckResult, bool) + 'a>;
+pub type MetadataValidator<'a> =
+    Box<dyn FnMut(&serde_yaml::Value, &serde_yaml::Value) -> (CheckResult, bool) + 'a>;

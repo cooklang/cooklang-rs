@@ -137,6 +137,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                     match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_text.text()) {
                         Ok(yaml_map) => {
                             self.content.metadata.map = yaml_map;
+                            let mut to_remove = Vec::new();
                             for (key, value) in self.content.metadata.map.iter() {
                                 if let Some(sk) =
                                     key.as_str().and_then(|s| StdKey::from_str(s).ok())
@@ -159,6 +160,25 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                                         }
                                     }
                                 }
+
+                                // run custom validator if any
+                                if let Some(validator) =
+                                    self.parse_options.metadata_validator.as_mut()
+                                {
+                                    let (res, incl) = validator(key, value);
+                                    if let Some(diag) =
+                                        res.into_source_diag(|| "Invalid metadata entry")
+                                    {
+                                        // TODO can we get the position of the key value pair inside yaml_text?
+                                        self.ctx.push(diag);
+                                    }
+                                    if !incl {
+                                        to_remove.push(key.clone());
+                                    }
+                                }
+                            }
+                            for key in &to_remove {
+                                self.content.metadata.map.remove(key);
                             }
                         }
                         Err(err) => {
@@ -318,9 +338,12 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             return;
         }
 
+        let yaml_key = serde_yaml::Value::String(key_t.to_string());
+        let yaml_value = serde_yaml::Value::String(value_t.to_string());
+
         // run custom validator if any
         if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
-            let (res, incl) = validator(&key_t, &value_t);
+            let (res, incl) = validator(&yaml_key, &yaml_value);
             if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
                 diag.add_label(label!(key.span()));
                 diag.add_label(label!(value.span()));
@@ -332,10 +355,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         }
 
         // insert the value into the map
-        self.content.metadata.map.insert(
-            serde_yaml::Value::String(key_t.to_string()),
-            serde_yaml::Value::String(value_t.to_string()),
-        );
+        self.content.metadata.map.insert(yaml_key, yaml_value);
 
         // check if it's a special key
         if let Ok(sp_key) = StdKey::from_str(&key_t) {
