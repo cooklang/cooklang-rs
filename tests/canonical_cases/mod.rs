@@ -1,6 +1,6 @@
 //! AUTO GENERATED WITH `gen_canonical_tests.py`
-use super::{runner, TestCase};
 use test_case::test_case;
+use super::{runner, TestCase};
 #[test_case(r#"
 result:
   metadata: {}
@@ -30,9 +30,7 @@ result:
       type: ingredient
       units: sprigs
     - type: text
-      value: ' '
-  - - type: text
-      value: and some text
+      value: '  and some text'
 source: '@thyme{2%sprigs} -- testing comments
 
   and some text

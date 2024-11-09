@@ -5,6 +5,7 @@ use test_case::test_case;
 #[test_case(
     indoc! {r#"
         first
+
         second
     "#} => vec![vec![Some(1), Some(2)]]; "basic"
 )]
@@ -12,6 +13,7 @@ use test_case::test_case;
     indoc! {r#"
         > text
         first
+
         second
     "#} => vec![vec![None,  Some(1), Some(2)]]; "text start"
 )]
@@ -25,6 +27,7 @@ use test_case::test_case;
 #[test_case(
     indoc! {r#"
         first
+
         second
         == sect ==
         first again
@@ -34,6 +37,7 @@ use test_case::test_case;
     indoc! {r#"
         > text
         first
+
         second
         == sect ==
         first again
@@ -51,6 +55,7 @@ use test_case::test_case;
 #[test_case(
     indoc! {r#"
         first
+
         second
         == sect ==
         > text
@@ -60,6 +65,7 @@ use test_case::test_case;
 #[test_case(
     indoc! {r#"
         first
+
         second
         == sect ==
         first again
@@ -76,7 +82,7 @@ use test_case::test_case;
 )]
 fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
     let parser = CooklangParser::new(
-        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Extensions::all(),
         Default::default(),
     );
     let r = parser.parse(src).unwrap_output();
@@ -115,7 +121,7 @@ fn empty_not_empty() {
     assert!(r.sections.is_empty());
 
     let parser = CooklangParser::new(
-        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Extensions::all(),
         Default::default(),
     );
     let r = parser.parse(input).unwrap_output();
@@ -143,7 +149,7 @@ fn empty_steps() {
     assert!(r.sections[0].content.is_empty());
 
     let parser = CooklangParser::new(
-        Extensions::all() ^ Extensions::MULTILINE_STEPS,
+        Extensions::all(),
         Default::default(),
     );
     let r = parser.parse(input).unwrap_output();
