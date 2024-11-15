@@ -2,7 +2,7 @@
 
 # commented tests are not passing at the moment
 
-version: 6
+version: 7
 tests:
   testBasicDirection:
     source: |
@@ -35,10 +35,7 @@ tests:
             quantity: 2
             units: "sprigs"
           - type: text
-            value: " "
-        -
-          - type: text
-            value: "and some text"
+            value: "  and some text"
       metadata: {}
 
 
@@ -574,7 +571,7 @@ tests:
             name: ""
       metadata: {}
 
-  
+
   testTimerWithName:
     source: |
       Fry for ~potato{42%minutes}
@@ -589,7 +586,7 @@ tests:
             name: "potato"
       metadata: {}
 
-  
+
   testSingleWordTimer:
     source: |
       Let it ~rest after plating
@@ -639,7 +636,7 @@ tests:
           - type: text
             value: "⸫ then serve"
       metadata: {}
-  
+
   # NOTE: the space following `rest` is U+2009
   testTimerWithUnicodeWhitespace:
     source: |
@@ -667,6 +664,7 @@ tests:
   #         - type: text
   #           value: "It is ~ {5}"
   #     metadata: {}
+
 
   testInvalidSingleWordTimer:
     source: |
@@ -712,7 +710,7 @@ tests:
             value: "⸫ then bake"
       metadata: {}
 
-  
+
   # NOTE: the space following `chilli` is U+2009
   testIngredientWithUnicodeWhitespace:
     source: |
@@ -785,7 +783,7 @@ tests:
             value: "⸫ then boil"
       metadata: {}
 
-  
+
   # NOTE: the space following `pot` is U+2009
   testCookwareWithUnicodeWhitespace:
     source: |
@@ -814,6 +812,7 @@ tests:
   #           value: "Recipe # 10{}"
   #     metadata: {}
 
+
   testInvalidSingleWordCookware:
     source: |
       Recipe # 5
@@ -824,7 +823,7 @@ tests:
             value: "Recipe # 5"
       metadata: {}
 
-# NOTE: Unicode newlines may be impossible to test using YAML, 
+# NOTE: Unicode newlines may be impossible to test using YAML,
 # given how the markup uses them for semantic reasoning.
 
 # TODO add common syntax errors

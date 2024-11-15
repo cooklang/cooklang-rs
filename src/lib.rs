@@ -111,9 +111,6 @@ bitflags! {
     /// [`Extensions::default`] enables all extensions.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
     pub struct Extensions: u32 {
-        /// Steps separation is a blank line, not a line break. This may break
-        /// compatibility with other cooklang parsers.
-        const MULTILINE_STEPS          = 1 << 0;
         /// Enables the [`Modifiers`](crate::ast::Modifiers)
         const COMPONENT_MODIFIERS      = 1 << 1;
         /// Notes with `@igr(note)`
@@ -130,8 +127,6 @@ bitflags! {
         const MODES                    = 1 << 6;
         /// Searches for inline temperatures in all the recipe text
         const TEMPERATURE              = 1 << 7;
-        /// Add text steps with `> This is a text step`
-        const TEXT_STEPS               = 1 << 8;
         /// Add support for range values `@igr{2-3}`
         const RANGE_VALUES             = 1 << 9;
         /// Creating a timer without a time becomes an error
@@ -145,7 +140,7 @@ bitflags! {
         /// cooklang parsers.
         ///
         /// Currently it enables all the extensions except
-        /// [`Self::MULTILINE_STEPS`] and [`Self::TIMER_REQUIRES_TIME`].
+        /// [`Self::TIMER_REQUIRES_TIME`].
         ///
         /// **ADDITIONS TO THE EXTENSIONS THIS ENABLES WILL NOT BE CONSIDERED A BREAKING CHANGE**
         const COMPAT = Self::COMPONENT_MODIFIERS.bits()
@@ -155,7 +150,6 @@ bitflags! {
                         | Self::ADVANCED_UNITS.bits()
                         | Self::MODES.bits()
                         | Self::TEMPERATURE.bits()
-                        | Self::TEXT_STEPS.bits()
                         | Self::RANGE_VALUES.bits()
                         | Self::INTERMEDIATE_PREPARATIONS.bits()
                         | Self::SPECIAL_METADATA.bits();

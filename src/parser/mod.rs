@@ -228,7 +228,6 @@ where
     /// Advances a block. Store the tokens, newline/eof excluded.
     pub(crate) fn next_block(&mut self) -> Option<()> {
         self.block.clear();
-        let multiline_ext = self.extensions.contains(Extensions::MULTILINE_STEPS);
 
         // start and end are used to track the "non empty" part of the block
         let mut start = 0;
@@ -243,7 +242,7 @@ where
         }
 
         // Check if more lines have to be consumed
-        let multiline = multiline_ext && !current_line.is_single_line;
+        let multiline = !current_line.is_single_line;
         end = self.block.len();
         if multiline {
             loop {
@@ -365,7 +364,7 @@ fn parse_multiline_block(bp: &mut BlockParser) {
         return;
     }
 
-    let is_text = bp.peek() == T![>] && bp.extension(Extensions::TEXT_STEPS);
+    let is_text = bp.peek() == T![>];
 
     if is_text {
         parse_text_block(bp);
@@ -446,7 +445,7 @@ mod tests {
     fn multiline_spaces() {
         let parser = PullParser::new(
             "  This is a step           -- comment\n and this line continues  -- another comment",
-            Extensions::MULTILINE_STEPS,
+            Extensions::empty(),
         );
         let (ast, report) = build_ast(parser).into_tuple();
         let (err, warn) = report.unzip();
