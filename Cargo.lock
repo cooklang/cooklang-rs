@@ -275,7 +275,6 @@ dependencies = [
  "emojis",
  "enum-map",
  "finl_unicode",
- "indexmap",
  "indoc",
  "once_cell",
  "pest",
@@ -574,7 +573,6 @@ checksum = "de3fc2e30ba82dd1b3911c8de1ffc143c74a914a14e99514d7637e3099df5ea0"
 dependencies = [
  "equivalent",
  "hashbrown",
- "serde",
 ]
 
 [[package]]
