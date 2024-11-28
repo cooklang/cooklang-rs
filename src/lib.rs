@@ -113,12 +113,8 @@ bitflags! {
     pub struct Extensions: u32 {
         /// Enables the [`Modifiers`](crate::ast::Modifiers)
         const COMPONENT_MODIFIERS      = 1 << 1;
-        /// Notes with `@igr(note)`
-        const COMPONENT_NOTE           = 1 << 2;
         /// Alias with `@igr|alias{}`
         const COMPONENT_ALIAS          = 1 << 3;
-        /// Sections with `== Section ==` or `= Section`
-        const SECTIONS                 = 1 << 4;
         /// Enable extra checks with units and allows to omit the `%` in simple
         /// cases like `@igr{10 kg}`
         const ADVANCED_UNITS           = 1 << 5;
@@ -144,9 +140,7 @@ bitflags! {
         ///
         /// **ADDITIONS TO THE EXTENSIONS THIS ENABLES WILL NOT BE CONSIDERED A BREAKING CHANGE**
         const COMPAT = Self::COMPONENT_MODIFIERS.bits()
-                        | Self::COMPONENT_NOTE.bits()
                         | Self::COMPONENT_ALIAS.bits()
-                        | Self::SECTIONS.bits()
                         | Self::ADVANCED_UNITS.bits()
                         | Self::MODES.bits()
                         | Self::TEMPERATURE.bits()
@@ -257,7 +251,7 @@ impl CooklangParser {
         analysis::parse_events(
             meta_events,
             input,
-            Extensions::SPECIAL_METADATA & self.extensions,
+            self.extensions,
             &self.converter,
             options,
         )

@@ -30,10 +30,6 @@ use crate::{
 /// The raw key/value pairs from the recipe are in the `map` field. Many methods
 /// on this struct are the parsed values with some special meaning. They return
 /// `None` if the key is missing or the value failed to parse.
-///
-/// Also, most of these values will not have been parsed if the
-/// [`SPECIAL_METADATA`](crate::Extensions::SPECIAL_METADATA) extension is not
-/// enabled.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 pub struct Metadata {
     special: HashMap<SpecialKey, SpecialValue>,

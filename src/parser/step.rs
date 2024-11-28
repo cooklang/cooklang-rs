@@ -116,17 +116,13 @@ fn modifiers<'t>(bp: &mut BlockParser<'t, '_>) -> &'t [Token] {
 }
 
 fn note<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Text<'i>> {
-    bp.extension(Extensions::COMPONENT_NOTE)
-        .then(|| {
-            bp.with_recover(|line| {
-                line.consume(T!['('])?;
-                let offset = line.current_offset();
-                let note = line.until(|t| t == T![')'])?;
-                line.bump(T![')']);
-                Some(line.text(offset, note))
-            })
-        })
-        .flatten()
+    bp.with_recover(|line| {
+        line.consume(T!['('])?;
+        let offset = line.current_offset();
+        let note = line.until(|t| t == T![')'])?;
+        line.bump(T![')']);
+        Some(line.text(offset, note))
+    })
 }
 
 struct ParsedModifiers {
@@ -577,9 +573,6 @@ fn check_alias(bp: &mut BlockParser, name_tokens: &[Token], container: &'static 
 fn check_note(bp: &mut BlockParser, container: &'static str) {
     assert_ne!(container, INGREDIENT);
     assert_ne!(container, COOKWARE);
-    if !bp.extension(Extensions::COMPONENT_NOTE) {
-        return;
-    }
 
     assert!(bp
         .with_recover(|bp| {
