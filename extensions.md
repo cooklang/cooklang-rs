@@ -6,7 +6,7 @@ are 5 modifiers:
 - `@` **Recipe**. References another recipe by it's name.
   ```cooklang
   Add @@tomato sauce{200%ml}.
-  ``` 
+  ```
 - `&` **Reference**. References another ingredient with the same name. If a
   quantity is given, the amount can be added. The ingredient must be defined
   before. If there are multiple definitions, use the last one.
@@ -21,7 +21,7 @@ are 5 modifiers:
   ```cooklang
   Now you can add @?thyme.
   ```
-- `+` **New**. Forces to create a new ingredient. This works with the 
+- `+` **New**. Forces to create a new ingredient. This works with the
   [modes](#modes) extension.
 
 This also works (except recipe) for cookware.
@@ -47,18 +47,7 @@ There are more syntax variations:
 Only past steps from the current section can be referenced. It can only be
 combined with the optional (`?`) modifier. Text steps can't be referenced. In
 relative references, text steps are ignored. Enabling this extension
-automatically enables the [modifiers](#modifiers) extension. 
-
-## Component note
-Simple, add small notes to ingredients. The notes in between parenthesis.
-
-```coklang
-@flour{}(all purpose)
-@flour(all purpose)    -- can omit the close brackets
-@flour{} (all purpose) -- ❌ no space between the ingredient and the note
-```
-
-This also works for cookware.
+automatically enables the [modifiers](#modifiers) extension.
 
 ## Component alias
 Add an alias to an ingredient to display a different name.
@@ -77,43 +66,6 @@ Add more @&tipo zero flour|flour{}
 ```
 
 This also works for cookware.
-
-## Sections
-Divide the steps. Sections can have a name or not.
-
-```cooklang
-= Cooking         -- this
-== Cooking ==     -- many before and after is also supported
-====              -- without name
-```
-
-To add images to steps inside a section, add another index to the image name:
-```txt
-Recipe.0.jpeg   -- First section, first step
-Recipe.0.0.jpeg -- The same
-Recipe.1.0.jpeg -- Second section, first, step
-```
-
-## Multiline steps
-In regular cooklang each line is a step. With this extension, the recipe is
-divided into blocks by a blank line in between, so:
-```cooklang
-A step,
-the same step.
-
-A different step.
-```
-
-## Text blocks
-Some people like to write a couple of paragraphs in the recipe that don't are steps.
-
-It can also be used as notes that are not instructions.
-
-```cooklang
-> Text block.
-
-Regular step.
-```
 
 ## Advanced units
 Maybe confusing name. Tweaks a little bit the parsing and behaviour of units
@@ -205,24 +157,11 @@ Just an extra rule that makes timers like `~name` invalid.
 [^2]: Currently this is done in the analysis pass. So in the AST there is no
 concept of inline quantities.
 
-## Special metadata
-This extension enables extra parsing for some special metadata keys. These are:
-
-- `tags`. Comma separated list of tags.
-- `emoji`. Emoji or emoji shortcode, checked that it's an actual emoji.
-- `author`. Name, URL or [both](#Name-with-URL) with the format `name <URL>`.
-- `source`. Same as `author`.
-- `time`. Time string with unit support. Like `2 hour 30 min`. This overrides past `prep_time`/`cook_time`.
-- `prep_time`. Same format as `time`. Overrides past `time` but not `prep_time`.
-- `cook_time`. Same format as `time`. Overrides past `time` but not `cook_time`.
-
-_(`servings` is always parsed)_
-
 ### Name with URL
 
 Example: `Mom's Cookbook <https://moms-cookbook.url>` -> name: `Mom's Cookbook` url: `https://moms-cookbook.url/`
 
-The interpretations of the key value will be: 
+The interpretations of the key value will be:
 
 - `name <valid url>` -> as `name` & `url`
 - `name <invalid url>` -> as `name`
