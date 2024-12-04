@@ -375,12 +375,6 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
 
         // check if it's a special key
         if let Ok(sp_key) = StdKey::from_str(&key_t) {
-            // always parse servings
-            if sp_key != StdKey::Servings && !self.extensions.contains(Extensions::SPECIAL_METADATA)
-            {
-                return;
-            }
-
             let check_result = crate::metadata::check_std_entry(
                 sp_key,
                 self.content.metadata.map.get(key_t.as_ref()).unwrap(),

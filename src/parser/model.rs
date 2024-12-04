@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Lines that form a recipe.
 ///
 /// They may not be just 1 line in the file, as a single step can be parsed from
-/// multiple lines when [`MULTILINE_STEPS`](crate::Extensions::MULTILINE_STEPS)
-/// is enabled.
+/// multiple lines.
 #[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum Block<'a> {
     /// Metadata entry
