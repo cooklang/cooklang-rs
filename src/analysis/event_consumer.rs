@@ -6,7 +6,7 @@ use regex::Regex;
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
-use crate::metadata::SpecialKey;
+use crate::metadata::{check_std_entry, StdKey};
 use crate::parser::{
     self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
     Modifiers,
@@ -22,11 +22,25 @@ macro_rules! error {
     ($msg:expr, $label:expr $(,)?) => {
         $crate::error::SourceDiag::error($msg, $label, $crate::error::Stage::Analysis)
     };
+    ($msg:expr) => {
+        $crate::error::SourceDiag::unlabeled(
+            $msg,
+            $crate::error::Severity::Error,
+            $crate::error::Stage::Analysis,
+        )
+    };
 }
 
 macro_rules! warning {
     ($msg:expr, $label:expr $(,)?) => {
         $crate::error::SourceDiag::warning($msg, $label, $crate::error::Stage::Analysis)
+    };
+    ($msg:expr) => {
+        $crate::error::SourceDiag::unlabeled(
+            $msg,
+            $crate::error::Severity::Warning,
+            $crate::error::Stage::Analysis,
+        )
     };
 }
 
@@ -49,14 +63,7 @@ pub fn parse_events<'i, 'c>(
         .then(|| match converter.temperature_regex() {
             Ok(re) => Some(re),
             Err(err) => {
-                ctx.warn(
-                    SourceDiag::unlabeled(
-                        "An error ocurred searching temperature values",
-                        crate::error::Severity::Error,
-                        crate::error::Stage::Analysis,
-                    )
-                    .set_source(err),
-                );
+                ctx.warn(warning!("An error ocurred searching temperature values").set_source(err));
                 None
             }
         })
@@ -76,13 +83,15 @@ pub fn parse_events<'i, 'c>(
             cookware: Default::default(),
             timers: Default::default(),
             inline_quantities: Default::default(),
-            data: (),
+            data: crate::scale::Servings(None),
         },
         current_section: Section::default(),
 
         define_mode: DefineMode::All,
         duplicate_mode: DuplicateMode::New,
         auto_scale_ingredients: false,
+        old_style_metadata: true,
+        old_style_metadata_used: vec![],
         ctx,
 
         locations: Default::default(),
@@ -104,6 +113,8 @@ struct RecipeCollector<'i, 'c> {
     define_mode: DefineMode,
     duplicate_mode: DuplicateMode,
     auto_scale_ingredients: bool,
+    old_style_metadata: bool,
+    old_style_metadata_used: Vec<Span>,
     ctx: SourceReport,
 
     locations: Locations<'i>,
@@ -114,7 +125,7 @@ struct RecipeCollector<'i, 'c> {
 struct Locations<'i> {
     ingredients: Vec<Located<parser::Ingredient<'i>>>,
     cookware: Vec<Located<parser::Cookware<'i>>>,
-    metadata: HashMap<SpecialKey, (Text<'i>, Text<'i>)>,
+    metadata: HashMap<StdKey, (Text<'i>, Text<'i>)>,
 }
 
 const IMPLICIT_REF_WARN: &str = "The reference (&) is implicit";
@@ -130,6 +141,10 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         let events = events.by_ref();
         while let Some(event) = events.next() {
             match event {
+                Event::YAMLFrontMatter(yaml_text) => {
+                    self.old_style_metadata = true;
+                    self.process_frontmatter(yaml_text);
+                }
                 Event::Metadata { key, value } => self.metadata(key, value),
                 Event::Section { name } => {
                     self.step_counter = 1;
@@ -208,7 +223,74 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         if !self.current_section.is_empty() {
             self.content.sections.push(self.current_section);
         }
+
+        if !self.old_style_metadata_used.is_empty() {
+            let mut diag =
+                warning!("The '>>' syntax for metadata is deprecated, use a YAML frontmatter");
+            for span in self.old_style_metadata_used {
+                diag.add_label(label!(span));
+            }
+            if let Ok(yaml_hint) = serde_yaml::to_string(&self.content.metadata.map) {
+                diag.add_hint(format!("Replace the entries with this at the top of the document:\n---\n{yaml_hint}---\n"));
+            }
+            self.ctx.warn(diag);
+        }
+
         PassResult::new(Some(self.content), self.ctx)
+    }
+
+    fn process_frontmatter(&mut self, yaml_text: Text<'i>) {
+        self.old_style_metadata = false;
+        match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_text.text()) {
+            Ok(yaml_map) => {
+                self.content.metadata.map = yaml_map;
+                let mut to_remove = Vec::new();
+                for (key, value) in self.content.metadata.map.iter() {
+                    if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
+                        match check_std_entry(sk, value, &self.converter) {
+                            Ok(Some(servings)) => self.content.data = servings,
+                            Ok(None) => {}
+                            Err(err) => {
+                                // TODO can we get the position of the key value pair inside yaml_text?
+                                let diag = warning!(format!(
+                                    "Unsupported value for key: '{}'",
+                                    key.as_str().unwrap()
+                                ))
+                                .set_source(err);
+                                self.ctx.warn(diag);
+                            }
+                        }
+                    }
+
+                    // run custom validator if any
+                    if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
+                        let (res, incl) = validator(key, value);
+                        if let Some(diag) = res.into_source_diag(|| "Invalid metadata entry") {
+                            // TODO can we get the position of the key value pair inside yaml_text?
+                            self.ctx.push(diag);
+                        }
+                        if !incl {
+                            to_remove.push(key.clone());
+                        }
+                    }
+                }
+                for key in &to_remove {
+                    self.content.metadata.map.remove(key);
+                }
+            }
+            Err(err) => {
+                // ! This message (can) contains line and column number, but line numbers
+                // ! are off by one thanks to the starting `---`
+                let mut diag = error!(err.to_string());
+                let err_span = err
+                    .location()
+                    .map(|loc| Span::pos(yaml_text.span().start() + loc.index()));
+                if let Some(loc) = err_span {
+                    diag = diag.label(label!(loc));
+                }
+                self.ctx.error(diag);
+            }
+        }
     }
 
     fn metadata(&mut self, key: Text<'i>, value: Text<'i>) {
@@ -258,18 +340,26 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                             "Possible config keys are '[mode]', '[duplicate]' and '[auto scale]'",
                         ),
                     );
-                    self.content
-                        .metadata
-                        .map
-                        .insert(key_t.into_owned(), value_t.into_owned());
+                    if self.old_style_metadata {
+                        self.content.metadata.map.insert(
+                            serde_yaml::Value::String(key_t.into_owned()),
+                            serde_yaml::Value::String(value_t.into_owned()),
+                        );
+                    }
                 }
             }
             return;
         }
 
+        self.old_style_metadata_used
+            .push(Span::new(key.span().start(), value.span().end()));
+
+        let yaml_key = serde_yaml::Value::String(key_t.to_string());
+        let yaml_value = serde_yaml::Value::String(value_t.to_string());
+
         // run custom validator if any
         if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
-            let (res, incl) = validator(&key_t, &value_t);
+            let (res, incl) = validator(&yaml_key, &yaml_value);
             if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
                 diag.add_label(label!(key.span()));
                 diag.add_label(label!(value.span()));
@@ -281,49 +371,49 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         }
 
         // insert the value into the map
-        self.content
-            .metadata
-            .map
-            .insert(key_t.to_string(), value_t.to_string());
+        self.content.metadata.map.insert(yaml_key, yaml_value);
 
         // check if it's a special key
-        if let Ok(sp_key) = SpecialKey::from_str(&key_t) {
-            // try to insert it
-            let res =
-                self.content
-                    .metadata
-                    .insert_special(sp_key, value_t.to_string(), self.converter);
-            if let Err(err) = res {
-                self.ctx.warn(
-                    warning!(
-                        format!(
-                            "Unsupported value for special key: '{}'",
-                            key.text_trimmed()
-                        ),
-                        label!(value.span(), "this value"),
-                    )
-                    .label(label!(key.span(), "this key does not support"))
-                    .hint("It will be a regular metadata entry")
-                    .set_source(err),
-                );
-                return;
+        if let Ok(sp_key) = StdKey::from_str(&key_t) {
+            let check_result = crate::metadata::check_std_entry(
+                sp_key,
+                self.content.metadata.map.get(key_t.as_ref()).unwrap(),
+                self.converter,
+            );
+
+            match check_result {
+                Ok(Some(servings)) => self.content.data = servings,
+                Ok(None) => {}
+                Err(err) => {
+                    self.ctx.warn(
+                        warning!(
+                            format!(
+                                "Unsupported value for special key: '{}'",
+                                key.text_trimmed()
+                            ),
+                            label!(value.span(), "this value"),
+                        )
+                        .label(label!(key.span(), "this key does not support"))
+                        .hint("It will be a regular metadata entry")
+                        .set_source(err),
+                    );
+                    return;
+                }
             }
+
             // store it's location if it was inserted
             self.locations
                 .metadata
                 .insert(sp_key, (key.clone(), value.clone()));
 
-            if matches!(
-                sp_key,
-                SpecialKey::Time | SpecialKey::PrepTime | SpecialKey::CookTime
-            ) {
+            if matches!(sp_key, StdKey::Time | StdKey::PrepTime | StdKey::CookTime) {
                 self.time_override_check(sp_key)
             }
         }
     }
 
-    fn time_override_check(&mut self, new: SpecialKey) {
-        let locs = |keys: &[SpecialKey]| {
+    fn time_override_check(&mut self, new: StdKey) {
+        let locs = |keys: &[StdKey]| {
             assert!(!keys.is_empty());
             let mut v = keys
                 .iter()
@@ -339,9 +429,9 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
         };
 
         let overrides = locs(&[new])[0];
-        let overriden_keys: &[SpecialKey] = match new {
-            SpecialKey::Time => &[SpecialKey::PrepTime, SpecialKey::CookTime],
-            SpecialKey::PrepTime | SpecialKey::CookTime => &[SpecialKey::Time],
+        let overriden_keys: &[StdKey] = match new {
+            StdKey::Time => &[StdKey::PrepTime, StdKey::CookTime],
+            StdKey::PrepTime | StdKey::CookTime => &[StdKey::Time],
             _ => panic!("unknown time special key"),
         };
         let overriden = locs(overriden_keys);
@@ -921,25 +1011,26 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
             }
             parser::QuantityValue::Many(v) => {
                 const CONFLICT: &str = "Many values conflict";
-                if let Some(s) = &self.content.metadata.servings() {
-                    let servings_meta_span = self
-                        .locations
-                        .metadata
-                        .get(&SpecialKey::Servings)
-                        .map(|(_, value)| value.span())
-                        .unwrap();
+                if let crate::scale::Servings(Some(s)) = &self.content.data {
                     if s.len() != v.len() {
-                        self.ctx.error(
-                            error!(
-                                format!(
-                                    "{CONFLICT}: {} servings defined but {} values in the quantity",
-                                    s.len(),
-                                    v.len()
-                                ),
-                                label!(value.span(), "number of values do not match servings")
-                            )
-                            .label(label!(servings_meta_span, "servings defined here")),
+                        let mut err = error!(
+                            format!(
+                                "{CONFLICT}: {} servings defined but {} values in the quantity",
+                                s.len(),
+                                v.len()
+                            ),
+                            label!(value.span(), "number of values do not match servings")
                         );
+
+                        let meta_span = self
+                            .locations
+                            .metadata
+                            .get(&StdKey::Servings)
+                            .map(|(_, value)| value.span());
+                        if let Some(meta_span) = meta_span {
+                            err = err.label(label!(meta_span, "servings defined here"))
+                        }
+                        self.ctx.error(err);
                     }
                 } else {
                     self.ctx.error(error!(

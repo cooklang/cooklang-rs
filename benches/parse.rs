@@ -3,6 +3,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use cooklang::{parser::PullParser, CooklangParser, Extensions};
 
 const TEST_RECIPE: &str = include_str!("./test_recipe.cook");
+const FRONTMATTER_RECIPE: &str = include_str!("./frontmatter_test_recipe.cook");
 const COMPLEX_TEST_RECIPE: &str = include_str!("./complex_test_recipe.cook");
 
 fn canonical(c: &mut Criterion) {
@@ -25,6 +26,11 @@ fn canonical(c: &mut Criterion) {
     });
     group.bench_with_input("meta", TEST_RECIPE, |b, input| {
         b.iter(|| extended.parse_metadata(input).is_valid())
+    });
+    group.bench_with_input("frontmatter_meta", FRONTMATTER_RECIPE, |b, input| {
+        {
+            b.iter(|| extended.parse_metadata(input).is_valid())
+        }
     });
 }
 

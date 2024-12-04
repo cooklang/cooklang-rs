@@ -28,7 +28,7 @@ impl ScaleTarget {
     ///
     /// Invalid parameters don't error here, but may do so in the
     /// scaling process.
-    pub fn new(base: u32, target: u32, declared_servings: &[u32]) -> Self {
+    fn new(base: u32, target: u32, declared_servings: &[u32]) -> Self {
         ScaleTarget {
             base,
             target,
@@ -51,6 +51,9 @@ impl ScaleTarget {
         self.target
     }
 }
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Servings(pub(crate) Option<Vec<u32>>);
 
 /// Possible scaled states of a recipe
 #[derive(Debug, Serialize, Deserialize)]
@@ -125,9 +128,9 @@ impl ScalableRecipe {
     /// Note that this returns a [`ScaledRecipe`] wich doesn't implement this
     /// method. A recipe can only be scaled once.
     pub fn scale(self, target: u32, converter: &Converter) -> ScaledRecipe {
-        let target = if let Some(servings) = self.metadata.servings() {
+        let target = if let Servings(Some(servings)) = &self.data {
             let base = servings.first().copied().unwrap_or(1);
-            ScaleTarget::new(base, target, servings)
+            ScaleTarget::new(base, target, &servings)
         } else {
             ScaleTarget::new(1, target, &[])
         };
@@ -377,7 +380,33 @@ impl Scale for Timer<ScalableValue> {
     }
 }
 
+impl ScalableRecipe {
+    /// Get the defined number of servings in the recipe
+    ///
+    /// This is set automatically from the metadata. To change it manually use
+    /// [`set_servings`].
+    pub fn servings(&self) -> Option<&[u32]> {
+        if let Servings(Some(s)) = &self.data {
+            Some(s.as_slice())
+        } else {
+            None
+        }
+    }
+
+    /// Set the number of servings the recipe is intented for
+    ///
+    /// This will usually be set automatically from the metadata. But you can
+    /// use this method to set it manually or modify it.
+    pub fn set_servings(&mut self, servings: Vec<u32>) {
+        self.data = Servings(Some(servings))
+    }
+}
+
 impl ScaledRecipe {
+    pub fn scaled(&self) -> &Scaled {
+        &self.data
+    }
+
     /// Get the [`ScaledData`] from a recipe after scaling.
     ///
     /// Returns [`None`] if it was [`default scaled`](ScalableRecipe::default_scale).

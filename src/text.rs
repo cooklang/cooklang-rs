@@ -63,7 +63,6 @@ impl<'a> Text<'a> {
         }
     }
 
-    #[cfg(test)] // only used in tests
     pub(crate) fn from_str(s: &'a str, offset: usize) -> Self {
         let mut t = Self::empty(offset);
         t.append_fragment(TextFragment::new(s, offset));

@@ -221,32 +221,45 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
     // TODO define rules on language spec level
 
     right.iter().for_each(|(key, value)| {
-        left
-            .entry(key.clone()) // isn't really necessary?
+        left.entry(key.clone()) // isn't really necessary?
             .and_modify(|v| {
                 match key.unit_type {
                     QuantityType::Number => {
-                        let Value::Number { value: assignable } = value else { panic!("Unexpected type") };
-                        let Value::Number { value: stored } = v else { panic!("Unexpected type") };
+                        let Value::Number { value: assignable } = value else {
+                            panic!("Unexpected type")
+                        };
+                        let Value::Number { value: stored } = v else {
+                            panic!("Unexpected type")
+                        };
 
                         *stored += assignable
-                    },
+                    }
                     QuantityType::Range => {
-                        let Value::Range { start, end } = value else { panic!("Unexpected type") };
-                        let Value::Range { start: s, end: e } = v else { panic!("Unexpected type") };
+                        let Value::Range { start, end } = value else {
+                            panic!("Unexpected type")
+                        };
+                        let Value::Range { start: s, end: e } = v else {
+                            panic!("Unexpected type")
+                        };
 
                         // is it even correct?
                         *s += start;
                         *e += end;
-                    },
+                    }
                     QuantityType::Text => {
-                        let Value::Text { value: ref assignable } = value else { panic!("Unexpected type") };
-                        let Value::Text { value: stored } = v else { panic!("Unexpected type") };
+                        let Value::Text {
+                            value: ref assignable,
+                        } = value
+                        else {
+                            panic!("Unexpected type")
+                        };
+                        let Value::Text { value: stored } = v else {
+                            panic!("Unexpected type")
+                        };
 
                         *stored += assignable;
-                    },
-                    QuantityType::Empty => {}, // nothing is required to do, Some + Some = Some
-
+                    }
+                    QuantityType::Empty => {} // nothing is required to do, Some + Some = Some
                 }
             })
             .or_insert(value.clone());
@@ -332,9 +345,16 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
         });
     });
 
-    recipe.metadata.map.iter().for_each(|(key, value)| {
-        metadata.insert(key.to_string(), value.to_string());
-    });
+    recipe
+        .metadata
+        .map
+        .iter()
+        .for_each(|(key, value)| match (key.as_str(), value.as_str()) {
+            (Some(key), Some(value)) => {
+                metadata.insert(key.to_string(), value.to_string());
+            }
+            _ => {}
+        });
 
     CooklangRecipe {
         metadata,

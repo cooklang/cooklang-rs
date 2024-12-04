@@ -32,6 +32,7 @@ pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<
     let mut ctx = SourceReport::empty();
     for event in events {
         match event {
+            Event::YAMLFrontMatter(_) => todo!(),
             Event::Metadata { key, value } => blocks.push(Block::Metadata { key, value }),
             Event::Section { name } => blocks.push(Block::Section { name }),
             Event::Start(_kind) => items.clear(),

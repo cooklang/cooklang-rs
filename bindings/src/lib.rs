@@ -48,9 +48,14 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
     .unwrap_output();
 
     // converting IndexMap into HashMap
-    let _ = &(parsed).iter().for_each(|(key, value)| {
-        metadata.insert(key.to_string(), value.to_string());
-    });
+    let _ = &(parsed)
+        .iter()
+        .for_each(|(key, value)| match (key.as_str(), value.as_str()) {
+            (Some(key), Some(value)) => {
+                metadata.insert(key.to_string(), value.to_string());
+            }
+            _ => {}
+        });
 
     metadata
 }
