@@ -9,14 +9,31 @@ use cooklang::ScalableRecipe as OriginalRecipe;
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
     pub metadata: HashMap<String, String>,
-    pub steps: Vec<Step>,
+    pub sections: Vec<Section>,
     pub ingredients: IngredientList,
     pub cookware: Vec<Item>,
 }
 
 #[derive(uniffi::Record, Debug)]
+pub struct Section {
+    pub title: Option<String>,
+    pub blocks: Vec<Block>,
+}
+
+#[derive(uniffi::Enum, Debug)]
+pub enum Block {
+    Step(Step),
+    Note(BlockNote),
+}
+
+#[derive(uniffi::Record, Debug)]
 pub struct Step {
     pub items: Vec<Item>,
+}
+
+#[derive(uniffi::Record, Debug)]
+pub struct BlockNote {
+    pub text: String,
 }
 
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
@@ -27,6 +44,7 @@ pub enum Item {
     Ingredient {
         name: String,
         amount: Option<Amount>,
+        preparation: Option<String>,
     },
     Cookware {
         name: String,
@@ -277,6 +295,7 @@ pub(crate) fn into_item(item: &OriginalItem, recipe: &OriginalRecipe) -> Item {
             Item::Ingredient {
                 name: ingredient.name.clone(),
                 amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
+                preparation: ingredient.note.clone(),
             }
         }
 
@@ -306,59 +325,65 @@ pub(crate) fn into_item(item: &OriginalItem, recipe: &OriginalRecipe) -> Item {
 
 pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
     let mut metadata = CooklangMetadata::new();
-    let mut steps: Vec<Step> = Vec::new();
     let mut ingredients: IngredientList = IngredientList::default();
     let mut cookware: Vec<Item> = Vec::new();
-    let mut items: Vec<Item> = Vec::new();
+    let mut sections: Vec<Section> = Vec::new();
 
-    recipe.sections.iter().for_each(|section| {
-        section.content.iter().for_each(|content| {
-            if let cooklang::Content::Step(step) = content {
-                step.items.iter().for_each(|i| {
-                    let item = into_item(i, recipe);
+    // Process each section
+    for section in &recipe.sections {
+        let mut blocks: Vec<Block> = Vec::new();
+        let mut items: Vec<Item> = Vec::new();
 
-                    match item {
-                        Item::Ingredient {
-                            ref name,
-                            ref amount,
-                        } => {
-                            let quantity = into_group_quantity(amount);
+        // Process content within each section
+        for content in &section.content {
+            match content {
+                cooklang::Content::Step(step) => {
+                    // Process step items
+                    for item in &step.items {
+                        let item = into_item(item, recipe);
 
-                            add_to_ingredient_list(&mut ingredients, name, &quantity);
-                        }
-                        Item::Cookware { .. } => {
-                            cookware.push(item.clone());
-                        }
-                        // don't need anything if timer or text
-                        _ => (),
-                    };
-                    items.push(item);
-                });
-                // TODO: think how to make it faster as we probably
-                // can switch items content directly into the step object without cloning it
-                steps.push(Step {
-                    items: items.clone(),
-                });
-
-                items.clear();
+                        // Handle ingredients and cookware tracking
+                        match &item {
+                            Item::Ingredient { name, amount, .. } => {
+                                let quantity = into_group_quantity(amount);
+                                add_to_ingredient_list(&mut ingredients, name, &quantity);
+                            }
+                            Item::Cookware { .. } => {
+                                cookware.push(item.clone());
+                            }
+                            _ => (),
+                        };
+                        items.push(item);
+                    }
+                    blocks.push(Block::Step(Step {
+                        items: items.clone(),
+                    }));
+                    items.clear();
+                }
+                cooklang::Content::Text(text) => {
+                    blocks.push(Block::Note(BlockNote {
+                        text: text.to_string(),
+                    }));
+                }
             }
-        });
-    });
+        }
 
-    recipe
-        .metadata
-        .map
-        .iter()
-        .for_each(|(key, value)| match (key.as_str(), value.as_str()) {
-            (Some(key), Some(value)) => {
-                metadata.insert(key.to_string(), value.to_string());
-            }
-            _ => {}
+        sections.push(Section {
+            title: section.name.clone(),
+            blocks,
         });
+    }
+
+    // Process metadata
+    for (key, value) in &recipe.metadata.map {
+        if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
+            metadata.insert(key.to_string(), value.to_string());
+        }
+    }
 
     CooklangRecipe {
         metadata,
-        steps,
+        sections,
         ingredients,
         cookware,
     }

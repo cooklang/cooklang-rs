@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_parse_recipe() {
-        use crate::{parse_recipe, Amount, Item, Value};
+        use crate::{parse_recipe, Amount, Item, Value, Block};
 
         let recipe = parse_recipe(
             r#"
@@ -115,14 +115,18 @@ a test @step @salt{1%mg} more text
         );
 
         assert_eq!(
-            recipe.steps.into_iter().nth(0).unwrap().items,
+            match recipe.sections.into_iter().nth(0).expect("No blocks found").blocks.into_iter().nth(0).expect("No blocks found") {
+                Block::Step(step) => step,
+                _ => panic!("Expected first block to be a Step"),
+            }.items,
             vec![
                 Item::Text {
                     value: "a test ".to_string()
                 },
                 Item::Ingredient {
                     name: "step".to_string(),
-                    amount: None
+                    amount: None,
+                    preparation: None
                 },
                 Item::Text {
                     value: " ".to_string()
@@ -132,7 +136,8 @@ a test @step @salt{1%mg} more text
                     amount: Some(Amount {
                         quantity: Value::Number { value: 1.0 },
                         units: Some("mg".to_string())
-                    })
+                    }),
+                    preparation: None
                 },
                 Item::Text {
                     value: " more text".to_string()
@@ -147,8 +152,9 @@ a test @step @salt{1%mg} more text
         use std::collections::HashMap;
 
         let metadata = parse_metadata(
-            r#"
->> source: https://google.com
+            r#"---
+source: https://google.com
+---
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
@@ -315,6 +321,208 @@ dried oregano
                     Value::Number { value: 1.0 }
                 ),
             ])
+        );
+    }
+
+    #[test]
+    fn test_parse_recipe_with_note() {
+        use crate::{parse_recipe, Amount, Item, Value, Block};
+
+        let recipe = parse_recipe(
+            r#"
+> This dish is even better the next day, after the flavors have melded overnight.
+
+Cook @onions{3%large} until brown
+"#
+            .to_string(),
+        );
+
+        let first_section = recipe.sections.into_iter().nth(0).expect("No sections found");
+
+        assert_eq!(first_section.blocks.len(), 2);
+
+        // Check note block
+        let mut iterator = first_section.blocks.into_iter();
+        let note_block = iterator.next().expect("No blocks found");
+
+        assert_eq!(
+            match note_block {
+                Block::Note(note) => note,
+                _ => panic!("Expected first block to be a Note"),
+            }.text,
+            "This dish is even better the next day, after the flavors have melded overnight.".to_string()
+        );
+
+        // Check step block
+        let step_block = iterator.next().expect("No blocks found");
+
+        assert_eq!(
+            match step_block {
+                Block::Step(step) => step,
+                _ => panic!("Expected second block to be a Step"),
+            }.items,
+            vec![
+                Item::Text { value: "Cook ".to_string() },
+                Item::Ingredient {
+                    name: "onions".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 3.0 },
+                        units: Some("large".to_string())
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: " until brown".to_string() }
+            ]
+        );
+    }
+
+    #[test]
+    fn test_parse_recipe_with_multiline_steps() {
+        use crate::{parse_recipe, Amount, Item, Value, Block};
+
+        let recipe = parse_recipe(
+            r#"
+add @onions{2} to pan
+heat until golden
+
+add @tomatoes{400%g}
+simmer for 10 minutes
+"#
+            .to_string(),
+        );
+        let first_section = recipe.sections.into_iter().nth(0).expect("No sections found");
+        assert_eq!(first_section.blocks.len(), 2);
+
+        // Check first step
+        let mut iterator = first_section.blocks.into_iter();
+        let first_block = iterator.next().expect("No blocks found");
+        let second_block = iterator.next().expect("No blocks found");
+
+        assert_eq!(
+            match first_block {
+                Block::Step(step) => step,
+                _ => panic!("Expected first block to be a Step"),
+            }.items,
+            vec![
+                Item::Text { value: "add ".to_string() },
+                Item::Ingredient {
+                    name: "onions".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 2.0 },
+                        units: None
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: " to pan heat until golden".to_string() }
+            ]
+        );
+
+        // Check second step
+        assert_eq!(
+            match second_block {
+                Block::Step(step) => step,
+                _ => panic!("Expected second block to be a Step"),
+            }.items,
+            vec![
+                Item::Text { value: "add ".to_string() },
+                Item::Ingredient {
+                    name: "tomatoes".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 400.0 },
+                        units: Some("g".to_string())
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: " simmer for 10 minutes".to_string() }
+            ]
+        );
+    }
+
+    #[test]
+    fn test_parse_recipe_with_sections() {
+        use crate::{parse_recipe, Amount, Item, Value, Block};
+
+        let recipe = parse_recipe(
+            r#"
+= Dough
+
+Mix @flour{200%g} and @water{50%ml} together until smooth.
+
+== Filling ==
+
+Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
+"#
+            .to_string(),
+        );
+
+        let mut sections = recipe.sections.into_iter();
+
+        // Check first section
+        let first_section = sections.next().expect("No sections found");
+        assert_eq!(first_section.title, Some("Dough".to_string()));
+        assert_eq!(first_section.blocks.len(), 1);
+
+        let first_block = first_section.blocks.into_iter().next().expect("No blocks found");
+        assert_eq!(
+            match first_block {
+                Block::Step(step) => step,
+                _ => panic!("Expected block to be a Step"),
+            }.items,
+            vec![
+                Item::Text { value: "Mix ".to_string() },
+                Item::Ingredient {
+                    name: "flour".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 200.0 },
+                        units: Some("g".to_string())
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: " and ".to_string() },
+                Item::Ingredient {
+                    name: "water".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 50.0 },
+                        units: Some("ml".to_string())
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: " together until smooth.".to_string() }
+            ]
+        );
+
+        // Check second section
+        let second_section = sections.next().expect("No second section found");
+        assert_eq!(second_section.title, Some("Filling".to_string()));
+        assert_eq!(second_section.blocks.len(), 1);
+
+        let second_block = second_section.blocks.into_iter().next().expect("No blocks found");
+        assert_eq!(
+            match second_block {
+                Block::Step(step) => step,
+                _ => panic!("Expected block to be a Step"),
+            }.items,
+            vec![
+                Item::Text { value: "Combine ".to_string() },
+                Item::Ingredient {
+                    name: "cheese".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 100.0 },
+                        units: Some("g".to_string())
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: " and ".to_string() },
+                Item::Ingredient {
+                    name: "spinach".to_string(),
+                    amount: Some(Amount {
+                        quantity: Value::Number { value: 50.0 },
+                        units: Some("g".to_string())
+                    }),
+                    preparation: None
+                },
+                Item::Text { value: ", then season to taste.".to_string() }
+            ]
         );
     }
 }
