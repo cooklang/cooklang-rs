@@ -48,14 +48,11 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
     .unwrap_output();
 
     // converting IndexMap into HashMap
-    let _ = &(parsed)
-        .iter()
-        .for_each(|(key, value)| match (key.as_str(), value.as_str()) {
-            (Some(key), Some(value)) => {
-                metadata.insert(key.to_string(), value.to_string());
-            }
-            _ => {}
-        });
+    let _ = &(parsed).iter().for_each(|(key, value)| {
+        if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
+            metadata.insert(key.to_string(), value.to_string());
+        }
+    });
 
     metadata
 }
@@ -125,7 +122,10 @@ pub fn combine_ingredients(ingredients: &Vec<Ingredient>) -> IngredientList {
 }
 
 #[uniffi::export]
-pub fn combine_ingredients_selected(ingredients: &Vec<Ingredient>, indices: &Vec<u32>) -> IngredientList {
+pub fn combine_ingredients_selected(
+    ingredients: &[Ingredient],
+    indices: &Vec<u32>,
+) -> IngredientList {
     let mut combined: IngredientList = IngredientList::default();
 
     expand_with_ingredients(ingredients, &mut combined, indices);
@@ -167,11 +167,11 @@ a test @step @salt{1%mg} more text
             match recipe
                 .sections
                 .into_iter()
-                .nth(0)
+                .next()
                 .expect("No blocks found")
                 .blocks
                 .into_iter()
-                .nth(0)
+                .next()
                 .expect("No blocks found")
             {
                 Block::Step(step) => step,
@@ -377,7 +377,7 @@ Cook @onions{3%large} until brown
         let first_section = recipe
             .sections
             .into_iter()
-            .nth(0)
+            .next()
             .expect("No sections found");
 
         assert_eq!(first_section.blocks.len(), 2);
@@ -434,7 +434,7 @@ simmer for 10 minutes
         let first_section = recipe
             .sections
             .into_iter()
-            .nth(0)
+            .next()
             .expect("No sections found");
         assert_eq!(first_section.blocks.len(), 2);
 

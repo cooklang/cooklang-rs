@@ -167,6 +167,7 @@ pub enum Value {
     Empty,
 }
 
+// TODO, should be more complex and support canonical keys
 pub type CooklangMetadata = HashMap<String, String>;
 
 trait Amountable {
@@ -216,7 +217,7 @@ fn extract_value(value: &OriginalValue) -> Value {
 }
 
 pub fn expand_with_ingredients(
-    ingredients: &Vec<Ingredient>,
+    ingredients: &[Ingredient],
     base: &mut IngredientList,
     addition: &Vec<ComponentRef>,
 ) {
@@ -245,9 +246,7 @@ pub fn merge_ingredient_lists(left: &mut IngredientList, right: &IngredientList)
     right
         .iter()
         .for_each(|(ingredient_name, grouped_quantity)| {
-            let quantity = left
-                .entry(ingredient_name.to_string())
-                .or_insert(GroupedQuantity::default());
+            let quantity = left.entry(ingredient_name.to_string()).or_default();
 
             merge_grouped_quantities(quantity, grouped_quantity);
         });
@@ -384,7 +383,7 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
                         items.push(item);
                     }
                     blocks.push(Block::Step(Step {
-                        items: items,
+                        items,
                         ingredient_refs: step_ingredient_refs.clone(),
                         cookware_refs: step_cookware_refs.clone(),
                         timer_refs: step_timer_refs.clone(),
@@ -405,9 +404,9 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
         sections.push(Section {
             title: section.name.clone(),
             blocks,
-            ingredient_refs: ingredient_refs,
-            cookware_refs: cookware_refs,
-            timer_refs: timer_refs,
+            ingredient_refs,
+            cookware_refs,
+            timer_refs,
         });
     }
 

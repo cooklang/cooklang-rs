@@ -15,7 +15,7 @@ This library exports methods:
 ```rust
     // full parsing, returns full recipe object with meta
     parse_recipe(input: String) -> CooklangRecipe;
-    // fast parsing, only metadata is parsed and returned
+    // fast metadata parsing, recipe text is not parsed
     parse_metadata(input: String) -> CooklangMetadata;
     // parse aisle config to use in shopping list
     parse_aisle_config(input: String) -> Arc<AisleConfig>;
@@ -36,6 +36,7 @@ This library exports methods:
     // usage example:
     // let timer = deref_timer(recipe, 0);
     deref_timer(recipe: &CooklangRecipe, index: u32) -> Timer;
+
     // combines ingredient lists into one
     // usage example:
     // let all_recipe_ingredients_combined = combine_ingredients(recipe.ingredients);
@@ -54,27 +55,27 @@ This library exports methods:
     struct CooklangRecipe {
         /// Recipe metadata like title, source, etc.
         metadata: CooklangMetadata,
-        /// List of recipe sections
+        /// List of recipe sections, each containing blocks of content, like steps, notes, etc.
         sections: Vec<Section>,
         /// List of all ingredients used in the recipe in order of use. Not quantity combined.
         ingredients: Vec<Ingredient>,
-        /// List of all cookware used in the recipe
+        /// List of all cookware used in the recipe.
         cookware: Vec<Cookware>,
-        /// List of all timers used in the recipe
+        /// List of all timers used in the recipe.
         timers: Vec<Timer>,
     }
 
     /// Represents a distinct section of a recipe, optionally with a title
     struct Section {
-        /// Optional section title (e.g., "Preparation", "Cooking", etc.)
+        /// Optional section title (e.g., "Dough", "Topping", etc.)
         title: Option<String>,
-        /// List of content blocks in this section
+        /// List of content blocks in this section. Each block can be a step or a note.
         blocks: Vec<Block>,
-        /// References to ingredients used in this section
+        /// Indices of  ingredients used in this section.
         ingredient_refs: Vec<u32>,
-        /// References to cookware used in this section
+        /// Indices of cookware used in this section.
         cookware_refs: Vec<u32>,
-        /// References to timers used in this section
+        /// Indices of timers used in this section.
         timer_refs: Vec<u32>,
     }
 
@@ -90,11 +91,11 @@ This library exports methods:
     struct Step {
         /// List of items that make up this step (text and references)
         items: Vec<Item>,
-        /// References to ingredients used in this step
+        /// Indices of ingredients used in this step
         ingredient_refs: Vec<u32>,
-        /// References to cookware used in this step
+        /// Indices of cookware used in this step
         cookware_refs: Vec<u32>,
-        /// References to timers used in this step
+        /// Indices of timers used in this step
         timer_refs: Vec<u32>,
     }
 
@@ -116,9 +117,7 @@ This library exports methods:
 
     /// Represents a piece of cookware used in the recipe
     struct Cookware {
-        /// Name of the
         name: String,
-        /// Optional quantity and units
         amount: Option<Amount>,
     }
 
@@ -126,7 +125,6 @@ This library exports methods:
     struct Timer {
         /// Optional timer name (e.g., "boiling", "baking", etc.)
         name: Option<String>,
-        /// Optional quantity and units
         amount: Option<Amount>,
     }
 
@@ -134,11 +132,11 @@ This library exports methods:
     enum Item {
         /// A text item
         Text { value: String },
-        /// An ingredient reference
+        /// An ingredient reference index
         IngredientRef { index: u32 },
-        /// A cookware reference
+        /// A cookware reference index
         CookwareRef { index: u32 },
-        /// A timer reference
+        /// A timer reference index
         TimerRef { index: u32 },
     }
 
@@ -152,21 +150,22 @@ This library exports methods:
 
     /// Represents a value in the recipe
     enum Value {
-        /// A number value
         Number { value: f64 },
-        /// A range value
         Range { start: f64, end: f64 },
-        /// A text value
         Text { value: String },
-        /// An empty value
         Empty,
     }
 
     /// Represents the metadata of the recipe
     type CooklangMetadata = HashMap<String, String>;
-    /// Represents a list of ingredients
+    /// Represents a list of ingredients that are grouped by name and quantity
     type IngredientList = HashMap<String, GroupedQuantity>;
-    /// Represents a grouped quantity
+    /// Represents a grouped quantity for multiple unit types
+    // \
+    //  |- <litre,Number> => 1.2
+    //  |- <litre,Text> => half
+    //  |- <,Text> => pinch
+    //  |- <,Empty> => Some
     type GroupedQuantity = HashMap<GroupedQuantityKey, Value>;
 
     /// Represents a grouped quantity key
@@ -179,13 +178,9 @@ This library exports methods:
 
     /// Represents the type of the grouped quantity
     enum QuantityType {
-        /// Number type
         Number,
-        /// Range type
         Range,
-        /// Text type
         Text,
-        /// Empty type
         Empty,
     }
 ```
