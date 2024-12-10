@@ -14,14 +14,15 @@ pub struct CooklangRecipe {
     pub cookware: Vec<Cookware>,
     pub timers: Vec<Timer>,
 }
+pub type ComponentRef = u32;
 
 #[derive(uniffi::Record, Debug)]
 pub struct Section {
     pub title: Option<String>,
     pub blocks: Vec<Block>,
-    pub ingredient_refs: Vec<u32>,
-    pub cookware_refs: Vec<u32>,
-    pub timer_refs: Vec<u32>,
+    pub ingredient_refs: Vec<ComponentRef>,
+    pub cookware_refs: Vec<ComponentRef>,
+    pub timer_refs: Vec<ComponentRef>,
 }
 
 #[derive(uniffi::Enum, Debug)]
@@ -30,12 +31,20 @@ pub enum Block {
     Note(BlockNote),
 }
 
+#[derive(uniffi::Enum, Debug, PartialEq)]
+pub enum Component {
+    Ingredient(Ingredient),
+    Cookware(Cookware),
+    Timer(Timer),
+    Text(String),
+}
+
 #[derive(uniffi::Record, Debug)]
 pub struct Step {
     pub items: Vec<Item>,
-    pub ingredient_refs: Vec<u32>,
-    pub cookware_refs: Vec<u32>,
-    pub timer_refs: Vec<u32>,
+    pub ingredient_refs: Vec<ComponentRef>,
+    pub cookware_refs: Vec<ComponentRef>,
+    pub timer_refs: Vec<ComponentRef>,
 }
 
 #[derive(uniffi::Record, Debug)]
@@ -43,20 +52,20 @@ pub struct BlockNote {
     pub text: String,
 }
 
-#[derive(uniffi::Record, Debug, Clone)]
+#[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Ingredient {
     pub name: String,
     pub amount: Option<Amount>,
-    pub preparation: Option<String>,
+    pub descriptor: Option<String>,
 }
 
-#[derive(uniffi::Record, Debug, Clone)]
+#[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Cookware {
     pub name: String,
     pub amount: Option<Amount>,
 }
 
-#[derive(uniffi::Record, Debug, Clone)]
+#[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Timer {
     pub name: Option<String>,
     pub amount: Option<Amount>,
@@ -64,18 +73,10 @@ pub struct Timer {
 
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
 pub enum Item {
-    Text {
-        value: String,
-    },
-    Ingredient {
-        index: u32,
-    },
-    Cookware {
-        index: u32,
-    },
-    Timer {
-        index: u32,
-    },
+    Text { value: String },
+    IngredientRef { index: ComponentRef },
+    CookwareRef { index: ComponentRef },
+    TimerRef { index: ComponentRef },
 }
 
 pub type IngredientList = HashMap<String, GroupedQuantity>;
@@ -214,8 +215,20 @@ fn extract_value(value: &OriginalValue) -> Value {
     }
 }
 
+pub fn expand_with_ingredients(
+    ingredients: &Vec<Ingredient>,
+    base: &mut IngredientList,
+    addition: &Vec<ComponentRef>,
+) {
+    for index in addition {
+        let ingredient = ingredients.get(*index as usize).unwrap().clone();
+        let quantity = into_group_quantity(&ingredient.amount);
+        add_to_ingredient_list(base, &ingredient.name, &quantity);
+    }
+}
+
 // I(dubadub) haven't found a way to export these methods with mutable argument
-pub fn add_to_ingredient_list(
+fn add_to_ingredient_list(
     list: &mut IngredientList,
     name: &String,
     quantity_to_add: &GroupedQuantity,
@@ -311,24 +324,15 @@ pub(crate) fn into_item(item: &OriginalItem) -> Item {
         OriginalItem::Text { value } => Item::Text {
             value: value.to_string(),
         },
-        OriginalItem::Ingredient { index } => {
-            Item::Ingredient {
-                index: *index as u32,
-            }
-        }
-
-        OriginalItem::Cookware { index } => {
-            Item::Cookware {
-                index: *index as u32,
-            }
-        }
-
-        OriginalItem::Timer { index } => {
-            Item::Timer {
-                index: *index as u32,
-            }
-        }
-
+        OriginalItem::Ingredient { index } => Item::IngredientRef {
+            index: *index as u32,
+        },
+        OriginalItem::Cookware { index } => Item::CookwareRef {
+            index: *index as u32,
+        },
+        OriginalItem::Timer { index } => Item::TimerRef {
+            index: *index as u32,
+        },
         // returning an empty block of text as it's not supported by the spec
         OriginalItem::InlineQuantity { index: _ } => Item::Text {
             value: "".to_string(),
@@ -353,7 +357,6 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
 
         // Process content within each section
         for content in &section.content {
-
             match content {
                 cooklang::Content::Step(step) => {
                     let mut step_ingredient_refs: Vec<u32> = Vec::new();
@@ -367,13 +370,13 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
 
                         // Handle ingredients and cookware tracking
                         match &item {
-                            Item::Ingredient { index } => {
+                            Item::IngredientRef { index } => {
                                 step_ingredient_refs.push(*index);
                             }
-                            Item::Cookware { index } => {
+                            Item::CookwareRef { index } => {
                                 step_cookware_refs.push(*index);
                             }
-                            Item::Timer { index } => {
+                            Item::TimerRef { index } => {
                                 step_timer_refs.push(*index);
                             }
                             _ => (),
@@ -429,7 +432,7 @@ impl From<&cooklang::Ingredient<OriginalScalableValue>> for Ingredient {
         Ingredient {
             name: ingredient.name.clone(),
             amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
-            preparation: ingredient.note.clone(),
+            descriptor: ingredient.note.clone(),
         }
     }
 }
