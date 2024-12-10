@@ -10,14 +10,18 @@ use cooklang::ScalableRecipe as OriginalRecipe;
 pub struct CooklangRecipe {
     pub metadata: HashMap<String, String>,
     pub sections: Vec<Section>,
-    pub ingredients: IngredientList,
-    pub cookware: Vec<Item>,
+    pub ingredients: Vec<Ingredient>,
+    pub cookware: Vec<Cookware>,
+    pub timers: Vec<Timer>,
 }
 
 #[derive(uniffi::Record, Debug)]
 pub struct Section {
     pub title: Option<String>,
     pub blocks: Vec<Block>,
+    pub ingredient_refs: Vec<u32>,
+    pub cookware_refs: Vec<u32>,
+    pub timer_refs: Vec<u32>,
 }
 
 #[derive(uniffi::Enum, Debug)]
@@ -29,11 +33,33 @@ pub enum Block {
 #[derive(uniffi::Record, Debug)]
 pub struct Step {
     pub items: Vec<Item>,
+    pub ingredient_refs: Vec<u32>,
+    pub cookware_refs: Vec<u32>,
+    pub timer_refs: Vec<u32>,
 }
 
 #[derive(uniffi::Record, Debug)]
 pub struct BlockNote {
     pub text: String,
+}
+
+#[derive(uniffi::Record, Debug, Clone)]
+pub struct Ingredient {
+    pub name: String,
+    pub amount: Option<Amount>,
+    pub preparation: Option<String>,
+}
+
+#[derive(uniffi::Record, Debug, Clone)]
+pub struct Cookware {
+    pub name: String,
+    pub amount: Option<Amount>,
+}
+
+#[derive(uniffi::Record, Debug, Clone)]
+pub struct Timer {
+    pub name: Option<String>,
+    pub amount: Option<Amount>,
 }
 
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
@@ -42,17 +68,13 @@ pub enum Item {
         value: String,
     },
     Ingredient {
-        name: String,
-        amount: Option<Amount>,
-        preparation: Option<String>,
+        index: u32,
     },
     Cookware {
-        name: String,
-        amount: Option<Amount>,
+        index: u32,
     },
     Timer {
-        name: Option<String>,
-        amount: Option<Amount>,
+        index: u32,
     },
 }
 
@@ -284,35 +306,26 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
     });
 }
 
-pub(crate) fn into_item(item: &OriginalItem, recipe: &OriginalRecipe) -> Item {
+pub(crate) fn into_item(item: &OriginalItem) -> Item {
     match item {
         OriginalItem::Text { value } => Item::Text {
             value: value.to_string(),
         },
         OriginalItem::Ingredient { index } => {
-            let ingredient = &recipe.ingredients[*index];
-
             Item::Ingredient {
-                name: ingredient.name.clone(),
-                amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
-                preparation: ingredient.note.clone(),
+                index: *index as u32,
             }
         }
 
         OriginalItem::Cookware { index } => {
-            let cookware = &recipe.cookware[*index];
             Item::Cookware {
-                name: cookware.name.clone(),
-                amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
+                index: *index as u32,
             }
         }
 
         OriginalItem::Timer { index } => {
-            let timer = &recipe.timers[*index];
-
             Item::Timer {
-                name: timer.name.clone(),
-                amount: timer.quantity.as_ref().map(|q| q.extract_amount()),
+                index: *index as u32,
             }
         }
 
@@ -325,41 +338,59 @@ pub(crate) fn into_item(item: &OriginalItem, recipe: &OriginalRecipe) -> Item {
 
 pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
     let mut metadata = CooklangMetadata::new();
-    let mut ingredients: IngredientList = IngredientList::default();
-    let mut cookware: Vec<Item> = Vec::new();
+    let ingredients: Vec<Ingredient> = recipe.ingredients.iter().map(|i| i.into()).collect();
+    let cookware: Vec<Cookware> = recipe.cookware.iter().map(|i| i.into()).collect();
+    let timers: Vec<Timer> = recipe.timers.iter().map(|i| i.into()).collect();
     let mut sections: Vec<Section> = Vec::new();
 
     // Process each section
     for section in &recipe.sections {
         let mut blocks: Vec<Block> = Vec::new();
-        let mut items: Vec<Item> = Vec::new();
+
+        let mut ingredient_refs: Vec<u32> = Vec::new();
+        let mut cookware_refs: Vec<u32> = Vec::new();
+        let mut timer_refs: Vec<u32> = Vec::new();
 
         // Process content within each section
         for content in &section.content {
+
             match content {
                 cooklang::Content::Step(step) => {
+                    let mut step_ingredient_refs: Vec<u32> = Vec::new();
+                    let mut step_cookware_refs: Vec<u32> = Vec::new();
+                    let mut step_timer_refs: Vec<u32> = Vec::new();
+
+                    let mut items: Vec<Item> = Vec::new();
                     // Process step items
                     for item in &step.items {
-                        let item = into_item(item, recipe);
+                        let item = into_item(item);
 
                         // Handle ingredients and cookware tracking
                         match &item {
-                            Item::Ingredient { name, amount, .. } => {
-                                let quantity = into_group_quantity(amount);
-                                add_to_ingredient_list(&mut ingredients, name, &quantity);
+                            Item::Ingredient { index } => {
+                                step_ingredient_refs.push(*index);
                             }
-                            Item::Cookware { .. } => {
-                                cookware.push(item.clone());
+                            Item::Cookware { index } => {
+                                step_cookware_refs.push(*index);
+                            }
+                            Item::Timer { index } => {
+                                step_timer_refs.push(*index);
                             }
                             _ => (),
                         };
                         items.push(item);
                     }
                     blocks.push(Block::Step(Step {
-                        items: items.clone(),
+                        items: items,
+                        ingredient_refs: step_ingredient_refs.clone(),
+                        cookware_refs: step_cookware_refs.clone(),
+                        timer_refs: step_timer_refs.clone(),
                     }));
-                    items.clear();
+                    ingredient_refs.extend(step_ingredient_refs);
+                    cookware_refs.extend(step_cookware_refs);
+                    timer_refs.extend(step_timer_refs);
                 }
+
                 cooklang::Content::Text(text) => {
                     blocks.push(Block::Note(BlockNote {
                         text: text.to_string(),
@@ -371,6 +402,9 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
         sections.push(Section {
             title: section.name.clone(),
             blocks,
+            ingredient_refs: ingredient_refs,
+            cookware_refs: cookware_refs,
+            timer_refs: timer_refs,
         });
     }
 
@@ -386,5 +420,34 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
         sections,
         ingredients,
         cookware,
+        timers,
+    }
+}
+
+impl From<&cooklang::Ingredient<OriginalScalableValue>> for Ingredient {
+    fn from(ingredient: &cooklang::Ingredient<OriginalScalableValue>) -> Self {
+        Ingredient {
+            name: ingredient.name.clone(),
+            amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
+            preparation: ingredient.note.clone(),
+        }
+    }
+}
+
+impl From<&cooklang::Cookware<OriginalScalableValue>> for Cookware {
+    fn from(cookware: &cooklang::Cookware<OriginalScalableValue>) -> Self {
+        Cookware {
+            name: cookware.name.clone(),
+            amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
+        }
+    }
+}
+
+impl From<&cooklang::Timer<OriginalScalableValue>> for Timer {
+    fn from(timer: &cooklang::Timer<OriginalScalableValue>) -> Self {
+        Timer {
+            name: Some(timer.name.clone().unwrap_or_default()),
+            amount: timer.quantity.as_ref().map(|q| q.extract_amount()),
+        }
     }
 }

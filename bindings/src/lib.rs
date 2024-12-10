@@ -61,6 +61,21 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 }
 
 #[uniffi::export]
+pub fn deref_ingredient(recipe: &CooklangRecipe, index: u32) -> Ingredient {
+    recipe.ingredients.get(index as usize).unwrap().clone()
+}
+
+#[uniffi::export]
+pub fn deref_cookware(recipe: &CooklangRecipe, index: u32) -> Cookware {
+    recipe.cookware.get(index as usize).unwrap().clone()
+}
+
+#[uniffi::export]
+pub fn deref_timer(recipe: &CooklangRecipe, index: u32) -> Timer {
+    recipe.timers.get(index as usize).unwrap().clone()
+}
+
+#[uniffi::export]
 pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let mut categories: Vec<AisleCategory> = Vec::new();
     let mut cache: AisleReverseCategory = AisleReverseCategory::default();
