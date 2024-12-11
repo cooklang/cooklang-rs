@@ -40,6 +40,7 @@ This library exports methods:
     // combines ingredient lists into one
     // usage example:
     // let all_recipe_ingredients_combined = combine_ingredients(recipe.ingredients);
+    // if multiple recipes need to be combined, combine their ingredients lists and pass them to this method
     combine_ingredients(ingredients: Vec<Ingredient>) -> IngredientList;
     // combines ingredient lists into one
     // usage example:

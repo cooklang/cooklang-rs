@@ -411,6 +411,7 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
     }
 
     // Process metadata
+    // TODO: add support for nested metadata
     for (key, value) in &recipe.metadata.map {
         if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
             metadata.insert(key.to_string(), value.to_string());
