@@ -27,16 +27,16 @@ pub struct Section {
 
 #[derive(uniffi::Enum, Debug)]
 pub enum Block {
-    Step(Step),
-    Note(BlockNote),
+    StepBlock(Step),
+    NoteBlock(BlockNote),
 }
 
 #[derive(uniffi::Enum, Debug, PartialEq)]
 pub enum Component {
-    Ingredient(Ingredient),
-    Cookware(Cookware),
-    Timer(Timer),
-    Text(String),
+    IngredientComponent(Ingredient),
+    CookwareComponent(Cookware),
+    TimerComponent(Timer),
+    TextComponent(String),
 }
 
 #[derive(uniffi::Record, Debug)]
@@ -382,7 +382,7 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
                         };
                         items.push(item);
                     }
-                    blocks.push(Block::Step(Step {
+                    blocks.push(Block::StepBlock(Step {
                         items,
                         ingredient_refs: step_ingredient_refs.clone(),
                         cookware_refs: step_cookware_refs.clone(),
@@ -394,7 +394,7 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
                 }
 
                 cooklang::Content::Text(text) => {
-                    blocks.push(Block::Note(BlockNote {
+                    blocks.push(Block::NoteBlock(BlockNote {
                         text: text.to_string(),
                     }));
                 }

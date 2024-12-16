@@ -54,6 +54,3 @@ harness = false
 
 [workspace]
 members = [".", "playground", "bindings", "fuzz"]
-
-[profile.release]
-strip = true
