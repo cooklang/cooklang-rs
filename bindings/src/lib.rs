@@ -153,7 +153,7 @@ a test @step @salt{1%mg} more text
 
         assert_eq!(
             deref_component(&recipe, Item::IngredientRef { index: 1 }),
-            Component::Ingredient(Ingredient {
+            Component::IngredientComponent(Ingredient {
                 name: "salt".to_string(),
                 amount: Some(Amount {
                     quantity: Value::Number { value: 1.0 },
