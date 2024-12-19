@@ -57,13 +57,31 @@ pub struct Ingredient<'a> {
 
 impl AisleConf<'_> {
     /// Returns a reversed configuration, where each key is an ingredient
-    /// and the value is it's category.
+    /// and the value is its category.
     pub fn reverse(&self) -> HashMap<&str, &str> {
         let mut map = HashMap::with_capacity(self.len.get());
         for cat in &self.categories {
             for igr in &cat.ingredients {
                 for name in &igr.names {
                     map.insert(*name, cat.name);
+                }
+            }
+        }
+        self.len.set(map.len());
+        map
+    }
+
+    /// Returns a mapping from each ingredient to the 'common name',
+    /// the first alias given in its entry.
+    pub fn common_names(&self) -> HashMap<&str, &str> {
+        let mut map = HashMap::with_capacity(self.len.get());
+        for cat in &self.categories {
+            for igr in &cat.ingredients {
+                let Some(common_name) = igr.names.first() else {
+                    continue;
+                };
+                for name in &igr.names {
+                    map.insert(*name, *common_name);
                 }
             }
         }
@@ -336,6 +354,22 @@ tuna|chicken of the sea
                     names: vec!["tuna", "chicken of the sea"]
                 }]
             }]
+        )
+    }
+
+    #[test]
+    fn synonym_lookup() {
+        let input = r#"[canned goods]
+tuna|chicken of the sea
+"#;
+        let a = parse(input).unwrap();
+        let p = a.common_names();
+        assert_eq!(
+            vec!["tuna", "tuna"],
+            ["tuna", "chicken of the sea"]
+                .iter()
+                .map(|igr| *p.get(igr).unwrap())
+                .collect::<Vec<&str>>()
         )
     }
 
