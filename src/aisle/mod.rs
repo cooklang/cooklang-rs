@@ -32,7 +32,7 @@ pub struct AisleConf<'a> {
     /// List of categories
     #[serde(borrow)]
     pub categories: Vec<Category<'a>>,
-    // opt for `reverse`
+    // optimizationo for consecutive calls os `ingredients_info`
     #[serde(skip)]
     len: std::cell::Cell<usize>,
 }
@@ -55,15 +55,46 @@ pub struct Ingredient<'a> {
     pub names: Vec<&'a str>,
 }
 
+/// Information about an ingredient extracted with [`AisleConf::ingredients_info`]
+pub struct IngredientInfo<'a> {
+    /// Name of the ingredient
+    pub name: &'a str,
+    /// Common name, the first in the aisle configuration
+    ///
+    /// This is the name that should be used in lists.
+    pub common_name: &'a str,
+    /// Category the ingredient is in
+    pub category: &'a str,
+}
+
 impl AisleConf<'_> {
     /// Returns a reversed configuration, where each key is an ingredient
-    /// and the value is it's category.
+    /// and the value is its category.
+    #[deprecated = "Use `ingredients_info` instead"]
     pub fn reverse(&self) -> HashMap<&str, &str> {
+        self.ingredients_info()
+            .into_iter()
+            .map(|(n, i)| (n, i.name))
+            .collect()
+    }
+
+    /// Returns a reversed configuration, where each ingredient has a
+    /// corresponding [`IngredientInfo`]
+    pub fn ingredients_info(&self) -> HashMap<&str, IngredientInfo> {
         let mut map = HashMap::with_capacity(self.len.get());
         for cat in &self.categories {
             for igr in &cat.ingredients {
+                let Some(common_name) = igr.names.first() else {
+                    continue;
+                };
+
                 for name in &igr.names {
-                    map.insert(*name, cat.name);
+                    let info = IngredientInfo {
+                        name: *name,
+                        common_name,
+                        category: cat.name,
+                    };
+                    map.insert(*name, info);
                 }
             }
         }
@@ -336,6 +367,22 @@ tuna|chicken of the sea
                     names: vec!["tuna", "chicken of the sea"]
                 }]
             }]
+        )
+    }
+
+    #[test]
+    fn synonym_lookup() {
+        let input = r#"[canned goods]
+tuna|chicken of the sea
+"#;
+        let a = parse(input).unwrap();
+        let p = a.ingredients_info();
+        assert_eq!(
+            vec!["tuna", "tuna"],
+            ["tuna", "chicken of the sea"]
+                .iter()
+                .map(|igr| p.get(igr).unwrap().common_name)
+                .collect::<Vec<&str>>()
         )
     }
 
