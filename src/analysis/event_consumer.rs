@@ -130,7 +130,7 @@ struct Locations<'i> {
 
 const IMPLICIT_REF_WARN: &str = "The reference (&) is implicit";
 
-impl<'i, 'c> RecipeCollector<'i, 'c> {
+impl<'i> RecipeCollector<'i, '_> {
     fn parse_events(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
         enum BlockBuffer {
             Step(Vec<Item>),
@@ -247,7 +247,7 @@ impl<'i, 'c> RecipeCollector<'i, 'c> {
                 let mut to_remove = Vec::new();
                 for (key, value) in self.content.metadata.map.iter() {
                     if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
-                        match check_std_entry(sk, value, &self.converter) {
+                        match check_std_entry(sk, value, self.converter) {
                             Ok(Some(servings)) => self.content.data = servings,
                             Ok(None) => {}
                             Err(err) => {

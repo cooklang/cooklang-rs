@@ -252,7 +252,7 @@ impl Ingredient<Value> {
     pub fn all_quantities<'a>(
         &'a self,
         all_ingredients: &'a [Self],
-    ) -> impl Iterator<Item = &ScaledQuantity> {
+    ) -> impl Iterator<Item = &'a ScaledQuantity> {
         std::iter::once(self.quantity.as_ref())
             .chain(
                 self.relation
@@ -332,7 +332,7 @@ impl Cookware<Value> {
     }
 
     /// Gets an iterator over all quantities of this ingredient and its references.
-    pub fn all_amounts<'a>(&'a self, all_cookware: &'a [Self]) -> impl Iterator<Item = &Value> {
+    pub fn all_amounts<'a>(&'a self, all_cookware: &'a [Self]) -> impl Iterator<Item = &'a Value> {
         std::iter::once(self.quantity.as_ref())
             .chain(
                 self.relation
@@ -533,9 +533,9 @@ pub struct Timer<V: QuantityValue = Value> {
     /// If created from parsing the following applies:
     ///
     /// - If the [`ADVANCED_UNITS`](crate::Extensions::ADVANCED_UNITS) extension
-    /// is enabled, this is guaranteed to have a time unit and a non text value.
+    ///   is enabled, this is guaranteed to have a time unit and a non text value.
     ///
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
-    /// extension is enabled, this is guaranteed to be [`Some`].
+    ///   extension is enabled, this is guaranteed to be [`Some`].
     pub quantity: Option<Quantity<V>>,
 }

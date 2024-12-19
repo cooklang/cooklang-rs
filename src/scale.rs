@@ -130,7 +130,7 @@ impl ScalableRecipe {
     pub fn scale(self, target: u32, converter: &Converter) -> ScaledRecipe {
         let target = if let Servings(Some(servings)) = &self.data {
             let base = servings.first().copied().unwrap_or(1);
-            ScaleTarget::new(base, target, &servings)
+            ScaleTarget::new(base, target, servings)
         } else {
             ScaleTarget::new(1, target, &[])
         };

@@ -22,7 +22,7 @@ impl<'i> TokenStream<'i> {
     }
 }
 
-impl<'i> Iterator for TokenStream<'i> {
+impl Iterator for TokenStream<'_> {
     type Item = Token;
 
     fn next(&mut self) -> Option<Self::Item> {

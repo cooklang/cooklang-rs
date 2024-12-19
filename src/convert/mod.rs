@@ -388,7 +388,7 @@ impl BestConversions {
         Some(Arc::clone(&converter.all_units[best_id]))
     }
 
-    fn all_units<'c>(&'c self, converter: &'c Converter) -> impl Iterator<Item = &Arc<Unit>> {
+    fn all_units<'c>(&'c self, converter: &'c Converter) -> impl Iterator<Item = &'c Arc<Unit>> {
         self.0.iter().map(|(_, uid)| &converter.all_units[*uid])
     }
 }

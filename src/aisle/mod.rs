@@ -90,7 +90,7 @@ impl AisleConf<'_> {
 
                 for name in &igr.names {
                     let info = IngredientInfo {
-                        name: *name,
+                        name,
                         common_name,
                         category: cat.name,
                     };

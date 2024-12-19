@@ -269,7 +269,7 @@ fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<&str>, MetadataError> {
     let entries = if let Some(s) = val.as_str() {
         s.split(',').map(|e| e.trim()).collect()
     } else if let Some(seq) = val.as_sequence() {
-        seq.into_iter()
+        seq.iter()
             .map(|val| val.as_str())
             .collect::<Option<Vec<&str>>>()
             .ok_or(MetadataError::UnexpectedType)?
