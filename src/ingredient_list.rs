@@ -204,9 +204,14 @@ impl IngredientList {
     ///
     /// Ingredients without category will be placed in `"other"`.
     pub fn categorize(self, aisle: &AisleConf) -> CategorizedIngredientList {
+        let common_names = aisle.common_names();
         let aisle = aisle.reverse();
         let mut categorized = CategorizedIngredientList::default();
         for (name, quantity) in self.0 {
+            let name = common_names
+                .get(name.as_str())
+                .map(|name| name.to_string())
+                .unwrap_or(name);
             if let Some(cat) = aisle.get(name.as_str()) {
                 categorized
                     .categories
