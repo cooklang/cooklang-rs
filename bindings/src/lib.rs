@@ -61,15 +61,15 @@ pub fn parse_metadata(input: String) -> CooklangMetadata {
 pub fn deref_component(recipe: &CooklangRecipe, item: Item) -> Component {
     match item {
         Item::IngredientRef { index } => {
-            Component::Ingredient(recipe.ingredients.get(index as usize).unwrap().clone())
+            Component::IngredientComponent(recipe.ingredients.get(index as usize).unwrap().clone())
         }
         Item::CookwareRef { index } => {
-            Component::Cookware(recipe.cookware.get(index as usize).unwrap().clone())
+            Component::CookwareComponent(recipe.cookware.get(index as usize).unwrap().clone())
         }
         Item::TimerRef { index } => {
-            Component::Timer(recipe.timers.get(index as usize).unwrap().clone())
+            Component::TimerComponent(recipe.timers.get(index as usize).unwrap().clone())
         }
-        Item::Text { value } => Component::Text(value),
+        Item::Text { value } => Component::TextComponent(value),
     }
 }
 
@@ -153,7 +153,7 @@ a test @step @salt{1%mg} more text
 
         assert_eq!(
             deref_component(&recipe, Item::IngredientRef { index: 1 }),
-            Component::Ingredient(Ingredient {
+            Component::IngredientComponent(Ingredient {
                 name: "salt".to_string(),
                 amount: Some(Amount {
                     quantity: Value::Number { value: 1.0 },
@@ -174,7 +174,7 @@ a test @step @salt{1%mg} more text
                 .next()
                 .expect("No blocks found")
             {
-                Block::Step(step) => step,
+                Block::StepBlock(step) => step,
                 _ => panic!("Expected first block to be a Step"),
             }
             .items,
@@ -388,7 +388,7 @@ Cook @onions{3%large} until brown
 
         assert_eq!(
             match note_block {
-                Block::Note(note) => note,
+                Block::NoteBlock(note) => note,
                 _ => panic!("Expected first block to be a Note"),
             }
             .text,
@@ -401,7 +401,7 @@ Cook @onions{3%large} until brown
 
         assert_eq!(
             match step_block {
-                Block::Step(step) => step,
+                Block::StepBlock(step) => step,
                 _ => panic!("Expected second block to be a Step"),
             }
             .items,
@@ -445,7 +445,7 @@ simmer for 10 minutes
 
         assert_eq!(
             match first_block {
-                Block::Step(step) => step,
+                Block::StepBlock(step) => step,
                 _ => panic!("Expected first block to be a Step"),
             }
             .items,
@@ -463,7 +463,7 @@ simmer for 10 minutes
         // Check second step
         assert_eq!(
             match second_block {
-                Block::Step(step) => step,
+                Block::StepBlock(step) => step,
                 _ => panic!("Expected second block to be a Step"),
             }
             .items,
@@ -510,7 +510,7 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
             .expect("No blocks found");
         assert_eq!(
             match first_block {
-                Block::Step(step) => step,
+                Block::StepBlock(step) => step,
                 _ => panic!("Expected block to be a Step"),
             }
             .items,
@@ -541,7 +541,7 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
             .expect("No blocks found");
         assert_eq!(
             match second_block {
-                Block::Step(step) => step,
+                Block::StepBlock(step) => step,
                 _ => panic!("Expected block to be a Step"),
             }
             .items,
