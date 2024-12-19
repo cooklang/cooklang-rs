@@ -57,7 +57,7 @@ pub struct Ingredient<'a> {
 
 impl AisleConf<'_> {
     /// Returns a reversed configuration, where each key is an ingredient
-    /// and the value is it's category.
+    /// and the value is its category.
     pub fn reverse(&self) -> HashMap<&str, &str> {
         let mut map = HashMap::with_capacity(self.len.get());
         for cat in &self.categories {
