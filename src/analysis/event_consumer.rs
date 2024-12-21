@@ -16,7 +16,7 @@ use crate::span::Span;
 use crate::text::Text;
 use crate::{model::*, Extensions, ParseOptions};
 
-use super::{AnalysisResult, DefineMode, DuplicateMode};
+use super::{AnalysisResult, CheckOptions, DefineMode, DuplicateMode};
 
 macro_rules! error {
     ($msg:expr, $label:expr $(,)?) => {
@@ -246,6 +246,23 @@ impl<'i> RecipeCollector<'i, '_> {
                 self.content.metadata.map = yaml_map;
                 let mut to_remove = Vec::new();
                 for (key, value) in self.content.metadata.map.iter() {
+                    let mut action = CheckOptions::default();
+                    // run custom validator if any
+                    if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
+                        let res = validator(key, value, &mut action);
+                        if let Some(diag) = res.into_source_diag(|| "Invalid metadata entry") {
+                            // TODO can we get the position of the key value pair inside yaml_text?
+                            self.ctx.push(diag);
+                        }
+                        if !action.include {
+                            to_remove.push(key.clone());
+                            continue;
+                        }
+                    }
+
+                    if !action.run_std_checks {
+                        continue;
+                    }
                     if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
                         match check_std_entry(sk, value, self.converter) {
                             Ok(Some(servings)) => self.content.data = servings,
@@ -259,18 +276,6 @@ impl<'i> RecipeCollector<'i, '_> {
                                 .set_source(err);
                                 self.ctx.warn(diag);
                             }
-                        }
-                    }
-
-                    // run custom validator if any
-                    if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
-                        let (res, incl) = validator(key, value);
-                        if let Some(diag) = res.into_source_diag(|| "Invalid metadata entry") {
-                            // TODO can we get the position of the key value pair inside yaml_text?
-                            self.ctx.push(diag);
-                        }
-                        if !incl {
-                            to_remove.push(key.clone());
                         }
                     }
                 }
@@ -358,14 +363,15 @@ impl<'i> RecipeCollector<'i, '_> {
         let yaml_value = serde_yaml::Value::String(value_t.to_string());
 
         // run custom validator if any
+        let mut action = CheckOptions::default();
         if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
-            let (res, incl) = validator(&yaml_key, &yaml_value);
+            let res = validator(&yaml_key, &yaml_value, &mut action);
             if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
                 diag.add_label(label!(key.span()));
                 diag.add_label(label!(value.span()));
                 self.ctx.push(diag);
             }
-            if !incl {
+            if !action.include {
                 return;
             }
         }
@@ -373,7 +379,10 @@ impl<'i> RecipeCollector<'i, '_> {
         // insert the value into the map
         self.content.metadata.map.insert(yaml_key, yaml_value);
 
-        // check if it's a special key
+        // check if it's a std key
+        if !action.run_std_checks {
+            return;
+        }
         if let Ok(sp_key) = StdKey::from_str(&key_t) {
             let check_result = crate::metadata::check_std_entry(
                 sp_key,
@@ -387,10 +396,7 @@ impl<'i> RecipeCollector<'i, '_> {
                 Err(err) => {
                     self.ctx.warn(
                         warning!(
-                            format!(
-                                "Unsupported value for special key: '{}'",
-                                key.text_trimmed()
-                            ),
+                            format!("Unsupported value for std key: '{}'", key.text_trimmed()),
                             label!(value.span(), "this value"),
                         )
                         .label(label!(key.span(), "this key does not support"))

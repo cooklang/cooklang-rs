@@ -6,6 +6,8 @@
   metadata](https://cooklang.org/docs/spec/#canonical-metadata), making it
   easier to query these keys and expected values.
 - Add warnings for missused canonical metadata keys.
+- Improve custom checks for metadata keys. Now they can choose to skip the
+  included checks too.
 - Fix ingredients aliases from aisle configuration not being merged in
   `IngredientList`. (#24 @kaylee-kiako)
 

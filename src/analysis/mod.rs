@@ -34,10 +34,9 @@ pub struct ParseOptions<'a> {
     /// Check metadata entries for validity
     ///
     /// Some checks are performed by default, but you can add your own here.
-    /// The function receives the key and the value.
-    ///
-    /// The boolean returned indicates if the value should be included in the
-    /// recipe.
+    /// The function receives the key, value and an [`CheckOptions`] where you
+    /// can customize what happens to the key, including not running the default
+    /// checks.
     pub metadata_validator: Option<MetadataValidator<'a>>,
 }
 
@@ -72,6 +71,45 @@ impl CheckResult {
     }
 }
 
+/// Customize how a metadata entry should be treated
+///
+/// By default the entry is included and the [`StdKey`](crate::metadata::StdKey)
+/// checks run.
+pub struct CheckOptions {
+    include: bool,
+    run_std_checks: bool,
+}
+
+impl Default for CheckOptions {
+    fn default() -> Self {
+        Self {
+            include: true,
+            run_std_checks: true,
+        }
+    }
+}
+
+impl CheckOptions {
+    /// To include or not the metadata entry in the recipe
+    ///
+    /// If this is `false`, the entry will not be in the recipe. This will avoid
+    /// keeping invalid values.
+    pub fn include(&mut self, do_include: bool) {
+        self.include = do_include;
+    }
+
+    /// To run or not the checks for [`StdKey`](crate::metadata::StdKey)
+    ///
+    /// Disable these checks if you want to change the semantics or structure of a
+    /// [`StdKey`](crate::metadata::StdKey) and don't want the parser to issue
+    /// warnings about it.
+    ///
+    /// If the key is **not** an [`StdKey`](crate::metadata::StdKey) this has no effect.
+    pub fn run_std_checks(&mut self, do_check: bool) {
+        self.run_std_checks = do_check;
+    }
+}
+
 pub type RecipeRefCheck<'a> = Box<dyn FnMut(&str) -> CheckResult + 'a>;
 pub type MetadataValidator<'a> =
-    Box<dyn FnMut(&serde_yaml::Value, &serde_yaml::Value) -> (CheckResult, bool) + 'a>;
+    Box<dyn FnMut(&serde_yaml::Value, &serde_yaml::Value, &mut CheckOptions) -> CheckResult + 'a>;
