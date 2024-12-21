@@ -1,6 +1,6 @@
 //! Metadata of a recipe
 
-use std::{num::ParseFloatError, str::FromStr};
+use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -151,7 +151,7 @@ impl Metadata {
     /// List of tags
     ///
     /// The `tags` key [`as_tags`](CooklangValueExt::as_tags)
-    pub fn tags(&self) -> Option<Vec<&str>> {
+    pub fn tags(&self) -> Option<Vec<Cow<str>>> {
         self.get(StdKey::Tags.as_ref())
             .and_then(CooklangValueExt::as_tags)
     }
@@ -270,7 +270,7 @@ pub trait CooklangValueExt: private::Sealed {
     /// Comma (',') separated string or YAML sequence of strings
     ///
     /// Duplicates and empty entries removed.
-    fn as_tags(&self) -> Option<Vec<&str>>;
+    fn as_tags(&self) -> Option<Vec<Cow<str>>>;
 
     /// Pipe ('|') separated string or YAML sequence of numbers
     ///
@@ -340,7 +340,7 @@ pub trait CooklangValueExt: private::Sealed {
 }
 
 impl CooklangValueExt for serde_yaml::Value {
-    fn as_tags(&self) -> Option<Vec<&str>> {
+    fn as_tags(&self) -> Option<Vec<Cow<str>>> {
         value_as_tags(self).ok()
     }
 
@@ -397,13 +397,21 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 }
 
-fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<&str>, MetadataError> {
+fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError> {
     let entries = if let Some(s) = val.as_str() {
-        s.split(',').map(|e| e.trim()).collect()
+        s.split(',').map(|e| e.trim().into()).collect()
     } else if let Some(seq) = val.as_sequence() {
         seq.iter()
-            .map(|val| val.as_str())
-            .collect::<Option<Vec<&str>>>()
+            .map(|val| {
+                if let Some(s) = val.as_str() {
+                    Some(Cow::from(s))
+                } else if let serde_yaml::Value::Number(num) = val {
+                    Some(Cow::from(num.to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect::<Option<Vec<_>>>()
             .ok_or(MetadataError::BadSequenceType {
                 expected: MetaType::String,
                 got: seq.first().map(MetaType::from).unwrap_or(MetaType::Unknown),
@@ -964,5 +972,19 @@ mod tests {
         t_no_name("   <https://rachel.url>", "https://rachel.url/");
         t_no_name_no_url("");
         t_no_name_no_url("   ");
+    }
+
+    #[test]
+    fn tags_from_nums() {
+        let v = serde_yaml::from_str("[2022, baking, summer]").unwrap();
+        let res = value_as_tags(&v).unwrap();
+        assert_eq!(
+            res,
+            vec![
+                Cow::Owned(String::from("2022")),
+                Cow::Borrowed("baking"),
+                Cow::Borrowed("summer"),
+            ]
+        );
     }
 }
