@@ -279,12 +279,15 @@ dependencies = [
  "once_cell",
  "pest",
  "pest_derive",
+ "prettyplease",
+ "quote",
  "regex",
  "serde",
  "serde_json",
  "serde_yaml",
  "smallvec",
  "strum",
+ "syn 2.0.90",
  "test-case",
  "thiserror 1.0.69",
  "toml 0.8.19",
@@ -991,6 +994,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
+]
+
+[[package]]
+name = "prettyplease"
+version = "0.2.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.90",
 ]
 
 [[package]]

@@ -1,7 +1,6 @@
 //! Configuration data structures used in [`ConverterBuilder`](super::ConverterBuilder)
 
 use enum_map::EnumMap;
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 
@@ -11,7 +10,7 @@ use super::{FractionsConfig, PhysicalQuantity, System};
 ///
 /// This structure is designed for deserializing [TOML](https://toml.io/en/),
 /// but you can try other formats supported by serde.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct UnitsFile {
     /// Set the default system
@@ -40,7 +39,7 @@ pub struct UnitsFile {
 /// [SI] configuration used in [`UnitsFile`]
 ///
 /// [SI]: https://en.wikipedia.org/wiki/International_System_of_Units
-#[derive(Debug, Deserialize, Default, Clone)]
+#[derive(Debug, Deserialize, Default, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct SI {
     /// Prefixes for the names of the units when expanding
@@ -61,7 +60,9 @@ pub struct SI {
 /// [SI] supported prefixes
 ///
 /// [SI]: https://en.wikipedia.org/wiki/International_System_of_Units
-#[derive(Debug, Deserialize, Clone, Copy, strum::Display, strum::AsRefStr, enum_map::Enum)]
+#[derive(
+    Debug, Deserialize, Clone, Copy, strum::Display, strum::AsRefStr, enum_map::Enum, PartialEq,
+)]
 #[serde(rename_all = "camelCase")]
 #[strum(serialize_all = "camelCase")]
 pub enum SIPrefix {
@@ -99,7 +100,7 @@ impl SIPrefix {
 /// - `metric` / `imperial`
 /// - `quantity`
 /// - `unit`
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize, Default, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Fractions {
     /// The base configuration
@@ -114,7 +115,7 @@ pub struct Fractions {
     pub unit: HashMap<String, FractionsConfigWrapper>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum FractionsConfigWrapper {
     Toggle(bool),
@@ -134,7 +135,7 @@ impl FractionsConfigWrapper {
 }
 
 /// Fractions configuration layer
-#[derive(Debug, Clone, Copy, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, Deserialize, Default, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct FractionsConfigHelper {
     /// If fractions are enabled. Defaults to `false`
@@ -142,7 +143,6 @@ pub struct FractionsConfigHelper {
     /// Max percent of error allowed (0 to 1). Defaults to `0.05` (5%).
     pub accuracy: Option<f32>,
     /// Max denominator allowed (1 to 16). Defaults to 4.
-    #[serde(alias = "max_den")]
     pub max_denominator: Option<u8>,
     /// Max whole number allowed. Defaults to [`u32::MAX`].
     pub max_whole: Option<u32>,
@@ -181,7 +181,7 @@ impl FractionsConfigHelper {
 /// Extend units from other layers config used in [`UnitsFile`]
 ///
 /// The maps's keys are any name, symbol or alias of the unit you want to extend.
-#[derive(Debug, Default, Deserialize, Clone)]
+#[derive(Debug, Default, Deserialize, Clone, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Extend {
     /// Precedence when joining to other layers
@@ -210,7 +210,7 @@ pub enum Precedence {
 ///
 /// See [`Unit`](super::Unit). If the unit is automatially generated (expanded) from another
 /// one, only aliases can be set.
-#[derive(Debug, Deserialize, Clone, Default)]
+#[derive(Debug, Deserialize, Clone, Default, PartialEq)]
 #[serde(default)]
 pub struct ExtendUnitEntry {
     pub ratio: Option<f64>,
@@ -226,7 +226,7 @@ pub struct ExtendUnitEntry {
 /// Configuration of a group of units belonging to a [physical quantity]
 ///
 /// [physical quantity]: https://en.wikipedia.org/wiki/Physical_quantity
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct QuantityGroup {
     /// Quantity of the group
@@ -255,7 +255,7 @@ pub struct QuantityGroup {
 /// about the system and the other doesn't. It's the same in [`Units`]. You can
 /// set a unit's system in either, this enum, in [`Units`] or in both (but it
 /// has to match).
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum BestUnits {
     /// List without system information
@@ -273,7 +273,7 @@ pub enum BestUnits {
 /// about the system and the other doesn't. It's the same in [`BestUnits`]. You can
 /// set a unit's system in either, this enum, in [`BestUnits`] or in both (but it
 /// has to match).
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum Units {
     /// List without [`System`] information
@@ -295,7 +295,7 @@ pub enum Units {
 /// [`BestUnits`].
 ///
 /// Conversions will be `val * [Self::ratio] + [Self::difference]`.
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct UnitEntry {
     /// Names. For example: `grams`
@@ -343,8 +343,20 @@ impl UnitsFile {
     ///
     /// This is only available with the `bundled_units` feature.
     pub fn bundled() -> Self {
-        const TEXT: &str = include_str!("../../units.toml");
-        static FILE: Lazy<UnitsFile> = Lazy::new(|| toml::from_str(TEXT).unwrap());
-        FILE.clone()
+        // rust analyzer throws an arror here but it actually works
+        include!(concat!(env!("OUT_DIR"), "/bundled_units.rs"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generated_bundled() {
+        // this makes sure the build.rs script is working correctly
+        let text = std::fs::read_to_string("units.toml").unwrap();
+        let expected: UnitsFile = toml::from_str(&text).unwrap();
+        assert_eq!(expected, UnitsFile::bundled());
     }
 }
