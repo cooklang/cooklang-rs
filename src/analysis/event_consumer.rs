@@ -1454,6 +1454,8 @@ fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
 
     let mut offset = 0;
     for line in text.split_inclusive('\n') {
+        let l_offset = offset;
+        offset += line.len();
         let line = line.trim_start();
 
         let Some((k, _)) = line.split_once(':') else {
@@ -1463,10 +1465,8 @@ fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
             continue;
         };
         if k[start..].trim_ascii_end() == key {
-            return Some(offset + start);
+            return Some(l_offset + start);
         }
-
-        offset += line.len()
     }
     None
 }

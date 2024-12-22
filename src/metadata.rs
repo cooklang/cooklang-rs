@@ -297,13 +297,18 @@ pub trait CooklangValueExt: private::Sealed {
     /// These values will be used for scaling the recipe. If you want to display
     /// the full text alongside the values, you can do something like:
     ///
-    /// ```ignore     
+    /// ```no_run
+    /// # use cooklang::metadata::*;
+    /// # fn f() -> Option<()> {
+    /// # let metadata = Metadata::default();
     /// let nums = metadata.get("servings")?.as_servings()?;
     /// let texts  = metadata.get("servings")?.as_string_list("|")?;
     ///
-    /// for num, text in nums.iter().zip(texts.iter()) {
-    ///     println!("{val} - '{text}'")
+    /// for (num, text) in nums.iter().zip(texts.iter()) {
+    ///     println!("{num} - '{text}'")
     /// }
+    /// # Some(())
+    /// # }
     /// ```
     ///
     /// Duplicates not allowed, will return `None`.
@@ -686,6 +691,7 @@ fn parse_time(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
         return Err(ParseTimeError::Empty);
     }
 
+    // first try a simpler format. Only "HhMm" allowed, no spaces, no other units
     if let Some(minutes) = parse_common_time_format(s) {
         return Ok(minutes);
     }
@@ -717,14 +723,37 @@ pub(crate) enum ParseTimeError {
 }
 
 fn parse_common_time_format(s: &str) -> Option<u32> {
-    let (hours_str, s) = s.split_once("h")?;
-    let (mins_str, s) = s.split_once("m")?;
-    if !s.is_empty() {
+    const H_SEP: char = 'h';
+    const M_SEP: char = 'm';
+
+    if s.is_empty() {
         return None;
     }
-    let hours = hours_str.parse::<u32>().ok()?;
-    let mins = mins_str.parse::<u32>().ok()?;
-    Some(hours * 60 + mins)
+
+    let mut it = s.split_inclusive(&[H_SEP, M_SEP]);
+
+    let mut total_minutes: u32 = 0;
+    let mut hours_found = false;
+    loop {
+        match it.next() {
+            Some(s) if s.ends_with(H_SEP) && !hours_found => {
+                let hours = &s[..s.len() - H_SEP.len_utf8()].parse::<u32>().ok()?;
+                total_minutes += hours * 60;
+                hours_found = true;
+            }
+            Some(s) if s.ends_with(M_SEP) => {
+                let minutes = &s[..s.len() - M_SEP.len_utf8()].parse::<u32>().ok()?;
+                total_minutes += minutes;
+                break;
+            }
+            None => break,
+            _ => return None,
+        }
+    }
+    if it.next().is_some() {
+        return None;
+    }
+    return Some(total_minutes);
 }
 
 fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
@@ -885,6 +914,20 @@ mod tests {
         assert_eq!(t("25 secs"), Some(0)); // round down
         assert_eq!(t("1 min 25 secs"), Some(1)); // round down
         assert_eq!(t("   0  hours 90min 59 sec "), Some(91));
+    }
+
+    #[test]
+    fn test_common_time() {
+        let f = parse_common_time_format;
+        assert_eq!(f(""), None);
+        assert_eq!(f("1"), None);
+        assert_eq!(f("1m"), Some(1));
+        assert_eq!(f("1h"), Some(60));
+        assert_eq!(f("1h1m"), Some(61));
+        assert_eq!(f("1h90m"), Some(150));
+        assert_eq!(f("1d1h1m"), None);
+        assert_eq!(f("1d1h1m1s"), None);
+        assert_eq!(f("1m1s"), None)
     }
 
     #[test]
