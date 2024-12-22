@@ -86,8 +86,8 @@ impl FromStr for StdKey {
             "course" | "category" => Self::Course,
             "locale" => Self::Locale,
             "time" | "duration" | "time required" => Self::Time,
-            "prep time" => Self::PrepTime,
-            "cook time" => Self::CookTime,
+            "prep time" | "prep_time" => Self::PrepTime,
+            "cook time" | "cook_time" => Self::CookTime,
             "difficulty" => Self::Difficulty,
             "cuisine" => Self::Cuisine,
             "diet" => Self::Diet,
@@ -179,7 +179,7 @@ impl Metadata {
     /// Time it takes to prepare/cook the recipe
     ///
     /// The `time` key [`as_time`](CooklangValueExt::as_time). Or, if missing,
-    /// the combination of the `prep_time` and `cook_time` keys
+    /// the combination of the `prep time` and `cook time` keys
     /// [`as_minutes`](CooklangValueExt::as_minutes).
     pub fn time(&self, converter: &Converter) -> Option<RecipeTime> {
         if let Some(time_val) = self.get(StdKey::Time.as_ref()) {
