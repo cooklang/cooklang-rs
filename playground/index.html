@@ -174,9 +174,10 @@
 
         <select id="parserSelect">
           <option value="render" selected>Render</option>
-          <option value="full" selected>Full parse</option>
+          <option value="full">Full parse</option>
           <option value="events">Events</option>
           <option value="ast">AST</option>
+          <option value="stdmeta">Standard metadata</option>
         </select>
         <div hidden id="servingscontainer">
           <label for="servings">Servings</label>
@@ -287,6 +288,12 @@
           }
           case "render": {
             const { value, error } = state.parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber);
+            output.innerHTML = value;
+            errors.innerHTML = error;
+            break;
+          }
+          case "stdmeta": {
+            const { value, error } = state.std_metadata(input);
             output.innerHTML = value;
             errors.innerHTML = error;
             break;
