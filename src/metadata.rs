@@ -48,7 +48,7 @@ pub struct Metadata {
 /// recipe between different cooklang applications. You can read more about it
 /// in [the spec](https://cooklang.org/docs/spec/#canonical-metadata).
 ///
-/// To use them, use [`Metadata::get_std`].
+/// To use them, use [`Metadata::get`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StdKey {
@@ -171,7 +171,7 @@ impl Metadata {
     ///
     /// This *who* wrote the recipe.
     ///
-    /// The `author` key [`as_name_and_url`](CooklangValueExt::as_value_and_url).
+    /// The `author` key [`as_name_and_url`](CooklangValueExt::as_name_and_url).
     pub fn author(&self) -> Option<NameAndUrl> {
         self.get(StdKey::Author)
             .and_then(CooklangValueExt::as_name_and_url)
@@ -181,7 +181,7 @@ impl Metadata {
     ///
     /// This *where* the recipe was obtained from.
     ///
-    /// The `source` key [`as_name_and_url`](CooklangValueExt::as_value_and_url).
+    /// The `source` key [`as_name_and_url`](CooklangValueExt::as_name_and_url).
     pub fn source(&self) -> Option<NameAndUrl> {
         self.get(StdKey::Source)
             .and_then(CooklangValueExt::as_name_and_url)
@@ -338,8 +338,9 @@ pub trait CooklangValueExt: private::Sealed {
 
     /// Get a [`RecipeTime`]
     ///
-    /// This can be a single number or string like in [`as_minutes`] or a mapping
-    /// of `prep_time` and `cook_time` where each of them is a number or string.
+    /// This can be a single number or string like in
+    /// [`as_minutes`](CooklangValueExt::as_minutes) or a mapping of `prep_time`
+    /// and `cook_time` where each of them is a number or string.
     fn as_time(&self, converter: &Converter) -> Option<RecipeTime>;
 
     /// Like [`serde_yaml::Value::as_u64`] but ensuring the value fits in a u32

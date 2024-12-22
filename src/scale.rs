@@ -384,7 +384,7 @@ impl ScalableRecipe {
     /// Get the defined number of servings in the recipe
     ///
     /// This is set automatically from the metadata. To change it manually use
-    /// [`set_servings`].
+    /// [`set_servings`](ScalableRecipe::set_servings).
     pub fn servings(&self) -> Option<&[u32]> {
         if let Servings(Some(s)) = &self.data {
             Some(s.as_slice())
