@@ -907,6 +907,7 @@ impl From<&serde_yaml::Value> for MetaType {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "bundled_units")]
     #[test]
     fn test_parse_time_with_units() {
         let converter = Converter::bundled();

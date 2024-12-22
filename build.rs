@@ -1,11 +1,15 @@
-use quote::{format_ident, quote};
-
 fn main() {
-    println!("cargo::rerun-if-changed=units.toml");
-    generate_bundled();
+    #[cfg(feature = "bundled_units")]
+    {
+        println!("cargo::rerun-if-changed=units.toml");
+        generate_bundled();
+    }
 }
 
+#[cfg(feature = "bundled_units")]
 fn generate_bundled() {
+    use quote::{format_ident, quote};
+
     let text = std::fs::read_to_string("units.toml").unwrap();
     let data: toml::Value = toml::from_str(&text).unwrap();
     let uf = data.as_table().unwrap();

@@ -348,7 +348,7 @@ impl UnitsFile {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "bundled_units"))]
 mod tests {
     use super::*;
 
