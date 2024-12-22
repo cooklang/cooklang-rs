@@ -26,9 +26,16 @@ use crate::{
 
 /// Metadata of a recipe
 ///
-/// The raw key/value pairs from the recipe are in the `map` field. Many methods
-/// on this struct are the parsed values with some special meaning. They return
-/// `None` if the key is missing or the value failed to parse.
+/// You can use [`Metadata::get`] to get a value. The key can be a `&str`, a
+/// [`StdKey`] or any [yaml value](serde_yaml::Value). Once you get a
+/// [`serde_yaml::Value`], you can use any of it's methods to get your desired
+/// type, or any of the [`CooklangValueExt`] which adds more ways to interpret
+/// it.
+///
+/// Many other methods on this struct are a way to access [`StdKey`] with their
+/// _expected_ type. If these methods return `None` it can be because the key
+/// was not present or the value was not of the expected type. You can also
+/// decide to not use them and extract the metadata you prefer.
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
 pub struct Metadata {
     /// All the raw key/value pairs from the recipe
@@ -50,16 +57,16 @@ pub enum StdKey {
     Tags,
     Author,
     Source,
-    Servings,
     Course,
-    Locale,
     Time,
     PrepTime,
     CookTime,
+    Servings,
     Difficulty,
     Cuisine,
     Diet,
     Images,
+    Locale,
 }
 
 impl std::fmt::Display for StdKey {
@@ -140,11 +147,16 @@ impl Metadata {
         })
     }
 
+    /// Title of the recipe
+    pub fn title(&self) -> Option<&str> {
+        self.get(StdKey::Title).and_then(serde_yaml::Value::as_str)
+    }
+
     /// Description of the recipe
     ///
     /// Just the `description` key as a string.
     pub fn description(&self) -> Option<&str> {
-        self.get(StdKey::Description.as_ref())
+        self.get(StdKey::Description)
             .and_then(serde_yaml::Value::as_str)
     }
 
@@ -152,8 +164,7 @@ impl Metadata {
     ///
     /// The `tags` key [`as_tags`](CooklangValueExt::as_tags)
     pub fn tags(&self) -> Option<Vec<Cow<str>>> {
-        self.get(StdKey::Tags.as_ref())
-            .and_then(CooklangValueExt::as_tags)
+        self.get(StdKey::Tags).and_then(CooklangValueExt::as_tags)
     }
 
     /// Author
@@ -162,7 +173,7 @@ impl Metadata {
     ///
     /// The `author` key [`as_name_and_url`](CooklangValueExt::as_value_and_url).
     pub fn author(&self) -> Option<NameAndUrl> {
-        self.get(StdKey::Author.as_ref())
+        self.get(StdKey::Author)
             .and_then(CooklangValueExt::as_name_and_url)
     }
 
@@ -172,7 +183,7 @@ impl Metadata {
     ///
     /// The `source` key [`as_name_and_url`](CooklangValueExt::as_value_and_url).
     pub fn source(&self) -> Option<NameAndUrl> {
-        self.get(StdKey::Source.as_ref())
+        self.get(StdKey::Source)
             .and_then(CooklangValueExt::as_name_and_url)
     }
 
@@ -182,14 +193,14 @@ impl Metadata {
     /// the combination of the `prep time` and `cook time` keys
     /// [`as_minutes`](CooklangValueExt::as_minutes).
     pub fn time(&self, converter: &Converter) -> Option<RecipeTime> {
-        if let Some(time_val) = self.get(StdKey::Time.as_ref()) {
+        if let Some(time_val) = self.get(StdKey::Time) {
             time_val.as_time(converter)
         } else {
             let prep_time = self
-                .get(StdKey::PrepTime.as_ref())
+                .get(StdKey::PrepTime)
                 .and_then(|v| v.as_minutes(converter));
             let cook_time = self
-                .get(StdKey::CookTime.as_ref())
+                .get(StdKey::CookTime)
                 .and_then(|v| v.as_minutes(converter));
             if prep_time.is_some() || cook_time.is_some() {
                 Some(RecipeTime::Composed {
@@ -207,14 +218,14 @@ impl Metadata {
     /// This returns a list of servings to support scaling. See
     /// [`CooklangValueExt::as_servings`] for the expected format.
     pub fn servings(&self) -> Option<Vec<u32>> {
-        self.get(StdKey::Servings.as_ref())
+        self.get(StdKey::Servings)
             .and_then(CooklangValueExt::as_servings)
     }
 
     /// Recipe locale
     /// See [`CooklangValueExt`] for the expected format.
     pub fn locale(&self) -> Option<(&str, Option<&str>)> {
-        self.get(StdKey::Locale.as_ref())
+        self.get(StdKey::Locale)
             .and_then(CooklangValueExt::as_locale)
     }
 }
@@ -266,6 +277,8 @@ where
     }
 }
 
+/// This trait is implemented for [`serde_yaml::Value`] and adds more ways to
+/// transform the value from YAML.
 pub trait CooklangValueExt: private::Sealed {
     /// Comma (',') separated string or YAML sequence of strings
     ///
@@ -337,6 +350,9 @@ pub trait CooklangValueExt: private::Sealed {
     /// Capitalisation is not checked, so, for example, `en_gb` works even
     /// though it _should_ be `en_GB`.
     fn as_locale(&self) -> Option<(&str, Option<&str>)>;
+
+    /// String or number as a string
+    fn as_str_like(&self) -> Option<Cow<str>>;
 }
 
 impl CooklangValueExt for serde_yaml::Value {
@@ -348,17 +364,17 @@ impl CooklangValueExt for serde_yaml::Value {
         value_as_servings(self).ok()
     }
 
-    fn as_string_list<'a>(&'a self, sep: &str) -> Option<Vec<std::borrow::Cow<'a, str>>> {
+    fn as_string_list<'a>(&'a self, sep: &str) -> Option<Vec<Cow<'a, str>>> {
         if let Some(s) = self.as_str() {
             let v = s.split(sep).map(|e| e.into()).collect();
             Some(v)
         } else if let Some(seq) = self.as_sequence() {
             let mut v = Vec::<std::borrow::Cow<'a, str>>::with_capacity(seq.len());
             for e in seq {
-                if let Some(s) = self.as_str() {
-                    v.push(s.into());
-                } else if let serde_yaml::Value::Number(n) = e {
-                    v.push(n.to_string().into());
+                if let Some(s) = e.as_str_like() {
+                    v.push(s);
+                } else {
+                    return None;
                 }
             }
             Some(v)
@@ -368,13 +384,18 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 
     fn as_name_and_url(&self) -> Option<NameAndUrl> {
-        if let Some(s) = self.as_str() {
-            Some(NameAndUrl::parse(s))
+        if let Some(s) = self.as_str_like() {
+            Some(NameAndUrl::parse(&s))
         } else if let Some(map) = self.as_mapping() {
-            let name = map.get("name")?.as_str()?;
-            let url_str = map.get("url")?.as_str()?;
-            let url = Url::parse(url_str).ok()?;
-            Some(NameAndUrl::new(Some(name), Some(url)))
+            let name = map.get("name").and_then(|v| v.as_str());
+            let url = map
+                .get("url")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Url::parse(s).ok());
+            if name.is_none() && url.is_none() {
+                return None;
+            }
+            Some(NameAndUrl::new(name.as_deref(), url))
         } else {
             None
         }
@@ -395,6 +416,16 @@ impl CooklangValueExt for serde_yaml::Value {
     fn as_locale(&self) -> Option<(&str, Option<&str>)> {
         value_as_locale(self).ok()
     }
+
+    fn as_str_like(&self) -> Option<Cow<str>> {
+        if let Some(s) = self.as_str() {
+            Some(Cow::from(s))
+        } else if let serde_yaml::Value::Number(num) = self {
+            Some(Cow::from(num.to_string()))
+        } else {
+            None
+        }
+    }
 }
 
 fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError> {
@@ -402,15 +433,7 @@ fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError
         s.split(',').map(|e| e.trim().into()).collect()
     } else if let Some(seq) = val.as_sequence() {
         seq.iter()
-            .map(|val| {
-                if let Some(s) = val.as_str() {
-                    Some(Cow::from(s))
-                } else if let serde_yaml::Value::Number(num) = val {
-                    Some(Cow::from(num.to_string()))
-                } else {
-                    None
-                }
-            })
+            .map(|val| val.as_str_like())
             .collect::<Option<Vec<_>>>()
             .ok_or(MetadataError::BadSequenceType {
                 expected: MetaType::String,
@@ -562,8 +585,11 @@ pub(crate) fn check_std_entry(
             value_as_locale(value)?;
         }
         // these have no validation
-        StdKey::Author => {}
-        StdKey::Source => {}
+        StdKey::Author | StdKey::Source => {
+            value
+                .as_name_and_url()
+                .ok_or(MetadataError::expect_type(MetaType::Mapping, value))?;
+        }
         StdKey::Course => {}
         StdKey::Difficulty => {}
         StdKey::Cuisine => {}
@@ -788,6 +814,8 @@ pub(crate) enum MetadataError {
     BadType { expected: MetaType, got: MetaType },
     #[error("Expected sequence of '{expected}' but got '{got}'")]
     BadSequenceType { expected: MetaType, got: MetaType },
+    #[error("Incorrect mapping fields")]
+    BadMapping,
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("Duplicate servings: {servings:?}")]
@@ -801,6 +829,9 @@ pub(crate) enum MetadataError {
 impl MetadataError {
     fn expect_type(expected: MetaType, val: &serde_yaml::Value) -> Self {
         let got = MetaType::from(val);
+        if expected == got && expected == MetaType::Mapping {
+            return Self::BadMapping;
+        }
         Self::BadType { expected, got }
     }
 }
