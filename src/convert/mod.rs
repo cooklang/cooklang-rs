@@ -8,9 +8,6 @@
 use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 
 use enum_map::EnumMap;
-use once_cell::sync::OnceCell;
-
-use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -42,8 +39,6 @@ pub struct Converter {
     best: EnumMap<PhysicalQuantity, BestConversionsStore>,
     fractions: Fractions,
     default_system: System,
-
-    temperature_regex: OnceCell<Regex>,
 }
 
 impl Converter {
@@ -67,7 +62,6 @@ impl Converter {
             quantity_index: Default::default(),
             best: Default::default(),
             default_system: Default::default(),
-            temperature_regex: Default::default(),
             fractions: Default::default(),
         }
     }
@@ -890,31 +884,4 @@ pub enum ConvertError {
 
     #[error(transparent)]
     UnknownUnit(#[from] UnknownUnit),
-}
-
-impl Converter {
-    pub(crate) fn quantity_units(
-        &self,
-        physical_quantity: PhysicalQuantity,
-    ) -> impl Iterator<Item = &Unit> {
-        self.quantity_index[physical_quantity]
-            .iter()
-            .map(|&id| self.all_units[id].as_ref())
-    }
-
-    pub(crate) fn temperature_regex(&self) -> Result<&Regex, regex::Error> {
-        self.temperature_regex.get_or_try_init(|| {
-            let _guard = tracing::trace_span!("temp_regex").entered();
-            let symbols = self
-                .quantity_units(crate::convert::PhysicalQuantity::Temperature)
-                .flat_map(|unit| unit.symbols.iter())
-                .map(|symbol| format!("({symbol})"))
-                .collect::<Vec<_>>()
-                .join("|");
-            let float = r"[+-]?\d+([.,]\d+)?";
-            RegexBuilder::new(&format!(r"({float})\s*({symbols})"))
-                .size_limit(500_000)
-                .build()
-        })
-    }
 }

@@ -215,7 +215,6 @@ impl ConverterBuilder {
             best,
             fractions,
             default_system: self.default_system,
-            temperature_regex: Default::default(),
         })
     }
 

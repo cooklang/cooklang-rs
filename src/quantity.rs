@@ -244,6 +244,16 @@ impl<V: QuantityValue> Quantity<V> {
         }
     }
 
+    pub(crate) fn with_text_and_known_unit(value: V, text: String, unit: Arc<Unit>) -> Self {
+        Self {
+            value,
+            unit: Some(QuantityUnit {
+                text,
+                info: OnceCell::from(UnitInfo::Known(unit)),
+            }),
+        }
+    }
+
     /// Get the unit
     pub fn unit(&self) -> Option<&QuantityUnit> {
         self.unit.as_ref()

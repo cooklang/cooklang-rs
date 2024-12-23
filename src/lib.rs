@@ -121,8 +121,8 @@ bitflags! {
         /// Set the parsing mode with special metadata keys
         /// `>> [key inside square brackets]: value`
         const MODES                    = 1 << 6;
-        /// Searches for inline temperatures in all the recipe text
-        const TEMPERATURE              = 1 << 7;
+        /// Searches for inline quantities in all the recipe text
+        const INLINE_QUANTITIES        = 1 << 7;
         /// Add support for range values `@igr{2-3}`
         const RANGE_VALUES             = 1 << 9;
         /// Creating a timer without a time becomes an error
@@ -141,7 +141,7 @@ bitflags! {
                         | Self::COMPONENT_ALIAS.bits()
                         | Self::ADVANCED_UNITS.bits()
                         | Self::MODES.bits()
-                        | Self::TEMPERATURE.bits()
+                        | Self::INLINE_QUANTITIES.bits()
                         | Self::RANGE_VALUES.bits()
                         | Self::INTERMEDIATE_PREPARATIONS.bits();
     }

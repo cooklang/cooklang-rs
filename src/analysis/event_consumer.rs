@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use regex::Regex;
-
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
@@ -57,22 +55,9 @@ pub fn parse_events<'i, 'c>(
     converter: &Converter,
     parse_options: ParseOptions,
 ) -> AnalysisResult {
-    let mut ctx = SourceReport::empty();
-    let temperature_regex = extensions
-        .contains(Extensions::TEMPERATURE)
-        .then(|| match converter.temperature_regex() {
-            Ok(re) => Some(re),
-            Err(err) => {
-                ctx.warn(warning!("An error ocurred searching temperature values").set_source(err));
-                None
-            }
-        })
-        .flatten();
-
     let col = RecipeCollector {
         input,
         extensions,
-        temperature_regex,
         converter,
         parse_options,
 
@@ -92,7 +77,7 @@ pub fn parse_events<'i, 'c>(
         auto_scale_ingredients: false,
         old_style_metadata: true,
         old_style_metadata_used: vec![],
-        ctx,
+        ctx: SourceReport::empty(),
 
         locations: Default::default(),
         step_counter: 1,
@@ -103,7 +88,6 @@ pub fn parse_events<'i, 'c>(
 struct RecipeCollector<'i, 'c> {
     input: &'i str,
     extensions: Extensions,
-    temperature_regex: Option<&'c Regex>,
     converter: &'c Converter,
     parse_options: ParseOptions<'c>,
 
@@ -527,12 +511,11 @@ impl<'i> RecipeCollector<'i, '_> {
                     return; // ignore text
                 }
 
-                // it's only some if the extension is enabled
-                if let Some(re) = &self.temperature_regex {
-                    debug_assert!(self.extensions.contains(Extensions::TEMPERATURE));
-
+                if self.extensions.contains(Extensions::INLINE_QUANTITIES) {
                     let mut haystack = t.as_ref();
-                    while let Some((before, temperature, after)) = find_temperature(haystack, re) {
+                    while let Some((before, temperature, after)) =
+                        find_inline_quantity(haystack, self.converter)
+                    {
                         if !before.is_empty() {
                             items.push(Item::Text {
                                 value: before.to_string(),
@@ -1386,17 +1369,90 @@ impl RefComponent for Cookware<ScalableValue> {
     }
 }
 
-fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<Value>, &'a str)> {
-    let caps = re.captures(text)?;
-    let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
-    let unit = caps.get(3).unwrap().range();
-    let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(Value::Number(value.into()), Some(unit_text));
+fn find_inline_quantity<'a>(
+    text: &'a str,
+    converter: &Converter,
+) -> Option<(&'a str, Quantity<Value>, &'a str)> {
+    let mut i = 0;
 
-    let range = caps.get(0).unwrap().range();
-    let (before, after) = (&text[..range.start], &text[range.end..]);
+    fn eat_word<'a>(text: &'a str, i: &mut usize) -> Option<&'a str> {
+        let s = &text[*i..];
+        let offset = s.find(|c: char| c.is_whitespace()).or_else(|| {
+            // if no whitespace until the end if there is anything left
+            if !s.is_empty() {
+                Some(s.len())
+            } else {
+                None
+            }
+        })?;
+        let word = &s[..offset];
+        *i += offset;
+        Some(word)
+    }
 
-    Some((before, temperature, after))
+    fn eat_whitespace<'a>(text: &'a str, i: &mut usize) -> Option<&'a str> {
+        let offset = text[*i..].find(|c: char| !c.is_whitespace())?;
+        let ws = &text[*i..*i + offset];
+        *i += offset;
+        Some(ws)
+    }
+
+    #[cfg(debug_assertions)]
+    let mut prev = 0;
+    while let Some(offset) = text[i..].find(|c: char| c.is_ascii_digit()) {
+        i += offset;
+
+        // get "before" slice and check negative
+        let before: &str;
+        let neg: bool;
+        if i > 0 && text.as_bytes()[i - 1] == b'-' {
+            before = &text[..i - 1];
+            neg = true;
+        } else {
+            before = &text[..i];
+            neg = false;
+        }
+
+        let w1 = eat_word(text, &mut i)?; // if no words, no more quantities
+        let first_non_digit =
+            w1.find(|c: char| !c.is_ascii_digit() && c != '.' && !c.is_whitespace());
+        let (mut number, mut unit) = if let Some(mid) = first_non_digit {
+            // split after number for unit
+            w1.split_at(mid)
+        } else {
+            // or take next word as unit
+            let _ = eat_whitespace(text, &mut i);
+            let w2 = eat_word(text, &mut i)?; // if no words, no more quantities
+            (w1, w2)
+        };
+
+        number = number.trim();
+        unit = unit.trim();
+
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(prev < i); // to be sure no infinite loop
+            prev = i;
+        }
+
+        let after = &text[i..];
+        let Ok(mut number) = number.parse::<f64>() else {
+            continue;
+        };
+        let Some(parsed_unit) = converter.find_unit(unit) else {
+            continue;
+        };
+
+        if neg {
+            number = -number;
+        }
+
+        let q =
+            Quantity::with_text_and_known_unit(Value::from(number), unit.to_string(), parsed_unit);
+        return Some((before, q, after));
+    }
+
+    None
 }
 
 fn note_reference_error(span: Span, implicit: bool, def_span: Span) -> SourceDiag {

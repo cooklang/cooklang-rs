@@ -270,7 +270,6 @@ dependencies = [
  "once_cell",
  "prettyplease",
  "quote",
- "regex",
  "serde",
  "serde_json",
  "serde_yaml",

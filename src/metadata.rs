@@ -5,19 +5,6 @@ use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Utility to create lazy regex
-/// from <https://docs.rs/once_cell/latest/once_cell/#lazily-compiled-regex>
-macro_rules! regex {
-    ($re:literal $(,)?) => {{
-        static RE: once_cell::sync::OnceCell<regex::Regex> = once_cell::sync::OnceCell::new();
-        RE.get_or_init(|| {
-            let _enter = tracing::trace_span!("regex", re = $re).entered();
-            regex::Regex::new($re).unwrap()
-        })
-    }};
-}
-pub(crate) use regex;
-
 use crate::{
     convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
     Converter,
@@ -624,10 +611,11 @@ impl NameAndUrl {
     /// The Url validated, so it has to be correct. If no url is found or it's
     /// invalid, everything will be the name.
     pub fn parse(s: &str) -> Self {
-        let regex_encapsulated_url = regex!(r"^([^<]*)<([^<>]+)>$");
-        if let Some(captures) = regex_encapsulated_url.captures(s) {
-            if !captures[2].trim().is_empty() {
-                return Self::new(Some(&captures[1]), Some(&captures[2]));
+        if let Some(s) = s.trim_ascii_end().strip_suffix('>') {
+            if let Some((name, url)) = s.split_once('<') {
+                if !url.trim().is_empty() && !url.contains(&['<', '>']) {
+                    return Self::new(Some(name), Some(url));
+                }
             }
         }
 
@@ -780,9 +768,7 @@ fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTim
     let mut total = 0.0;
     let mut parts = s.split_whitespace();
     while let Some(part) = parts.next() {
-        let first_non_digit_pos = part
-            .char_indices()
-            .find_map(|(pos, c)| (!c.is_numeric() && c != '.').then_some(pos));
+        let first_non_digit_pos = part.find(|c: char| !c.is_ascii_digit() && c != '.');
         let (number, unit) = if let Some(mid) = first_non_digit_pos {
             // if the part contains a non numeric char, split it in two and it will
             // be the unit

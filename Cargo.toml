@@ -12,7 +12,6 @@ readme = "README.md"
 
 [dependencies]
 bitflags = { version = "2", features = ["serde"] }
-regex = "1"
 serde = { version = "1", features = ["derive", "rc"] }
 strum = { version = "0.26.1", features = ["derive"] }
 thiserror = "2"
