@@ -269,6 +269,7 @@ dependencies = [
  "indoc",
  "once_cell",
  "prettyplease",
+ "proc-macro2",
  "quote",
  "serde",
  "serde_json",

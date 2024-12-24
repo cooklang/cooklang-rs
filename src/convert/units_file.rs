@@ -337,14 +337,15 @@ pub struct UnitEntry {
     pub expand_si: bool,
 }
 
+include!(concat!(env!("OUT_DIR"), "/bundled_units.rs"));
+
 #[cfg(feature = "bundled_units")]
 impl UnitsFile {
     /// Get the bundled units file
     ///
     /// This is only available with the `bundled_units` feature.
     pub fn bundled() -> Self {
-        // rust analyzer throws an arror here but it actually works
-        include!(concat!(env!("OUT_DIR"), "/bundled_units.rs"))
+        __bundled_units::get_bundled()
     }
 }
 

@@ -39,10 +39,11 @@ toml = { version = "0.8", optional = true }
 prettyplease = { version = "0.2", optional = true }
 quote = { version = "1", optional = true }
 syn = { version = "2", optional = true }
+proc-macro2 = { version = "1", optional = true }
 
 [features]
 default = ["aisle", "bundled_units"]
-bundled_units = ["toml", "prettyplease", "quote", "syn"]
+bundled_units = ["toml", "prettyplease", "quote", "syn", "proc-macro2"]
 aisle = []
 
 [[bench]]
