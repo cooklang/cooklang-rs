@@ -176,7 +176,7 @@ trait Amountable {
 
 impl Amountable for OriginalQuantity<OriginalScalableValue> {
     fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(&self.value);
+        let quantity = extract_quantity(self.value());
 
         let units = self.unit().as_ref().map(|u| u.to_string());
 

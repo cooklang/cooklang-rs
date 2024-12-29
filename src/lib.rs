@@ -96,8 +96,7 @@ pub use metadata::Metadata;
 pub use model::*;
 pub use parser::Modifiers;
 pub use quantity::{
-    GroupedQuantity, Quantity, QuantityUnit, ScalableQuantity, ScalableValue, ScaledQuantity,
-    UnitInfo, Value,
+    GroupedQuantity, Quantity, ScalableQuantity, ScalableValue, ScaledQuantity, Value,
 };
 pub use span::Span;
 pub use text::Text;

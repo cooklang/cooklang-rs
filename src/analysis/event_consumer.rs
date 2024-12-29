@@ -9,7 +9,7 @@ use crate::parser::{
     self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
     Modifiers,
 };
-use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
+use crate::quantity::{Quantity, QuantityValue, ScalableValue, Value};
 use crate::span::Span;
 use crate::text::Text;
 use crate::{model::*, Extensions, ParseOptions};
@@ -653,14 +653,15 @@ impl<'i> RecipeCollector<'i, '_> {
                                 .unwrap_or(new_q_loc.span());
 
                             let (main_label, support_label) = match &e {
-                                crate::quantity::IncompatibleUnits::MissingUnit { found } => {
+                                crate::quantity::IncompatibleUnits::MissingUnit { lhs, .. } => {
                                     let m = "value missing unit";
                                     let f = "found unit";
-                                    match found {
+                                    if *lhs {
                                         // new is mising
-                                        either::Either::Left(_) => (label!(new, m), label!(old, f)),
+                                        (label!(new, m), label!(old, f))
+                                    } else {
                                         // old is missing
-                                        either::Either::Right(_) => (label!(new, f), label!(old, m)),
+                                        (label!(new, f), label!(old, m))
                                     }
                                 }
                                 crate::quantity::IncompatibleUnits::DifferentPhysicalQuantities {
@@ -723,8 +724,8 @@ impl<'i> RecipeCollector<'i, '_> {
             if let Some((ref_q, def_q)) =
                 &new_igr.quantity.as_ref().zip(definition.quantity.as_ref())
             {
-                let ref_is_text = ref_q.value.is_text();
-                let def_is_text = def_q.value.is_text();
+                let ref_is_text = ref_q.value().is_text();
+                let def_is_text = def_q.value().is_text();
 
                 if ref_is_text != def_is_text {
                     let ref_q_loc = located_ingredient.quantity.as_ref().unwrap().span();
@@ -974,16 +975,16 @@ impl<'i> RecipeCollector<'i, '_> {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 let located_quantity = located_timer.quantity.as_ref().unwrap();
-                if quantity.value.is_text() {
+                if quantity.value().is_text() {
                     self.ctx.error(error!(
-                        format!("Timer value is text: {}", quantity.value),
+                        format!("Timer value is text: {}", quantity.value()),
                         label!(located_quantity.value.span(), "expected a number here")
                     ));
                 }
-                if let Some(unit) = quantity.unit() {
+                if let Some(unit_text) = quantity.unit() {
                     let unit_span = located_quantity.unit.as_ref().unwrap().span();
-                    match unit.unit_info_or_parse(self.converter) {
-                        UnitInfo::Known(unit) => {
+                    match quantity.unit_info(self.converter) {
+                        Some(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
                                 self.ctx.error(error!(
                                     format!("Timer unit is not time: {unit}"),
@@ -995,8 +996,8 @@ impl<'i> RecipeCollector<'i, '_> {
                                 ));
                             }
                         }
-                        UnitInfo::Unknown => self.ctx.error(error!(
-                            format!("Unknown timer unit: {unit}"),
+                        None => self.ctx.error(error!(
+                            format!("Unknown timer unit: {unit_text}"),
                             label!(unit_span, "expected time unit")
                         )),
                     }
@@ -1377,7 +1378,7 @@ fn find_inline_quantity<'a>(
 
     fn eat_word<'a>(text: &'a str, i: &mut usize) -> Option<&'a str> {
         let s = &text[*i..];
-        let offset = s.find(|c: char| c.is_whitespace()).or_else(|| {
+        let offset = s.find(|c: char| c.is_whitespace()).or({
             // if no whitespace until the end if there is anything left
             if !s.is_empty() {
                 Some(s.len())
@@ -1439,7 +1440,7 @@ fn find_inline_quantity<'a>(
         let Ok(mut number) = number.parse::<f64>() else {
             continue;
         };
-        let Some(parsed_unit) = converter.find_unit(unit) else {
+        if converter.find_unit(unit).is_none() {
             continue;
         };
 
@@ -1447,8 +1448,7 @@ fn find_inline_quantity<'a>(
             number = -number;
         }
 
-        let q =
-            Quantity::with_text_and_known_unit(Value::from(number), unit.to_string(), parsed_unit);
+        let q = Quantity::new(Value::from(number), Some(unit.to_string()));
         return Some((before, q, after));
     }
 

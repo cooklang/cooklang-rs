@@ -613,7 +613,7 @@ impl NameAndUrl {
     pub fn parse(s: &str) -> Self {
         if let Some(s) = s.trim_ascii_end().strip_suffix('>') {
             if let Some((name, url)) = s.split_once('<') {
-                if !url.trim().is_empty() && !url.contains(&['<', '>']) {
+                if !url.trim().is_empty() && !url.contains(['<', '>']) {
                     return Self::new(Some(name), Some(url));
                 }
             }
@@ -753,7 +753,7 @@ fn parse_common_time_format(s: &str) -> Option<u32> {
     if it.next().is_some() {
         return None;
     }
-    return Some(total_minutes);
+    Some(total_minutes)
 }
 
 fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {

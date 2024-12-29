@@ -13,7 +13,7 @@ use thiserror::Error;
 
 use crate::{
     quantity::{Number, Quantity, ScaledQuantity, Value},
-    ScaledRecipe, UnitInfo,
+    ScaledRecipe,
 };
 
 pub use builder::{ConverterBuilder, ConverterBuilderError};
@@ -463,24 +463,27 @@ impl ScaledQuantity {
 
     #[tracing::instrument(level = "trace", name = "convert", skip_all)]
     fn convert_impl(&mut self, to: ConvertTo, converter: &Converter) -> Result<(), ConvertError> {
-        let unit_info = self.unit().map(|u| u.unit_info_or_parse(converter));
+        if self.unit().is_none() {
+            return Err(ConvertError::NoUnit(self.clone()));
+        }
+
+        let unit_info = self.unit_info(converter);
         let original_system;
         let unit = match unit_info {
-            Some(UnitInfo::Known(ref u)) => {
+            Some(ref u) => {
                 original_system = u.system;
                 ConvertUnit::Unit(u)
             }
-            Some(UnitInfo::Unknown) => {
+            None => {
                 return Err(ConvertError::UnknownUnit(UnknownUnit(
-                    self.unit_text().unwrap().to_string(),
+                    self.unit().unwrap().to_string(),
                 )))
             }
-            None => return Err(ConvertError::NoUnit(self.clone())),
         };
-        let value = ConvertValue::try_from(&self.value)?;
+        let value = ConvertValue::try_from(self.value())?;
 
         let (new_value, new_unit) = converter.convert(value, unit, to)?;
-        *self = Quantity::with_known_unit(new_value.into(), Arc::clone(&new_unit));
+        *self = Quantity::new(new_value.into(), Some(new_unit.symbol().to_string()));
         match to {
             ConvertTo::Unit(_) => {
                 self.try_fraction(converter);
@@ -501,8 +504,7 @@ impl ScaledQuantity {
     #[tracing::instrument(level = "trace", skip_all)]
     pub fn fit(&mut self, converter: &Converter) -> Result<(), ConvertError> {
         // only known units can be fitted
-        let Some(UnitInfo::Known(unit)) = self.unit().map(|u| u.unit_info_or_parse(converter))
-        else {
+        let Some(unit) = self.unit_info(converter) else {
             return Ok(());
         };
 
@@ -540,7 +542,7 @@ impl ScaledQuantity {
             return Ok(self.try_fraction(converter)); // no system, just keep the same unit
         };
 
-        let value = match self.value {
+        let value = match self.value() {
             Value::Number(n) => n.value(),
             Value::Range { start, .. } => start.value(),
             Value::Text(ref t) => return Err(ConvertError::TextValue(t.clone())),
@@ -581,7 +583,7 @@ impl ScaledQuantity {
             return Ok(false);
         };
 
-        let new_value = match self.value {
+        let new_value = match self.value() {
             Value::Number(_) => Value::Number(new_value),
             Value::Range { end, .. } => {
                 let end = converter.convert_f64(end.value(), unit, new_unit);
@@ -594,7 +596,7 @@ impl ScaledQuantity {
             }
             Value::Text(_) => unreachable!(),
         };
-        *self = Quantity::with_known_unit(new_value, Arc::clone(new_unit));
+        *self = Quantity::new(new_value, Some(new_unit.symbol().to_string()));
         Ok(true)
     }
 
@@ -604,8 +606,7 @@ impl ScaledQuantity {
     #[tracing::instrument(level = "trace", skip_all)]
     pub fn try_fraction(&mut self, converter: &Converter) -> bool {
         // only known units can be fitted
-        let Some(UnitInfo::Known(unit)) = self.unit().map(|u| u.unit_info_or_parse(converter))
-        else {
+        let Some(unit) = self.unit_info(converter) else {
             return false;
         };
 
@@ -614,7 +615,7 @@ impl ScaledQuantity {
             return false;
         }
 
-        match &mut self.value {
+        match self.value_mut() {
             Value::Number(n) => n.try_approx(cfg.accuracy, cfg.max_denominator, cfg.max_whole),
             Value::Range { start, end } => {
                 start.try_approx(cfg.accuracy, cfg.max_denominator, cfg.max_whole)

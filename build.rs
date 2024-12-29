@@ -195,7 +195,7 @@ fn generate_bundled() {
         })
         .unwrap_or_else(none);
 
-    let extend = if let Some(_) = uf.get("extend") {
+    let extend = if uf.get("extend").is_some() {
         unimplemented!("base units.toml does not have extend");
     } else {
         quote! { None }
