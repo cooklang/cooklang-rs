@@ -266,6 +266,16 @@ export class State {
         const ret = wasm.state_parse_render(this.__wbg_ptr, ptr0, len0, isLikeNone(scale) ? 0x100000001 : (scale) >>> 0);
         return FallibleResult.__wrap(ret);
     }
+    /**
+     * @param {string} input
+     * @returns {FallibleResult}
+     */
+    std_metadata(input) {
+        const ptr0 = passStringToWasm0(input, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.state_std_metadata(this.__wbg_ptr, ptr0, len0);
+        return FallibleResult.__wrap(ret);
+    }
 }
 
 async function __wbg_load(module, imports) {
