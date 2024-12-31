@@ -16,7 +16,7 @@ use crate::span::Span;
 use crate::text::Text;
 use crate::{model::*, Extensions, ParseOptions};
 
-use super::{AnalysisResult, DefineMode, DuplicateMode};
+use super::{AnalysisResult, CheckOptions, DefineMode, DuplicateMode};
 
 macro_rules! error {
     ($msg:expr, $label:expr $(,)?) => {
@@ -241,43 +241,9 @@ impl<'i> RecipeCollector<'i, '_> {
 
     fn process_frontmatter(&mut self, yaml_text: Text<'i>) {
         self.old_style_metadata = false;
-        match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_text.text()) {
-            Ok(yaml_map) => {
-                self.content.metadata.map = yaml_map;
-                let mut to_remove = Vec::new();
-                for (key, value) in self.content.metadata.map.iter() {
-                    if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
-                        match check_std_entry(sk, value, self.converter) {
-                            Ok(Some(servings)) => self.content.data = servings,
-                            Ok(None) => {}
-                            Err(err) => {
-                                // TODO can we get the position of the key value pair inside yaml_text?
-                                let diag = warning!(format!(
-                                    "Unsupported value for key: '{}'",
-                                    key.as_str().unwrap()
-                                ))
-                                .set_source(err);
-                                self.ctx.warn(diag);
-                            }
-                        }
-                    }
-
-                    // run custom validator if any
-                    if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
-                        let (res, incl) = validator(key, value);
-                        if let Some(diag) = res.into_source_diag(|| "Invalid metadata entry") {
-                            // TODO can we get the position of the key value pair inside yaml_text?
-                            self.ctx.push(diag);
-                        }
-                        if !incl {
-                            to_remove.push(key.clone());
-                        }
-                    }
-                }
-                for key in &to_remove {
-                    self.content.metadata.map.remove(key);
-                }
-            }
+        let yaml_str = yaml_text.text();
+        let mut yaml_map = match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_str) {
+            Ok(yaml_map) => yaml_map,
             Err(err) => {
                 // ! This message (can) contains line and column number, but line numbers
                 // ! are off by one thanks to the starting `---`
@@ -289,8 +255,93 @@ impl<'i> RecipeCollector<'i, '_> {
                     diag = diag.label(label!(loc));
                 }
                 self.ctx.error(diag);
+                return;
+            }
+        };
+
+        let mut to_remove = Vec::new();
+        for (key, value) in yaml_map.iter() {
+            let mut action = CheckOptions::default();
+            // run custom validator if any
+            if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
+                let res = validator(key, value, &mut action);
+                if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
+                    if let Some(key_s) = key.as_str() {
+                        if let Some(pos) = yaml_find_key_position(&yaml_str, key_s) {
+                            diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
+                        }
+                    }
+                    self.ctx.push(diag);
+                }
+                if !action.include {
+                    to_remove.push(key.clone());
+                    continue;
+                }
+            }
+
+            if !action.run_std_checks {
+                continue;
+            }
+            if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
+                match check_std_entry(sk, value, self.converter) {
+                    Ok(Some(servings)) => self.content.data = servings,
+                    Ok(None) => {}
+                    Err(err) => {
+                        let mut diag = warning!(format!(
+                            "Unsupported value for key: '{}'",
+                            key.as_str().unwrap()
+                        ))
+                        .set_source(err);
+                        if let Some(key_s) = key.as_str() {
+                            if let Some(pos) = yaml_find_key_position(&yaml_str, key_s) {
+                                diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
+                            }
+                        }
+                        self.ctx.warn(diag);
+                    }
+                }
             }
         }
+        for key in &to_remove {
+            yaml_map.shift_remove(key);
+        }
+
+        if yaml_map.contains_key(StdKey::Time.as_ref()) {
+            // ? I guess I could group calls to `yaml_find_key_pos` into a single
+            // iteration of yaml_str but doesn't really matter
+
+            let loc = |key: StdKey| -> Option<usize> {
+                yaml_map
+                    .contains_key(key.as_ref())
+                    .then(|| yaml_find_key_position(&yaml_str, key.as_ref()))
+                    .flatten()
+            };
+
+            let prep = loc(StdKey::PrepTime);
+            let cook = loc(StdKey::CookTime);
+
+            const OVERRIDEN: &str = "this entry is overriden";
+            const OVERRIDES: &str = "this entry has preference";
+
+            if prep.is_some() || cook.is_some() {
+                let mut w = warning!("Time overriden");
+                if let Some(p) = prep {
+                    w.add_label(label!(Span::pos(yaml_text.span().start() + p), OVERRIDEN));
+                }
+                if let Some(p) = cook {
+                    w.add_label(label!(Span::pos(yaml_text.span().start() + p), OVERRIDEN));
+                }
+                if let Some(p) = yaml_find_key_position(&yaml_str, StdKey::Time.as_ref()) {
+                    w.add_label(label!(Span::pos(yaml_text.span().start() + p), OVERRIDES));
+                }
+                w.add_hint(
+                    "Top level 'prep time' and/or 'cook time' are not compatible with 'time'",
+                );
+                self.ctx.warn(w);
+            }
+        }
+
+        self.content.metadata.map = yaml_map;
     }
 
     fn metadata(&mut self, key: Text<'i>, value: Text<'i>) {
@@ -358,14 +409,15 @@ impl<'i> RecipeCollector<'i, '_> {
         let yaml_value = serde_yaml::Value::String(value_t.to_string());
 
         // run custom validator if any
+        let mut action = CheckOptions::default();
         if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
-            let (res, incl) = validator(&yaml_key, &yaml_value);
+            let res = validator(&yaml_key, &yaml_value, &mut action);
             if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
                 diag.add_label(label!(key.span()));
                 diag.add_label(label!(value.span()));
                 self.ctx.push(diag);
             }
-            if !incl {
+            if !action.include {
                 return;
             }
         }
@@ -373,7 +425,10 @@ impl<'i> RecipeCollector<'i, '_> {
         // insert the value into the map
         self.content.metadata.map.insert(yaml_key, yaml_value);
 
-        // check if it's a special key
+        // check if it's a std key
+        if !action.run_std_checks {
+            return;
+        }
         if let Ok(sp_key) = StdKey::from_str(&key_t) {
             let check_result = crate::metadata::check_std_entry(
                 sp_key,
@@ -387,10 +442,7 @@ impl<'i> RecipeCollector<'i, '_> {
                 Err(err) => {
                     self.ctx.warn(
                         warning!(
-                            format!(
-                                "Unsupported value for special key: '{}'",
-                                key.text_trimmed()
-                            ),
+                            format!("Unsupported value for key: '{}'", key.text_trimmed()),
                             label!(value.span(), "this value"),
                         )
                         .label(label!(key.span(), "this key does not support"))
@@ -1394,4 +1446,27 @@ fn text_val_in_ref_warn(
         w.add_hint(IMPLICIT_REF_WARN);
     }
     w
+}
+
+fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
+    // This is a bit of a hack, but it will work almost always and if it doesn't
+    // it only tells the user a bad position
+
+    let mut offset = 0;
+    for line in text.split_inclusive('\n') {
+        let l_offset = offset;
+        offset += line.len();
+        let line = line.trim_start();
+
+        let Some((k, _)) = line.split_once(':') else {
+            continue;
+        };
+        let Some(start) = k.find(|c: char| !c.is_ascii_whitespace()) else {
+            continue;
+        };
+        if k[start..].trim_ascii_end() == key {
+            return Some(l_offset + start);
+        }
+    }
+    None
 }

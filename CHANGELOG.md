@@ -2,6 +2,24 @@
 
 ## Unreleased - ReleaseDate
 
+- Add support in `cooklang::metadata` for [canonical
+  metadata](https://cooklang.org/docs/spec/#canonical-metadata), making it
+  easier to query these keys and expected values.
+- Add warnings for missused canonical metadata keys.
+- Improve custom checks for metadata keys. Now they can choose to skip the
+  included checks too.
+- Fix ingredients aliases from aisle configuration not being merged in
+  `IngredientList`. (#24 @kaylee-kiako)
+
+## 0.14.0 - 2024/12/11
+
+- Add YAML frontmatter for metadata. Deprecate old style metadata keys with the
+  `>>` syntax. This also comes with changes in the `cooklang::metadata` module.
+- Add deprecation and how to fix warnings when using old style metadata.
+- Remove `MULTILINE_STEPS`, `COMPONENT_NOTE`, `SECTIONS` and `TEXT_STEPS`
+  **extensions** as they are now part of the cooklang specification and are
+  always enabled.
+
 ## 0.13.3 - 2024/08/12
 - Replace `ariadne` dependency with `codesnake`. Because of this, errors may
   have some minor differences.

@@ -129,8 +129,6 @@ bitflags! {
         const TIMER_REQUIRES_TIME      = 1 << 10;
         /// This extensions also enables [`Self::COMPONENT_MODIFIERS`].
         const INTERMEDIATE_PREPARATIONS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
-        /// Enables special metadata key parsing
-        const SPECIAL_METADATA = 1 << 12;
 
         /// Enables a subset of extensions to maximize compatibility with other
         /// cooklang parsers.
@@ -145,8 +143,7 @@ bitflags! {
                         | Self::MODES.bits()
                         | Self::TEMPERATURE.bits()
                         | Self::RANGE_VALUES.bits()
-                        | Self::INTERMEDIATE_PREPARATIONS.bits()
-                        | Self::SPECIAL_METADATA.bits();
+                        | Self::INTERMEDIATE_PREPARATIONS.bits();
     }
 }
 

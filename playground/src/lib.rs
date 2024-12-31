@@ -1,5 +1,6 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
+use cooklang::metadata::{NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use std::fmt::Write;
@@ -100,6 +101,35 @@ impl State {
                 render(r, self.parser.converter())
             }
             None => "<no ouput>".to_string(),
+        };
+        FallibleResult::new(value, report, input)
+    }
+
+    pub fn std_metadata(&self, input: &str) -> FallibleResult {
+        let (meta, report) = self.parser.parse_metadata(input).into_tuple();
+        let value = match meta {
+            Some(m) => {
+                #[derive(Debug)]
+                #[allow(dead_code)]
+                struct StdMeta<'a> {
+                    tags: Option<Vec<std::borrow::Cow<'a, str>>>,
+                    author: Option<NameAndUrl>,
+                    source: Option<NameAndUrl>,
+                    time: Option<RecipeTime>,
+                    servings: Option<Vec<u32>>,
+                    locale: Option<(&'a str, Option<&'a str>)>,
+                }
+                let val = StdMeta {
+                    tags: m.tags(),
+                    author: m.author(),
+                    source: m.source(),
+                    time: m.time(self.parser.converter()),
+                    servings: m.servings(),
+                    locale: m.locale(),
+                };
+                format!("{val:#?}")
+            }
+            None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
     }

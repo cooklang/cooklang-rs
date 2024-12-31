@@ -6,10 +6,10 @@ use crate::Span;
 
 /// Handy label creation for [`SourceDiag`]
 macro_rules! label {
-    ($span:expr) => {
+    ($span:expr $(,)?) => {
         ($span.to_owned().into(), None)
     };
-    ($span:expr, $message:expr) => {
+    ($span:expr, $message:expr $(,)?) => {
         ($span.to_owned().into(), Some($message.into()))
     };
     ($span:expr, $fmt:literal, $($arg:expr),+) => {

@@ -174,9 +174,10 @@
 
         <select id="parserSelect">
           <option value="render" selected>Render</option>
-          <option value="full" selected>Full parse</option>
+          <option value="full">Full parse</option>
           <option value="events">Events</option>
           <option value="ast">AST</option>
+          <option value="stdmeta">Standard metadata</option>
         </select>
         <div hidden id="servingscontainer">
           <label for="servings">Servings</label>
@@ -219,7 +220,7 @@
   </main>
 
   <script type="module">
-    import init, { State,version } from "./pkg/cooklang_playground.js";
+    import init, { State, version } from "./pkg/cooklang_playground.js";
 
     async function run() {
       await init();
@@ -286,7 +287,13 @@
             break;
           }
           case "render": {
-            const { value, error } = state.parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber );
+            const { value, error } = state.parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber);
+            output.innerHTML = value;
+            errors.innerHTML = error;
+            break;
+          }
+          case "stdmeta": {
+            const { value, error } = state.std_metadata(input);
             output.innerHTML = value;
             errors.innerHTML = error;
             break;
@@ -329,21 +336,19 @@
       servings.addEventListener("change", () => parse());
 
       const extensionsContainer = document.getElementById("extensions-container");
+
       const extensions = [
-        "COMPONENT_MODIFIERS",
-        "COMPONENT_ALIAS",
-        "ADVANCED_UNITS",
-        "MODES",
-        "TEMPERATURE",
-        "RANGE_VALUES",
-        "TIMER_REQUIRES_TIME",
-        "INTERMEDIATE_PREPARATIONS",
-        "SPECIAL_METADATA",
-      ].forEach((e, i) => {
-        let bits = 1 << i;
-        if (i == 11) {
-          bits |= 1 << 1;
-        }
+        ["COMPONENT_MODIFIERS", 1 << 1],
+        ["COMPONENT_ALIAS", 1 << 3],
+        ["ADVANCED_UNITS", 1 << 5],
+        ["MODES", 1 << 6],
+        ["TEMPERATURE", 1 << 7],
+        ["RANGE_VALUES", 1 << 9],
+        ["TIMER_REQUIRES_TIME", 1 << 10],
+        ["INTERMEDIATE_PREPARATIONS", 1 << 11 | 1 << 1]
+      ];
+
+      extensions.forEach(([e, bits]) => {
         const elem = document.createElement("input");
         elem.setAttribute("type", "checkbox");
         elem.setAttribute("id", e);
