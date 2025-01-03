@@ -709,6 +709,7 @@ impl<'i> RecipeCollector<'i, '_> {
                     note.span(),
                     implicit,
                     definition_location.span(),
+                    definition_location.note.as_ref().map(|n| n.span()),
                 ));
             }
 
@@ -933,6 +934,7 @@ impl<'i> RecipeCollector<'i, '_> {
                     note.span(),
                     implicit,
                     definition_location.span(),
+                    definition_location.note.as_ref().map(|n| n.span()),
                 ));
             }
 
@@ -1399,12 +1401,23 @@ fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<
     Some((before, temperature, after))
 }
 
-fn note_reference_error(span: Span, implicit: bool, def_span: Span) -> SourceDiag {
+fn note_reference_error(
+    span: Span,
+    implicit: bool,
+    def_span: Span,
+    def_note_span: Option<Span>,
+) -> SourceDiag {
     let span = Span::new(span.start().saturating_sub(1), span.end() + 1);
 
-    let mut e = error!("Note not allowed in reference", label!(span, "remove this"))
-        .hint("Add the note in the definition of the ingredient")
-        .label(label!(Span::pos(def_span.end()), "add the note here"));
+    let mut e = error!("Note not allowed in reference", label!(span, "remove this"));
+
+    if let Some(sp) = def_note_span {
+        e.add_label(label!(sp, "the definition already has a note"));
+    } else {
+        e.add_hint("Add the note in the definition of the ingredient");
+        e.add_label(label!(Span::pos(def_span.end()), "add the note here"));
+    }
+
     if implicit {
         e.add_hint(IMPLICIT_REF_WARN);
     }
