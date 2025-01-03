@@ -10,6 +10,14 @@
   included checks too.
 - Fix ingredients aliases from aisle configuration not being merged in
   `IngredientList`. (#24 @kaylee-kiako)
+- Remove many dependencies, binaries should be smaller.
+- (breaking) Change `Quantity` API.
+  - `value` is not a getter.
+  - `unit` returns the unit text
+  - `unit_info` (new method) returns the `Unit` value with a runtime lookup.
+- (breaking) Rename `TEMPERATURE` extension with `INLINE_QUANTITIES`. Now all
+  inline quantities are found, not only temperatures. You may need to update
+  your application to handle this.
 
 ## 0.14.0 - 2024/12/11
 
