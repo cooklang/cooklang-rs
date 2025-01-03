@@ -4,20 +4,6 @@ use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use url::Url;
-
-/// Utility to create lazy regex
-/// from <https://docs.rs/once_cell/latest/once_cell/#lazily-compiled-regex>
-macro_rules! regex {
-    ($re:literal $(,)?) => {{
-        static RE: once_cell::sync::OnceCell<regex::Regex> = once_cell::sync::OnceCell::new();
-        RE.get_or_init(|| {
-            let _enter = tracing::trace_span!("regex", re = $re).entered();
-            regex::Regex::new($re).unwrap()
-        })
-    }};
-}
-pub(crate) use regex;
 
 use crate::{
     convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
@@ -394,14 +380,11 @@ impl CooklangValueExt for serde_yaml::Value {
             Some(NameAndUrl::parse(&s))
         } else if let Some(map) = self.as_mapping() {
             let name = map.get("name").and_then(|v| v.as_str());
-            let url = map
-                .get("url")
-                .and_then(|v| v.as_str())
-                .and_then(|s| Url::parse(s).ok());
+            let url = map.get("url").and_then(|v| v.as_str());
             if name.is_none() && url.is_none() {
                 return None;
             }
-            Some(NameAndUrl::new(name.as_deref(), url))
+            Some(NameAndUrl::new(name, url))
         } else {
             None
         }
@@ -613,7 +596,7 @@ pub(crate) fn check_std_entry(
 #[serde(deny_unknown_fields)]
 pub struct NameAndUrl {
     name: Option<String>,
-    url: Option<Url>,
+    url: Option<String>,
 }
 
 impl NameAndUrl {
@@ -628,32 +611,31 @@ impl NameAndUrl {
     /// The Url validated, so it has to be correct. If no url is found or it's
     /// invalid, everything will be the name.
     pub fn parse(s: &str) -> Self {
-        let regex_encapsulated_url = regex!(r"^([^<]*)<([^<>]+)>$");
-        if let Some(captures) = regex_encapsulated_url.captures(s) {
-            if let Ok(url) = Url::parse(captures[2].trim()) {
-                // if the user has written the URL inside '<..>', keep it even
-                // if it has no host
-                return Self::new(Some(&captures[1]), Some(url));
+        if let Some(s) = s.trim_ascii_end().strip_suffix('>') {
+            if let Some((name, url)) = s.split_once('<') {
+                if !url.trim().is_empty() && !url.contains(['<', '>']) {
+                    return Self::new(Some(name), Some(url));
+                }
             }
         }
 
-        if let Ok(url) = Url::parse(s.trim()) {
-            // Safety check so a URL like `Rachel: best recipes`, where "Rachel"
-            // is the protocol, doesn't get detected.
-            if url.has_host() {
-                return Self::new(None, Some(url));
-            }
+        if is_url(s) {
+            return Self::new(None, Some(s));
         }
 
         Self::new(Some(s), None)
     }
 
-    fn new(name: Option<&str>, url: Option<Url>) -> Self {
-        let name = name
-            .map(|n| n.trim())
-            .filter(|n| !n.is_empty())
-            .map(String::from);
-        Self { name, url }
+    fn new(name: Option<&str>, url: Option<&str>) -> Self {
+        fn filter(s: Option<&str>) -> Option<String> {
+            s.map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        }
+        Self {
+            name: filter(name),
+            url: filter(url),
+        }
     }
 
     /// Get the name
@@ -662,9 +644,26 @@ impl NameAndUrl {
     }
 
     /// Get the url
-    pub fn url(&self) -> Option<&Url> {
-        self.url.as_ref()
+    pub fn url(&self) -> Option<&str> {
+        self.url.as_deref()
     }
+}
+
+fn is_url(s: &str) -> bool {
+    let Some((scheme, rest)) = s.split_once("://") else {
+        return false;
+    };
+    if rest.is_empty() || !scheme.chars().all(|c| c.is_alphabetic()) {
+        return false;
+    }
+    let host = match rest.split_once('/') {
+        Some((h, _)) => h,
+        None => rest,
+    };
+    if host.is_empty() || host.contains(char::is_whitespace) {
+        return false;
+    }
+    true
 }
 
 /// Time that takes to prep/cook a recipe
@@ -754,7 +753,7 @@ fn parse_common_time_format(s: &str) -> Option<u32> {
     if it.next().is_some() {
         return None;
     }
-    return Some(total_minutes);
+    Some(total_minutes)
 }
 
 fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
@@ -769,9 +768,7 @@ fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTim
     let mut total = 0.0;
     let mut parts = s.split_whitespace();
     while let Some(part) = parts.next() {
-        let first_non_digit_pos = part
-            .char_indices()
-            .find_map(|(pos, c)| (!c.is_numeric() && c != '.').then_some(pos));
+        let first_non_digit_pos = part.find(|c: char| !c.is_ascii_digit() && c != '.');
         let (number, unit) = if let Some(mid) = first_non_digit_pos {
             // if the part contains a non numeric char, split it in two and it will
             // be the unit
@@ -896,6 +893,7 @@ impl From<&serde_yaml::Value> for MetaType {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "bundled_units")]
     #[test]
     fn test_parse_time_with_units() {
         let converter = Converter::bundled();
@@ -980,42 +978,42 @@ mod tests {
         t(
             "Rachel <https://rachel.url>",
             "Rachel",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel R. Peterson <https://rachel.url>",
             "Rachel R. Peterson",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel Peterson <https://rachel.url>",
             "Rachel Peterson",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel Peter-son <https://rachel.url>",
             "Rachel Peter-son",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel`s Cookbook <https://rachel.url>",
             "Rachel`s Cookbook",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "#rachel <https://rachel.url>",
             "#rachel",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel: Best recipes <https://rachel.url>",
             "Rachel: Best recipes",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel Peterson: Best recipes <https://rachel.url>",
             "Rachel Peterson: Best recipes",
-            "https://rachel.url/",
+            "https://rachel.url",
         );
         t(
             "Rachel Peterson: Best recipes <smb://rachel.url>",
@@ -1042,9 +1040,9 @@ mod tests {
             "Rachel <<https://bad.rachel.url>",
             "Rachel <<https://bad.rachel.url>",
         );
-        t_no_name("https://rachel.url", "https://rachel.url/");
-        t_no_name("<https://rachel.url>", "https://rachel.url/");
-        t_no_name("   <https://rachel.url>", "https://rachel.url/");
+        t_no_name("https://rachel.url", "https://rachel.url");
+        t_no_name("<https://rachel.url>", "https://rachel.url");
+        t_no_name("   <https://rachel.url>", "https://rachel.url");
         t_no_name_no_url("");
         t_no_name_no_url("   ");
     }

@@ -1,3 +1,5 @@
+#![cfg(feature = "bundled_units")]
+
 use cooklang::{convert::System, Converter, Quantity, Value};
 use test_case::test_case;
 

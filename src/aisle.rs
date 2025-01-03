@@ -2,9 +2,11 @@
 //!
 //! This module is only available with the `aisle` [feaure](crate::_features).
 //!
-use std::{borrow::Cow, collections::HashMap};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
 
-use pest::Parser;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -12,15 +14,6 @@ use crate::{
     error::{CowStr, Label, RichError},
     span::Span,
 };
-
-// So [parser::Rule] is not public
-mod parser {
-    use pest_derive::Parser;
-    #[derive(Parser)]
-    #[grammar = "aisle/grammar.pest"]
-    pub struct AisleConfParser;
-}
-use parser::{AisleConfParser, Rule};
 
 /// Represents a aisle configuration file
 ///
@@ -105,57 +98,90 @@ impl AisleConf<'_> {
 
 /// Parse an [`AisleConf`] with the cooklang shopping list format
 pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
-    let pairs =
-        AisleConfParser::parse(Rule::shopping_list, input).map_err(|e| AisleConfError::Parse {
-            span: e.location.into(),
-            message: e.variant.message().to_string(),
-        })?;
+    let mut categories: Vec<Category> = Vec::new();
+    let mut current_category: Option<Category> = None;
 
-    let mut categories = Vec::new();
-    let mut categories_span = HashMap::new();
-    let mut names_span = HashMap::new();
+    let mut used_categories = HashSet::new();
+    let mut used_names = HashSet::new();
 
-    for p in pairs.take_while(|p| p.as_rule() != Rule::EOI) {
-        let mut pairs = p.into_inner();
-        let name_pair = pairs.next().expect("name");
-        let name = name_pair.as_str().trim();
-        let current_span = Span::from(name_pair.as_span());
+    let calc_span = |s: &str| {
+        let s_ptr = s.as_ptr();
+        let input_ptr = input.as_ptr();
+        // SAFETY: only used when `s` is an slice of the original input str
+        assert!(s_ptr >= input_ptr);
+        assert!(s_ptr <= unsafe { input_ptr.add(input.len() - 1) });
+        let offset = unsafe { s_ptr.offset_from(input_ptr) };
+        let offset = offset as usize;
+        Span::new(offset, offset + s.len())
+    };
 
-        if let Some(other) = categories_span.insert(name, current_span) {
-            return Err(AisleConfError::DuplicateCategory {
-                name: name.to_string(),
-                first_span: other,
-                second_span: current_span,
-            });
+    for mut line in input.lines() {
+        // strip comment
+        if let Some((l, _)) = line.split_once("//") {
+            line = l;
         }
+        // strip whitespace
+        line = line.trim_ascii();
 
-        let mut ingredients = Vec::new();
-        for p in pairs {
-            assert_eq!(p.as_rule(), Rule::ingredient, "expected ingredient");
-            let mut names = Vec::with_capacity(1);
-            for p in p.into_inner() {
-                assert_eq!(p.as_rule(), Rule::name, "expected name");
-                let name = p.as_str().trim();
-                let span = Span::from(p.as_span());
-                if let Some(other) = names_span.insert(name, span) {
+        if line.starts_with('[') && line.ends_with(']') {
+            let name = &line[1..line.len() - 1];
+            if name.contains('|') {
+                return Err(AisleConfError::Parse {
+                    span: calc_span(name),
+                    message: "Invalid category name".to_string(),
+                });
+            }
+
+            if let Some(&other) = used_categories.get(name) {
+                return Err(AisleConfError::DuplicateCategory {
+                    name: name.to_string(),
+                    first_span: calc_span(other),
+                    second_span: calc_span(name),
+                });
+            }
+
+            used_categories.insert(name);
+
+            let new_cat = Category {
+                name,
+                ingredients: Vec::new(),
+            };
+            if let Some(cat) = current_category.replace(new_cat) {
+                categories.push(cat);
+            }
+        } else if !line.is_empty() {
+            let mut names = Vec::new();
+            for mut n in line.split('|') {
+                n = n.trim();
+                if let Some(&other) = used_names.get(n) {
                     return Err(AisleConfError::DuplicateIngredient {
-                        name: name.to_string(),
-                        first_span: other,
-                        second_span: span,
+                        name: n.to_string(),
+                        first_span: calc_span(other),
+                        second_span: calc_span(n),
                     });
                 }
-                names.push(name);
+                used_names.insert(n);
+                names.push(n);
             }
-            ingredients.push(Ingredient { names });
+            let names = line.split('|').map(str::trim).collect();
+            if let Some(cat) = &mut current_category {
+                cat.ingredients.push(Ingredient { names });
+            } else {
+                return Err(AisleConfError::Parse {
+                    span: calc_span(line),
+                    message: "Expected category".to_string(),
+                });
+            }
         }
-        let category = Category { name, ingredients };
+    }
 
-        categories.push(category);
+    if let Some(cat) = current_category {
+        categories.push(cat);
     }
 
     Ok(AisleConf {
         categories,
-        len: std::cell::Cell::new(names_span.len()),
+        len: std::cell::Cell::new(0),
     })
 }
 
@@ -247,21 +273,6 @@ impl RichError for AisleConfError {
 
     fn severity(&self) -> crate::error::Severity {
         crate::error::Severity::Error
-    }
-}
-
-impl From<pest::Span<'_>> for Span {
-    fn from(value: pest::Span) -> Self {
-        Self::new(value.start(), value.end())
-    }
-}
-
-impl From<pest::error::InputLocation> for Span {
-    fn from(value: pest::error::InputLocation) -> Self {
-        match value {
-            pest::error::InputLocation::Pos(p) => (p..p).into(),
-            pest::error::InputLocation::Span((start, end)) => (start..end).into(),
-        }
     }
 }
 

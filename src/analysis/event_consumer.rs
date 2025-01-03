@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use regex::Regex;
-
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
@@ -11,7 +9,7 @@ use crate::parser::{
     self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
     Modifiers,
 };
-use crate::quantity::{Quantity, QuantityValue, ScalableValue, UnitInfo, Value};
+use crate::quantity::{Quantity, QuantityValue, ScalableValue, Value};
 use crate::span::Span;
 use crate::text::Text;
 use crate::{model::*, Extensions, ParseOptions};
@@ -57,22 +55,9 @@ pub fn parse_events<'i, 'c>(
     converter: &Converter,
     parse_options: ParseOptions,
 ) -> AnalysisResult {
-    let mut ctx = SourceReport::empty();
-    let temperature_regex = extensions
-        .contains(Extensions::TEMPERATURE)
-        .then(|| match converter.temperature_regex() {
-            Ok(re) => Some(re),
-            Err(err) => {
-                ctx.warn(warning!("An error ocurred searching temperature values").set_source(err));
-                None
-            }
-        })
-        .flatten();
-
     let col = RecipeCollector {
         input,
         extensions,
-        temperature_regex,
         converter,
         parse_options,
 
@@ -92,7 +77,7 @@ pub fn parse_events<'i, 'c>(
         auto_scale_ingredients: false,
         old_style_metadata: true,
         old_style_metadata_used: vec![],
-        ctx,
+        ctx: SourceReport::empty(),
 
         locations: Default::default(),
         step_counter: 1,
@@ -103,7 +88,6 @@ pub fn parse_events<'i, 'c>(
 struct RecipeCollector<'i, 'c> {
     input: &'i str,
     extensions: Extensions,
-    temperature_regex: Option<&'c Regex>,
     converter: &'c Converter,
     parse_options: ParseOptions<'c>,
 
@@ -527,12 +511,11 @@ impl<'i> RecipeCollector<'i, '_> {
                     return; // ignore text
                 }
 
-                // it's only some if the extension is enabled
-                if let Some(re) = &self.temperature_regex {
-                    debug_assert!(self.extensions.contains(Extensions::TEMPERATURE));
-
+                if self.extensions.contains(Extensions::INLINE_QUANTITIES) {
                     let mut haystack = t.as_ref();
-                    while let Some((before, temperature, after)) = find_temperature(haystack, re) {
+                    while let Some((before, temperature, after)) =
+                        find_inline_quantity(haystack, self.converter)
+                    {
                         if !before.is_empty() {
                             items.push(Item::Text {
                                 value: before.to_string(),
@@ -670,14 +653,15 @@ impl<'i> RecipeCollector<'i, '_> {
                                 .unwrap_or(new_q_loc.span());
 
                             let (main_label, support_label) = match &e {
-                                crate::quantity::IncompatibleUnits::MissingUnit { found } => {
+                                crate::quantity::IncompatibleUnits::MissingUnit { lhs, .. } => {
                                     let m = "value missing unit";
                                     let f = "found unit";
-                                    match found {
+                                    if *lhs {
                                         // new is mising
-                                        either::Either::Left(_) => (label!(new, m), label!(old, f)),
+                                        (label!(new, m), label!(old, f))
+                                    } else {
                                         // old is missing
-                                        either::Either::Right(_) => (label!(new, f), label!(old, m)),
+                                        (label!(new, f), label!(old, m))
                                     }
                                 }
                                 crate::quantity::IncompatibleUnits::DifferentPhysicalQuantities {
@@ -741,8 +725,8 @@ impl<'i> RecipeCollector<'i, '_> {
             if let Some((ref_q, def_q)) =
                 &new_igr.quantity.as_ref().zip(definition.quantity.as_ref())
             {
-                let ref_is_text = ref_q.value.is_text();
-                let def_is_text = def_q.value.is_text();
+                let ref_is_text = ref_q.value().is_text();
+                let def_is_text = def_q.value().is_text();
 
                 if ref_is_text != def_is_text {
                     let ref_q_loc = located_ingredient.quantity.as_ref().unwrap().span();
@@ -993,16 +977,16 @@ impl<'i> RecipeCollector<'i, '_> {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 let located_quantity = located_timer.quantity.as_ref().unwrap();
-                if quantity.value.is_text() {
+                if quantity.value().is_text() {
                     self.ctx.error(error!(
-                        format!("Timer value is text: {}", quantity.value),
+                        format!("Timer value is text: {}", quantity.value()),
                         label!(located_quantity.value.span(), "expected a number here")
                     ));
                 }
-                if let Some(unit) = quantity.unit() {
+                if let Some(unit_text) = quantity.unit() {
                     let unit_span = located_quantity.unit.as_ref().unwrap().span();
-                    match unit.unit_info_or_parse(self.converter) {
-                        UnitInfo::Known(unit) => {
+                    match quantity.unit_info(self.converter) {
+                        Some(unit) => {
                             if unit.physical_quantity != PhysicalQuantity::Time {
                                 self.ctx.error(error!(
                                     format!("Timer unit is not time: {unit}"),
@@ -1014,8 +998,8 @@ impl<'i> RecipeCollector<'i, '_> {
                                 ));
                             }
                         }
-                        UnitInfo::Unknown => self.ctx.error(error!(
-                            format!("Unknown timer unit: {unit}"),
+                        None => self.ctx.error(error!(
+                            format!("Unknown timer unit: {unit_text}"),
                             label!(unit_span, "expected time unit")
                         )),
                     }
@@ -1388,17 +1372,89 @@ impl RefComponent for Cookware<ScalableValue> {
     }
 }
 
-fn find_temperature<'a>(text: &'a str, re: &Regex) -> Option<(&'a str, Quantity<Value>, &'a str)> {
-    let caps = re.captures(text)?;
-    let value = caps[1].replace(',', ".").parse::<f64>().ok()?;
-    let unit = caps.get(3).unwrap().range();
-    let unit_text = text[unit].to_string();
-    let temperature = Quantity::new(Value::Number(value.into()), Some(unit_text));
+fn find_inline_quantity<'a>(
+    text: &'a str,
+    converter: &Converter,
+) -> Option<(&'a str, Quantity<Value>, &'a str)> {
+    let mut i = 0;
 
-    let range = caps.get(0).unwrap().range();
-    let (before, after) = (&text[..range.start], &text[range.end..]);
+    fn eat_word<'a>(text: &'a str, i: &mut usize) -> Option<&'a str> {
+        let s = &text[*i..];
+        let offset = s.find(|c: char| c.is_whitespace()).or({
+            // if no whitespace until the end if there is anything left
+            if !s.is_empty() {
+                Some(s.len())
+            } else {
+                None
+            }
+        })?;
+        let word = &s[..offset];
+        *i += offset;
+        Some(word)
+    }
 
-    Some((before, temperature, after))
+    fn eat_whitespace<'a>(text: &'a str, i: &mut usize) -> Option<&'a str> {
+        let offset = text[*i..].find(|c: char| !c.is_whitespace())?;
+        let ws = &text[*i..*i + offset];
+        *i += offset;
+        Some(ws)
+    }
+
+    #[cfg(debug_assertions)]
+    let mut prev = 0;
+    while let Some(offset) = text[i..].find(|c: char| c.is_ascii_digit()) {
+        i += offset;
+
+        // get "before" slice and check negative
+        let before: &str;
+        let neg: bool;
+        if i > 0 && text.as_bytes()[i - 1] == b'-' {
+            before = &text[..i - 1];
+            neg = true;
+        } else {
+            before = &text[..i];
+            neg = false;
+        }
+
+        let w1 = eat_word(text, &mut i)?; // if no words, no more quantities
+        let first_non_digit =
+            w1.find(|c: char| !c.is_ascii_digit() && c != '.' && !c.is_whitespace());
+        let (mut number, mut unit) = if let Some(mid) = first_non_digit {
+            // split after number for unit
+            w1.split_at(mid)
+        } else {
+            // or take next word as unit
+            let _ = eat_whitespace(text, &mut i);
+            let w2 = eat_word(text, &mut i)?; // if no words, no more quantities
+            (w1, w2)
+        };
+
+        number = number.trim();
+        unit = unit.trim();
+
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(prev < i); // to be sure no infinite loop
+            prev = i;
+        }
+
+        let after = &text[i..];
+        let Ok(mut number) = number.parse::<f64>() else {
+            continue;
+        };
+        if converter.find_unit(unit).is_none() {
+            continue;
+        };
+
+        if neg {
+            number = -number;
+        }
+
+        let q = Quantity::new(Value::from(number), Some(unit.to_string()));
+        return Some((before, q, after));
+    }
+
+    None
 }
 
 fn note_reference_error(

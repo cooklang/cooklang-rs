@@ -112,12 +112,12 @@ impl TestStepItem {
                 let quantity = i
                     .quantity
                     .as_ref()
-                    .map(|q| TestValue::from_cooklang_value(q.value.clone()))
+                    .map(|q| TestValue::from_cooklang_value(q.value().clone()))
                     .unwrap_or(TestValue::Text("some".into()));
                 let units = i
                     .quantity
                     .as_ref()
-                    .and_then(|q| q.unit_text().map(|s| s.into()))
+                    .and_then(|q| q.unit().map(|s| s.into()))
                     .unwrap_or_default();
                 Self::Ingredient {
                     name: i.name.clone(),
@@ -147,12 +147,12 @@ impl TestStepItem {
                 let quantity = i
                     .quantity
                     .as_ref()
-                    .map(|q| TestValue::from_cooklang_value(q.value.clone()))
+                    .map(|q| TestValue::from_cooklang_value(q.value().clone()))
                     .unwrap_or(TestValue::Text("".into()));
                 let units = i
                     .quantity
                     .as_ref()
-                    .and_then(|q| q.unit_text().map(|s| s.into()))
+                    .and_then(|q| q.unit().map(|s| s.into()))
                     .unwrap_or_default();
                 Self::Timer {
                     name: i.name.clone().unwrap_or_default(),

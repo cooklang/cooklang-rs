@@ -1,4 +1,4 @@
-use cooklang::{Content, CooklangParser, Extensions, Item};
+use cooklang::{Content, CooklangParser, Extensions, Item, Value};
 use indoc::indoc;
 use test_case::test_case;
 
@@ -92,10 +92,7 @@ use test_case::test_case;
     "#} => vec![vec![None], vec![None, Some(1)]]; "complex 5"
 )]
 fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
-    let parser = CooklangParser::new(
-        Extensions::all(),
-        Default::default(),
-    );
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(src).unwrap_output();
     let numbers: Vec<Vec<Option<u32>>> = r
         .sections
@@ -131,10 +128,7 @@ fn empty_not_empty() {
     let r = parser.parse(input).unwrap_output();
     assert!(r.sections.is_empty());
 
-    let parser = CooklangParser::new(
-        Extensions::all(),
-        Default::default(),
-    );
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input).unwrap_output();
     assert!(r.sections.is_empty());
 }
@@ -159,10 +153,7 @@ fn empty_steps() {
     let r = parser.parse(input).unwrap_output();
     assert!(r.sections[0].content.is_empty());
 
-    let parser = CooklangParser::new(
-        Extensions::all(),
-        Default::default(),
-    );
+    let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input).unwrap_output();
     assert!(r.sections[0].content.is_empty());
 }
@@ -203,10 +194,10 @@ fn multiple_temperatures() {
     let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input).unwrap_output();
     assert_eq!(r.inline_quantities.len(), 2);
-    assert_eq!(r.inline_quantities[0].value, 2.0.into());
-    assert_eq!(r.inline_quantities[0].unit_text(), Some("ºC"));
-    assert_eq!(r.inline_quantities[1].value, 150.0.into());
-    assert_eq!(r.inline_quantities[1].unit_text(), Some("F"));
+    assert_eq!(r.inline_quantities[0].value(), &Value::from(2.0));
+    assert_eq!(r.inline_quantities[0].unit(), Some("ºC"));
+    assert_eq!(r.inline_quantities[1].value(), &Value::from(150.0));
+    assert_eq!(r.inline_quantities[1].unit(), Some("F"));
     let Content::Step(first_step) = &r.sections[0].content[0] else {
         panic!()
     };

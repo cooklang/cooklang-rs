@@ -3,7 +3,6 @@
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
 use enum_map::EnumMap;
-use once_cell::sync::{Lazy, OnceCell};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -16,8 +15,8 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Quantity<V: QuantityValue = Value> {
     /// Value
-    pub value: V,
-    pub(crate) unit: Option<QuantityUnit>,
+    pub(crate) value: V,
+    pub(crate) unit: Option<String>,
 }
 
 pub type ScalableQuantity = Quantity<ScalableValue>;
@@ -49,14 +48,12 @@ pub enum Value {
     Text(String),
 }
 
-/// A wrapper for different kinds of numbers
+/// Wrapper for different kinds of numbers
 ///
+/// This type can represent regular numbers and fractions, which are common in
+/// cooking recipes, especially when dealing with imperial units.
 ///
-/// This is mainly for the [`Display`] implementation. This allows to print a
-/// fraction when the user inputs a fraction. Using fractions is common in
-/// cooking, especially when using imperial units.
-///
-/// Also, the [`Display`] implementation round `f64` to 3 decimal places.
+/// The [`Display`] implementation round `f64` to 3 decimal places.
 ///
 /// ```
 /// # use cooklang::quantity::Number;
@@ -154,114 +151,31 @@ mod sealed {
     impl Sealed for super::Value {}
 }
 
-/// Unit text with lazy rich information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct QuantityUnit {
-    text: String,
-    #[serde(skip)]
-    info: OnceCell<UnitInfo>,
-}
-
-/// Information about the unit
-#[derive(Debug, Clone)]
-pub enum UnitInfo {
-    /// Unit is known
-    Known(Arc<Unit>),
-    /// Unknown unit
-    Unknown,
-}
-
-impl PartialEq for QuantityUnit {
-    fn eq(&self, other: &Self) -> bool {
-        self.text == other.text
-    }
-}
-
-impl QuantityUnit {
-    /// Original text of the unit
-    pub fn text(&self) -> &str {
-        &self.text
-    }
-
-    /// Cached information about the unit.
-    ///
-    /// If [`None`] is returned it means
-    /// the unit has not been parsed yet. Try with [`Self::unit_info_or_parse`].
-    pub fn unit_info(&self) -> Option<UnitInfo> {
-        self.info.get().cloned()
-    }
-
-    /// Information about the unit
-    pub fn unit_info_or_parse(&self, converter: &Converter) -> UnitInfo {
-        self.info
-            .get_or_init(|| UnitInfo::new(&self.text, converter))
-            .clone()
-    }
-}
-
-impl UnitInfo {
-    /// Parse the unit with the given converter
-    pub fn new(text: &str, converter: &Converter) -> Self {
-        match converter.get_unit(&text.into()) {
-            Ok(unit) => Self::Known(Arc::clone(unit)),
-            Err(_) => Self::Unknown,
-        }
-    }
-}
-
 impl<V: QuantityValue> Quantity<V> {
     /// Creates a new quantity
     pub fn new(value: V, unit: Option<String>) -> Self {
-        Self {
-            value,
-            unit: unit.map(|text| QuantityUnit {
-                text,
-                info: OnceCell::new(),
-            }),
-        }
-    }
-
-    /// Creates a new quantity and parse the unit
-    pub fn new_and_parse(value: V, unit: Option<String>, converter: &Converter) -> Self {
-        Self {
-            value,
-            unit: unit.map(|text| QuantityUnit {
-                info: OnceCell::from(UnitInfo::new(&text, converter)),
-                text,
-            }),
-        }
-    }
-
-    /// Createa a new quantity with a known unit
-    pub(crate) fn with_known_unit(value: V, unit: Arc<Unit>) -> Self {
-        Self {
-            value,
-            unit: Some(QuantityUnit {
-                text: unit.to_string(),
-                info: OnceCell::from(UnitInfo::Known(unit)),
-            }),
-        }
+        Self { value, unit }
     }
 
     /// Get the unit
-    pub fn unit(&self) -> Option<&QuantityUnit> {
-        self.unit.as_ref()
+    pub fn unit(&self) -> Option<&str> {
+        self.unit.as_deref()
     }
 
-    /// Get the unit text
+    pub fn value(&self) -> &V {
+        &self.value
+    }
+
+    pub(crate) fn value_mut(&mut self) -> &mut V {
+        &mut self.value
+    }
+
+    /// Get the corresponding [`Unit`]
     ///
-    /// This is just a shorthand
-    /// ```
-    /// # use cooklang::quantity::*;
-    /// let q = Quantity::new(
-    ///             Value::from(1.0),
-    ///             Some("unit".into())
-    ///         );
-    /// assert_eq!(q.unit_text(), q.unit().map(|u| u.text()));
-    /// ```
-    pub fn unit_text(&self) -> Option<&str> {
-        self.unit.as_ref().map(|u| u.text.as_ref())
+    /// This can return `None` if there is no unit or if it's not in the
+    /// `converter`.
+    pub fn unit_info(&self, converter: &Converter) -> Option<Arc<Unit>> {
+        self.unit().and_then(|u| converter.find_unit(u))
     }
 }
 
@@ -357,12 +271,6 @@ impl Display for Number {
     }
 }
 
-impl Display for QuantityUnit {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.text)
-    }
-}
-
 impl From<f64> for Value {
     fn from(value: f64) -> Self {
         Self::Number(Number::Regular(value))
@@ -393,9 +301,13 @@ pub enum QuantityAddError {
 pub enum IncompatibleUnits {
     #[error("Missing unit: one unit is '{found}' but the other quantity is missing an unit")]
     MissingUnit {
-        /// `Left`: Missing on the left hand side quantity
-        /// `Right`: Missing on the right hand side quantity
-        found: either::Either<QuantityUnit, QuantityUnit>,
+        /// Found unit
+        found: String,
+        /// Where it has been found
+        ///
+        /// - `true` if it has been found in the _left_ _(self)_.
+        /// - `false` if it was in the _right_ _(other)_.
+        lhs: bool,
     },
     #[error("Different physical quantity: '{a}' '{b}'")]
     DifferentPhysicalQuantities {
@@ -420,21 +332,23 @@ impl<V: QuantityValue> Quantity<V> {
             // Mixed = error
             (None, Some(u)) => {
                 return Err(IncompatibleUnits::MissingUnit {
-                    found: either::Either::Right(u.to_owned()),
+                    found: u.clone(),
+                    lhs: false,
                 });
             }
             (Some(u), None) => {
                 return Err(IncompatibleUnits::MissingUnit {
-                    found: either::Either::Left(u.to_owned()),
+                    found: u.clone(),
+                    lhs: true,
                 });
             }
             // Units -> check
             (Some(a), Some(b)) => {
-                let a_unit = a.unit_info_or_parse(converter);
-                let b_unit = b.unit_info_or_parse(converter);
+                let a_unit = converter.find_unit(a);
+                let b_unit = converter.find_unit(b);
 
                 match (a_unit, b_unit) {
-                    (UnitInfo::Known(a_unit), UnitInfo::Known(b_unit)) => {
+                    (Some(a_unit), Some(b_unit)) => {
                         if a_unit.physical_quantity != b_unit.physical_quantity {
                             return Err(IncompatibleUnits::DifferentPhysicalQuantities {
                                 a: a_unit.physical_quantity,
@@ -446,10 +360,10 @@ impl<V: QuantityValue> Quantity<V> {
                     }
                     _ => {
                         // if units are unknown, their text must be equal
-                        if a.text != b.text {
+                        if a != b {
                             return Err(IncompatibleUnits::UnknownDifferentUnits {
-                                a: a.text.clone(),
-                                b: b.text.clone(),
+                                a: a.clone(),
+                                b: b.clone(),
                             });
                         }
                         None
@@ -580,21 +494,21 @@ impl GroupedQuantity {
             return;
         }
 
-        let unit = q.unit.as_ref().unwrap();
-        let info = unit.unit_info_or_parse(converter);
+        let unit_text = q.unit().unwrap();
+        let info = q.unit_info(converter);
         match info {
-            UnitInfo::Known(unit) => {
+            Some(unit) => {
                 if let Some(stored) = &mut self.known[unit.physical_quantity] {
                     add!(stored, q, converter, self.other);
                 } else {
                     self.known[unit.physical_quantity] = Some(q.clone());
                 }
             }
-            UnitInfo::Unknown => {
-                if let Some(stored) = self.unknown.get_mut(unit.text()) {
+            None => {
+                if let Some(stored) = self.unknown.get_mut(unit_text) {
                     add!(stored, q, converter, self.other);
                 } else {
-                    self.unknown.insert(unit.text.clone(), q.clone());
+                    self.unknown.insert(unit_text.to_string(), q.clone());
                 }
             }
         };
@@ -748,7 +662,8 @@ where
 
 // All the fractions stuff
 
-static TABLE: Lazy<FractionLookupTable> = Lazy::new(FractionLookupTable::new);
+static TABLE: std::sync::LazyLock<FractionLookupTable> =
+    std::sync::LazyLock::new(FractionLookupTable::new);
 
 #[derive(Debug)]
 struct FractionLookupTable(Vec<(i16, (u8, u8))>);
