@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.15.0 - 2025/01/14
+
 - Add support in `cooklang::metadata` for [canonical
   metadata](https://cooklang.org/docs/spec/#canonical-metadata), making it
   easier to query these keys and expected values.
