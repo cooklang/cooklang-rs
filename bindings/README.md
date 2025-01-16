@@ -288,7 +288,7 @@ Combine into universal library:
 
 
 
-xcodebuild -create-xcframework \
-  -library ../target/aarch64-apple-ios/release/libcooklang_bindings.a \
-  -library ../target/x86_64-apple-ios/release/libcooklang_bindings.a \
-  -output CooklangParserFFI.xcframework
+    xcodebuild -create-xcframework \
+       -library ../target/aarch64-apple-ios/release/libcooklang_bindings.a \
+       -library ../target/x86_64-apple-ios/release/libcooklang_bindings.a \
+       -output CooklangParserFFI.xcframework
