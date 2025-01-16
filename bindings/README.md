@@ -262,10 +262,6 @@ Then add iOS targets.
 
 Install iOS SDK https://developer.apple.com/xcode/resources/.
 
-Add ndk linkers to the PATH variable. Example for ~/.zshrc:
-
-    export PATH=$PATH:/Users/dubadub/Library/Android/sdk/ndk/25.2.9519653/toolchains/llvm/prebuilt/darwin-x86_64/bin/
-
 ### Build
 
 Build library:
@@ -289,6 +285,7 @@ Combine into universal library:
     lipo -create -output ../target/universal/release/libcooklang_bindings.a \
       ../target/x86_64-apple-ios/release/libcooklang_bindings.a \
       ../target/aarch64-apple-ios/release/libcooklang_bindings.a
+
 
 
 xcodebuild -create-xcframework \
