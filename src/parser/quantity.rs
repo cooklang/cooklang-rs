@@ -312,7 +312,7 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{parser::TokenStream, text::Text};
+    use crate::{parser::TokenStream};
     use test_case::test_case;
 
     macro_rules! t {
@@ -426,47 +426,6 @@ mod tests {
     }
 
     #[test]
-    fn value() {
-        let (q, s, ctx) = t!("100|200|300%ml");
-        assert_eq!(
-            q.value,
-            QuantityValue::Many(vec![
-                Located::new(num!(100.0), 0..3),
-                Located::new(num!(200.0), 4..7),
-                Located::new(num!(300.0), 8..11),
-            ])
-        );
-        assert_eq!(s, Some((11..12).into()));
-        assert_eq!(q.unit.unwrap(), Text::from_str("ml", 12));
-        assert!(ctx.is_empty());
-
-        let (q, s, ctx) = t!("100|2-3|str*%ml");
-        assert_eq!(
-            q.value,
-            QuantityValue::Many(vec![
-                Located::new(num!(100.0), 0..3),
-                Located::new(range!(2.0, 3.0), 4..7),
-                Located::new(Value::Text("str".into()), 8..11),
-            ])
-        );
-        assert_eq!(s, Some((12..13).into()));
-        assert_eq!(q.unit.unwrap(), Text::from_str("ml", 13));
-        assert_eq!(ctx.errors().count(), 1);
-        assert_eq!(ctx.warnings().count(), 0);
-
-        let (q, _, ctx) = t!("100|");
-        assert_eq!(
-            q.value,
-            QuantityValue::Many(vec![
-                Located::new(num!(100.0), 0..3),
-                Located::new(Value::Text("".into()), 4..4)
-            ])
-        );
-        assert_eq!(ctx.errors().count(), 1);
-        assert_eq!(ctx.warnings().count(), 0);
-    }
-
-    #[test]
     fn range_value() {
         let (q, _, _) = t!("2-3");
         assert_eq!(
@@ -526,10 +485,7 @@ mod tests {
     #[test_case("2 1/2" => (2, 1, 2); "mixed value")]
     fn fractional_val(s: &str) -> (u32, u32, u32) {
         let (q, _, _) = t!(s);
-        let QuantityValue { value, .. } = q.value else {
-            panic!("not single value")
-        };
-        let value = value.into_inner();
+        let value = q.value.value.into_inner();
         let Value::Number(num) = value else {
             panic!("not number")
         };
@@ -555,10 +511,7 @@ mod tests {
     #[test_case("01.0" => panics "not number")]
     fn simple_numbers(s: &str) -> f64 {
         let (q, _, r) = t!(s);
-        let QuantityValue { value, .. } = q.value else {
-            panic!("not single value")
-        };
-        let value = value.into_inner();
+        let value = q.value.value.into_inner();
         let Value::Number(num) = value else {
             panic!("not number")
         };
