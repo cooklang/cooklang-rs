@@ -182,21 +182,10 @@ impl<V: QuantityValue> Quantity<V> {
 impl ScalableValue {
     pub(crate) fn from_ast(value: parser::QuantityValue) -> Self {
         match value {
-            parser::QuantityValue::Single {
+            parser::QuantityValue {
                 value,
-                auto_scale: None,
-                ..
-            } => Self::Fixed(value.into_inner()),
-            parser::QuantityValue::Single {
-                value,
-                auto_scale: Some(_),
                 ..
             } => Self::Linear(value.into_inner()),
-            parser::QuantityValue::Many(v) => Self::ByServings(
-                v.into_iter()
-                    .map(crate::located::Located::into_inner)
-                    .collect(),
-            ),
         }
     }
 }

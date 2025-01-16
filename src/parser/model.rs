@@ -107,40 +107,14 @@ pub struct Quantity<'a> {
 
 /// Quantity value(s)
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub enum QuantityValue {
-    /// A single value
-    Single {
-        value: Located<Value>,
-        /// [`Some`] if the auto scale marker (`*`) is present
-        auto_scale: Option<Span>,
-    },
-    /// Many values
-    ///
-    /// This is parsed from values separated by `|`. It is not compatible with
-    /// the auto scale marker (`*`).
-    Many(Vec<Located<Value>>),
+pub struct QuantityValue {
+    pub value: Located<Value>
 }
 
 impl QuantityValue {
     /// Calculates the span of the value or values
     pub fn span(&self) -> Span {
-        match self {
-            QuantityValue::Single { value, auto_scale } => {
-                let s = value.span();
-                if let Some(marker) = auto_scale {
-                    assert_eq!(s.end(), marker.start());
-                    Span::new(s.start(), marker.end())
-                } else {
-                    s
-                }
-            }
-            QuantityValue::Many(v) => {
-                assert!(!v.is_empty(), "QuantityValue::Many with no values");
-                let start = v.first().unwrap().span().start();
-                let end = v.last().unwrap().span().end();
-                Span::new(start, end)
-            }
-        }
+        self.value.span()
     }
 }
 
@@ -161,9 +135,8 @@ impl Recover for Quantity<'_> {
 
 impl Recover for QuantityValue {
     fn recover() -> Self {
-        Self::Single {
-            value: Recover::recover(),
-            auto_scale: None,
+        Self {
+            value: Recover::recover()
         }
     }
 }

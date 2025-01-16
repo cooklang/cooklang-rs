@@ -29,13 +29,11 @@
 //!
 //! note       = OpenParen (!CloseParen ANY)* CloseParen
 //!
-//! quantity   = num_val Whitespace !(unit_sep | auto_scale | val_sep) unit
-//!            | val (val_sep val)* auto_scale? (unit_sep unit)?
+//! quantity   = num_val Whitespace !unit_sep unit
+//!            | val (unit_sep unit)?
 //!
 //! unit       = (!CloseBrace ANY)*
 //!
-//! val_sep    = Whitespace Or Whitespace
-//! auto_scale = Whitespace Star Whitespace
 //! unit_sep   = Whitespace Percent Whitespace
 //!
 //! val        = num_val | text_val

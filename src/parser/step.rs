@@ -392,19 +392,6 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
                 .hint("Cookware items can't have units"),
             );
         }
-        if let QuantityValue::Single {
-            auto_scale: Some(auto_scale),
-            ..
-        } = &q.quantity.value
-        {
-            bp.error(
-                error!(
-                    "Invalid cookware quantity: auto scale marker",
-                    label!(auto_scale, "remove this"),
-                )
-                .hint("Cookware items amount can't be auto scaled"),
-            );
-        }
         q.quantity.map(|q| q.value)
     });
     let modifiers = parse_modifiers(bp, modifiers_tokens, modifiers_pos);
@@ -455,19 +442,6 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
 
     let mut quantity = body.quantity.map(|tokens| {
         let q = parse_quantity(bp, tokens);
-        if let QuantityValue::Single {
-            auto_scale: Some(auto_scale),
-            ..
-        } = &q.quantity.value
-        {
-            bp.error(
-                error!(
-                    "Invalid timer quantity: auto scale marker",
-                    label!(auto_scale, "remove this"),
-                )
-                .hint("Timers durations cannot be auto scaled"),
-            );
-        }
         if q.quantity.unit.is_none() {
             bp.error(
                 error!(
