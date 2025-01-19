@@ -1,6 +1,6 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
-use cooklang::metadata::{NameAndUrl, RecipeTime};
+use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use std::fmt::Write;
@@ -174,7 +174,7 @@ fn render(r: cooklang::ScaledRecipe, converter: &Converter) -> String {
             ul {
                 @for (key, value) in &r.metadata.map {
                     li.metadata {
-                        span.key { (key.as_str().unwrap_or("<not string key>")) } ":" (value.as_str().unwrap_or("<not string value>")) // TODO
+                        span.key { (key.as_str_like().unwrap_or_else(|| format!("{key:?}").into())) } ":" (value.as_str_like().unwrap_or_else(|| format!("{value:?}").into()))
                     }
                 }
             }
