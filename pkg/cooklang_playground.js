@@ -257,7 +257,7 @@ export class State {
     }
     /**
      * @param {string} input
-     * @param {number | undefined} [scale]
+     * @param {number | null} [scale]
      * @returns {FallibleResult}
      */
     parse_render(input, scale) {
