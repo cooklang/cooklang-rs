@@ -69,7 +69,7 @@ impl State {
                     format!("{ast:#?}")
                 }
             }
-            None => "<no ouput>".to_string(),
+            None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
     }
@@ -84,7 +84,7 @@ impl State {
                     format!("{r:#?}")
                 }
             }
-            None => "<no ouput>".to_string(),
+            None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
     }
@@ -100,7 +100,7 @@ impl State {
                 };
                 render(r, self.parser.converter())
             }
-            None => "<no ouput>".to_string(),
+            None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
     }
