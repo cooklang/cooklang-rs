@@ -108,11 +108,12 @@ pub struct Quantity<'a> {
 /// Quantity value(s)
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct QuantityValue {
-    pub value: Located<Value>
+    pub value: Located<Value>,
+    pub scaling_lock: Option<Span>
 }
 
 impl QuantityValue {
-    /// Calculates the span of the value or values
+    /// Calculates the span of the value
     pub fn span(&self) -> Span {
         self.value.span()
     }
@@ -136,7 +137,8 @@ impl Recover for Quantity<'_> {
 impl Recover for QuantityValue {
     fn recover() -> Self {
         Self {
-            value: Recover::recover()
+            value: Recover::recover(),
+            scaling_lock: None,
         }
     }
 }

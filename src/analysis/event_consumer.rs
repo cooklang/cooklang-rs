@@ -1027,7 +1027,8 @@ impl<'i> RecipeCollector<'i, '_> {
 
         if is_ingredient {
             match v {
-                ScalableValue::Fixed(value) if !value.is_text() => v = ScalableValue::Linear(value),
+                ScalableValue::Fixed(value) if !value.is_text() => v = ScalableValue::Fixed(value),
+                ScalableValue::Linear(value) if !value.is_text() => v = ScalableValue::Linear(value),
                 _ => {}
             };
         }

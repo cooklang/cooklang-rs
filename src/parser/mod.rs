@@ -29,8 +29,9 @@
 //!
 //! note       = OpenParen (!CloseParen ANY)* CloseParen
 //!
-//! quantity   = num_val Whitespace !unit_sep unit
+//! quantity   = sc_lock? num_val Whitespace !unit_sep unit
 //!            | val (unit_sep unit)?
+//! sc_lock    = Whitespace Eq Whitespace
 //!
 //! unit       = (!CloseBrace ANY)*
 //!

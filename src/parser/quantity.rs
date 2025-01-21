@@ -54,6 +54,7 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
             let text_val = Value::Text(text.text_trimmed().into_owned());
             value = QuantityValue {
                 value: Located::new(text_val, text.span()),
+                scaling_lock: None,
             };
 
             if let Some(sep) = bp.consume(T![%]) {
@@ -89,12 +90,15 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     if bp
         .tokens()
         .iter()
-        .any(|t| matches!(t.kind, T![|] | T![*] | T![%]))
+        .any(|t| matches!(t.kind, T![%]))
     {
         return None;
     }
 
+    let scaling_lock = scaling_lock(bp);
+
     bp.ws_comments();
+
     let value_tokens = bp.consume_while(|t| !matches!(t, T![word]));
 
     if value_tokens.is_empty() || value_tokens.last().unwrap().kind != T![ws] {
@@ -134,7 +138,7 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     Some(ParsedQuantity {
         quantity: Located::new(
             Quantity {
-                value: QuantityValue {value},
+                value: QuantityValue {value, scaling_lock},
                 unit: Some(unit),
             },
             tokens_span(bp.tokens()),
@@ -144,10 +148,23 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
 }
 
 fn value(bp: &mut BlockParser) -> QuantityValue {
+    let scaling_lock = scaling_lock(bp);
     let value_tokens = bp.consume_while(|t| !matches!(t, T![%]));
     let value = parse_value(value_tokens, bp);
 
-    QuantityValue { value }
+    QuantityValue { value, scaling_lock }
+}
+
+fn scaling_lock(bp: &mut BlockParser) -> Option<Span> {
+    bp.ws_comments();
+
+    match bp.peek() {
+        T![=] => {
+            let tok = bp.bump_any();
+            Some(tok.span)
+        },
+        _ => None
+    }
 }
 
 fn parse_value(tokens: &[Token], bp: &mut BlockParser) -> Located<Value> {
@@ -357,10 +374,39 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(num!(100.0), 0..3)
+                value: Located::new(num!(100.0), 0..3),
+                scaling_lock: None,
             }
         );
         assert_eq!(s, Some(Span::new(3, 4)));
+        assert_eq!(q.unit.unwrap().text(), "ml");
+    }
+
+    #[test]
+    fn fixed_quantity() {
+        let (q, s, _) = t!("=100%ml");
+        assert_eq!(
+            q.value,
+            QuantityValue {
+                value: Located::new(num!(100.0), 1..4),
+                scaling_lock: Some(Span::new(0, 1)),
+            }
+        );
+        assert_eq!(s, Some(Span::new(4, 5)));
+        assert_eq!(q.unit.unwrap().text(), "ml");
+    }
+
+    #[test]
+    fn fixed_quantity_with_spaces() {
+        let (q, s, _) = t!(" = 100%ml");
+        assert_eq!(
+            q.value,
+            QuantityValue {
+                value: Located::new(num!(100.0), 2..6),
+                scaling_lock: Some(Span::new(1, 2)),
+            }
+        );
+        assert_eq!(s, Some(Span::new(6, 7)));
         assert_eq!(q.unit.unwrap().text(), "ml");
     }
 
@@ -370,7 +416,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(num!(100.0), 0..3)
+                value: Located::new(num!(100.0), 0..3),
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -381,7 +428,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(Value::Text("100 ml".into()), 0..6)
+                value: Located::new(Value::Text("100 ml".into()), 0..6),
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -395,7 +443,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(range!(100.0, 200.0), 0..7)
+                value: Located::new(range!(100.0, 200.0), 0..7),
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -417,7 +466,8 @@ mod tests {
                         }
                     },
                     0..11
-                )
+                ),
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -431,7 +481,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(range!(2.0, 3.0), 0..3)
+                value: Located::new(range!(2.0, 3.0), 0..3),
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -443,7 +494,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(Value::Text("2-3".into()), 0..3)
+                value: Located::new(Value::Text("2-3".into()), 0..3),
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -455,7 +507,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(range!(2.5, 3.0), 0..7)
+                value: Located::new(range!(2.5, 3.0), 0..7),
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -464,7 +517,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(range!(2.0, 3.5), 0..7)
+                value: Located::new(range!(2.0, 3.5), 0..7),
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -473,7 +527,8 @@ mod tests {
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(range!(2.5, 3.5), 0..11)
+                value: Located::new(range!(2.5, 3.5), 0..11),
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);

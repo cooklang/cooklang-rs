@@ -29,9 +29,7 @@ pub enum ScalableValue {
     /// Cannot be scaled
     Fixed(Value),
     /// Scaling is linear to the number of servings
-    Linear(Value),
-    /// Scaling is in defined steps of the number of servings
-    ByServings(Vec<Value>),
+    Linear(Value)
 }
 
 /// Base value
@@ -134,7 +132,6 @@ impl QuantityValue for ScalableValue {
         match self {
             ScalableValue::Fixed(value) => value.is_text(),
             ScalableValue::Linear(value) => value.is_text(),
-            ScalableValue::ByServings(values) => values.iter().any(Value::is_text),
         }
     }
 }
@@ -184,8 +181,14 @@ impl ScalableValue {
         match value {
             parser::QuantityValue {
                 value,
+                scaling_lock: None,
                 ..
             } => Self::Linear(value.into_inner()),
+            parser::QuantityValue {
+                value,
+                scaling_lock: Some(_),
+                ..
+            } => Self::Fixed(value.into_inner()),
         }
     }
 }
@@ -205,13 +208,7 @@ impl Display for ScalableValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Fixed(value) => value.fmt(f),
-            Self::Linear(value) => write!(f, "{value}*"),
-            Self::ByServings(values) => {
-                for value in &values[..values.len() - 1] {
-                    write!(f, "{}|", value)?;
-                }
-                write!(f, "{}", values.last().unwrap())
-            }
+            Self::Linear(value) => write!(f, "{value}"),
         }
     }
 }

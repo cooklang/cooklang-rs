@@ -173,8 +173,7 @@ impl TestValue {
                 Value::Number(num) => TestValue::Number(num.value()),
                 Value::Range { .. } => panic!("unexpected range value"),
                 Value::Text(value) => TestValue::Text(value),
-            },
-            ScalableValue::ByServings(_) => panic!("unexpected value by servings"),
+            }
         }
     }
 }
