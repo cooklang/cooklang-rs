@@ -384,7 +384,7 @@ impl<T> PassResult<T> {
 
     /// Transform into a common Rust [`Result`]
     ///
-    /// If the result is valid, the [`Ok`] variant holds the ouput and a
+    /// If the result is valid, the [`Ok`] variant holds the output and a
     /// report with only warnings. Otherwise [`Err`] holds a report with the
     /// errors (and warnings).
     pub fn into_result(mut self) -> Result<(T, SourceReport), SourceReport> {
@@ -400,7 +400,7 @@ impl<T> PassResult<T> {
         self.report
     }
 
-    /// Transform into the ouput discarding errors/warnings
+    /// Transform into the output discarding errors/warnings
     pub fn into_output(self) -> Option<T> {
         self.output
     }

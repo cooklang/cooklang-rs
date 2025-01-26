@@ -185,7 +185,7 @@ impl CooklangParser {
 
     /// Creates a new extended parser
     ///
-    /// This enables all extensions and uses the bunlded units.
+    /// This enables all extensions and uses the bundled units.
     /// It is encouraged to reuse the parser and not rebuild it every time.
     #[cfg(feature = "bundled_units")]
     pub fn extended() -> Self {
