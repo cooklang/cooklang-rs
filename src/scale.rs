@@ -41,11 +41,6 @@ impl ScaleTarget {
         self.target as f64 / self.base as f64
     }
 
-    /// Get the index into a [`ScalableValue::ByServings`]
-    pub fn index(&self) -> Option<usize> {
-        self.index
-    }
-
     /// Get the target servings
     pub fn target_servings(&self) -> u32 {
         self.target
@@ -135,10 +130,6 @@ impl ScalableRecipe {
             ScaleTarget::new(1, target, &[])
         };
 
-        if target.index() == Some(0) {
-            return self.default_scale();
-        }
-
         let (ingredients, ingredient_outcomes): (Vec<_>, Vec<_>) = self
             .ingredients
             .into_iter()
@@ -186,8 +177,7 @@ impl ScalableRecipe {
 
     /// Scale the recipe to the default values
     ///
-    /// The default values are the ones written in the recipe and the first one
-    /// in [`ScalableValue::ByServings`].
+    /// The default values are the ones written in the recipe.
     pub fn default_scale(self) -> ScaledRecipe {
         let ingredients = self
             .ingredients
@@ -230,31 +220,6 @@ impl Scale for ScalableValue {
                 Ok(v) => (v, ScaleOutcome::Scaled),
                 Err(e) => (value, ScaleOutcome::Error(e)),
             },
-            Self::ByServings(ref values) => {
-                if let Some(index) = target.index {
-                    let value = match values.get(index) {
-                        Some(v) => v,
-                        None => {
-                            let value = self.clone();
-                            return (
-                                self.default_scale(),
-                                ScaleOutcome::Error(ScaleError::NotDefined { target, value }),
-                            );
-                        }
-                    };
-                    (value.clone(), ScaleOutcome::Scaled)
-                } else {
-                    let value = self.clone();
-                    (
-                        self.default_scale(),
-                        ScaleOutcome::Error(ScaleError::NotScalable {
-                            value,
-                            reason:
-                                "tried to scale a value linearly when it has the scaling defined",
-                        }),
-                    )
-                }
-            }
         }
     }
 
@@ -262,10 +227,6 @@ impl Scale for ScalableValue {
         match self {
             Self::Fixed(value) => value,
             Self::Linear(value) => value,
-            Self::ByServings(values) => values
-                .first()
-                .expect("scalable value servings list empty")
-                .clone(),
         }
     }
 }

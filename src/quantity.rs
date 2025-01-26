@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    convert::{ConvertError, Converter, PhysicalQuantity, Unit},
-    parser,
+    convert::{ConvertError, Converter, PhysicalQuantity, Unit}
 };
 
 /// A quantity used in components
@@ -29,9 +28,7 @@ pub enum ScalableValue {
     /// Cannot be scaled
     Fixed(Value),
     /// Scaling is linear to the number of servings
-    Linear(Value),
-    /// Scaling is in defined steps of the number of servings
-    ByServings(Vec<Value>),
+    Linear(Value)
 }
 
 /// Base value
@@ -134,7 +131,6 @@ impl QuantityValue for ScalableValue {
         match self {
             ScalableValue::Fixed(value) => value.is_text(),
             ScalableValue::Linear(value) => value.is_text(),
-            ScalableValue::ByServings(values) => values.iter().any(Value::is_text),
         }
     }
 }
@@ -179,28 +175,6 @@ impl<V: QuantityValue> Quantity<V> {
     }
 }
 
-impl ScalableValue {
-    pub(crate) fn from_ast(value: parser::QuantityValue) -> Self {
-        match value {
-            parser::QuantityValue::Single {
-                value,
-                auto_scale: None,
-                ..
-            } => Self::Fixed(value.into_inner()),
-            parser::QuantityValue::Single {
-                value,
-                auto_scale: Some(_),
-                ..
-            } => Self::Linear(value.into_inner()),
-            parser::QuantityValue::Many(v) => Self::ByServings(
-                v.into_iter()
-                    .map(crate::located::Located::into_inner)
-                    .collect(),
-            ),
-        }
-    }
-}
-
 impl<V: QuantityValue + Display> Display for Quantity<V> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.value.fmt(f)?;
@@ -216,13 +190,7 @@ impl Display for ScalableValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Fixed(value) => value.fmt(f),
-            Self::Linear(value) => write!(f, "{value}*"),
-            Self::ByServings(values) => {
-                for value in &values[..values.len() - 1] {
-                    write!(f, "{}|", value)?;
-                }
-                write!(f, "{}", values.last().unwrap())
-            }
+            Self::Linear(value) => write!(f, "{value}"),
         }
     }
 }

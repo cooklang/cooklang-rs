@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use cooklang::model::Item as OriginalItem;
 use cooklang::quantity::{
-    Quantity as OriginalQuantity, ScalableValue as OriginalScalableValue, Value as OriginalValue,
+    Quantity as OriginalQuantity, Value as OriginalValue
 };
-use cooklang::ScalableRecipe as OriginalRecipe;
+use cooklang::ScaledRecipe as OriginalRecipe;
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
@@ -174,9 +174,9 @@ trait Amountable {
     fn extract_amount(&self) -> Amount;
 }
 
-impl Amountable for OriginalQuantity<OriginalScalableValue> {
+impl Amountable for OriginalQuantity<OriginalValue> {
     fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(self.value());
+        let quantity = extract_value(self.value());
 
         let units = self.unit().as_ref().map(|u| u.to_string());
 
@@ -184,22 +184,14 @@ impl Amountable for OriginalQuantity<OriginalScalableValue> {
     }
 }
 
-impl Amountable for OriginalScalableValue {
+impl Amountable for OriginalValue {
     fn extract_amount(&self) -> Amount {
-        let quantity = extract_quantity(self);
+        let quantity = extract_value(self);
 
         Amount {
             quantity,
             units: None,
         }
-    }
-}
-
-fn extract_quantity(value: &OriginalScalableValue) -> Value {
-    match value {
-        OriginalScalableValue::Fixed(value) => extract_value(value),
-        OriginalScalableValue::Linear(value) => extract_value(value),
-        OriginalScalableValue::ByServings(values) => extract_value(values.first().unwrap()),
     }
 }
 
@@ -427,8 +419,8 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
     }
 }
 
-impl From<&cooklang::Ingredient<OriginalScalableValue>> for Ingredient {
-    fn from(ingredient: &cooklang::Ingredient<OriginalScalableValue>) -> Self {
+impl From<&cooklang::Ingredient<OriginalValue>> for Ingredient {
+    fn from(ingredient: &cooklang::Ingredient<OriginalValue>) -> Self {
         Ingredient {
             name: ingredient.name.clone(),
             amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
@@ -437,8 +429,8 @@ impl From<&cooklang::Ingredient<OriginalScalableValue>> for Ingredient {
     }
 }
 
-impl From<&cooklang::Cookware<OriginalScalableValue>> for Cookware {
-    fn from(cookware: &cooklang::Cookware<OriginalScalableValue>) -> Self {
+impl From<&cooklang::Cookware<OriginalValue>> for Cookware {
+    fn from(cookware: &cooklang::Cookware<OriginalValue>) -> Self {
         Cookware {
             name: cookware.name.clone(),
             amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
@@ -446,8 +438,8 @@ impl From<&cooklang::Cookware<OriginalScalableValue>> for Cookware {
     }
 }
 
-impl From<&cooklang::Timer<OriginalScalableValue>> for Timer {
-    fn from(timer: &cooklang::Timer<OriginalScalableValue>) -> Self {
+impl From<&cooklang::Timer<OriginalValue>> for Timer {
+    fn from(timer: &cooklang::Timer<OriginalValue>) -> Self {
         Timer {
             name: Some(timer.name.clone().unwrap_or_default()),
             amount: timer.quantity.as_ref().map(|q| q.extract_amount()),

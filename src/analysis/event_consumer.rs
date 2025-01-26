@@ -74,7 +74,6 @@ pub fn parse_events<'i, 'c>(
 
         define_mode: DefineMode::All,
         duplicate_mode: DuplicateMode::New,
-        auto_scale_ingredients: false,
         old_style_metadata: true,
         old_style_metadata_used: vec![],
         ctx: SourceReport::empty(),
@@ -96,7 +95,6 @@ struct RecipeCollector<'i, 'c> {
 
     define_mode: DefineMode,
     duplicate_mode: DuplicateMode,
-    auto_scale_ingredients: bool,
     old_style_metadata: bool,
     old_style_metadata_used: Vec<Span>,
     ctx: SourceReport,
@@ -360,11 +358,6 @@ impl<'i> RecipeCollector<'i, '_> {
                     "reference" | "ref" => self.duplicate_mode = DuplicateMode::Reference,
                     _ => self.ctx.error(invalid_value(vec!["new", "reference"])),
                 },
-                "auto scale" | "auto_scale" => match value_t.as_ref() {
-                    "true" => self.auto_scale_ingredients = true,
-                    "false" | "default" => self.auto_scale_ingredients = false,
-                    _ => self.ctx.error(invalid_value(vec!["true", "false"])),
-                },
                 _ => {
                     self.ctx.warn(
                         warning!(
@@ -372,7 +365,7 @@ impl<'i> RecipeCollector<'i, '_> {
                             label!(key.span())
                         )
                         .hint(
-                            "Possible config keys are '[mode]', '[duplicate]' and '[auto scale]'",
+                            "Possible config keys are '[mode]' and '[duplicate]''",
                         ),
                     );
                     if self.old_style_metadata {
@@ -1030,77 +1023,33 @@ impl<'i> RecipeCollector<'i, '_> {
     }
 
     fn value(&mut self, value: parser::QuantityValue, is_ingredient: bool) -> ScalableValue {
-        let mut marker_span = None;
-        match &value {
-            parser::QuantityValue::Single {
-                value,
-                auto_scale: Some(auto_scale_marker),
-            } => {
-                marker_span = Some(*auto_scale_marker);
-                if value.is_text() {
-                    self.ctx.error(
-                        error!(
-                            "Text value with auto scale marker",
-                            label!(auto_scale_marker, "remove this")
-                        )
-                        .hint("Text cannot be scaled"),
-                    );
-                }
-            }
-            parser::QuantityValue::Many(v) => {
-                const CONFLICT: &str = "Many values conflict";
-                if let crate::scale::Servings(Some(s)) = &self.content.data {
-                    if s.len() != v.len() {
-                        let mut err = error!(
-                            format!(
-                                "{CONFLICT}: {} servings defined but {} values in the quantity",
-                                s.len(),
-                                v.len()
-                            ),
-                            label!(value.span(), "number of values do not match servings")
-                        );
+        let parser::QuantityValue { value, scaling_lock } = value;
+        let has_scaling_lock = scaling_lock.is_some();
+        let is_text = value.is_text();
 
-                        let meta_span = self
-                            .locations
-                            .metadata
-                            .get(&StdKey::Servings)
-                            .map(|(_, value)| value.span());
-                        if let Some(meta_span) = meta_span {
-                            err = err.label(label!(meta_span, "servings defined here"))
-                        }
-                        self.ctx.error(err);
-                    }
-                } else {
-                    self.ctx.error(error!(
-                        format!(
-                            "{CONFLICT}: no servings defined but {} values in the quantity",
-                            v.len()
-                        ),
-                        label!(value.span())
-                    ));
-                }
-            }
-            _ => {}
-        }
-        let mut v = ScalableValue::from_ast(value);
-
-        if is_ingredient && self.auto_scale_ingredients {
-            match v {
-                ScalableValue::Fixed(value) if !value.is_text() => v = ScalableValue::Linear(value),
-                ScalableValue::Linear(_) => {
-                    self.ctx.warn(
-                        warning!(
-                            "Redundant auto scale marker",
-                            label!(marker_span.unwrap(), "remove this")
-                        )
-                        .hint("Every ingredient is already marked to auto scale"),
-                    );
-                }
-                _ => {}
-            };
+        // For ingredients without text values and without scaling lock, use Linear
+        if is_ingredient && !is_text && !has_scaling_lock {
+            return ScalableValue::Linear(value.into_inner());
         }
 
-        v
+        // Warn if scaling lock is used unnecessarily (on non-ingredients or text values)
+        if has_scaling_lock {
+            let mut warning = warning!(
+                "Unnecessary scaling lock modifier",
+                label!(value.span(), "this scaling lock has no effect")
+            );
+
+            if !is_ingredient {
+                warning.add_hint("Only ingredients can be scaled, scaling lock is not needed here");
+            } else if is_text {
+                warning.add_hint("Text values cannot be scaled, scaling lock is not needed here");
+            }
+
+            self.ctx.warn(warning);
+        }
+
+        // Everything else uses Fixed
+        ScalableValue::Fixed(value.into_inner())
     }
 
     fn resolve_reference<C: RefComponent>(

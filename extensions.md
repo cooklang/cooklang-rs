@@ -112,21 +112,6 @@ special keys are between square brackets.
     >> [duplicate]: default
     @water{1} @&water{2}
     ```
-- `auto scale` | `auto_scale`
-  - `true`. All quantities in ingredients have the implicit auto scale
-    marker[^1] (`*`). This does not apply when the quantity has a text value,
-    because text can't be scaled automatically.
-    ```cooklang
-    >> [auto scale]: true
-    @water{1}
-    -- is the same as
-    >> [auto scale]: false
-    @water{1*}
-    ```
-
-    Note that ingredients with fixed scaling for each serving size[^1] are not
-    affected by the auto scale mode.
-  - `false` | `default`. The default cooklang behaviour.
 
 ## Temperature
 Find temperatures in the text, without any markers. In the future this may be

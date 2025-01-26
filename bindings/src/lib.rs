@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
 use cooklang::aisle::parse as parse_aisle_config_original;
-use cooklang::analysis::parse_events;
-use cooklang::parser::PullParser;
-use cooklang::{Converter, Extensions};
 
 pub mod aisle;
 pub mod model;
@@ -12,43 +9,29 @@ use aisle::*;
 use model::*;
 
 #[uniffi::export]
-pub fn parse_recipe(input: String) -> CooklangRecipe {
-    let extensions = Extensions::empty();
-    let converter = Converter::empty();
+pub fn parse_recipe(input: String, scaling_factor: u32) -> CooklangRecipe {
+    let parser = cooklang::CooklangParser::canonical();
 
-    let mut parser = PullParser::new(&input, extensions);
-    let parsed = parse_events(
-        &mut parser,
-        &input,
-        extensions,
-        &converter,
-        Default::default(),
-    )
-    .unwrap_output();
+    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    into_simple_recipe(&parsed)
+    let scaled = parsed.scale(scaling_factor, parser.converter());
+
+    into_simple_recipe(&scaled)
 }
 
 #[uniffi::export]
-pub fn parse_metadata(input: String) -> CooklangMetadata {
+pub fn parse_metadata(input: String, scaling_factor: u32) -> CooklangMetadata {
     let mut metadata = CooklangMetadata::new();
-    let extensions = Extensions::empty();
-    let converter = Converter::empty();
+    let parser = cooklang::CooklangParser::canonical();
 
-    let parser = PullParser::new(&input, extensions);
+    let (parsed, _warnings) = parser.parse(&input)
+        .into_result()
+        .unwrap();
 
-    let parsed = parse_events(
-        parser.into_meta_iter(),
-        &input,
-        extensions,
-        &converter,
-        Default::default(),
-    )
-    .map(|c| c.metadata.map)
-    .unwrap_output();
+    let scaled = parsed.scale(scaling_factor, parser.converter());
 
     // converting IndexMap into HashMap
-    let _ = &(parsed).iter().for_each(|(key, value)| {
+    let _ = &(scaled.metadata.map).iter().for_each(|(key, value)| {
         if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
             metadata.insert(key.to_string(), value.to_string());
         }
@@ -116,7 +99,7 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
 }
 
 #[uniffi::export]
-pub fn combine_ingredients(ingredients: &Vec<Ingredient>) -> IngredientList {
+pub fn combine_ingredients(ingredients: &[Ingredient]) -> IngredientList {
     let indices = (0..ingredients.len()).map(|i| i as u32).collect();
     combine_ingredients_selected(ingredients, &indices)
 }
@@ -149,6 +132,7 @@ mod tests {
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
+            1
         );
 
         assert_eq!(
@@ -225,6 +209,7 @@ source: https://google.com
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
+            1
         );
 
         assert_eq!(
@@ -372,6 +357,7 @@ dried oregano
 Cook @onions{3%large} until brown
 "#
             .to_string(),
+            1
         );
 
         let first_section = recipe
@@ -430,6 +416,7 @@ add @tomatoes{400%g}
 simmer for 10 minutes
 "#
             .to_string(),
+            1
         );
         let first_section = recipe
             .sections
@@ -494,6 +481,7 @@ Mix @flour{200%g} and @water{50%ml} together until smooth.
 Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
 "#
             .to_string(),
+            1
         );
 
         let mut sections = recipe.sections.into_iter();

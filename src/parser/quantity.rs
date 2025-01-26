@@ -37,7 +37,7 @@ pub(crate) fn parse_quantity<'i>(
 }
 
 fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i> {
-    let mut value = many_values(bp);
+    let mut value = value(bp);
     let unit = match bp.peek() {
         // values parsed correctly and unit
         T![%] => {
@@ -52,9 +52,9 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
             bp.consume_while(|t| t != T![%]);
             let text = bp.text(bp.span().start(), bp.parsed());
             let text_val = Value::Text(text.text_trimmed().into_owned());
-            value = QuantityValue::Single {
+            value = QuantityValue {
                 value: Located::new(text_val, text.span()),
-                auto_scale: None,
+                scaling_lock: None,
             };
 
             if let Some(sep) = bp.consume(T![%]) {
@@ -90,12 +90,15 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     if bp
         .tokens()
         .iter()
-        .any(|t| matches!(t.kind, T![|] | T![*] | T![%]))
+        .any(|t| matches!(t.kind, T![%]))
     {
         return None;
     }
 
+    let scaling_lock = scaling_lock(bp);
+
     bp.ws_comments();
+
     let value_tokens = bp.consume_while(|t| !matches!(t, T![word]));
 
     if value_tokens.is_empty() || value_tokens.last().unwrap().kind != T![ws] {
@@ -135,10 +138,7 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     Some(ParsedQuantity {
         quantity: Located::new(
             Quantity {
-                value: QuantityValue::Single {
-                    value,
-                    auto_scale: None,
-                },
+                value: QuantityValue {value, scaling_lock},
                 unit: Some(unit),
             },
             tokens_span(bp.tokens()),
@@ -147,47 +147,23 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     })
 }
 
-fn many_values(bp: &mut BlockParser) -> QuantityValue {
-    let mut values: Vec<Located<Value>> = vec![];
-    let mut auto_scale = None;
+fn value(bp: &mut BlockParser) -> QuantityValue {
+    let scaling_lock = scaling_lock(bp);
+    let value_tokens = bp.consume_while(|t| !matches!(t, T![%]));
+    let value = parse_value(value_tokens, bp);
 
-    loop {
-        let value_tokens = bp.consume_while(|t| !matches!(t, T![|] | T![*] | T![%]));
-        values.push(parse_value(value_tokens, bp));
+    QuantityValue { value, scaling_lock }
+}
 
-        match bp.peek() {
-            T![|] => {
-                bp.bump_any();
-            }
-            T![*] => {
-                let tok = bp.bump_any();
-                auto_scale = Some(tok.span);
-                break;
-            }
-            _ => break,
-        }
-    }
+fn scaling_lock(bp: &mut BlockParser) -> Option<Span> {
+    bp.ws_comments();
 
-    match values.len() {
-        1 => QuantityValue::Single {
-            value: values.pop().unwrap(),
-            auto_scale,
+    match bp.peek() {
+        T![=] => {
+            let tok = bp.bump_any();
+            Some(tok.span)
         },
-        2.. => {
-            if let Some(span) = auto_scale {
-                bp.error(
-                    error!(
-                        "Invalid quantity value: auto scale is not compatible with multiple values",
-                        label!(span, "remove this")
-                    )
-                    .hint(
-                        "A quantity cannot have both the auto scaling marker (*) and many values",
-                    ),
-                )
-            }
-            QuantityValue::Many(values)
-        }
-        _ => unreachable!(), // first iter is guaranteed
+        _ => None
     }
 }
 
@@ -353,7 +329,7 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{parser::TokenStream, text::Text};
+    use crate::{parser::TokenStream};
     use test_case::test_case;
 
     macro_rules! t {
@@ -397,12 +373,40 @@ mod tests {
         let (q, s, _) = t!("100%ml");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(num!(100.0), 0..3),
-                auto_scale: None,
+                scaling_lock: None,
             }
         );
         assert_eq!(s, Some(Span::new(3, 4)));
+        assert_eq!(q.unit.unwrap().text(), "ml");
+    }
+
+    #[test]
+    fn fixed_quantity() {
+        let (q, s, _) = t!("=100%ml");
+        assert_eq!(
+            q.value,
+            QuantityValue {
+                value: Located::new(num!(100.0), 1..4),
+                scaling_lock: Some(Span::new(0, 1)),
+            }
+        );
+        assert_eq!(s, Some(Span::new(4, 5)));
+        assert_eq!(q.unit.unwrap().text(), "ml");
+    }
+
+    #[test]
+    fn fixed_quantity_with_spaces() {
+        let (q, s, _) = t!(" = 100%ml");
+        assert_eq!(
+            q.value,
+            QuantityValue {
+                value: Located::new(num!(100.0), 2..6),
+                scaling_lock: Some(Span::new(1, 2)),
+            }
+        );
+        assert_eq!(s, Some(Span::new(6, 7)));
         assert_eq!(q.unit.unwrap().text(), "ml");
     }
 
@@ -411,9 +415,9 @@ mod tests {
         let (q, s, ctx) = t!("100 ml");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(num!(100.0), 0..3),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -423,9 +427,9 @@ mod tests {
         let (q, s, ctx) = t!("100 ml", Extensions::all() ^ Extensions::ADVANCED_UNITS);
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(Value::Text("100 ml".into()), 0..6),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -438,9 +442,9 @@ mod tests {
         let (q, s, ctx) = t!("100-200 ml");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(range!(100.0, 200.0), 0..7),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -450,7 +454,7 @@ mod tests {
         let (q, s, ctx) = t!("1 - 2 1 / 2 ml");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(
                     Value::Range {
                         start: 1.0.into(),
@@ -463,7 +467,7 @@ mod tests {
                     },
                     0..11
                 ),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(s, None);
@@ -472,54 +476,13 @@ mod tests {
     }
 
     #[test]
-    fn many_values() {
-        let (q, s, ctx) = t!("100|200|300%ml");
-        assert_eq!(
-            q.value,
-            QuantityValue::Many(vec![
-                Located::new(num!(100.0), 0..3),
-                Located::new(num!(200.0), 4..7),
-                Located::new(num!(300.0), 8..11),
-            ])
-        );
-        assert_eq!(s, Some((11..12).into()));
-        assert_eq!(q.unit.unwrap(), Text::from_str("ml", 12));
-        assert!(ctx.is_empty());
-
-        let (q, s, ctx) = t!("100|2-3|str*%ml");
-        assert_eq!(
-            q.value,
-            QuantityValue::Many(vec![
-                Located::new(num!(100.0), 0..3),
-                Located::new(range!(2.0, 3.0), 4..7),
-                Located::new(Value::Text("str".into()), 8..11),
-            ])
-        );
-        assert_eq!(s, Some((12..13).into()));
-        assert_eq!(q.unit.unwrap(), Text::from_str("ml", 13));
-        assert_eq!(ctx.errors().count(), 1);
-        assert_eq!(ctx.warnings().count(), 0);
-
-        let (q, _, ctx) = t!("100|");
-        assert_eq!(
-            q.value,
-            QuantityValue::Many(vec![
-                Located::new(num!(100.0), 0..3),
-                Located::new(Value::Text("".into()), 4..4)
-            ])
-        );
-        assert_eq!(ctx.errors().count(), 1);
-        assert_eq!(ctx.warnings().count(), 0);
-    }
-
-    #[test]
     fn range_value() {
         let (q, _, _) = t!("2-3");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(range!(2.0, 3.0), 0..3),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -530,9 +493,9 @@ mod tests {
         let (q, _, _) = t!("2-3", Extensions::empty());
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(Value::Text("2-3".into()), 0..3),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -543,9 +506,9 @@ mod tests {
         let (q, _, _) = t!("2 1/2-3");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(range!(2.5, 3.0), 0..7),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -553,9 +516,9 @@ mod tests {
         let (q, _, _) = t!("2-3 1/2");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(range!(2.0, 3.5), 0..7),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -563,9 +526,9 @@ mod tests {
         let (q, _, _) = t!("2 1/2-3 1/2");
         assert_eq!(
             q.value,
-            QuantityValue::Single {
+            QuantityValue {
                 value: Located::new(range!(2.5, 3.5), 0..11),
-                auto_scale: None
+                scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
@@ -577,10 +540,7 @@ mod tests {
     #[test_case("2 1/2" => (2, 1, 2); "mixed value")]
     fn fractional_val(s: &str) -> (u32, u32, u32) {
         let (q, _, _) = t!(s);
-        let QuantityValue::Single { value, .. } = q.value else {
-            panic!("not single value")
-        };
-        let value = value.into_inner();
+        let value = q.value.value.into_inner();
         let Value::Number(num) = value else {
             panic!("not number")
         };
@@ -606,10 +566,7 @@ mod tests {
     #[test_case("01.0" => panics "not number")]
     fn simple_numbers(s: &str) -> f64 {
         let (q, _, r) = t!(s);
-        let QuantityValue::Single { value, .. } = q.value else {
-            panic!("not single value")
-        };
-        let value = value.into_inner();
+        let value = q.value.value.into_inner();
         let Value::Number(num) = value else {
             panic!("not number")
         };
