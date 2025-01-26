@@ -1023,17 +1023,33 @@ impl<'i> RecipeCollector<'i, '_> {
     }
 
     fn value(&mut self, value: parser::QuantityValue, is_ingredient: bool) -> ScalableValue {
-        let mut v = ScalableValue::from_ast(value);
+        let parser::QuantityValue { value, scaling_lock } = value;
+        let has_scaling_lock = scaling_lock.is_some();
+        let is_text = value.is_text();
 
-        if is_ingredient {
-            match v {
-                ScalableValue::Fixed(value) if !value.is_text() => v = ScalableValue::Fixed(value),
-                ScalableValue::Linear(value) if !value.is_text() => v = ScalableValue::Linear(value),
-                _ => {}
-            };
+        // For ingredients without text values and without scaling lock, use Linear
+        if is_ingredient && !is_text && !has_scaling_lock {
+            return ScalableValue::Linear(value.into_inner());
         }
 
-        v
+        // Warn if scaling lock is used unnecessarily (on non-ingredients or text values)
+        if has_scaling_lock {
+            let mut warning = warning!(
+                "Unnecessary scaling lock modifier",
+                label!(value.span(), "this scaling lock has no effect")
+            );
+
+            if !is_ingredient {
+                warning.add_hint("Only ingredients can be scaled, scaling lock is not needed here");
+            } else if is_text {
+                warning.add_hint("Text values cannot be scaled, scaling lock is not needed here");
+            }
+
+            self.ctx.warn(warning);
+        }
+
+        // Everything else uses Fixed
+        ScalableValue::Fixed(value.into_inner())
     }
 
     fn resolve_reference<C: RefComponent>(

@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    convert::{ConvertError, Converter, PhysicalQuantity, Unit},
-    parser,
+    convert::{ConvertError, Converter, PhysicalQuantity, Unit}
 };
 
 /// A quantity used in components
@@ -173,23 +172,6 @@ impl<V: QuantityValue> Quantity<V> {
     /// `converter`.
     pub fn unit_info(&self, converter: &Converter) -> Option<Arc<Unit>> {
         self.unit().and_then(|u| converter.find_unit(u))
-    }
-}
-
-impl ScalableValue {
-    pub(crate) fn from_ast(value: parser::QuantityValue) -> Self {
-        match value {
-            parser::QuantityValue {
-                value,
-                scaling_lock: None,
-                ..
-            } => Self::Linear(value.into_inner()),
-            parser::QuantityValue {
-                value,
-                scaling_lock: Some(_),
-                ..
-            } => Self::Fixed(value.into_inner()),
-        }
     }
 }
 

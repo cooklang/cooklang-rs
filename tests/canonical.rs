@@ -168,8 +168,7 @@ impl TestStepItem {
 impl TestValue {
     fn from_cooklang_value(value: ScalableValue) -> Self {
         match value {
-            ScalableValue::Fixed(_) => panic!("unexpected fixed value"),
-            ScalableValue::Linear(value) => match value {
+            ScalableValue::Fixed(value) | ScalableValue::Linear(value) => match value {
                 Value::Number(num) => TestValue::Number(num.value()),
                 Value::Range { .. } => panic!("unexpected range value"),
                 Value::Text(value) => TestValue::Text(value),
