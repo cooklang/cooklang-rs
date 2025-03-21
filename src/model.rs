@@ -165,6 +165,7 @@ pub enum Item {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct RecipeReference {
+    pub name: String,
     pub components: Vec<String>
 }
 

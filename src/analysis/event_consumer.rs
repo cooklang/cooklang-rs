@@ -578,16 +578,10 @@ impl<'i> RecipeCollector<'i, '_> {
         let (ingredient, location) = ingredient.take_pair();
 
         let mut name = ingredient.name.text_trimmed();
+        let reference = parse_reference(&name);
 
-        let mut reference = None;
-        if name.starts_with("./") || name.starts_with("../") || name.starts_with(".\\") || name.starts_with("..\\") {
-            let path = name.replace('\\', "/");
-            let components: Vec<String> = path.split('/').map(String::from).collect();
-            let file_stem = components.last().unwrap().to_string();
-            reference = Some(RecipeReference {
-                components: components[..components.len()-1].to_vec(),
-            });
-            name = file_stem.into();
+        if let Some(reference) = &reference {
+            name = reference.name.clone().into();
         }
 
         let mut new_igr = Ingredient {
@@ -1499,4 +1493,86 @@ fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
         }
     }
     None
+}
+
+fn parse_reference(name: &str) -> Option<RecipeReference> {
+    if name.starts_with("./") || name.starts_with("../") || name.starts_with(".\\") || name.starts_with("..\\") {
+        let path = name.replace('\\', "/");
+        let components: Vec<String> = path.split('/').map(String::from).collect();
+        let file_stem = components.last().unwrap().to_string();
+        // Skip the first component (./ or ../)
+        Some(RecipeReference {
+            components: components[1..components.len()-1].to_vec(),
+            name: file_stem.into()
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_reference() {
+        // Test Unix-style paths
+        assert_eq!(
+            parse_reference("./pasta/spaghetti"),
+            Some(RecipeReference {
+                components: vec!["pasta".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        assert_eq!(
+            parse_reference("../sauces/tomato"),
+            Some(RecipeReference {
+                components: vec!["sauces".to_string()],
+                name: "tomato".into()
+            })
+        );
+
+        // Test Windows-style paths
+        assert_eq!(
+            parse_reference(r#".\pasta\spaghetti"#),
+            Some(RecipeReference {
+                components: vec!["pasta".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        assert_eq!(
+            parse_reference(r#"..\sauces\tomato"#),
+            Some(RecipeReference {
+                components: vec!["sauces".to_string()],
+                name: "tomato".into()
+            })
+        );
+
+        // Test deeper paths
+        assert_eq!(
+            parse_reference("./recipes/italian/pasta/spaghetti"),
+            Some(RecipeReference {
+                components: vec!["recipes".to_string(), "italian".to_string(), "pasta".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        // Test paths with no components (just file)
+        assert_eq!(
+            parse_reference("./spaghetti"),
+            Some(RecipeReference {
+                components: vec![],
+                name: "spaghetti".into()
+            })
+        );
+
+        // Test non-path names (should return None)
+        assert_eq!(parse_reference("spaghetti"), None);
+        assert_eq!(parse_reference("pasta/spaghetti"), None);
+        assert_eq!(parse_reference("pasta\\spaghetti"), None);
+        assert_eq!(parse_reference("/pasta/spaghetti"), None);
+        assert_eq!(parse_reference("\\pasta\\spaghetti"), None);
+    }
 }
