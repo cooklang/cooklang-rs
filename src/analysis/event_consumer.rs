@@ -577,13 +577,25 @@ impl<'i> RecipeCollector<'i, '_> {
         let located_ingredient = ingredient.clone();
         let (ingredient, location) = ingredient.take_pair();
 
-        let name = ingredient.name.text_trimmed();
+        let mut name = ingredient.name.text_trimmed();
+
+        let mut reference = None;
+        if name.starts_with("./") || name.starts_with("../") || name.starts_with(".\\") || name.starts_with("..\\") {
+            let path = name.replace('\\', "/");
+            let components: Vec<String> = path.split('/').map(String::from).collect();
+            let file_stem = components.last().unwrap().to_string();
+            reference = Some(RecipeReference {
+                components: components[..components.len()-1].to_vec(),
+            });
+            name = file_stem.into();
+        }
 
         let mut new_igr = Ingredient {
             name: name.into_owned(),
             alias: ingredient.alias.map(|t| t.text_trimmed().into_owned()),
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
+            reference,
             modifiers: ingredient.modifiers.into_inner(),
             relation: IngredientRelation::definition(
                 Vec::new(),
