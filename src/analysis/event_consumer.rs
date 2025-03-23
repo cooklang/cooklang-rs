@@ -577,13 +577,19 @@ impl<'i> RecipeCollector<'i, '_> {
         let located_ingredient = ingredient.clone();
         let (ingredient, location) = ingredient.take_pair();
 
-        let name = ingredient.name.text_trimmed();
+        let mut name = ingredient.name.text_trimmed();
+        let reference = parse_reference(&name);
+
+        if let Some(reference) = &reference {
+            name = reference.name.clone().into();
+        }
 
         let mut new_igr = Ingredient {
             name: name.into_owned(),
             alias: ingredient.alias.map(|t| t.text_trimmed().into_owned()),
             quantity: ingredient.quantity.clone().map(|q| self.quantity(q, true)),
             note: ingredient.note.map(|n| n.text_trimmed().into_owned()),
+            reference,
             modifiers: ingredient.modifiers.into_inner(),
             relation: IngredientRelation::definition(
                 Vec::new(),
@@ -1487,4 +1493,85 @@ fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
         }
     }
     None
+}
+
+fn parse_reference(name: &str) -> Option<RecipeReference> {
+    if name.starts_with("./") || name.starts_with("../") || name.starts_with(".\\") || name.starts_with("..\\") {
+        let path = name.replace('\\', "/");
+        let mut components: Vec<String> = path.split('/').map(String::from).skip(1).collect();
+        let file_stem = components.pop().unwrap();
+        Some(RecipeReference {
+            components,
+            name: file_stem.into()
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_reference() {
+        // Test Unix-style paths
+        assert_eq!(
+            parse_reference("./pasta/spaghetti"),
+            Some(RecipeReference {
+                components: vec!["pasta".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        assert_eq!(
+            parse_reference("../sauces/tomato"),
+            Some(RecipeReference {
+                components: vec!["sauces".to_string()],
+                name: "tomato".into()
+            })
+        );
+
+        // Test Windows-style paths
+        assert_eq!(
+            parse_reference(r#".\pasta\spaghetti"#),
+            Some(RecipeReference {
+                components: vec!["pasta".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        assert_eq!(
+            parse_reference(r#"..\sauces\tomato"#),
+            Some(RecipeReference {
+                components: vec!["sauces".to_string()],
+                name: "tomato".into()
+            })
+        );
+
+        // Test deeper paths
+        assert_eq!(
+            parse_reference("./recipes/italian/pasta/spaghetti"),
+            Some(RecipeReference {
+                components: vec!["recipes".to_string(), "italian".to_string(), "pasta".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        // Test paths with no components (just file)
+        assert_eq!(
+            parse_reference("./spaghetti"),
+            Some(RecipeReference {
+                components: vec![],
+                name: "spaghetti".into()
+            })
+        );
+
+        // Test non-path names (should return None)
+        assert_eq!(parse_reference("spaghetti"), None);
+        assert_eq!(parse_reference("pasta/spaghetti"), None);
+        assert_eq!(parse_reference("pasta\\spaghetti"), None);
+        assert_eq!(parse_reference("/pasta/spaghetti"), None);
+        assert_eq!(parse_reference("\\pasta\\spaghetti"), None);
+    }
 }

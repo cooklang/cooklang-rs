@@ -163,6 +163,12 @@ pub enum Item {
     },
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+pub struct RecipeReference {
+    pub name: String,
+    pub components: Vec<String>
+}
+
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ingredient<V: QuantityValue = Value> {
@@ -176,6 +182,8 @@ pub struct Ingredient<V: QuantityValue = Value> {
     pub quantity: Option<Quantity<V>>,
     /// Note
     pub note: Option<String>,
+    /// Recipe reference
+    pub reference: Option<RecipeReference>,
     /// How the cookware is related to others
     pub relation: IngredientRelation,
     pub(crate) modifiers: Modifiers,

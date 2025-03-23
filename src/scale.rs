@@ -273,6 +273,7 @@ impl Scale for Ingredient<ScalableValue> {
             alias: self.alias,
             quantity,
             note: self.note,
+            reference: self.reference,
             relation: self.relation,
             modifiers: self.modifiers,
         };
@@ -285,6 +286,7 @@ impl Scale for Ingredient<ScalableValue> {
             alias: self.alias,
             quantity: self.quantity.map(Quantity::default_scale),
             note: self.note,
+            reference: self.reference,
             relation: self.relation,
             modifiers: self.modifiers,
         }
