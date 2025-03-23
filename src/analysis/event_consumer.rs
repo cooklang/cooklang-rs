@@ -1498,11 +1498,10 @@ fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
 fn parse_reference(name: &str) -> Option<RecipeReference> {
     if name.starts_with("./") || name.starts_with("../") || name.starts_with(".\\") || name.starts_with("..\\") {
         let path = name.replace('\\', "/");
-        let components: Vec<String> = path.split('/').map(String::from).collect();
-        let file_stem = components.last().unwrap().to_string();
-        // Skip the first component (./ or ../)
+        let mut components: Vec<String> = path.split('/').map(String::from).skip(1).collect();
+        let file_stem = components.pop().unwrap();
         Some(RecipeReference {
-            components: components[1..components.len()-1].to_vec(),
+            components,
             name: file_stem.into()
         })
     } else {
