@@ -2,6 +2,15 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.16.0 - 2025/03/27
+
+- Correct spelling `ouput` -> `output` and `bunlded` -> `bundled` by @melusc in https://github.com/cooklang/cooklang-rs/pull/31
+- Don't hide servings for input by default in playground by @melusc in https://github.com/cooklang/cooklang-rs/pull/32
+- Enable scaling according to new spec changes by @dubadub in https://github.com/cooklang/cooklang-rs/pull/30
+- Allow referencing other recipes by @dubadub in https://github.com/cooklang/cooklang-rs/pull/34
+- (breaking) Use floating value for scaling factor instead of base and target
+  servings by @dubadub in https://github.com/cooklang/cooklang-rs/pull/35
+
 ## 0.15.0 - 2025/01/14
 
 - Add support in `cooklang::metadata` for [canonical
