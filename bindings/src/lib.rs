@@ -9,7 +9,7 @@ use aisle::*;
 use model::*;
 
 #[uniffi::export]
-pub fn parse_recipe(input: String, scaling_factor: u32) -> CooklangRecipe {
+pub fn parse_recipe(input: String, scaling_factor: f64) -> CooklangRecipe {
     let parser = cooklang::CooklangParser::canonical();
 
     let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
@@ -20,7 +20,7 @@ pub fn parse_recipe(input: String, scaling_factor: u32) -> CooklangRecipe {
 }
 
 #[uniffi::export]
-pub fn parse_metadata(input: String, scaling_factor: u32) -> CooklangMetadata {
+pub fn parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata {
     let mut metadata = CooklangMetadata::new();
     let parser = cooklang::CooklangParser::canonical();
 
@@ -132,7 +132,7 @@ mod tests {
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
-            1
+            1.0
         );
 
         assert_eq!(
@@ -209,7 +209,7 @@ source: https://google.com
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
-            1
+            1.0
         );
 
         assert_eq!(
@@ -357,7 +357,7 @@ dried oregano
 Cook @onions{3%large} until brown
 "#
             .to_string(),
-            1
+            1.0
         );
 
         let first_section = recipe
@@ -416,7 +416,7 @@ add @tomatoes{400%g}
 simmer for 10 minutes
 "#
             .to_string(),
-            1
+            1.0
         );
         let first_section = recipe
             .sections
@@ -481,7 +481,7 @@ Mix @flour{200%g} and @water{50%ml} together until smooth.
 Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
 "#
             .to_string(),
-            1
+            1.0
         );
 
         let mut sections = recipe.sections.into_iter();
