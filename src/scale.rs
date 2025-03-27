@@ -18,6 +18,7 @@ pub struct ScaleTarget {
 impl ScaleTarget {
     /// Creates a new [`ScaleTarget`].
     ///
+    /// - `factor` is the multiplier to scale the recipe by.
     /// Invalid parameters don't error here, but may do so in the
     /// scaling process.
     fn new(factor: f64) -> Self {
