@@ -12,38 +12,24 @@ use crate::{
 /// Configures the scaling target
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ScaleTarget {
-    base: u32,
-    target: u32,
-    index: Option<usize>,
+    factor: f64
 }
 
 impl ScaleTarget {
     /// Creates a new [`ScaleTarget`].
-    /// - `base` is the number of servings the recipe was initially written for.
-    ///   Usually this is the first value of `declared_servings` but doesn't
-    ///   need to.
-    /// - `target` is the wanted number of servings.
-    /// - `declared_servigs` is the slice with all the servings of the recipe
-    ///   metadata.
     ///
+    /// - `factor` is the multiplier to scale the recipe by.
     /// Invalid parameters don't error here, but may do so in the
     /// scaling process.
-    fn new(base: u32, target: u32, declared_servings: &[u32]) -> Self {
+    fn new(factor: f64) -> Self {
         ScaleTarget {
-            base,
-            target,
-            index: declared_servings.iter().position(|&s| s == target),
+            factor,
         }
     }
 
     /// Get the calculated scaling factor
     pub fn factor(&self) -> f64 {
-        self.target as f64 / self.base as f64
-    }
-
-    /// Get the target servings
-    pub fn target_servings(&self) -> u32 {
-        self.target
+        self.factor
     }
 }
 
@@ -122,13 +108,8 @@ impl ScalableRecipe {
     ///
     /// Note that this returns a [`ScaledRecipe`] wich doesn't implement this
     /// method. A recipe can only be scaled once.
-    pub fn scale(self, target: u32, converter: &Converter) -> ScaledRecipe {
-        let target = if let Servings(Some(servings)) = &self.data {
-            let base = servings.first().copied().unwrap_or(1);
-            ScaleTarget::new(base, target, servings)
-        } else {
-            ScaleTarget::new(1, target, &[])
-        };
+    pub fn scale(self, factor: f64, converter: &Converter) -> ScaledRecipe {
+        let target = ScaleTarget::new(factor);
 
         let (ingredients, ingredient_outcomes): (Vec<_>, Vec<_>) = self
             .ingredients
@@ -173,6 +154,17 @@ impl ScalableRecipe {
             inline_quantities: self.inline_quantities,
             data: Scaled::Scaled(data),
         }
+    }
+
+    /// - `target` is the wanted number of servings.
+    pub fn scale_to_servings(self, target: u32, converter: &Converter) -> ScaledRecipe {
+        let base = if let Servings(Some(servings)) = &self.data {
+            servings.first().copied().unwrap_or(1)
+        } else {
+            1
+        };
+
+        self.scale(target as f64 / base as f64, converter)
     }
 
     /// Scale the recipe to the default values
