@@ -89,7 +89,7 @@ impl State {
         FallibleResult::new(value, report, input)
     }
 
-    pub fn parse_render(&self, input: &str, scale: Option<u32>) -> FallibleResult {
+    pub fn parse_render(&self, input: &str, scale: Option<f64>) -> FallibleResult {
         let (recipe, report) = self.parser.parse(input).into_tuple();
         let value = match recipe {
             Some(r) => {
