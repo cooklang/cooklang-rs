@@ -14,9 +14,9 @@ This library exports methods:
 
 ```rust
     // full parsing, returns full recipe object with meta
-    parse_recipe(input: String) -> CooklangRecipe;
+    parse_recipe(input: String, scaling_factor: f64) -> CooklangRecipe;
     // fast metadata parsing, recipe text is not parsed
-    parse_metadata(input: String) -> CooklangMetadata;
+    parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata;
     // parse aisle config to use in shopping list
     parse_aisle_config(input: String) -> Arc<AisleConfig>;
 
@@ -193,7 +193,7 @@ Not all categories from AisleConfig are referenced in a shopping list. There cou
 
 ```rust
     // parse
-    let recipe = parse_recipe(text);
+    let recipe = parse_recipe(text, 1.0);
     let config = parse_aisle_config(text);
     // object which we'll use for rendering
     let mut result = HashMap<String, HashMap<String,GroupedQuantity>>::New();
