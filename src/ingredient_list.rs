@@ -144,9 +144,9 @@ impl IngredientList {
     }
 
     /// Ingredient list of a recipe
-    pub fn from_recipe(recipe: &ScaledRecipe, converter: &Converter) -> Self {
+    pub fn from_recipe(recipe: &ScaledRecipe, converter: &Converter, list_references: bool) -> Self {
         let mut list = Self::new();
-        list.add_recipe(recipe, converter);
+        list.add_recipe(recipe, converter, list_references);
         list
     }
 
@@ -162,14 +162,24 @@ impl IngredientList {
     /// error.
     ///
     /// Ingredients are listed based on their [`display_name`](crate::model::Ingredient::display_name).
-    pub fn add_recipe(&mut self, recipe: &ScaledRecipe, converter: &Converter) {
+    pub fn add_recipe(&mut self, recipe: &ScaledRecipe, converter: &Converter, list_references: bool) -> Vec<usize> {
+        let mut references = Vec::new();
+
         for entry in recipe.group_ingredients(converter) {
             let GroupedIngredient {
                 ingredient,
                 quantity,
                 outcome,
-                ..
+                index,
             } = entry;
+
+            if ingredient.reference.is_some() {
+                references.push(index);
+
+                if !list_references {
+                    continue;
+                }
+            }
 
             if !ingredient.modifiers().should_be_listed() {
                 continue;
@@ -181,6 +191,8 @@ impl IngredientList {
 
             self.add_ingredient(ingredient.display_name().into_owned(), &quantity, converter);
         }
+
+        references
     }
 
     /// Add an ingredient to the list.

@@ -169,6 +169,12 @@ pub struct RecipeReference {
     pub components: Vec<String>
 }
 
+impl RecipeReference {
+    pub fn path(&self, separator: &str) -> String {
+        self.components.join(separator) + separator + &self.name
+    }
+}
+
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Ingredient<V: QuantityValue = Value> {
