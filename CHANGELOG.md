@@ -2,6 +2,10 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.16.1 - 2025/05/27
+
+- Adds references support into IngredientList by @dubadub in https://github.com/cooklang/cooklang-rs/pull/36
+
 ## 0.16.0 - 2025/03/27
 
 - Correct spelling `ouput` -> `output` and `bunlded` -> `bundled` by @melusc in https://github.com/cooklang/cooklang-rs/pull/31
