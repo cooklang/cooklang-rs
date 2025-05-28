@@ -1,0 +1,11 @@
+{
+  "name": "cooklang-workspace",
+  "private": true,
+  "workspaces": [
+    "typescript",
+    "playground"
+  ],
+  "scripts": {
+    "watch": "npm run -w @cooklang/cooklang-ts watch & npm run -w cooklang-playground watch"
+  }
+}

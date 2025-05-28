@@ -3,3 +3,8 @@ target/
 out/
 .idea
 .build
+
+# Node
+node_modules
+.wireit
+dist
