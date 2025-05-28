@@ -13,21 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup wasm-pack
-        uses: jetli/wasm-pack-action@v0.4.0
+      - uses: actions/setup-node@v4
         with:
-          version: "latest"
+          node-version: 22
 
       - name: Git describe
         id: ghd
         uses: proudust/gh-describe@v1
 
+      - run: npm ci
       - name: Build
         run: |
           cd playground
-          wasm-pack build --target web --release --no-pack --no-typescript
-          rm pkg/.gitignore
+          npm run build
         env:
           BUILD_COOKLANG_RS_VERSION: ${{ steps.ghd.outputs.describe }}
 
@@ -36,5 +34,4 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./playground
-          exclude_assets: ".github,src,Cargo.toml,build.rs"
+          publish_dir: ./playground/dist

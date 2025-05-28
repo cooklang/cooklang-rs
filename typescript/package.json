@@ -1,0 +1,36 @@
+{
+  "name": "@cooklang/cooklang-ts",
+  "version": "0.0.0",
+  "private": "true",
+  "license": "MIT",
+  "main": "pkg/cooklang_playground.js",
+  "files": [
+    "pkg"
+  ],
+  "keywords": [
+    "cooklang",
+    "parsing",
+    "typescript",
+    "cooking-recipes",
+    "cooking",
+    "markup"
+  ],
+  "scripts": {
+    "build": "echo noop",
+    "build-wasm": "wireit",
+    "watch": "npm run build-wasm --watch",
+    "prepare": "npm run build-wasm && npm run build"
+  },
+  "devDependencies": {
+    "wasm-pack": "^0.13.1",
+    "wireit": "^0.14.12"
+  },
+  "wireit": {
+    "build-wasm": {
+      "command": "wasm-pack build --target web",
+      "files": [
+        "../src/**/*"
+      ]
+    }
+  }
+}
