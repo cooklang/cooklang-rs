@@ -303,7 +303,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cooklang-playground"
+name = "cooklang-wasm"
 version = "0.1.0"
 dependencies = [
  "ansi-to-html",

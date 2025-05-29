@@ -6,6 +6,32 @@
     "playground"
   ],
   "scripts": {
-    "watch": "npm run -w @cooklang/cooklang-ts watch & npm run -w cooklang-playground watch"
+    "playground": "wireit"
+  },
+  "devDependencies": {
+    "wireit": "^0.14.12"
+  },
+  "wireit": {
+    "playground": {
+      "command": "npm run -w cooklang-playground start",
+      "service": true,
+      "dependencies": [
+        {
+          "script": "watch-wasm",
+          "cascade": false
+        }
+      ]
+    },
+    "watch-wasm": {
+      "command": "npm run -w @cooklang/cooklang-ts watch-wasm",
+      "files": [
+        "!target",
+        "src/**/*.rs",
+        "typescript/**/*.rs"
+      ],
+      "output": [
+        "pkg/**"
+      ]
+    }
   }
 }
