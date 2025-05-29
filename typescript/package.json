@@ -19,20 +19,11 @@
   ],
   "scripts": {
     "build": "echo noop",
-    "build-wasm": "wireit",
-    "watch": "npm run build-wasm --watch",
+    "build-wasm": "wasm-pack build --target web",
+    "watch-wasm": "wasm-pack build --dev --mode no-install --target web",
     "prepare": "npm run build-wasm && npm run build"
   },
   "devDependencies": {
-    "wasm-pack": "^0.13.1",
-    "wireit": "^0.14.12"
-  },
-  "wireit": {
-    "build-wasm": {
-      "command": "wasm-pack build --target web",
-      "files": [
-        "../src/**/*"
-      ]
-    }
+    "wasm-pack": "^0.13.1"
   }
 }
