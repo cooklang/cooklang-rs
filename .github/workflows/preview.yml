@@ -15,4 +15,4 @@ jobs:
           node-version: 22
       - run: npm ci
       - name: Publish Preview Versions
-        run: npx pkg-pr-new publish './typescript' --template './playground/dist'
+        run: npx pkg-pr-new publish './typescript' --template './playground'
