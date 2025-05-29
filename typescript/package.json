@@ -4,7 +4,10 @@
   "license": "MIT",
   "main": "pkg/cooklang_playground.js",
   "files": [
-    "pkg"
+    "pkg/cooklang_wasm_bg.wasm",
+    "pkg/cooklang_wasm_bg.wasm.d.ts",
+    "pkg/cooklang_wasm.d.ts",
+    "pkg/cooklang_wasm.js"
   ],
   "keywords": [
     "cooklang",
