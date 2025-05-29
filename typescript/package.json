@@ -2,7 +2,7 @@
   "name": "@cooklang/cooklang-ts",
   "version": "0.0.0",
   "license": "MIT",
-  "main": "pkg/cooklang_playground.js",
+  "main": "pkg/cooklang_wasm.js",
   "files": [
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
