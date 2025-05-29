@@ -8,6 +8,9 @@
     "watch": "vite",
     "build": "vite build"
   },
+  "dependencies": {
+    "@cooklang/cooklang-ts": "*"
+  },
   "devDependencies": {
     "vite": "^6.3.5"
   }
