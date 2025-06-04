@@ -2,8 +2,9 @@
   "name": "@cooklang/cooklang-ts",
   "version": "0.0.0",
   "license": "MIT",
-  "main": "pkg/cooklang_wasm.js",
+  "main": "index.js",
   "files": [
+    "index.js",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
     "pkg/cooklang_wasm.d.ts",

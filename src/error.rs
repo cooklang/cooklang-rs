@@ -1,5 +1,6 @@
 //! Error type, formatting and utilities.
 
+use serde::Serialize;
 use std::{borrow::Cow, panic::RefUnwindSafe};
 
 use crate::Span;
@@ -24,7 +25,7 @@ pub type CowStr = Cow<'static, str>;
 pub type Label = (Span, Option<CowStr>);
 
 /// A diagnostic of source code
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[non_exhaustive]
 pub struct SourceDiag {
     /// If the diagnostic is an error or warning
@@ -34,6 +35,7 @@ pub struct SourceDiag {
     /// Report message describing the problem
     pub message: CowStr,
     /// Lower level error that produced the problem, if any
+    #[serde(skip_serializing)]
     source: Option<std::sync::Arc<dyn std::error::Error + Send + Sync + RefUnwindSafe + 'static>>,
     /// Spans of the code that helps the user find the error
     ///
@@ -165,7 +167,7 @@ impl SourceDiag {
 }
 
 /// Diagnostic severity
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 pub enum Severity {
     /// Fatal error
     Error,
@@ -174,7 +176,7 @@ pub enum Severity {
 }
 
 /// Stage where the diagnostic origined
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 pub enum Stage {
     /// Parse stage
     Parse,
@@ -186,7 +188,7 @@ pub enum Stage {
 ///
 /// The [`Display`](std::fmt::Display) implementation is not fancy formatting,
 /// use one of the print or write methods.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SourceReport {
     buf: Vec<SourceDiag>,
     severity: Option<Severity>,
@@ -339,7 +341,7 @@ impl std::fmt::Display for SourceReport {
 impl std::error::Error for SourceReport {}
 
 /// Output from the different passes of the parsing process
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PassResult<T> {
     output: Option<T>,
     report: SourceReport,
