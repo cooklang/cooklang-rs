@@ -3,6 +3,7 @@ use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
+// use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use wasm_bindgen::prelude::*;
 
@@ -11,14 +12,14 @@ pub fn version() -> String {
     include_str!(concat!(env!("OUT_DIR"), "/version")).to_string()
 }
 
-#[wasm_bindgen(js_name = Parser)]
+#[wasm_bindgen]
 pub struct Parser {
     parser: CooklangParser,
     load_units: bool,
     extensions: Extensions,
 }
 
-#[wasm_bindgen(js_class = Parser)]
+#[wasm_bindgen]
 impl Parser {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
@@ -75,9 +76,9 @@ impl Parser {
     }
 
     #[wasm_bindgen]
-    pub fn parse(&self, input: &str) -> Recipe<Servings, ScalableValue> {
-        let parsed = self.parser.parse(input);
-        parsed.unwrap_output()
+    pub fn parse(&self, input: &str) -> JsValue {
+        let (recipe, report) = self.parser.parse(input).into_tuple();
+        serde_wasm_bindgen::to_value(&recipe).unwrap()
     }
 
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
