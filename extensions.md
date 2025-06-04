@@ -77,7 +77,7 @@ number, the unit separator (`%`) can be replaced with a space.
   @water{1 L} is the same as @water{1%L}
   ```
 
-  If disabeld, `@water{1 L}` would parse as `1 L` being a text value.
+  If disabled, `@water{1 L}` would parse as `1 L` being a text value.
 - Enables extra checks:
   - Checks that units between references are compatible, so they can be added.
   - Checks that timers have a time unit.
