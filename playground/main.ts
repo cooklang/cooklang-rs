@@ -1,4 +1,4 @@
-import init, { State, version } from "@cooklang/cooklang-ts";
+import init, { Parser, version } from "@cooklang/cooklang-ts";
 
 declare global {
   interface Window {
@@ -7,7 +7,8 @@ declare global {
 }
 
 async function run(): Promise<void> {
-  await init();
+  // TODO can this be removed?
+  // await init();
 
   const editor = window.ace.edit("editor", {
     wrap: true,
@@ -16,24 +17,29 @@ async function run(): Promise<void> {
     fontFamily: "Jetbrains Mono",
     placeholder: "Write your recipe here",
   });
-  
-  const input = window.sessionStorage.getItem("input") ?? "Write your @recipe here!";
+
+  const input =
+    window.sessionStorage.getItem("input") ?? "Write your @recipe here!";
   editor.setValue(input);
-  
+
   const output = document.getElementById("output") as HTMLPreElement;
   const errors = document.getElementById("errors") as HTMLPreElement;
-  const errorsDetails = document.getElementById("errors-details") as HTMLDetailsElement;
-  const parserSelect = document.getElementById("parserSelect") as HTMLSelectElement;
+  const errorsDetails = document.getElementById(
+    "errors-details"
+  ) as HTMLDetailsElement;
+  const parserSelect = document.getElementById(
+    "parserSelect"
+  ) as HTMLSelectElement;
   const jsonCheckbox = document.getElementById("json") as HTMLInputElement;
   const servings = document.getElementById("servings") as HTMLInputElement;
   const loadUnits = document.getElementById("loadUnits") as HTMLInputElement;
   const versionElement = document.getElementById("version") as HTMLPreElement;
-  
+
   if (versionElement) {
     versionElement.textContent = version();
   }
 
-  const state = new State();
+  const parser = new Parser();
 
   const search = new URLSearchParams(window.location.search);
   if (search.has("json")) {
@@ -41,11 +47,11 @@ async function run(): Promise<void> {
   }
   if (search.has("loadUnits")) {
     const load = search.get("loadUnits") === "true";
-    state.load_units = load;
+    parser.load_units = load;
   }
-  loadUnits.checked = state.load_units;
+  loadUnits.checked = parser.load_units;
   if (search.has("extensions")) {
-    state.extensions = Number(search.get("extensions"));
+    parser.extensions = Number(search.get("extensions"));
   }
   let mode = search.get("mode") || localStorage.getItem("mode");
   if (mode !== null) {
@@ -58,31 +64,34 @@ async function run(): Promise<void> {
     window.sessionStorage.setItem("input", input);
     switch (parserSelect.value) {
       case "full": {
-        const { value, error } = state.parse_full(input, jsonCheckbox.checked);
+        const { value, error } = parser.parse_full(input, jsonCheckbox.checked);
         output.textContent = value;
         errors.innerHTML = error;
         break;
       }
       case "events": {
-        const events = state.parse_events(input);
+        const events = parser.parse_events(input);
         output.textContent = events;
         errors.innerHTML = "";
         break;
       }
       case "ast": {
-        const { value, error } = state.parse_ast(input, jsonCheckbox.checked);
+        const { value, error } = parser.parse_ast(input, jsonCheckbox.checked);
         output.textContent = value;
         errors.innerHTML = error;
         break;
       }
       case "render": {
-        const { value, error } = state.parse_render(input, servings.value.length === 0 ? null : servings.valueAsNumber);
+        const { value, error } = parser.parse_render(
+          input,
+          servings.value.length === 0 ? null : servings.valueAsNumber
+        );
         output.innerHTML = value;
         errors.innerHTML = error;
         break;
       }
       case "stdmeta": {
-        const { value, error } = state.std_metadata(input);
+        const { value, error } = parser.std_metadata(input);
         output.innerHTML = value;
         errors.innerHTML = error;
         break;
@@ -92,7 +101,9 @@ async function run(): Promise<void> {
   }
 
   editor.on("change", debounce(parse, 100));
-  parserSelect.addEventListener("change", (ev) => setMode((ev.target as HTMLSelectElement).value));
+  parserSelect.addEventListener("change", (ev) =>
+    setMode((ev.target as HTMLSelectElement).value)
+  );
   jsonCheckbox.addEventListener("change", (ev) => {
     const params = new URLSearchParams(window.location.search);
     const target = ev.target as HTMLInputElement;
@@ -108,11 +119,11 @@ async function run(): Promise<void> {
     );
     parse();
   });
-  
+
   loadUnits.addEventListener("change", (ev) => {
     const params = new URLSearchParams(window.location.search);
     const target = ev.target as HTMLInputElement;
-    state.load_units = !!target.checked;
+    parser.load_units = !!target.checked;
     if (target.checked) {
       params.delete("loadUnits");
     } else {
@@ -125,10 +136,12 @@ async function run(): Promise<void> {
     );
     parse();
   });
-  
+
   servings.addEventListener("change", () => parse());
 
-  const extensionsContainer = document.getElementById("extensions-container") as HTMLDivElement;
+  const extensionsContainer = document.getElementById(
+    "extensions-container"
+  ) as HTMLDivElement;
 
   const extensions: [string, number][] = [
     ["COMPONENT_MODIFIERS", 1 << 1],
@@ -138,7 +151,7 @@ async function run(): Promise<void> {
     ["INLINE_QUANTITIES", 1 << 7],
     ["RANGE_VALUES", 1 << 9],
     ["TIMER_REQUIRES_TIME", 1 << 10],
-    ["INTERMEDIATE_PREPARATIONS", 1 << 11 | 1 << 1]
+    ["INTERMEDIATE_PREPARATIONS", (1 << 11) | (1 << 1)],
   ];
 
   extensions.forEach(([e, bits]) => {
@@ -146,7 +159,7 @@ async function run(): Promise<void> {
     elem.setAttribute("type", "checkbox");
     elem.setAttribute("id", e);
     elem.setAttribute("data-ext-bits", bits.toString());
-    elem.checked = (state.extensions & bits) === bits;
+    elem.checked = (parser.extensions & bits) === bits;
     const label = document.createElement("label");
     label.setAttribute("for", e);
     label.textContent = e;
@@ -157,15 +170,15 @@ async function run(): Promise<void> {
 
     elem.addEventListener("change", updateExtensions);
   });
-  
+
   function updateExtensions(): void {
     let e = 0;
-    document.querySelectorAll("[data-ext-bits]:checked").forEach(elem => {
+    document.querySelectorAll("[data-ext-bits]:checked").forEach((elem) => {
       const bits = Number((elem as HTMLElement).getAttribute("data-ext-bits"));
       e |= bits;
     });
     console.log(e);
-    state.extensions = e;
+    parser.extensions = e;
 
     const params = new URLSearchParams(window.location.search);
     params.set("extensions", e.toString());
@@ -185,8 +198,12 @@ async function run(): Promise<void> {
       "",
       window.location.pathname + "?" + params.toString()
     );
-    const jsonContainer = document.getElementById("jsoncontainer") as HTMLDivElement;
-    const servingsContainer = document.getElementById("servingscontainer") as HTMLDivElement;
+    const jsonContainer = document.getElementById(
+      "jsoncontainer"
+    ) as HTMLDivElement;
+    const servingsContainer = document.getElementById(
+      "servingscontainer"
+    ) as HTMLDivElement;
     jsonContainer.hidden = mode === "render" || mode === "events";
     servingsContainer.hidden = mode !== "render";
     localStorage.setItem("mode", mode);

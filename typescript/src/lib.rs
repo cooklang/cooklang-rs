@@ -11,15 +11,15 @@ pub fn version() -> String {
     include_str!(concat!(env!("OUT_DIR"), "/version")).to_string()
 }
 
-#[wasm_bindgen]
-pub struct State {
+#[wasm_bindgen(js_name = Parser)]
+pub struct Parser {
     parser: CooklangParser,
     load_units: bool,
     extensions: Extensions,
 }
 
-#[wasm_bindgen]
-impl State {
+#[wasm_bindgen(js_class = Parser)]
+impl Parser {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
@@ -72,6 +72,12 @@ impl State {
             None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
+    }
+
+    #[wasm_bindgen]
+    pub fn parse(&self, input: &str) -> Recipe<Servings, ScalableValue> {
+        let parsed = self.parser.parse(input);
+        parsed.unwrap_output()
     }
 
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
@@ -135,7 +141,7 @@ impl State {
     }
 }
 
-impl State {
+impl Parser {
     fn build_parser(&self) -> CooklangParser {
         let ext = self.extensions;
         let converter = if self.load_units {
