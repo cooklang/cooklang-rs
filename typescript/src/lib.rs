@@ -3,9 +3,12 @@ use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
-// use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use wasm_bindgen::prelude::*;
+
+use crate::model::{ParsedRecipe, SimpleRecipe, SimpleSection};
+
+pub mod model;
 
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -75,10 +78,24 @@ impl Parser {
         FallibleResult::new(value, report, input)
     }
 
-    #[wasm_bindgen]
     pub fn parse(&self, input: &str) -> JsValue {
-        let (recipe, report) = self.parser.parse(input).into_tuple();
-        serde_wasm_bindgen::to_value(&recipe).unwrap()
+        let (recipe, _report) = self.parser.parse(input).into_tuple();
+        let scaled = recipe
+            .expect("expected recipe")
+            .scale(1., self.parser.converter());
+        let data = ParsedRecipe {
+            recipe: SimpleRecipe {
+                sections: scaled
+                    .sections
+                    .iter()
+                    .map(|s| SimpleSection {
+                        name: s.name.clone(),
+                    })
+                    .collect(),
+            },
+            report: "<no output>".to_string(),
+        };
+        serde_wasm_bindgen::to_value(&data).unwrap()
     }
 
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {

@@ -24,13 +24,17 @@
     },
     "watch-wasm": {
       "command": "npm run -w @cooklang/cooklang-ts watch-wasm",
+      "packageLocks": [
+        "Cargo.lock",
+        "package-lock.json"
+      ],
       "files": [
         "!target",
         "src/**/*.rs",
         "typescript/**/*.rs"
       ],
       "output": [
-        "pkg/**"
+        "typescript/pkg/**"
       ]
     }
   }
