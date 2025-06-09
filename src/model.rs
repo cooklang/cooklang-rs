@@ -3,7 +3,6 @@
 use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "wasm_bunding")]
 use tsify::{declare, Tsify};
 
 use crate::{

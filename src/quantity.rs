@@ -5,7 +5,6 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-#[cfg(feature = "wasm_bunding")]
 use tsify::{declare, Tsify};
 
 use crate::convert::{ConvertError, Converter, PhysicalQuantity, Unit};
