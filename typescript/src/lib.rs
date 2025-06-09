@@ -3,12 +3,10 @@ use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use tsify::Tsify;
 use wasm_bindgen::prelude::*;
-
-use crate::model::{ParsedRecipe, SimpleRecipe, SimpleSection};
-
-pub mod model;
 
 #[wasm_bindgen]
 pub fn version() -> String {
@@ -20,6 +18,13 @@ pub struct Parser {
     parser: CooklangParser,
     load_units: bool,
     extensions: Extensions,
+}
+
+#[derive(Tsify, Serialize, Deserialize)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct ScaledRecipeWithReport {
+    recipe: cooklang::ScaledRecipe,
+    report: String,
 }
 
 #[wasm_bindgen]
@@ -78,24 +83,16 @@ impl Parser {
         FallibleResult::new(value, report, input)
     }
 
-    pub fn parse(&self, input: &str) -> JsValue {
+    pub fn parse(&self, input: &str) -> ScaledRecipeWithReport {
         let (recipe, _report) = self.parser.parse(input).into_tuple();
         let scaled = recipe
             .expect("expected recipe")
             .scale(1., self.parser.converter());
-        let data = ParsedRecipe {
-            recipe: SimpleRecipe {
-                sections: scaled
-                    .sections
-                    .iter()
-                    .map(|s| SimpleSection {
-                        name: s.name.clone(),
-                    })
-                    .collect(),
-            },
+        let data = ScaledRecipeWithReport {
+            recipe: scaled,
             report: "<no output>".to_string(),
         };
-        serde_wasm_bindgen::to_value(&data).unwrap()
+        data
     }
 
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {

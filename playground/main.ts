@@ -63,7 +63,7 @@ async function run(): Promise<void> {
     const input = editor.getValue();
     window.sessionStorage.setItem("input", input);
     const test = parser.parse(input);
-    console.log({ test });
+    console.log({ test, s: JSON.stringify(test, null, 2) });
     switch (parserSelect.value) {
       case "full": {
         const { value, error } = parser.parse_full(input, jsonCheckbox.checked);

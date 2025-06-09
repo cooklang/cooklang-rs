@@ -5,13 +5,12 @@ use std::{collections::HashMap, fmt::Display, sync::Arc};
 use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tsify::{declare, Tsify};
 
-use crate::{
-    convert::{ConvertError, Converter, PhysicalQuantity, Unit}
-};
+use crate::convert::{ConvertError, Converter, PhysicalQuantity, Unit};
 
 /// A quantity used in components
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify, PartialEq)]
 pub struct Quantity<V: QuantityValue = Value> {
     /// Value
     pub(crate) value: V,
@@ -19,6 +18,7 @@ pub struct Quantity<V: QuantityValue = Value> {
 }
 
 pub type ScalableQuantity = Quantity<ScalableValue>;
+#[declare]
 pub type ScaledQuantity = Quantity<Value>;
 
 /// A value with scaling support
@@ -28,11 +28,11 @@ pub enum ScalableValue {
     /// Cannot be scaled
     Fixed(Value),
     /// Scaling is linear to the number of servings
-    Linear(Value)
+    Linear(Value),
 }
 
 /// Base value
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Tsify, PartialEq)]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Value {
     /// Numeric
