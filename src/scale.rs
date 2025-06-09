@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+#[cfg(feature = "wasm_bunding")]
 use tsify::Tsify;
 
 use crate::{
