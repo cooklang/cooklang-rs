@@ -27,7 +27,7 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, Tsify, PartialEq, Clone)]
 pub struct Recipe<D, V: QuantityValue> {
     /// Metadata
-    #[cfg_attr(not(feature = "wasm-bindgen"), serde(skip))]
+    #[cfg_attr(not(feature = "wasm_bunding"), serde(skip))]
     pub metadata: Metadata,
     /// Each of the sections
     ///
@@ -195,7 +195,7 @@ pub struct Ingredient<V: QuantityValue = Value> {
     pub reference: Option<RecipeReference>,
     /// How the cookware is related to others
     pub relation: IngredientRelation,
-    #[cfg_attr(not(feature = "wasm-bindgen"), serde(skip))]
+    #[cfg_attr(not(feature = "wasm_bunding"), serde(skip))]
     pub(crate) modifiers: Modifiers,
 }
 
@@ -298,7 +298,7 @@ pub struct Cookware<V: QuantityValue = Value> {
     pub note: Option<String>,
     /// How the cookware is related to others
     pub relation: ComponentRelation,
-    #[cfg_attr(not(feature = "wasm-bindgen"), serde(skip))]
+    #[cfg_attr(not(feature = "wasm_bunding"), serde(skip))]
     pub(crate) modifiers: Modifiers,
 }
 
@@ -433,7 +433,7 @@ impl ComponentRelation {
 /// sections apart from other ingredients.
 #[derive(Debug, Serialize, Deserialize, Tsify, PartialEq, Clone)]
 pub struct IngredientRelation {
-    #[cfg_attr(not(feature = "wasm-bindgen"), serde(flatten))]
+    #[cfg_attr(not(feature = "wasm_bunding"), serde(flatten))]
     relation: ComponentRelation,
     reference_target: Option<IngredientReferenceTarget>,
 }
