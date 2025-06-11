@@ -12,26 +12,19 @@ use tsify::{declare, Tsify};
 use crate::convert::{ConvertError, Converter, PhysicalQuantity, Unit};
 
 /// A quantity used in components
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-pub struct Quantity<V: QuantityValue = Value> {
-    /// Value
-    pub(crate) value: V,
+pub struct Quantity {
+    pub(crate) value: Value,
     pub(crate) unit: Option<String>,
+    pub(crate) scalable: bool,
 }
 
-pub type ScalableQuantity = Quantity<ScalableValue>;
-#[cfg_attr(feature = "ts", declare)]
-pub type ScaledQuantity = Quantity<Value>;
-
-/// A value with scaling support
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
-pub enum ScalableValue {
-    /// Cannot be scaled
-    Fixed(Value),
-    /// Scaling is linear to the number of servings
-    Linear(Value),
+impl PartialEq for Quantity {
+    fn eq(&self, other: &Self) -> bool {
+        // ignore scalable for equality
+        self.value == other.value && self.unit == other.unit
+    }
 }
 
 /// Base value
@@ -47,6 +40,12 @@ pub enum Value {
     ///
     /// It is not possible to operate with this variant.
     Text(String),
+}
+
+impl Value {
+    pub fn is_text(&self) -> bool {
+        matches!(self, Value::Text(_))
+    }
 }
 
 /// Wrapper for different kinds of numbers
@@ -125,36 +124,21 @@ impl PartialEq for Number {
     }
 }
 
-pub trait QuantityValue: Display + Clone + sealed::Sealed {
-    /// Check if the value is or contains text
-    fn is_text(&self) -> bool;
-}
-
-impl QuantityValue for ScalableValue {
-    fn is_text(&self) -> bool {
-        match self {
-            ScalableValue::Fixed(value) => value.is_text(),
-            ScalableValue::Linear(value) => value.is_text(),
+impl Quantity {
+    /// Creates a new quantity
+    pub fn new(value: Value, unit: Option<String>) -> Self {
+        Self {
+            value,
+            unit,
+            scalable: false,
         }
     }
-}
 
-impl QuantityValue for Value {
-    fn is_text(&self) -> bool {
-        matches!(self, Value::Text(_))
-    }
-}
-
-mod sealed {
-    pub trait Sealed {}
-    impl Sealed for super::ScalableValue {}
-    impl Sealed for super::Value {}
-}
-
-impl<V: QuantityValue> Quantity<V> {
-    /// Creates a new quantity
-    pub fn new(value: V, unit: Option<String>) -> Self {
-        Self { value, unit }
+    /// Returns `true` if the quantity is scalable
+    ///
+    /// Two quantities are equal even if one is scalable and the other not
+    pub fn scalable(&self) -> bool {
+        self.scalable
     }
 
     /// Get the unit
@@ -162,11 +146,11 @@ impl<V: QuantityValue> Quantity<V> {
         self.unit.as_deref()
     }
 
-    pub fn value(&self) -> &V {
+    pub fn value(&self) -> &Value {
         &self.value
     }
 
-    pub(crate) fn value_mut(&mut self) -> &mut V {
+    pub(crate) fn value_mut(&mut self) -> &mut Value {
         &mut self.value
     }
 
@@ -179,7 +163,7 @@ impl<V: QuantityValue> Quantity<V> {
     }
 }
 
-impl<V: QuantityValue + Display> Display for Quantity<V> {
+impl Display for Quantity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.value.fmt(f)?;
         if let Some(unit) = &self.unit {
@@ -187,15 +171,6 @@ impl<V: QuantityValue + Display> Display for Quantity<V> {
             unit.fmt(f)?;
         }
         Ok(())
-    }
-}
-
-impl Display for ScalableValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Fixed(value) => value.fmt(f),
-            Self::Linear(value) => write!(f, "{value}"),
-        }
     }
 }
 
@@ -290,7 +265,7 @@ pub enum IncompatibleUnits {
     UnknownDifferentUnits { a: String, b: String },
 }
 
-impl<V: QuantityValue> Quantity<V> {
+impl Quantity {
     /// Checks if two quantities can be added and return the compatible unit
     /// (if any) or an error if they are not
     pub fn compatible_unit(
@@ -345,9 +320,7 @@ impl<V: QuantityValue> Quantity<V> {
         };
         Ok(base)
     }
-}
 
-impl ScaledQuantity {
     /// Try adding two quantities
     pub fn try_add(&self, rhs: &Self, converter: &Converter) -> Result<Self, QuantityAddError> {
         // 1. Check if the units are compatible and (maybe) get a common unit
@@ -363,10 +336,7 @@ impl ScaledQuantity {
         let value = self.value.try_add(&rhs.value)?;
 
         // 4. New quantity
-        let qty = Quantity {
-            value,
-            unit: self.unit.clone(), // unit is mantained
-        };
+        let qty = Quantity::new(value, self.unit.clone());
 
         Ok(qty)
     }
@@ -424,13 +394,13 @@ impl TryAdd for Value {
 #[derive(Default, Debug, Clone, Serialize)]
 pub struct GroupedQuantity {
     /// known units
-    known: EnumMap<PhysicalQuantity, Option<ScaledQuantity>>,
+    known: EnumMap<PhysicalQuantity, Option<Quantity>>,
     /// unknown units
-    unknown: HashMap<String, ScaledQuantity>,
+    unknown: HashMap<String, Quantity>,
     /// no units
-    no_unit: Option<ScaledQuantity>,
+    no_unit: Option<Quantity>,
     /// could not operate/add to others
-    other: Vec<ScaledQuantity>,
+    other: Vec<Quantity>,
 }
 
 impl GroupedQuantity {
@@ -440,7 +410,7 @@ impl GroupedQuantity {
     }
 
     /// Add a new quantity to the group
-    pub fn add(&mut self, q: &ScaledQuantity, converter: &Converter) {
+    pub fn add(&mut self, q: &Quantity, converter: &Converter) {
         macro_rules! add {
             ($stored:expr, $quantity:ident, $converter:expr, $other:expr) => {
                 match $stored.try_add($quantity, $converter) {
@@ -512,7 +482,7 @@ impl GroupedQuantity {
         self.iter().next().is_none()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &ScaledQuantity> {
+    pub fn iter(&self) -> impl Iterator<Item = &Quantity> {
         self.known
             .values()
             .filter_map(|q| q.as_ref())
@@ -529,7 +499,7 @@ impl GroupedQuantity {
     }
 
     /// Turn the group into a single vec
-    pub fn into_vec(self) -> Vec<ScaledQuantity> {
+    pub fn into_vec(self) -> Vec<Quantity> {
         let len = self.len();
         let mut v = Vec::with_capacity(len);
         for q in self
@@ -548,68 +518,6 @@ impl GroupedQuantity {
 }
 
 impl Display for GroupedQuantity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        display_comma_separated(f, self.iter())
-    }
-}
-
-/// Same as [`GroupedQuantity`] but for [`Value`]
-#[derive(Default, Debug, Clone, Serialize)]
-pub struct GroupedValue(Vec<Value>);
-
-impl GroupedValue {
-    /// Creates a new empty group
-    pub fn empty() -> Self {
-        Self::default()
-    }
-
-    /// Adds a new value to the group
-    pub fn add(&mut self, value: &Value) {
-        if self.0.is_empty() {
-            self.0.push(value.clone());
-            return;
-        }
-
-        if value.is_text() {
-            self.0.push(value.clone());
-        } else if self.0[0].is_text() {
-            self.0.insert(0, value.clone());
-        } else {
-            self.0[0] = self.0[0]
-                .try_add(value)
-                .expect("non text to non text value add error");
-        }
-    }
-
-    /// Merge this group to another one
-    pub fn merge(&mut self, other: &Self) {
-        for q in &other.0 {
-            self.add(q)
-        }
-    }
-
-    /// Checks if the group is empty
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Get the number of values in the group
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// Iterate over the grouped values
-    pub fn iter(&self) -> impl Iterator<Item = &Value> {
-        self.0.iter()
-    }
-
-    /// Turn the group into a single vec
-    pub fn into_vec(self) -> Vec<Value> {
-        self.0
-    }
-}
-
-impl Display for GroupedValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         display_comma_separated(f, self.iter())
     }

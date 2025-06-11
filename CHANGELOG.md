@@ -2,14 +2,18 @@
 
 ## Unreleased - ReleaseDate
 
-
+- Remove generics from `Recipe`. Now recipes are scalable multiple times.
+- Remove `Recipe::default_scale`.
+- Scaling is now infallible, text values are ignored. Removed `ScaleOutcome`, if
+  this functionality was needed, it can easily be replaced by checking if the
+  quatity is text or not scalable.
+- Cookware now can have full quantities with units, not just values.
 
 ## 0.16.3 - 2025/07/28
 
 - Fixes scaling behavior in metadata servings by @dubadub in https://github.com/cooklang/cooklang-rs/pull/43
 - Adds lenient aisle parsing to allow more flexible formatting by @dubadub in https://github.com/cooklang/cooklang-rs/pull/44
 - Softens canonical parser to reduce strictness on edge cases by @dubadub in https://github.com/cooklang/cooklang-rs/pull/45
-
 
 ## 0.16.1 - 2025/05/27
 

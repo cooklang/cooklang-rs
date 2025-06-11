@@ -113,12 +113,10 @@ impl Parser {
     pub fn parse_render(&self, input: &str, scale: Option<f64>) -> FallibleResult {
         let (recipe, report) = self.parser.parse(input).into_tuple();
         let value = match recipe {
-            Some(r) => {
-                let r = if let Some(scale) = scale {
+            Some(mut r) => {
+                if let Some(scale) = scale {
                     r.scale(scale, self.parser.converter())
-                } else {
-                    r.default_scale()
-                };
+                }
                 render(r, self.parser.converter())
             }
             None => "<no output>".to_string(),
@@ -188,8 +186,9 @@ impl FallibleResult {
     }
 }
 
-fn render(r: cooklang::ScaledRecipe, converter: &Converter) -> String {
+fn render(r: cooklang::Recipe, converter: &Converter) -> String {
     let ingredient_list = r.group_ingredients(converter);
+    let cookware_list = r.group_cookware(converter);
     maud::html! {
         @if !r.metadata.map.is_empty() {
             ul {
@@ -218,15 +217,12 @@ fn render(r: cooklang::ScaledRecipe, converter: &Converter) -> String {
         @if !r.cookware.is_empty() {
             h2 { "Cookware:" }
             ul {
-                @for item in r.cookware.iter().filter(|c| c.modifiers().should_be_listed()) {
-                    @let amount = item.group_amounts(&r.cookware).iter()
-                                        .map(|q| q.to_string())
-                                        .reduce(|s, q| format!("{s}, {q}"))
-                                        .unwrap_or(String::new());
+                // TODO should_be_listed
+                @for entry in &cookware_list {
                     li {
-                        b { (item.display_name()) }
-                        @if !amount.is_empty() { ": " (amount) }
-                        @if let Some(n) = &item.note { " (" (n) ")" }
+                        b { (entry.cookware.display_name()) }
+                        @if !entry.quantity.is_empty() { ": " (entry.quantity) }
+                        @if let Some(n) = &entry.cookware.note { " (" (n) ")" }
                     }
                 }
             }

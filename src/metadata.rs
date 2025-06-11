@@ -551,10 +551,10 @@ pub(crate) fn check_std_entry(
     key: StdKey,
     value: &serde_yaml::Value,
     converter: &Converter,
-) -> Result<Option<crate::scale::Servings>, MetadataError> {
+) -> Result<(), MetadataError> {
     match key {
         StdKey::Servings => {
-            return value_as_servings(value).map(|s| Some(crate::scale::Servings(Some(s))))
+            value_as_servings(value)?;
         }
         StdKey::Tags => {
             value_as_tags(value)?;
@@ -586,7 +586,7 @@ pub(crate) fn check_std_entry(
         StdKey::Images => {}
     }
 
-    Ok(None)
+    Ok(())
 }
 
 /// Combination of name and URL.

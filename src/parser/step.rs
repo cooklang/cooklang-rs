@@ -376,24 +376,9 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     let (name, alias) = parse_alias(COOKWARE, bp, body.name, name_offset);
     check_empty_name(COOKWARE, bp, &name);
 
-    let quantity = body.quantity.map(|tokens| {
-        let q = parse_quantity(bp, tokens);
-        if let Some(unit) = &q.quantity.unit {
-            let span = if let Some(sep) = q.unit_separator {
-                Span::new(sep.start(), unit.span().end())
-            } else {
-                unit.span()
-            };
-            bp.warn(
-                warning!(
-                    "Invalid cookware quantity: unit",
-                    label!(span, "remove this"),
-                )
-                .hint("Cookware items can't have units"),
-            );
-        }
-        q.quantity.map(|q| q.value)
-    });
+    let quantity = body
+        .quantity
+        .map(|tokens| parse_quantity(bp, tokens).quantity);
     let modifiers = parse_modifiers(bp, modifiers_tokens, modifiers_pos);
     let modifiers = check_intermediate_data(bp, modifiers, COOKWARE);
 

@@ -8,11 +8,7 @@ use serde::{Deserialize, Serialize};
 use tsify::{declare, Tsify};
 
 use crate::{
-    convert::Converter,
-    metadata::Metadata,
-    parser::Modifiers,
-    quantity::{GroupedValue, Quantity, QuantityValue, ScalableValue, ScaledQuantity},
-    GroupedQuantity, Value,
+    convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity, GroupedQuantity,
 };
 
 /// A complete recipe
@@ -28,7 +24,7 @@ use crate::{
 /// [`Value`]s.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-pub struct Recipe<D, V: QuantityValue> {
+pub struct Recipe {
     /// Metadata
     #[cfg_attr(feature = "ts", serde(skip))]
     pub metadata: Metadata,
@@ -38,28 +34,14 @@ pub struct Recipe<D, V: QuantityValue> {
     /// is the default.
     pub sections: Vec<Section>,
     /// All the ingredients
-    pub ingredients: Vec<Ingredient<V>>,
+    pub ingredients: Vec<Ingredient>,
     /// All the cookware
-    pub cookware: Vec<Cookware<V>>,
+    pub cookware: Vec<Cookware>,
     /// All the timers
-    pub timers: Vec<Timer<V>>,
+    pub timers: Vec<Timer>,
     /// All the inline quantities
-    pub inline_quantities: Vec<ScaledQuantity>,
-    pub(crate) data: D,
+    pub inline_quantities: Vec<Quantity>,
 }
-
-/// A recipe before being scaled
-///
-/// Note that this doesn't implement [`Recipe::convert`]. Only scaled recipes
-/// can be converted.
-pub type ScalableRecipe = Recipe<crate::scale::Servings, ScalableValue>;
-
-/// A recipe after being scaled
-///
-/// Note that this doesn't implement [`Recipe::scale`]. A recipe can only be
-/// scaled once.
-#[cfg_attr(feature = "ts", declare)]
-pub type ScaledRecipe = Recipe<crate::scale::Scaled, Value>;
 
 /// A section holding steps
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
@@ -189,7 +171,7 @@ impl RecipeReference {
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-pub struct Ingredient<V: QuantityValue = Value> {
+pub struct Ingredient {
     /// Name
     ///
     /// This can have the form of a path if the ingredient references a recipe.
@@ -197,7 +179,7 @@ pub struct Ingredient<V: QuantityValue = Value> {
     /// Alias
     pub alias: Option<String>,
     /// Quantity
-    pub quantity: Option<Quantity<V>>,
+    pub quantity: Option<Quantity>,
     /// Note
     pub note: Option<String>,
     /// Recipe reference
@@ -208,7 +190,7 @@ pub struct Ingredient<V: QuantityValue = Value> {
     pub(crate) modifiers: Modifiers,
 }
 
-impl<V: QuantityValue> Ingredient<V> {
+impl Ingredient {
     /// Gets the name the ingredient should be displayed with
     pub fn display_name(&self) -> Cow<str> {
         let mut name = Cow::from(&self.name);
@@ -227,9 +209,7 @@ impl<V: QuantityValue> Ingredient<V> {
     pub fn modifiers(&self) -> Modifiers {
         self.modifiers
     }
-}
 
-impl Ingredient<Value> {
     /// Groups all quantities from itself and it's references (if any).
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
@@ -237,8 +217,7 @@ impl Ingredient<Value> {
     /// let recipe = parser
     ///                 .parse("@flour{1000%g} @&flour{200%g} @&flour{1%bag}")
     ///                 .into_output()
-    ///                 .unwrap()
-    ///                 .default_scale();
+    ///                 .unwrap();
     ///
     /// let flour = &recipe.ingredients[0];
     /// assert_eq!(flour.name, "flour");
@@ -279,7 +258,7 @@ impl Ingredient<Value> {
     pub fn all_quantities<'a>(
         &'a self,
         all_ingredients: &'a [Self],
-    ) -> impl Iterator<Item = &'a ScaledQuantity> {
+    ) -> impl Iterator<Item = &'a Quantity> {
         std::iter::once(self.quantity.as_ref())
             .chain(
                 self.relation
@@ -295,7 +274,7 @@ impl Ingredient<Value> {
 /// A recipe cookware item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-pub struct Cookware<V: QuantityValue = Value> {
+pub struct Cookware {
     /// Name
     pub name: String,
     /// Alias
@@ -303,7 +282,7 @@ pub struct Cookware<V: QuantityValue = Value> {
     /// Amount needed
     ///
     /// Note that this is a value, not a quantity, so it doesn't have units.
-    pub quantity: Option<V>,
+    pub quantity: Option<Quantity>,
     /// Note
     pub note: Option<String>,
     /// How the cookware is related to others
@@ -312,7 +291,7 @@ pub struct Cookware<V: QuantityValue = Value> {
     pub(crate) modifiers: Modifiers,
 }
 
-impl<V: QuantityValue> Cookware<V> {
+impl Cookware {
     /// Gets the name the cookware item should be displayed with
     pub fn display_name(&self) -> &str {
         self.alias.as_ref().unwrap_or(&self.name)
@@ -322,46 +301,26 @@ impl<V: QuantityValue> Cookware<V> {
     pub fn modifiers(&self) -> Modifiers {
         self.modifiers
     }
-}
 
-impl Cookware<Value> {
-    /// Groups all the amounts of itself and it's references
-    ///
-    /// The first element is a grouped numeric value (if any), the rest are text
-    /// values.
-    ///
-    /// ```
-    /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
-    /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
-    /// let recipe = parser.parse("#pan{3} #&pan{1} #&pan{big}")
-    ///                 .into_output()
-    ///                 .unwrap()
-    ///                 .default_scale();
-    ///
-    /// let pan = &recipe.cookware[0];
-    /// assert_eq!(pan.name, "pan");
-    ///
-    /// let grouped_pans = pan.group_amounts(&recipe.cookware);
-    ///
-    /// assert_eq!(grouped_pans.to_string(), "4, big");
-    /// assert_eq!(
-    ///     grouped_pans.into_vec(),
-    ///     vec![
-    ///         Value::from(4.0),
-    ///         Value::from("big".to_string()),
-    ///     ]
-    /// );
-    /// ```
-    pub fn group_amounts(&self, all_cookware: &[Self]) -> GroupedValue {
-        let mut g = GroupedValue::empty();
-        for a in self.all_amounts(all_cookware) {
-            g.add(a);
+    /// Same as [`Ingredient::group_quantities`] but for [`Cookware`]
+    pub fn group_quantities(
+        &self,
+        all_cookware: &[Self],
+        converter: &Converter,
+    ) -> GroupedQuantity {
+        let mut g = GroupedQuantity::empty();
+        for q in self.all_quantities(all_cookware) {
+            g.add(q, converter);
         }
+        let _ = g.fit(converter);
         g
     }
 
     /// Gets an iterator over all quantities of this ingredient and its references.
-    pub fn all_amounts<'a>(&'a self, all_cookware: &'a [Self]) -> impl Iterator<Item = &'a Value> {
+    pub fn all_quantities<'a>(
+        &'a self,
+        all_cookware: &'a [Self],
+    ) -> impl Iterator<Item = &'a Quantity> {
         std::iter::once(self.quantity.as_ref())
             .chain(
                 self.relation
@@ -558,7 +517,7 @@ impl IngredientRelation {
 /// [`Some`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-pub struct Timer<V: QuantityValue = Value> {
+pub struct Timer {
     /// Name
     pub name: Option<String>,
     /// Time quantity
@@ -570,5 +529,5 @@ pub struct Timer<V: QuantityValue = Value> {
     ///
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
     ///   extension is enabled, this is guaranteed to be [`Some`].
-    pub quantity: Option<Quantity<V>>,
+    pub quantity: Option<Quantity>,
 }

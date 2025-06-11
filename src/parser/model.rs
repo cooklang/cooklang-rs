@@ -79,7 +79,7 @@ pub struct Cookware<'a> {
     pub alias: Option<Text<'a>>,
     /// This it's just a [`QuantityValue`], because cookware cannot not have
     /// a unit.
-    pub quantity: Option<Located<QuantityValue>>,
+    pub quantity: Option<Located<Quantity<'a>>>,
     pub note: Option<Text<'a>>,
 }
 
@@ -109,7 +109,7 @@ pub struct Quantity<'a> {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct QuantityValue {
     pub value: Located<Value>,
-    pub scaling_lock: Option<Span>
+    pub scaling_lock: Option<Span>,
 }
 
 impl QuantityValue {
