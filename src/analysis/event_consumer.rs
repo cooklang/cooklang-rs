@@ -9,7 +9,7 @@ use crate::parser::{
     self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
     Modifiers,
 };
-use crate::quantity::{Quantity, QuantityValue, ScalableValue, Value};
+use crate::quantity::{Quantity, Value};
 use crate::span::Span;
 use crate::text::Text;
 use crate::{model::*, Extensions, ParseOptions};
@@ -61,14 +61,13 @@ pub fn parse_events<'i, 'c>(
         converter,
         parse_options,
 
-        content: ScalableRecipe {
+        content: Recipe {
             metadata: Default::default(),
             sections: Default::default(),
             ingredients: Default::default(),
             cookware: Default::default(),
             timers: Default::default(),
             inline_quantities: Default::default(),
-            data: crate::scale::Servings(None),
         },
         current_section: Section::default(),
 
@@ -90,7 +89,7 @@ struct RecipeCollector<'i, 'c> {
     converter: &'c Converter,
     parse_options: ParseOptions<'c>,
 
-    content: ScalableRecipe,
+    content: Recipe,
     current_section: Section,
 
     define_mode: DefineMode,
@@ -265,22 +264,18 @@ impl<'i> RecipeCollector<'i, '_> {
                 continue;
             }
             if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
-                match check_std_entry(sk, value, self.converter) {
-                    Ok(Some(servings)) => self.content.data = servings,
-                    Ok(None) => {}
-                    Err(err) => {
-                        let mut diag = warning!(format!(
-                            "Unsupported value for key: '{}'",
-                            key.as_str().unwrap()
-                        ))
-                        .set_source(err);
-                        if let Some(key_s) = key.as_str() {
-                            if let Some(pos) = yaml_find_key_position(&yaml_str, key_s) {
-                                diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
-                            }
+                if let Err(err) = check_std_entry(sk, value, self.converter) {
+                    let mut diag = warning!(format!(
+                        "Unsupported value for key: '{}'",
+                        key.as_str().unwrap()
+                    ))
+                    .set_source(err);
+                    if let Some(key_s) = key.as_str() {
+                        if let Some(pos) = yaml_find_key_position(&yaml_str, key_s) {
+                            diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
                         }
-                        self.ctx.warn(diag);
                     }
+                    self.ctx.warn(diag);
                 }
             }
         }
@@ -364,9 +359,7 @@ impl<'i> RecipeCollector<'i, '_> {
                             format!("Unknown config metadata key: {key_t}"),
                             label!(key.span())
                         )
-                        .hint(
-                            "Possible config keys are '[mode]' and '[duplicate]''",
-                        ),
+                        .hint("Possible config keys are '[mode]' and '[duplicate]''"),
                     );
                     if self.old_style_metadata {
                         self.content.metadata.map.insert(
@@ -413,21 +406,17 @@ impl<'i> RecipeCollector<'i, '_> {
                 self.converter,
             );
 
-            match check_result {
-                Ok(Some(servings)) => self.content.data = servings,
-                Ok(None) => {}
-                Err(err) => {
-                    self.ctx.warn(
-                        warning!(
-                            format!("Unsupported value for key: '{}'", key.text_trimmed()),
-                            label!(value.span(), "this value"),
-                        )
-                        .label(label!(key.span(), "this key does not support"))
-                        .hint("It will be a regular metadata entry")
-                        .set_source(err),
-                    );
-                    return;
-                }
+            if let Err(err) = check_result {
+                self.ctx.warn(
+                    warning!(
+                        format!("Unsupported value for key: '{}'", key.text_trimmed()),
+                        label!(value.span(), "this value"),
+                    )
+                    .label(label!(key.span(), "this key does not support"))
+                    .hint("It will be a regular metadata entry")
+                    .set_source(err),
+                );
+                return;
             }
 
             // store it's location if it was inserted
@@ -896,7 +885,7 @@ impl<'i> RecipeCollector<'i, '_> {
         let mut new_cw = Cookware {
             name: cookware.name.text_trimmed().into_owned(),
             alias: cookware.alias.map(|t| t.text_trimmed().into_owned()),
-            quantity: cookware.quantity.map(|q| self.value(q.into_inner(), false)),
+            quantity: cookware.quantity.clone().map(|q| self.quantity(q, false)),
             note: cookware.note.map(|n| n.text_trimmed().into_owned()),
             modifiers: cookware.modifiers.into_inner(),
             relation: ComponentRelation::Definition {
@@ -940,8 +929,8 @@ impl<'i> RecipeCollector<'i, '_> {
             if let Some((ref_q, def_q)) =
                 &new_cw.quantity.as_ref().zip(definition.quantity.as_ref())
             {
-                let ref_is_text = ref_q.is_text();
-                let def_is_text = def_q.is_text();
+                let ref_is_text = ref_q.value().is_text();
+                let def_is_text = def_q.value().is_text();
 
                 if ref_is_text != def_is_text {
                     let ref_q_loc = located_cookware.quantity.as_ref().unwrap().span();
@@ -1020,22 +1009,27 @@ impl<'i> RecipeCollector<'i, '_> {
         &mut self,
         quantity: Located<parser::Quantity<'i>>,
         is_ingredient: bool,
-    ) -> Quantity<ScalableValue> {
+    ) -> Quantity {
         let parser::Quantity { value, unit, .. } = quantity.into_inner();
-        Quantity::new(
-            self.value(value, is_ingredient),
-            unit.map(|t| t.text_trimmed().into_owned()),
-        )
+        let (value, scalable) = self.value(value, is_ingredient);
+        Quantity {
+            value,
+            unit: unit.map(|t| t.text_trimmed().into_owned()),
+            scalable,
+        }
     }
 
-    fn value(&mut self, value: parser::QuantityValue, is_ingredient: bool) -> ScalableValue {
-        let parser::QuantityValue { value, scaling_lock } = value;
+    fn value(&mut self, value: parser::QuantityValue, is_ingredient: bool) -> (Value, bool) {
+        let parser::QuantityValue {
+            value,
+            scaling_lock,
+        } = value;
         let has_scaling_lock = scaling_lock.is_some();
         let is_text = value.is_text();
 
-        // For ingredients without text values and without scaling lock, use Linear
+        // For ingredients without text values and without scaling lock, enable scaling
         if is_ingredient && !is_text && !has_scaling_lock {
-            return ScalableValue::Linear(value.into_inner());
+            return (value.into_inner(), true);
         }
 
         // Warn if scaling lock is used unnecessarily (on non-ingredients or text values)
@@ -1054,8 +1048,8 @@ impl<'i> RecipeCollector<'i, '_> {
             self.ctx.warn(warning);
         }
 
-        // Everything else uses Fixed
-        ScalableValue::Fixed(value.into_inner())
+        // Everything else doesn't scale
+        (value.into_inner(), false)
     }
 
     fn resolve_reference<C: RefComponent>(
@@ -1229,10 +1223,10 @@ trait RefComponent: Sized {
     fn set_reference(&mut self, references_to: usize);
     fn set_referenced_from(all: &mut [Self], references_to: usize);
 
-    fn all(content: &ScalableRecipe) -> &[Self];
+    fn all(content: &Recipe) -> &[Self];
 }
 
-impl RefComponent for Ingredient<ScalableValue> {
+impl RefComponent for Ingredient {
     #[inline]
     fn name(&self) -> &str {
         &self.name
@@ -1275,12 +1269,12 @@ impl RefComponent for Ingredient<ScalableValue> {
     }
 
     #[inline]
-    fn all(content: &ScalableRecipe) -> &[Self] {
+    fn all(content: &Recipe) -> &[Self] {
         &content.ingredients
     }
 }
 
-impl RefComponent for Cookware<ScalableValue> {
+impl RefComponent for Cookware {
     #[inline]
     fn name(&self) -> &str {
         &self.name
@@ -1322,7 +1316,7 @@ impl RefComponent for Cookware<ScalableValue> {
     }
 
     #[inline]
-    fn all(content: &ScalableRecipe) -> &[Self] {
+    fn all(content: &Recipe) -> &[Self] {
         &content.cookware
     }
 }
@@ -1330,7 +1324,7 @@ impl RefComponent for Cookware<ScalableValue> {
 fn find_inline_quantity<'a>(
     text: &'a str,
     converter: &Converter,
-) -> Option<(&'a str, Quantity<Value>, &'a str)> {
+) -> Option<(&'a str, Quantity, &'a str)> {
     let mut i = 0;
 
     fn eat_word<'a>(text: &'a str, i: &mut usize) -> Option<&'a str> {
@@ -1496,13 +1490,17 @@ fn yaml_find_key_position(text: &str, key: &str) -> Option<usize> {
 }
 
 fn parse_reference(name: &str) -> Option<RecipeReference> {
-    if name.starts_with("./") || name.starts_with("../") || name.starts_with(".\\") || name.starts_with("..\\") {
+    if name.starts_with("./")
+        || name.starts_with("../")
+        || name.starts_with(".\\")
+        || name.starts_with("..\\")
+    {
         let path = name.replace('\\', "/");
         let mut components: Vec<String> = path.split('/').map(String::from).skip(1).collect();
         let file_stem = components.pop().unwrap();
         Some(RecipeReference {
             components,
-            name: file_stem.into()
+            name: file_stem.into(),
         })
     } else {
         None
@@ -1553,7 +1551,11 @@ mod tests {
         assert_eq!(
             parse_reference("./recipes/italian/pasta/spaghetti"),
             Some(RecipeReference {
-                components: vec!["recipes".to_string(), "italian".to_string(), "pasta".to_string()],
+                components: vec![
+                    "recipes".to_string(),
+                    "italian".to_string(),
+                    "pasta".to_string()
+                ],
                 name: "spaghetti".into()
             })
         );

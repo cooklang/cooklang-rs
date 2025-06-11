@@ -1,9 +1,6 @@
 //! Cooklang canonical tests https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 
-use cooklang::{
-    quantity::{ScalableValue, Value},
-    Content, Converter, CooklangParser, Extensions, Item, ScalableRecipe,
-};
+use cooklang::{quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Recipe};
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -64,7 +61,7 @@ fn runner(input: TestCase) {
 }
 
 impl TestResult {
-    fn from_cooklang(value: ScalableRecipe) -> Self {
+    fn from_cooklang(value: Recipe) -> Self {
         assert!(value.sections.len() <= 1);
         let steps = if let Some(section) = value.sections.first().cloned() {
             assert!(section.name.is_none());
@@ -84,7 +81,7 @@ impl TestResult {
 }
 
 impl TestStep {
-    fn from_cooklang_step(value: Content, recipe: &cooklang::ScalableRecipe) -> Self {
+    fn from_cooklang_step(value: Content, recipe: &Recipe) -> Self {
         let Content::Step(step) = value else {
             panic!("unexpected non step block")
         };
@@ -99,7 +96,7 @@ impl TestStep {
 }
 
 impl TestStepItem {
-    fn from_cooklang_item(value: Item, recipe: &cooklang::ScalableRecipe) -> Self {
+    fn from_cooklang_item(value: Item, recipe: &Recipe) -> Self {
         match value {
             Item::Text { value } => Self::Text { value },
             Item::Ingredient { index } => {
@@ -135,7 +132,7 @@ impl TestStepItem {
                 let quantity = i
                     .quantity
                     .as_ref()
-                    .map(|q| TestValue::from_cooklang_value(q.clone()))
+                    .map(|q| TestValue::from_cooklang_value(q.value().clone()))
                     .unwrap_or(TestValue::Number(1.0));
                 Self::Cookware {
                     name: i.name.clone(),
@@ -166,13 +163,11 @@ impl TestStepItem {
 }
 
 impl TestValue {
-    fn from_cooklang_value(value: ScalableValue) -> Self {
+    fn from_cooklang_value(value: Value) -> Self {
         match value {
-            ScalableValue::Fixed(value) | ScalableValue::Linear(value) => match value {
-                Value::Number(num) => TestValue::Number(num.value()),
-                Value::Range { .. } => panic!("unexpected range value"),
-                Value::Text(value) => TestValue::Text(value),
-            }
+            Value::Number(num) => TestValue::Number(num.value()),
+            Value::Range { .. } => panic!("unexpected range value"),
+            Value::Text(value) => TestValue::Text(value),
         }
     }
 }

@@ -95,9 +95,7 @@ pub use located::Located;
 pub use metadata::Metadata;
 pub use model::*;
 pub use parser::Modifiers;
-pub use quantity::{
-    GroupedQuantity, Quantity, ScalableQuantity, ScalableValue, ScaledQuantity, Value,
-};
+pub use quantity::{GroupedQuantity, Quantity, Value};
 pub use span::Span;
 pub use text::Text;
 
@@ -169,7 +167,7 @@ pub struct CooklangParser {
     converter: Converter,
 }
 
-pub type RecipeResult = PassResult<ScalableRecipe>;
+pub type RecipeResult = PassResult<Recipe>;
 pub type MetadataResult = PassResult<Metadata>;
 
 impl CooklangParser {

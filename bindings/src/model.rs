@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
 use cooklang::model::Item as OriginalItem;
-use cooklang::quantity::{
-    Quantity as OriginalQuantity, Value as OriginalValue
-};
-use cooklang::ScaledRecipe as OriginalRecipe;
+use cooklang::quantity::{Quantity as OriginalQuantity, Value as OriginalValue};
+use cooklang::Recipe as OriginalRecipe;
 
 #[derive(uniffi::Record, Debug)]
 pub struct CooklangRecipe {
@@ -174,7 +172,7 @@ trait Amountable {
     fn extract_amount(&self) -> Amount;
 }
 
-impl Amountable for OriginalQuantity<OriginalValue> {
+impl Amountable for OriginalQuantity {
     fn extract_amount(&self) -> Amount {
         let quantity = extract_value(self.value());
 
@@ -419,8 +417,8 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
     }
 }
 
-impl From<&cooklang::Ingredient<OriginalValue>> for Ingredient {
-    fn from(ingredient: &cooklang::Ingredient<OriginalValue>) -> Self {
+impl From<&cooklang::Ingredient> for Ingredient {
+    fn from(ingredient: &cooklang::Ingredient) -> Self {
         Ingredient {
             name: ingredient.name.clone(),
             amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
@@ -429,8 +427,8 @@ impl From<&cooklang::Ingredient<OriginalValue>> for Ingredient {
     }
 }
 
-impl From<&cooklang::Cookware<OriginalValue>> for Cookware {
-    fn from(cookware: &cooklang::Cookware<OriginalValue>) -> Self {
+impl From<&cooklang::Cookware> for Cookware {
+    fn from(cookware: &cooklang::Cookware) -> Self {
         Cookware {
             name: cookware.name.clone(),
             amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
@@ -438,8 +436,8 @@ impl From<&cooklang::Cookware<OriginalValue>> for Cookware {
     }
 }
 
-impl From<&cooklang::Timer<OriginalValue>> for Timer {
-    fn from(timer: &cooklang::Timer<OriginalValue>) -> Self {
+impl From<&cooklang::Timer> for Timer {
+    fn from(timer: &cooklang::Timer) -> Self {
         Timer {
             name: Some(timer.name.clone().unwrap_or_default()),
             amount: timer.quantity.as_ref().map(|q| q.extract_amount()),

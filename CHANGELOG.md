@@ -2,6 +2,13 @@
 
 ## Unreleased - ReleaseDate
 
+- Remove generics from `Recipe`. Now recipes are scalable multiple times.
+- Remove `Recipe::default_scale`.
+- Scaling is now infallible, text values are ignored. Removed `ScaleOutcome`, if
+  this functionality was needed, it can easily be replaced by checking if the
+  quatity is text or not scalable.
+- Cookware now can have full quantities with units, not just values.
+
 ## 0.16.1 - 2025/05/27
 
 - Adds references support into IngredientList by @dubadub in https://github.com/cooklang/cooklang-rs/pull/36

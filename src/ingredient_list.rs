@@ -5,12 +5,8 @@ use std::collections::BTreeMap;
 use serde::Serialize;
 
 use crate::{
-    aisle::AisleConf,
-    convert::Converter,
-    model::Ingredient,
-    quantity::{GroupedQuantity, GroupedValue},
-    scale::ScaleOutcome,
-    Cookware, ScaledRecipe, Value,
+    aisle::AisleConf, convert::Converter, model::Ingredient, quantity::GroupedQuantity, Cookware,
+    Recipe,
 };
 
 /// Ingredient with all quantities from it's references and itself grouped.
@@ -21,16 +17,9 @@ pub struct GroupedIngredient<'a> {
     /// Index of the ingredient definition in the [`Recipe::ingredients`](crate::model::Recipe::ingredients)
     pub index: usize,
     /// Ingredient definition
-    pub ingredient: &'a Ingredient<Value>,
+    pub ingredient: &'a Ingredient,
     /// Grouped quantity of itself and all of it references
     pub quantity: GroupedQuantity,
-    /// Scale outcome, if scaled to a custom target
-    ///
-    /// If any scaling outcome was [`ScaleOutcome::Error`], this will be an error.
-    /// It will only be one and no particular order is guaranteed.
-    ///
-    /// If any scaling outcome was [`ScaleOutcome::Fixed`], this will be the fixed.
-    pub outcome: Option<ScaleOutcome>,
 }
 
 /// Cookware item with all amounts from it's references and itself grouped.
@@ -41,12 +30,12 @@ pub struct GroupedCookware<'a> {
     /// Index of the item definition in the [`Recipe::cookware`](crate::model::Recipe::cookware)
     pub index: usize,
     /// Cookware definition
-    pub cookware: &'a Cookware<Value>,
+    pub cookware: &'a Cookware,
     /// Grouped amount of itself and all of it references
-    pub amount: GroupedValue,
+    pub quantity: GroupedQuantity,
 }
 
-impl ScaledRecipe {
+impl Recipe {
     /// List of ingredient **definitions** with quantities of all of it
     /// references grouped.
     ///
@@ -58,8 +47,7 @@ impl ScaledRecipe {
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}")
     ///                 .into_output()
-    ///                 .unwrap()
-    ///                 .default_scale();
+    ///                 .unwrap();
     /// let grouped = recipe.group_ingredients(parser.converter());
     ///
     /// // Only 2 definitions, the second flour is a reference
@@ -76,33 +64,15 @@ impl ScaledRecipe {
     /// ```
     pub fn group_ingredients<'a>(&'a self, converter: &Converter) -> Vec<GroupedIngredient<'a>> {
         let mut list = Vec::new();
-        let data = self.scaled_data();
         for (index, ingredient) in self.ingredients.iter().enumerate() {
             if !ingredient.relation.is_definition() {
                 continue;
             }
             let grouped = ingredient.group_quantities(&self.ingredients, converter);
-            let outcome: Option<ScaleOutcome> = data
-                .as_ref()
-                .map(|data| {
-                    let mut outcome = &data.ingredients[index]; // temp value
-                    let all_indices = std::iter::once(index)
-                        .chain(ingredient.relation.referenced_from().iter().copied());
-                    for index in all_indices {
-                        match &data.ingredients[index] {
-                            e @ ScaleOutcome::Error(_) => return e, // if err, return
-                            e @ ScaleOutcome::Fixed => outcome = e, // if fixed, store
-                            _ => {}
-                        }
-                    }
-                    outcome
-                })
-                .cloned();
             list.push(GroupedIngredient {
                 index,
                 ingredient,
                 quantity: grouped,
-                outcome,
             });
         }
         list
@@ -112,17 +82,17 @@ impl ScaledRecipe {
     /// references grouped.
     ///
     /// Order is the recipe order.
-    pub fn group_cookware(&self) -> Vec<GroupedCookware> {
+    pub fn group_cookware<'a>(&'a self, converter: &Converter) -> Vec<GroupedCookware<'a>> {
         let mut list = Vec::new();
         for (index, cookware) in self.cookware.iter().enumerate() {
             if !cookware.relation.is_definition() {
                 continue;
             }
-            let amount = cookware.group_amounts(&self.cookware);
+            let amount = cookware.group_quantities(&self.cookware, converter);
             list.push(GroupedCookware {
                 index,
                 cookware,
-                amount,
+                quantity: amount,
             })
         }
         list
@@ -144,7 +114,7 @@ impl IngredientList {
     }
 
     /// Ingredient list of a recipe
-    pub fn from_recipe(recipe: &ScaledRecipe, converter: &Converter, list_references: bool) -> Self {
+    pub fn from_recipe(recipe: &Recipe, converter: &Converter, list_references: bool) -> Self {
         let mut list = Self::new();
         list.add_recipe(recipe, converter, list_references);
         list
@@ -162,14 +132,18 @@ impl IngredientList {
     /// error.
     ///
     /// Ingredients are listed based on their [`display_name`](crate::model::Ingredient::display_name).
-    pub fn add_recipe(&mut self, recipe: &ScaledRecipe, converter: &Converter, list_references: bool) -> Vec<usize> {
+    pub fn add_recipe(
+        &mut self,
+        recipe: &Recipe,
+        converter: &Converter,
+        list_references: bool,
+    ) -> Vec<usize> {
         let mut references = Vec::new();
 
         for entry in recipe.group_ingredients(converter) {
             let GroupedIngredient {
                 ingredient,
                 quantity,
-                outcome,
                 index,
             } = entry;
 
@@ -183,10 +157,6 @@ impl IngredientList {
 
             if !ingredient.modifiers().should_be_listed() {
                 continue;
-            }
-
-            if let Some(ScaleOutcome::Error(err)) = outcome {
-                tracing::error!("Error scaling ingredient: {err}");
             }
 
             self.add_ingredient(ingredient.display_name().into_owned(), &quantity, converter);

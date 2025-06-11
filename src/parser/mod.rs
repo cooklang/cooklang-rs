@@ -62,6 +62,7 @@ mod text_block;
 mod token_stream;
 
 pub use model::*;
+pub use quantity::ParsedQuantity;
 
 use std::collections::VecDeque;
 

@@ -12,11 +12,11 @@ use model::*;
 pub fn parse_recipe(input: String, scaling_factor: f64) -> CooklangRecipe {
     let parser = cooklang::CooklangParser::canonical();
 
-    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
+    let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    let scaled = parsed.scale(scaling_factor, parser.converter());
+    parsed.scale(scaling_factor, parser.converter());
 
-    into_simple_recipe(&scaled)
+    into_simple_recipe(&parsed)
 }
 
 #[uniffi::export]
@@ -24,14 +24,12 @@ pub fn parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata {
     let mut metadata = CooklangMetadata::new();
     let parser = cooklang::CooklangParser::canonical();
 
-    let (parsed, _warnings) = parser.parse(&input)
-        .into_result()
-        .unwrap();
+    let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    let scaled = parsed.scale(scaling_factor, parser.converter());
+    parsed.scale(scaling_factor, parser.converter());
 
     // converting IndexMap into HashMap
-    let _ = &(scaled.metadata.map).iter().for_each(|(key, value)| {
+    let _ = &(parsed.metadata.map).iter().for_each(|(key, value)| {
         if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
             metadata.insert(key.to_string(), value.to_string());
         }
@@ -132,7 +130,7 @@ mod tests {
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         assert_eq!(
@@ -209,7 +207,7 @@ source: https://google.com
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         assert_eq!(
@@ -357,7 +355,7 @@ dried oregano
 Cook @onions{3%large} until brown
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         let first_section = recipe
@@ -416,7 +414,7 @@ add @tomatoes{400%g}
 simmer for 10 minutes
 "#
             .to_string(),
-            1.0
+            1.0,
         );
         let first_section = recipe
             .sections
@@ -481,7 +479,7 @@ Mix @flour{200%g} and @water{50%ml} together until smooth.
 Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         let mut sections = recipe.sections.into_iter();
