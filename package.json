@@ -24,6 +24,7 @@
     },
     "watch-wasm": {
       "command": "npm run -w @cooklang/cooklang-ts watch-wasm",
+      "clean": true,
       "packageLocks": [
         "Cargo.lock",
         "package-lock.json"

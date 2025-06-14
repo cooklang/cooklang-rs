@@ -1,4 +1,4 @@
-import { init, Parser, version } from "@cooklang/cooklang-ts";
+import { Parser, version } from "@cooklang/cooklang-ts";
 
 declare global {
   interface Window {
