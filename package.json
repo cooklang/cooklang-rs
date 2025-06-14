@@ -30,8 +30,8 @@
       ],
       "files": [
         "!target",
-        "src/**/*.rs",
-        "typescript/**/*.rs"
+        "**/*.toml",
+        "**/*.rs"
       ],
       "output": [
         "typescript/pkg/**"
