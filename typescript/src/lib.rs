@@ -3,7 +3,9 @@ use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use tsify::Tsify;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -12,14 +14,21 @@ pub fn version() -> String {
 }
 
 #[wasm_bindgen]
-pub struct State {
+pub struct Parser {
     parser: CooklangParser,
     load_units: bool,
     extensions: Extensions,
 }
 
+#[derive(Tsify, Serialize, Deserialize)]
+#[tsify(into_wasm_abi, from_wasm_abi)]
+pub struct ScaledRecipeWithReport {
+    recipe: cooklang::ScaledRecipe,
+    report: String,
+}
+
 #[wasm_bindgen]
-impl State {
+impl Parser {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
@@ -72,6 +81,18 @@ impl State {
             None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
+    }
+
+    pub fn parse(&self, input: &str) -> ScaledRecipeWithReport {
+        let (recipe, _report) = self.parser.parse(input).into_tuple();
+        let scaled = recipe
+            .expect("expected recipe")
+            .scale(1., self.parser.converter());
+        let data = ScaledRecipeWithReport {
+            recipe: scaled,
+            report: "<no output>".to_string(),
+        };
+        data
     }
 
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
@@ -135,7 +156,7 @@ impl State {
     }
 }
 
-impl State {
+impl Parser {
     fn build_parser(&self) -> CooklangParser {
         let ext = self.extensions;
         let converter = if self.load_units {

@@ -1,4 +1,4 @@
-name: Preview
+name: Typescript
 
 on: [pull_request]
 
@@ -6,7 +6,7 @@ permissions:
   contents: read
 
 jobs:
-  typescript:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,5 +14,6 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - name: Publish Preview Versions
-        run: npx pkg-pr-new publish './typescript' --template './playground'
+      - name: test pkg
+        run: npm test
+        working-directory: ./typescript

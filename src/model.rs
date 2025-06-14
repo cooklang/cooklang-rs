@@ -4,6 +4,9 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "ts")]
+use tsify::{declare, Tsify};
+
 use crate::{
     convert::Converter,
     metadata::Metadata,
@@ -24,8 +27,10 @@ use crate::{
 /// returns [`ScalableValue`]s and after scaling, these are converted to regular
 /// [`Value`]s.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Recipe<D, V: QuantityValue> {
     /// Metadata
+    #[cfg_attr(feature = "ts", serde(skip))]
     pub metadata: Metadata,
     /// Each of the sections
     ///
@@ -53,10 +58,12 @@ pub type ScalableRecipe = Recipe<crate::scale::Servings, ScalableValue>;
 ///
 /// Note that this doesn't implement [`Recipe::scale`]. A recipe can only be
 /// scaled once.
+#[cfg_attr(feature = "ts", declare)]
 pub type ScaledRecipe = Recipe<crate::scale::Scaled, Value>;
 
 /// A section holding steps
 #[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Section {
     /// Name of the section
     pub name: Option<String>,
@@ -82,6 +89,7 @@ impl Section {
 
 /// Each type of content inside a section
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Content {
     /// A step
@@ -126,6 +134,7 @@ impl Content {
 
 /// A step holding step [`Item`]s
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[non_exhaustive]
 pub struct Step {
     /// [`Item`]s inside
@@ -143,6 +152,7 @@ pub struct Step {
 /// Except for [`Item::Text`], the value is the index where the item is located
 /// in it's corresponding [`Vec`] in the [`Recipe`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum Item {
     /// Just plain text
@@ -164,9 +174,10 @@ pub enum Item {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct RecipeReference {
     pub name: String,
-    pub components: Vec<String>
+    pub components: Vec<String>,
 }
 
 impl RecipeReference {
@@ -177,6 +188,7 @@ impl RecipeReference {
 
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Ingredient<V: QuantityValue = Value> {
     /// Name
     ///
@@ -192,6 +204,7 @@ pub struct Ingredient<V: QuantityValue = Value> {
     pub reference: Option<RecipeReference>,
     /// How the cookware is related to others
     pub relation: IngredientRelation,
+    #[cfg_attr(feature = "ts", serde(skip))]
     pub(crate) modifiers: Modifiers,
 }
 
@@ -281,6 +294,7 @@ impl Ingredient<Value> {
 
 /// A recipe cookware item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Cookware<V: QuantityValue = Value> {
     /// Name
     pub name: String,
@@ -294,6 +308,7 @@ pub struct Cookware<V: QuantityValue = Value> {
     pub note: Option<String>,
     /// How the cookware is related to others
     pub relation: ComponentRelation,
+    #[cfg_attr(not(feature = "ts"), serde(skip))]
     pub(crate) modifiers: Modifiers,
 }
 
@@ -361,6 +376,7 @@ impl Cookware<Value> {
 
 /// Relation between components
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum ComponentRelation {
     /// The component is a definition
@@ -427,8 +443,9 @@ impl ComponentRelation {
 /// Same as [`ComponentRelation`] but with the ability to reference steps and
 /// sections apart from other ingredients.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct IngredientRelation {
-    #[serde(flatten)]
+    #[cfg_attr(feature = "ts", serde(flatten))]
     relation: ComponentRelation,
     reference_target: Option<IngredientReferenceTarget>,
 }
@@ -437,6 +454,7 @@ pub struct IngredientRelation {
 ///
 /// This is obtained from [`IngredientRelation::references_to`]
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum IngredientReferenceTarget {
     /// Ingredient definition
@@ -539,6 +557,7 @@ impl IngredientRelation {
 /// If created from parsing, at least one of the fields is guaranteed to be
 /// [`Some`].
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Timer<V: QuantityValue = Value> {
     /// Name
     pub name: Option<String>,
