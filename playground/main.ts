@@ -7,9 +7,6 @@ declare global {
 }
 
 async function run(): Promise<void> {
-  // TODO can this be removed?
-  await init();
-
   const editor = window.ace.edit("editor", {
     wrap: true,
     printMargin: false,

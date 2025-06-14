@@ -20,8 +20,8 @@
   ],
   "scripts": {
     "build": "echo noop",
-    "build-wasm": "wasm-pack build --target web",
-    "watch-wasm": "wasm-pack build --dev --mode no-install --target web",
+    "build-wasm": "wasm-pack build --target bundler",
+    "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler",
     "prepare": "npm run build-wasm && npm run build"
   },
   "devDependencies": {
