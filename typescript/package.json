@@ -22,9 +22,12 @@
     "build": "echo noop",
     "build-wasm": "wasm-pack build --target bundler",
     "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler",
-    "prepare": "npm run build-wasm && npm run build"
+    "prepare": "npm run build-wasm && npm run build",
+    "test": "vitest"
   },
   "devDependencies": {
+    "vite-plugin-wasm": "^3.4.1",
+    "vitest": "^3.2.3",
     "wasm-pack": "^0.13.1"
   }
 }
