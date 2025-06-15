@@ -3,6 +3,9 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "ts")]
+use tsify::Tsify;
+
 use crate::{
     convert::Converter,
     quantity::{ScalableQuantity, ScalableValue, ScaledQuantity, TextValueError, Value},
@@ -11,8 +14,9 @@ use crate::{
 
 /// Configures the scaling target
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct ScaleTarget {
-    factor: f64
+    factor: f64,
 }
 
 impl ScaleTarget {
@@ -22,9 +26,7 @@ impl ScaleTarget {
     /// Invalid parameters don't error here, but may do so in the
     /// scaling process.
     fn new(factor: f64) -> Self {
-        ScaleTarget {
-            factor,
-        }
+        ScaleTarget { factor }
     }
 
     /// Get the calculated scaling factor
@@ -38,6 +40,7 @@ pub struct Servings(pub(crate) Option<Vec<u32>>);
 
 /// Possible scaled states of a recipe
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(tag = "type")]
 pub enum Scaled {
     /// The recipe was scaled to its based servings
@@ -51,6 +54,7 @@ pub enum Scaled {
 
 /// Data from scaling a recipe
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct ScaledData {
     /// What the target was
     pub target: ScaleTarget,
@@ -64,6 +68,7 @@ pub struct ScaledData {
 
 /// Possible outcomes from scaling a component
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(rename_all = "camelCase")]
 pub enum ScaleOutcome {
     /// Success

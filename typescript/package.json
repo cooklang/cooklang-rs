@@ -2,8 +2,9 @@
   "name": "@cooklang/cooklang-ts",
   "version": "0.0.0",
   "license": "MIT",
-  "main": "pkg/cooklang_wasm.js",
+  "main": "index.js",
   "files": [
+    "index.js",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
     "pkg/cooklang_wasm.d.ts",
@@ -19,11 +20,14 @@
   ],
   "scripts": {
     "build": "echo noop",
-    "build-wasm": "wasm-pack build --target web",
-    "watch-wasm": "wasm-pack build --dev --mode no-install --target web",
-    "prepare": "npm run build-wasm && npm run build"
+    "build-wasm": "wasm-pack build --target bundler",
+    "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler",
+    "prepare": "npm run build-wasm && npm run build",
+    "test": "vitest"
   },
   "devDependencies": {
+    "vite-plugin-wasm": "^3.4.1",
+    "vitest": "^3.2.3",
     "wasm-pack": "^0.13.1"
   }
 }
