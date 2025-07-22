@@ -337,6 +337,7 @@ pub struct UnitEntry {
     pub expand_si: bool,
 }
 
+#[cfg(feature = "bundled_units")]
 include!(concat!(env!("OUT_DIR"), "/bundled_units.rs"));
 
 #[cfg(feature = "bundled_units")]
