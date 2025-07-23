@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cooklang::aisle::parse as parse_aisle_config_original;
+use cooklang::aisle::parse_lenient;
 
 pub mod aisle;
 pub mod model;
@@ -24,9 +24,7 @@ pub fn parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata {
     let mut metadata = CooklangMetadata::new();
     let parser = cooklang::CooklangParser::canonical();
 
-    let (parsed, _warnings) = parser.parse(&input)
-        .into_result()
-        .unwrap();
+    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
     let scaled = parsed.scale(scaling_factor, parser.converter());
 
@@ -76,7 +74,27 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let mut categories: Vec<AisleCategory> = Vec::new();
     let mut cache: AisleReverseCategory = AisleReverseCategory::default();
 
-    let parsed = parse_aisle_config_original(&input).unwrap();
+    // Use the lenient parser that handles duplicates as warnings
+    let result = parse_lenient(&input);
+    let parsed = match result.into_result() {
+        Ok((parsed, warnings)) => {
+            // Log warnings if any
+            if warnings.has_warnings() {
+                for diag in warnings.iter() {
+                    eprintln!("Warning: {}", diag);
+                }
+            }
+            parsed
+        }
+        Err(report) => {
+            // Log errors
+            for diag in report.iter() {
+                eprintln!("Error: {}", diag);
+            }
+            // Return empty config on error
+            Default::default()
+        }
+    };
 
     let _ = &(parsed).categories.iter().for_each(|c| {
         let category = into_category(c);
@@ -132,7 +150,7 @@ mod tests {
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         assert_eq!(
@@ -209,7 +227,7 @@ source: https://google.com
 a test @step @salt{1%mg} more text
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         assert_eq!(
@@ -357,7 +375,7 @@ dried oregano
 Cook @onions{3%large} until brown
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         let first_section = recipe
@@ -416,7 +434,7 @@ add @tomatoes{400%g}
 simmer for 10 minutes
 "#
             .to_string(),
-            1.0
+            1.0,
         );
         let first_section = recipe
             .sections
@@ -481,7 +499,7 @@ Mix @flour{200%g} and @water{50%ml} together until smooth.
 Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
 "#
             .to_string(),
-            1.0
+            1.0,
         );
 
         let mut sections = recipe.sections.into_iter();

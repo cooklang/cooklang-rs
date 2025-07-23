@@ -11,8 +11,9 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    error::{CowStr, Label, RichError},
+    error::{CowStr, Label, RichError, SourceDiag, SourceReport, Stage},
     span::Span,
+    PassResult,
 };
 
 /// Represents a aisle configuration file
@@ -96,8 +97,12 @@ impl AisleConf<'_> {
     }
 }
 
-/// Parse an [`AisleConf`] with the cooklang shopping list format
-pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
+/// Core parsing logic that can either return errors or collect warnings
+fn parse_core<'i>(
+    input: &'i str,
+    lenient: bool,
+    mut report: Option<&mut SourceReport>,
+) -> Result<AisleConf<'i>, AisleConfError> {
     let mut categories: Vec<Category> = Vec::new();
     let mut current_category: Option<Category> = None;
 
@@ -126,18 +131,45 @@ pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
         if line.starts_with('[') && line.ends_with(']') {
             let name = &line[1..line.len() - 1];
             if name.contains('|') {
-                return Err(AisleConfError::Parse {
-                    span: calc_span(name),
-                    message: "Invalid category name".to_string(),
-                });
+                if lenient {
+                    if let Some(report) = report.as_mut() {
+                        let warning = SourceDiag::warning(
+                            "Invalid category name: contains '|' character",
+                            (
+                                calc_span(name),
+                                Some("category names cannot contain '|'".into()),
+                            ),
+                            Stage::Parse,
+                        );
+                        report.push(warning);
+                    }
+                    continue;
+                } else {
+                    return Err(AisleConfError::Parse {
+                        span: calc_span(name),
+                        message: "Invalid category name".to_string(),
+                    });
+                }
             }
 
             if let Some(&other) = used_categories.get(name) {
-                return Err(AisleConfError::DuplicateCategory {
-                    name: name.to_string(),
-                    first_span: calc_span(other),
-                    second_span: calc_span(name),
-                });
+                if lenient {
+                    if let Some(report) = report.as_mut() {
+                        let warning = SourceDiag::warning(
+                            format!("Duplicate category: '{}'", name),
+                            (calc_span(name), Some("duplicate found here".into())),
+                            Stage::Parse,
+                        );
+                        report.push(warning);
+                    }
+                    continue;
+                } else {
+                    return Err(AisleConfError::DuplicateCategory {
+                        name: name.to_string(),
+                        first_span: calc_span(other),
+                        second_span: calc_span(name),
+                    });
+                }
             }
 
             used_categories.insert(name);
@@ -154,23 +186,52 @@ pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
             for mut n in line.split('|') {
                 n = n.trim();
                 if let Some(&other) = used_names.get(n) {
-                    return Err(AisleConfError::DuplicateIngredient {
-                        name: n.to_string(),
-                        first_span: calc_span(other),
-                        second_span: calc_span(n),
-                    });
+                    if lenient {
+                        if let Some(report) = report.as_mut() {
+                            let warning = SourceDiag::warning(
+                                format!("Duplicate ingredient: '{}'", n),
+                                (calc_span(n), Some("duplicate found here".into())),
+                                Stage::Parse,
+                            );
+                            report.push(warning);
+                        }
+                        continue;
+                    } else {
+                        return Err(AisleConfError::DuplicateIngredient {
+                            name: n.to_string(),
+                            first_span: calc_span(other),
+                            second_span: calc_span(n),
+                        });
+                    }
                 }
                 used_names.insert(n);
                 names.push(n);
             }
-            let names = line.split('|').map(str::trim).collect();
-            if let Some(cat) = &mut current_category {
-                cat.ingredients.push(Ingredient { names });
-            } else {
-                return Err(AisleConfError::Parse {
-                    span: calc_span(line),
-                    message: "Expected category".to_string(),
-                });
+
+            // Only add ingredient if it has at least one name
+            if !names.is_empty() {
+                if let Some(cat) = &mut current_category {
+                    cat.ingredients.push(Ingredient { names });
+                } else {
+                    if lenient {
+                        if let Some(report) = report.as_mut() {
+                            let warning = SourceDiag::warning(
+                                "Ingredient found before any category",
+                                (
+                                    calc_span(line),
+                                    Some("add a category before listing ingredients".into()),
+                                ),
+                                Stage::Parse,
+                            );
+                            report.push(warning);
+                        }
+                    } else {
+                        return Err(AisleConfError::Parse {
+                            span: calc_span(line),
+                            message: "Expected category".to_string(),
+                        });
+                    }
+                }
             }
         }
     }
@@ -183,6 +244,39 @@ pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
         categories,
         len: std::cell::Cell::new(0),
     })
+}
+
+/// Parse an [`AisleConf`] with the cooklang shopping list format
+pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
+    parse_core(input, false, None)
+}
+
+/// Parse aisle configuration with lenient handling of duplicates
+///
+/// This function returns a [`PassResult`] which includes both the parsed configuration
+/// and any warnings that occurred during parsing. Duplicate ingredients will be
+/// reported as warnings rather than errors.
+///
+/// # Examples
+///
+/// ```
+/// let aisle_conf = r#"
+/// [fruit and vegetables]
+/// potato
+/// apple
+/// "#;
+///
+/// let result = cooklang::aisle::parse_lenient(aisle_conf);
+/// let (parsed, warnings) = result.into_result().unwrap();
+///
+/// assert_eq!(parsed.categories.len(), 1);
+/// assert_eq!(parsed.categories[0].ingredients.len(), 2);
+/// ```
+pub fn parse_lenient(input: &str) -> PassResult<AisleConf> {
+    let mut report = SourceReport::empty();
+
+    let conf = parse_core(input, true, Some(&mut report)).expect("lenient parsing should never fail");
+    PassResult::new(Some(conf), report)
 }
 
 /// Write an [`AisleConf`] in the cooklang shopping list format
@@ -499,5 +593,76 @@ tuna|chicken of the sea
         let serialized = String::from_utf8(buffer).unwrap();
         let got2 = parse(&serialized).unwrap();
         assert_eq!(got, got2);
+    }
+
+    #[test]
+    fn parse_lenient_with_duplicates() {
+        let input = r#"
+[dairy]
+milk
+cheese
+
+[produce]
+apple
+apple
+banana
+
+[meat]
+chicken
+apple
+"#;
+        let result = parse_lenient(input);
+        let (parsed, warnings) = result.into_result().unwrap();
+
+        // Should have warnings but still parse successfully
+        assert!(warnings.has_warnings());
+        // Count warnings
+        let warning_count = warnings.iter().count();
+        assert_eq!(warning_count, 2); // Two duplicate 'apple' entries
+
+        // Check that duplicates were skipped
+        assert_eq!(parsed.categories.len(), 3);
+
+        // Check produce category only has apple once
+        let produce = &parsed.categories[1];
+        assert_eq!(produce.name, "produce");
+        assert_eq!(produce.ingredients.len(), 2); // apple and banana
+        assert_eq!(produce.ingredients[0].names, vec!["apple"]);
+        assert_eq!(produce.ingredients[1].names, vec!["banana"]);
+
+        // Check meat category doesn't have apple
+        let meat = &parsed.categories[2];
+        assert_eq!(meat.name, "meat");
+        assert_eq!(meat.ingredients.len(), 1); // only chicken
+        assert_eq!(meat.ingredients[0].names, vec!["chicken"]);
+    }
+
+    #[test]
+    fn parse_lenient_with_all_error_types() {
+        let input = r#"
+orphan ingredient
+[dairy|invalid]
+milk
+[dairy]
+cheese
+[produce]
+apple
+"#;
+        let result = parse_lenient(input);
+        let (parsed, warnings) = result.into_result().unwrap();
+
+        // Should have warnings but still parse successfully
+        assert!(warnings.has_warnings());
+        let warning_count = warnings.iter().count();
+        assert_eq!(warning_count, 3); // orphan ingredient, invalid category, duplicate category
+
+        // Check that we got the valid parts
+        assert_eq!(parsed.categories.len(), 2);
+        assert_eq!(parsed.categories[0].name, "dairy");
+        assert_eq!(parsed.categories[0].ingredients.len(), 1);
+        assert_eq!(parsed.categories[0].ingredients[0].names, vec!["cheese"]);
+        assert_eq!(parsed.categories[1].name, "produce");
+        assert_eq!(parsed.categories[1].ingredients.len(), 1);
+        assert_eq!(parsed.categories[1].ingredients[0].names, vec!["apple"]);
     }
 }
