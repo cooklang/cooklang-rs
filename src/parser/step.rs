@@ -478,7 +478,7 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
         } else {
             Span::pos(name_offset)
         };
-        bp.warn(warning!(
+        bp.error(error!(
             "Invalid timer: neither quantity nor name",
             label!(span, "expected duration or name"),
         ));
