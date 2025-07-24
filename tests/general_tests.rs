@@ -247,3 +247,27 @@ fn text_steps_extension() {
         [Content::Text(_)]
     ));
 }
+
+#[test]
+fn timer_missing_unit_warning() {
+    let input = "Cook for ~{30}";
+
+    let parser = CooklangParser::canonical();
+    let result = parser.parse(input);
+
+    // Check that we get a warning, not an error
+    let report = result.report();
+
+    // Verify we have exactly one warning
+    assert_eq!(report.iter().count(), 1);
+
+    // Check that it's a warning, not an error
+    let diag = report.iter().next().unwrap();
+    assert_eq!(diag.severity, cooklang::error::Severity::Warning);
+
+    // Verify the warning message
+    assert!(diag.message.contains("Invalid timer quantity: missing unit"));
+
+    // Should parse successfully (not error)
+    let _r = result.unwrap_output();
+}

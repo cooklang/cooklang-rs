@@ -384,8 +384,8 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
             } else {
                 unit.span()
             };
-            bp.error(
-                error!(
+            bp.warn(
+                warning!(
                     "Invalid cookware quantity: unit",
                     label!(span, "remove this"),
                 )
@@ -443,8 +443,8 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     let mut quantity = body.quantity.map(|tokens| {
         let q = parse_quantity(bp, tokens);
         if q.quantity.unit.is_none() {
-            bp.error(
-                error!(
+            bp.warn(
+                warning!(
                     "Invalid timer quantity: missing unit",
                     label!(
                         Span::pos(q.quantity.value.span().end()),
