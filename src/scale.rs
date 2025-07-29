@@ -19,21 +19,21 @@ impl Recipe {
         };
 
         // Update metadata with new servings
-        let mut metadata = self.metadata;
-        if let Servings(Some(servings)) = &self.data {
-            if let Some(base_servings) = servings.first() {
-                let new_servings = (*base_servings as f64 * factor).round() as u32;
-                if metadata.get(crate::metadata::StdKey::Servings).is_some() {
-                    // Update existing servings value
-                    if let Some(servings_value) =
-                        metadata.get_mut(crate::metadata::StdKey::Servings)
-                    {
-                        *servings_value =
-                            serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
-                    }
-                }
-            }
-        }
+        // let mut metadata = self.metadata;
+        // if let Servings(Some(servings)) = &self.data {
+        //     if let Some(base_servings) = servings.first() {
+        //         let new_servings = (*base_servings as f64 * factor).round() as u32;
+        //         if metadata.get(crate::metadata::StdKey::Servings).is_some() {
+        //             // Update existing servings value
+        //             if let Some(servings_value) =
+        //                 metadata.get_mut(crate::metadata::StdKey::Servings)
+        //             {
+        //                 *servings_value =
+        //                     serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
+        //             }
+        //         }
+        //     }
+        // }
 
         self.ingredients
             .iter_mut()
