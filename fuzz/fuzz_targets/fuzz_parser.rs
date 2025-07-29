@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::fuzz_target;
 
-use cooklang::{CooklangParser, Extensions, Converter};
+use cooklang::{Converter, CooklangParser, Extensions};
 
 fuzz_target!(|contents: &str| {
     let parser = CooklangParser::new(Extensions::all(), Converter::default());

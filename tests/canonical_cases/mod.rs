@@ -1,6 +1,6 @@
 //! AUTO GENERATED WITH `gen_canonical_tests.py`
-use test_case::test_case;
 use super::{runner, TestCase};
+use test_case::test_case;
 #[test_case(r#"
 result:
   metadata: {}

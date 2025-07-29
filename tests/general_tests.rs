@@ -266,7 +266,9 @@ fn timer_missing_unit_warning() {
     assert_eq!(diag.severity, cooklang::error::Severity::Warning);
 
     // Verify the warning message
-    assert!(diag.message.contains("Invalid timer quantity: missing unit"));
+    assert!(diag
+        .message
+        .contains("Invalid timer quantity: missing unit"));
 
     // Should parse successfully (not error)
     let _r = result.unwrap_output();
