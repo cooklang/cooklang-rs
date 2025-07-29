@@ -8,6 +8,7 @@
   this functionality was needed, it can easily be replaced by checking if the
   quatity is text or not scalable.
 - Cookware now can have full quantities with units, not just values.
+- Servings value in metadata now isn't a vector
 
 ## 0.16.3 - 2025/07/28
 
