@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[cfg(feature = "ts")]
-use tsify::{declare, Tsify};
+use tsify::Tsify;
 
 use crate::convert::{ConvertError, Converter, PhysicalQuantity, Unit};
 

@@ -23,7 +23,7 @@ pub struct Parser {
 #[derive(Tsify, Serialize, Deserialize)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct ScaledRecipeWithReport {
-    recipe: cooklang::ScaledRecipe,
+    recipe: cooklang::Recipe,
     report: String,
 }
 
@@ -85,11 +85,10 @@ impl Parser {
 
     pub fn parse(&self, input: &str) -> ScaledRecipeWithReport {
         let (recipe, _report) = self.parser.parse(input).into_tuple();
-        let scaled = recipe
-            .expect("expected recipe")
-            .scale(1., self.parser.converter());
+        let mut recipe = recipe.expect("expected recipe");
+        recipe.scale(1., self.parser.converter());
         let data = ScaledRecipeWithReport {
-            recipe: scaled,
+            recipe,
             report: "<no output>".to_string(),
         };
         data
@@ -135,7 +134,7 @@ impl Parser {
                     author: Option<NameAndUrl>,
                     source: Option<NameAndUrl>,
                     time: Option<RecipeTime>,
-                    servings: Option<Vec<u32>>,
+                    servings: Option<cooklang::metadata::Servings>,
                     locale: Option<(&'a str, Option<&'a str>)>,
                 }
                 let val = StdMeta {

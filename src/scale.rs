@@ -3,11 +3,10 @@
 use crate::{convert::Converter, quantity::Value, Quantity, Recipe};
 use thiserror::Error;
 
-#[cfg(feature = "ts")]
-use tsify::Tsify;
 
 /// Error type for scaling operations
-#[derive(Debug, Error)]
+#[derive(Debug, Error, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum ScaleError {
     /// The recipe has no valid numeric servings value
     #[error("Cannot scale recipe: servings metadata is not a valid number")]

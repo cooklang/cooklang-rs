@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "ts")]
-use tsify::{declare, Tsify};
+use tsify::Tsify;
 
 use crate::{
     convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity, GroupedQuantity,

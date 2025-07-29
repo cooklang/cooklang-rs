@@ -532,6 +532,7 @@ pub(crate) fn check_std_entry(
 
 /// Servings information that can be numeric or a string
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 #[serde(untagged)]
 pub enum Servings {
     /// Numeric servings count
