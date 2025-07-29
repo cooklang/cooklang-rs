@@ -36,7 +36,7 @@ impl ScaleTarget {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Servings(pub(crate) Option<Vec<u32>>);
+pub struct Servings(pub(crate) Option<u32>);
 
 /// Possible scaled states of a recipe
 #[derive(Debug, Serialize, Deserialize)]
@@ -152,17 +152,17 @@ impl ScalableRecipe {
 
         // Update metadata with new servings
         let mut metadata = self.metadata;
-        if let Servings(Some(servings)) = &self.data {
-            if let Some(base_servings) = servings.first() {
-                let new_servings = (*base_servings as f64 * factor).round() as u32;
-                if metadata.get(crate::metadata::StdKey::Servings).is_some() {
-                    // Update existing servings value
-                    if let Some(servings_value) =
-                        metadata.get_mut(crate::metadata::StdKey::Servings)
-                    {
-                        *servings_value =
-                            serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
-                    }
+
+        if let Servings(Some(base_servings)) = &self.data {
+            let new_servings = (*base_servings as f64 * factor).round() as u32;
+
+            if metadata.get(crate::metadata::StdKey::Servings).is_some() {
+                // Update existing servings value
+                if let Some(servings_value) =
+                    metadata.get_mut(crate::metadata::StdKey::Servings)
+                {
+                    *servings_value =
+                        serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
                 }
             }
         }
@@ -180,8 +180,8 @@ impl ScalableRecipe {
 
     /// - `target` is the wanted number of servings.
     pub fn scale_to_servings(self, target: u32, converter: &Converter) -> ScaledRecipe {
-        let base = if let Servings(Some(servings)) = &self.data {
-            servings.first().copied().unwrap_or(1)
+        let base = if let Servings(Some(servings)) = self.data {
+            servings
         } else {
             1
         };
@@ -362,9 +362,9 @@ impl ScalableRecipe {
     ///
     /// This is set automatically from the metadata. To change it manually use
     /// [`set_servings`](ScalableRecipe::set_servings).
-    pub fn servings(&self) -> Option<&[u32]> {
-        if let Servings(Some(s)) = &self.data {
-            Some(s.as_slice())
+    pub fn servings(&self) -> Option<u32> {
+        if let Servings(Some(s)) = self.data {
+            Some(s)
         } else {
             None
         }
@@ -374,7 +374,7 @@ impl ScalableRecipe {
     ///
     /// This will usually be set automatically from the metadata. But you can
     /// use this method to set it manually or modify it.
-    pub fn set_servings(&mut self, servings: Vec<u32>) {
+    pub fn set_servings(&mut self, servings: u32) {
         self.data = Servings(Some(servings))
     }
 }

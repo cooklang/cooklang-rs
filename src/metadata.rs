@@ -200,12 +200,9 @@ impl Metadata {
     }
 
     /// Servings the recipe is made for
-    ///
-    /// This returns a list of servings to support scaling. See
-    /// [`CooklangValueExt::as_servings`] for the expected format.
-    pub fn servings(&self) -> Option<Vec<u32>> {
+    pub fn servings(&self) -> Option<u32> {
         self.get(StdKey::Servings)
-            .and_then(CooklangValueExt::as_servings)
+            .and_then(CooklangValueExt::as_u32)
     }
 
     /// Recipe locale
@@ -271,35 +268,6 @@ pub trait CooklangValueExt: private::Sealed {
     /// Duplicates and empty entries removed.
     fn as_tags(&self) -> Option<Vec<Cow<str>>>;
 
-    /// Pipe ('|') separated string or YAML sequence of numbers
-    ///
-    /// This extracts only the number at the beginning, but the entry can have
-    /// extra text, like the unit. For example:
-    /// ```yaml
-    /// servings: 5 cups worth
-    /// ```
-    /// will return `vec![5]`.
-    ///
-    /// These values will be used for scaling the recipe. If you want to display
-    /// the full text alongside the values, you can do something like:
-    ///
-    /// ```no_run
-    /// # use cooklang::metadata::*;
-    /// # fn f() -> Option<()> {
-    /// # let metadata = Metadata::default();
-    /// let nums = metadata.get("servings")?.as_servings()?;
-    /// let texts  = metadata.get("servings")?.as_string_list("|")?;
-    ///
-    /// for (num, text) in nums.iter().zip(texts.iter()) {
-    ///     println!("{num} - '{text}'")
-    /// }
-    /// # Some(())
-    /// # }
-    /// ```
-    ///
-    /// Duplicates not allowed, will return `None`.
-    fn as_servings(&self) -> Option<Vec<u32>>;
-
     /// String separated by `sep` or YAML sequence of strings and/or numbers
     ///
     /// This only checks types and convert numbers to strings if neccesary.
@@ -350,10 +318,6 @@ pub trait CooklangValueExt: private::Sealed {
 impl CooklangValueExt for serde_yaml::Value {
     fn as_tags(&self) -> Option<Vec<Cow<str>>> {
         value_as_tags(self).ok()
-    }
-
-    fn as_servings(&self) -> Option<Vec<u32>> {
-        value_as_servings(self).ok()
     }
 
     fn as_string_list<'a>(&'a self, sep: &str) -> Option<Vec<Cow<'a, str>>> {
@@ -441,51 +405,13 @@ fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError
     Ok(tags)
 }
 
-fn value_as_servings(val: &serde_yaml::Value) -> Result<Vec<u32>, MetadataError> {
-    fn extract_value(s: &str) -> Result<u32, std::num::ParseIntError> {
-        let idx = s
-            .find(|c: char| !c.is_ascii_alphanumeric())
-            .unwrap_or(s.len());
-        let n_str = &s[..idx];
-        n_str.parse()
-    }
-
-    let servings: Vec<u32> = if let Some(n) = val.as_u32() {
-        vec![n]
-    } else if let Some(s) = val.as_str() {
-        s.split('|')
-            .map(str::trim)
-            .map(extract_value)
-            .collect::<Result<Vec<_>, _>>()?
-    } else if let Some(seq) = val.as_sequence() {
-        let mut v = Vec::with_capacity(seq.len());
-        for e in seq {
-            if let Some(n) = e.as_u32() {
-                v.push(n);
-            } else if let Some(s) = e.as_str() {
-                v.push(extract_value(s)?);
-            } else {
-                return Err(MetadataError::BadSequenceType {
-                    expected: MetaType::Number,
-                    got: MetaType::from(e),
-                });
-            }
-        }
-        v
+fn value_as_servings(val: &serde_yaml::Value) -> Result<u32, MetadataError> {
+    let servings: u32 = if let Some(n) = val.as_u32() {
+        n
     } else {
-        return Err(MetadataError::expect_type(MetaType::Sequence, val));
+        return Err(MetadataError::expect_type(MetaType::Number, val));
     };
 
-    let l = servings.len();
-    let dedup_l = {
-        let mut temp = servings.clone();
-        temp.sort_unstable();
-        temp.dedup();
-        temp.len()
-    };
-    if l != dedup_l {
-        return Err(MetadataError::DuplicateServings { servings });
-    }
     Ok(servings)
 }
 
@@ -554,7 +480,8 @@ pub(crate) fn check_std_entry(
 ) -> Result<Option<crate::scale::Servings>, MetadataError> {
     match key {
         StdKey::Servings => {
-            return value_as_servings(value).map(|s| Some(crate::scale::Servings(Some(s))))
+            return Ok(Some(crate::scale::Servings(Some(value_as_servings(value)?))));
+            // return value.as_u32().ok_or(MetadataError::expect_type(MetaType::Number, value))
         }
         StdKey::Tags => {
             value_as_tags(value)?;
@@ -845,8 +772,6 @@ pub(crate) enum MetadataError {
     BadMapping,
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
-    #[error("Duplicate servings: {servings:?}")]
-    DuplicateServings { servings: Vec<u32> },
     #[error(transparent)]
     ParseTimeError(#[from] ParseTimeError),
     #[error("Invalid locale: {0}")]
