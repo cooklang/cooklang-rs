@@ -12,11 +12,11 @@ use model::*;
 pub fn parse_recipe(input: String, scaling_factor: f64) -> CooklangRecipe {
     let parser = cooklang::CooklangParser::canonical();
 
-    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
+    let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    let scaled = parsed.scale(scaling_factor, parser.converter());
+    parsed.scale(scaling_factor, parser.converter());
 
-    into_simple_recipe(&scaled)
+    into_simple_recipe(&parsed)
 }
 
 #[uniffi::export]
@@ -24,12 +24,12 @@ pub fn parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata {
     let mut metadata = CooklangMetadata::new();
     let parser = cooklang::CooklangParser::canonical();
 
-    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
+    let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    let scaled = parsed.scale(scaling_factor, parser.converter());
+    parsed.scale(scaling_factor, parser.converter());
 
     // converting IndexMap into HashMap
-    let _ = &(scaled.metadata.map).iter().for_each(|(key, value)| {
+    let _ = &(parsed.metadata.map).iter().for_each(|(key, value)| {
         if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
             metadata.insert(key.to_string(), value.to_string());
         }
