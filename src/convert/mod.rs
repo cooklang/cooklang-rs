@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    quantity::{Number, Quantity, ScaledQuantity, Value},
-    ScaledRecipe,
+    quantity::{Number, Quantity, Value},
+    Recipe,
 };
 
 pub use builder::{ConverterBuilder, ConverterBuilderError};
@@ -412,7 +412,7 @@ pub enum PhysicalQuantity {
     Time,
 }
 
-impl ScaledRecipe {
+impl Recipe {
     /// Convert a [`ScaledRecipe`] to another [`System`] in place.
     ///
     /// When an error occurs, it is stored and the quantity stays the same.
@@ -424,7 +424,7 @@ impl ScaledRecipe {
 
         let to = ConvertTo::from(to);
 
-        let mut conv = |q: &mut ScaledQuantity| {
+        let mut conv = |q: &mut Quantity| {
             if let Err(e) = q.convert(to, converter) {
                 errors.push(e)
             }
@@ -452,7 +452,7 @@ impl ScaledRecipe {
     }
 }
 
-impl ScaledQuantity {
+impl Quantity {
     pub fn convert<'a>(
         &mut self,
         to: impl Into<ConvertTo<'a>>,
@@ -866,7 +866,7 @@ impl PartialOrd<Self> for ConvertValue {
 #[derive(Debug, Error)]
 pub enum ConvertError {
     #[error("Tried to convert a value with no unit")]
-    NoUnit(ScaledQuantity),
+    NoUnit(Quantity),
 
     #[error("Tried to convert a text value: {0}")]
     TextValue(String),

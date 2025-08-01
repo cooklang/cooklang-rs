@@ -87,11 +87,7 @@ fn parse_regular_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> ParsedQuantity<'i
 }
 
 fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQuantity<'i>> {
-    if bp
-        .tokens()
-        .iter()
-        .any(|t| matches!(t.kind, T![%]))
-    {
+    if bp.tokens().iter().any(|t| matches!(t.kind, T![%])) {
         return None;
     }
 
@@ -138,7 +134,10 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
     Some(ParsedQuantity {
         quantity: Located::new(
             Quantity {
-                value: QuantityValue {value, scaling_lock},
+                value: QuantityValue {
+                    value,
+                    scaling_lock,
+                },
                 unit: Some(unit),
             },
             tokens_span(bp.tokens()),
@@ -152,7 +151,10 @@ fn value(bp: &mut BlockParser) -> QuantityValue {
     let value_tokens = bp.consume_while(|t| !matches!(t, T![%]));
     let value = parse_value(value_tokens, bp);
 
-    QuantityValue { value, scaling_lock }
+    QuantityValue {
+        value,
+        scaling_lock,
+    }
 }
 
 fn scaling_lock(bp: &mut BlockParser) -> Option<Span> {
@@ -162,8 +164,8 @@ fn scaling_lock(bp: &mut BlockParser) -> Option<Span> {
         T![=] => {
             let tok = bp.bump_any();
             Some(tok.span)
-        },
-        _ => None
+        }
+        _ => None,
     }
 }
 
@@ -329,7 +331,7 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{parser::TokenStream};
+    use crate::parser::TokenStream;
     use test_case::test_case;
 
     macro_rules! t {

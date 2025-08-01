@@ -1,14 +1,16 @@
 use std::collections::HashMap;
 
-use cooklang::model::Item as OriginalItem;
-use cooklang::quantity::{
-    Quantity as OriginalQuantity, Value as OriginalValue
+use cooklang::metadata::{
+    NameAndUrl as OriginalNameAndUrl, RecipeTime as OriginalRecipeTime, Servings as OriginalServings,
+    StdKey as OriginalStdKey,
 };
-use cooklang::ScaledRecipe as OriginalRecipe;
+use cooklang::model::Item as OriginalItem;
+use cooklang::quantity::{Quantity as OriginalQuantity, Value as OriginalValue};
+use cooklang::Recipe as OriginalRecipe;
 
-#[derive(uniffi::Record, Debug)]
+#[derive(uniffi::Object, Debug)]
 pub struct CooklangRecipe {
-    pub metadata: HashMap<String, String>,
+    pub(crate) metadata: cooklang::metadata::Metadata,
     pub sections: Vec<Section>,
     pub ingredients: Vec<Ingredient>,
     pub cookware: Vec<Cookware>,
@@ -16,7 +18,7 @@ pub struct CooklangRecipe {
 }
 pub type ComponentRef = u32;
 
-#[derive(uniffi::Record, Debug)]
+#[derive(uniffi::Record, Debug, Clone)]
 pub struct Section {
     pub title: Option<String>,
     pub blocks: Vec<Block>,
@@ -25,7 +27,7 @@ pub struct Section {
     pub timer_refs: Vec<ComponentRef>,
 }
 
-#[derive(uniffi::Enum, Debug)]
+#[derive(uniffi::Enum, Debug, Clone)]
 pub enum Block {
     StepBlock(Step),
     NoteBlock(BlockNote),
@@ -39,7 +41,7 @@ pub enum Component {
     TextComponent(String),
 }
 
-#[derive(uniffi::Record, Debug)]
+#[derive(uniffi::Record, Debug, Clone)]
 pub struct Step {
     pub items: Vec<Item>,
     pub ingredient_refs: Vec<ComponentRef>,
@@ -47,7 +49,7 @@ pub struct Step {
     pub timer_refs: Vec<ComponentRef>,
 }
 
-#[derive(uniffi::Record, Debug)]
+#[derive(uniffi::Record, Debug, Clone)]
 pub struct BlockNote {
     pub text: String,
 }
@@ -167,14 +169,102 @@ pub enum Value {
     Empty,
 }
 
-// TODO, should be more complex and support canonical keys
-pub type CooklangMetadata = HashMap<String, String>;
+// Metadata types
+#[derive(uniffi::Enum, Debug, Clone)]
+pub enum StdKey {
+    Title,
+    Description,
+    Tags,
+    Author,
+    Source,
+    Course,
+    Time,
+    PrepTime,
+    CookTime,
+    Servings,
+    Difficulty,
+    Cuisine,
+    Diet,
+    Images,
+    Locale,
+}
+
+impl From<&OriginalStdKey> for StdKey {
+    fn from(key: &OriginalStdKey) -> Self {
+        match key {
+            OriginalStdKey::Title => StdKey::Title,
+            OriginalStdKey::Description => StdKey::Description,
+            OriginalStdKey::Tags => StdKey::Tags,
+            OriginalStdKey::Author => StdKey::Author,
+            OriginalStdKey::Source => StdKey::Source,
+            OriginalStdKey::Course => StdKey::Course,
+            OriginalStdKey::Time => StdKey::Time,
+            OriginalStdKey::PrepTime => StdKey::PrepTime,
+            OriginalStdKey::CookTime => StdKey::CookTime,
+            OriginalStdKey::Servings => StdKey::Servings,
+            OriginalStdKey::Difficulty => StdKey::Difficulty,
+            OriginalStdKey::Cuisine => StdKey::Cuisine,
+            OriginalStdKey::Diet => StdKey::Diet,
+            OriginalStdKey::Images => StdKey::Images,
+            OriginalStdKey::Locale => StdKey::Locale,
+        }
+    }
+}
+
+#[derive(uniffi::Enum, Debug, Clone)]
+pub enum Servings {
+    Number { value: u32 },
+    Text { value: String },
+}
+
+impl From<OriginalServings> for Servings {
+    fn from(servings: OriginalServings) -> Self {
+        match servings {
+            OriginalServings::Number(n) => Servings::Number { value: n },
+            OriginalServings::Text(t) => Servings::Text { value: t },
+        }
+    }
+}
+
+#[derive(uniffi::Record, Debug, Clone)]
+pub struct NameAndUrl {
+    pub name: Option<String>,
+    pub url: Option<String>,
+}
+
+impl From<OriginalNameAndUrl> for NameAndUrl {
+    fn from(nu: OriginalNameAndUrl) -> Self {
+        NameAndUrl {
+            name: nu.name().map(|s| s.to_string()),
+            url: nu.url().map(|s| s.to_string()),
+        }
+    }
+}
+
+#[derive(uniffi::Enum, Debug, Clone)]
+pub enum RecipeTime {
+    Total { minutes: u32 },
+    Composed { prep_time: Option<u32>, cook_time: Option<u32> },
+}
+
+impl From<OriginalRecipeTime> for RecipeTime {
+    fn from(time: OriginalRecipeTime) -> Self {
+        match time {
+            OriginalRecipeTime::Total(m) => RecipeTime::Total { minutes: m },
+            OriginalRecipeTime::Composed { prep_time, cook_time } => RecipeTime::Composed {
+                prep_time,
+                cook_time,
+            },
+        }
+    }
+}
+
 
 trait Amountable {
     fn extract_amount(&self) -> Amount;
 }
 
-impl Amountable for OriginalQuantity<OriginalValue> {
+impl Amountable for OriginalQuantity {
     fn extract_amount(&self) -> Amount {
         let quantity = extract_value(self.value());
 
@@ -332,7 +422,7 @@ pub(crate) fn into_item(item: &OriginalItem) -> Item {
 }
 
 pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
-    let mut metadata = CooklangMetadata::new();
+    let metadata = recipe.metadata.clone();
     let ingredients: Vec<Ingredient> = recipe.ingredients.iter().map(|i| i.into()).collect();
     let cookware: Vec<Cookware> = recipe.cookware.iter().map(|i| i.into()).collect();
     let timers: Vec<Timer> = recipe.timers.iter().map(|i| i.into()).collect();
@@ -402,14 +492,6 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
         });
     }
 
-    // Process metadata
-    // TODO: add support for nested metadata
-    for (key, value) in &recipe.metadata.map {
-        if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
-            metadata.insert(key.to_string(), value.to_string());
-        }
-    }
-
     CooklangRecipe {
         metadata,
         sections,
@@ -419,8 +501,8 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
     }
 }
 
-impl From<&cooklang::Ingredient<OriginalValue>> for Ingredient {
-    fn from(ingredient: &cooklang::Ingredient<OriginalValue>) -> Self {
+impl From<&cooklang::Ingredient> for Ingredient {
+    fn from(ingredient: &cooklang::Ingredient) -> Self {
         Ingredient {
             name: ingredient.name.clone(),
             amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
@@ -429,8 +511,8 @@ impl From<&cooklang::Ingredient<OriginalValue>> for Ingredient {
     }
 }
 
-impl From<&cooklang::Cookware<OriginalValue>> for Cookware {
-    fn from(cookware: &cooklang::Cookware<OriginalValue>) -> Self {
+impl From<&cooklang::Cookware> for Cookware {
+    fn from(cookware: &cooklang::Cookware) -> Self {
         Cookware {
             name: cookware.name.clone(),
             amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
@@ -438,8 +520,8 @@ impl From<&cooklang::Cookware<OriginalValue>> for Cookware {
     }
 }
 
-impl From<&cooklang::Timer<OriginalValue>> for Timer {
-    fn from(timer: &cooklang::Timer<OriginalValue>) -> Self {
+impl From<&cooklang::Timer> for Timer {
+    fn from(timer: &cooklang::Timer) -> Self {
         Timer {
             name: Some(timer.name.clone().unwrap_or_default()),
             amount: timer.quantity.as_ref().map(|q| q.extract_amount()),

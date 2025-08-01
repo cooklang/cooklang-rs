@@ -3,14 +3,16 @@
 //! This is just if for some reason you want to split the parsing from the
 //! analysis.
 
-use crate::error::{CowStr, PassResult, SourceDiag};
-use crate::ScalableRecipe;
+use crate::{
+    error::{CowStr, PassResult, SourceDiag},
+    Recipe,
+};
 
 mod event_consumer;
 
 pub use event_consumer::parse_events;
 
-pub type AnalysisResult = PassResult<ScalableRecipe>;
+pub type AnalysisResult = PassResult<Recipe>;
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub(crate) enum DefineMode {

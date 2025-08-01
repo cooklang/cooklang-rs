@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use cooklang::aisle::parse_lenient;
+use cooklang::metadata::StdKey as OriginalStdKey;
 
 pub mod aisle;
 pub mod model;
@@ -9,37 +10,19 @@ use aisle::*;
 use model::*;
 
 #[uniffi::export]
-pub fn parse_recipe(input: String, scaling_factor: f64) -> CooklangRecipe {
+pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
     let parser = cooklang::CooklangParser::canonical();
 
-    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
+    let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    let scaled = parsed.scale(scaling_factor, parser.converter());
+    parsed.scale(scaling_factor, parser.converter());
 
-    into_simple_recipe(&scaled)
+    Arc::new(into_simple_recipe(&parsed))
 }
 
-#[uniffi::export]
-pub fn parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata {
-    let mut metadata = CooklangMetadata::new();
-    let parser = cooklang::CooklangParser::canonical();
-
-    let (parsed, _warnings) = parser.parse(&input).into_result().unwrap();
-
-    let scaled = parsed.scale(scaling_factor, parser.converter());
-
-    // converting IndexMap into HashMap
-    let _ = &(scaled.metadata.map).iter().for_each(|(key, value)| {
-        if let (Some(key), Some(value)) = (key.as_str(), value.as_str()) {
-            metadata.insert(key.to_string(), value.to_string());
-        }
-    });
-
-    metadata
-}
 
 #[uniffi::export]
-pub fn deref_component(recipe: &CooklangRecipe, item: Item) -> Component {
+pub fn deref_component(recipe: &Arc<CooklangRecipe>, item: Item) -> Component {
     match item {
         Item::IngredientRef { index } => {
             Component::IngredientComponent(recipe.ingredients.get(index as usize).unwrap().clone())
@@ -55,17 +38,17 @@ pub fn deref_component(recipe: &CooklangRecipe, item: Item) -> Component {
 }
 
 #[uniffi::export]
-pub fn deref_ingredient(recipe: &CooklangRecipe, index: u32) -> Ingredient {
+pub fn deref_ingredient(recipe: &Arc<CooklangRecipe>, index: u32) -> Ingredient {
     recipe.ingredients.get(index as usize).unwrap().clone()
 }
 
 #[uniffi::export]
-pub fn deref_cookware(recipe: &CooklangRecipe, index: u32) -> Cookware {
+pub fn deref_cookware(recipe: &Arc<CooklangRecipe>, index: u32) -> Cookware {
     recipe.cookware.get(index as usize).unwrap().clone()
 }
 
 #[uniffi::export]
-pub fn deref_timer(recipe: &CooklangRecipe, index: u32) -> Timer {
+pub fn deref_timer(recipe: &Arc<CooklangRecipe>, index: u32) -> Timer {
     recipe.timers.get(index as usize).unwrap().clone()
 }
 
@@ -134,6 +117,70 @@ pub fn combine_ingredients_selected(
     combined
 }
 
+// Metadata helper functions
+#[uniffi::export]
+pub fn metadata_servings(recipe: &Arc<CooklangRecipe>) -> Option<Servings> {
+    recipe.metadata.servings().map(|s| s.clone().into())
+}
+
+#[uniffi::export]
+pub fn metadata_title(recipe: &Arc<CooklangRecipe>) -> Option<String> {
+    recipe.metadata.title().map(|s| s.to_string())
+}
+
+#[uniffi::export]
+pub fn metadata_description(recipe: &Arc<CooklangRecipe>) -> Option<String> {
+    recipe.metadata.description().map(|s| s.to_string())
+}
+
+#[uniffi::export]
+pub fn metadata_tags(recipe: &Arc<CooklangRecipe>) -> Option<Vec<String>> {
+    recipe.metadata.tags().map(|tags| tags.into_iter().map(|t| t.to_string()).collect())
+}
+
+#[uniffi::export]
+pub fn metadata_author(recipe: &Arc<CooklangRecipe>) -> Option<NameAndUrl> {
+    recipe.metadata.author().map(|a| a.clone().into())
+}
+
+#[uniffi::export]
+pub fn metadata_source(recipe: &Arc<CooklangRecipe>) -> Option<NameAndUrl> {
+    recipe.metadata.source().map(|s| s.clone().into())
+}
+
+#[uniffi::export]
+pub fn metadata_time(recipe: &Arc<CooklangRecipe>) -> Option<RecipeTime> {
+    let converter = cooklang::Converter::empty();
+    recipe.metadata.time(&converter).map(|t| t.clone().into())
+}
+
+#[uniffi::export]
+pub fn metadata_get(recipe: &Arc<CooklangRecipe>, key: String) -> Option<String> {
+    recipe.metadata.get(&key).and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
+#[uniffi::export]
+pub fn metadata_get_std(recipe: &Arc<CooklangRecipe>, key: StdKey) -> Option<String> {
+    let original_key = match key {
+        StdKey::Title => OriginalStdKey::Title,
+        StdKey::Description => OriginalStdKey::Description,
+        StdKey::Tags => OriginalStdKey::Tags,
+        StdKey::Author => OriginalStdKey::Author,
+        StdKey::Source => OriginalStdKey::Source,
+        StdKey::Course => OriginalStdKey::Course,
+        StdKey::Time => OriginalStdKey::Time,
+        StdKey::PrepTime => OriginalStdKey::PrepTime,
+        StdKey::CookTime => OriginalStdKey::CookTime,
+        StdKey::Servings => OriginalStdKey::Servings,
+        StdKey::Difficulty => OriginalStdKey::Difficulty,
+        StdKey::Cuisine => OriginalStdKey::Cuisine,
+        StdKey::Diet => OriginalStdKey::Diet,
+        StdKey::Images => OriginalStdKey::Images,
+        StdKey::Locale => OriginalStdKey::Locale,
+    };
+    recipe.metadata.get(original_key).and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
 uniffi::setup_scaffolding!();
 
 #[cfg(test)]
@@ -168,15 +215,13 @@ a test @step @salt{1%mg} more text
         assert_eq!(
             match recipe
                 .sections
-                .into_iter()
-                .next()
+                .get(0)
                 .expect("No blocks found")
                 .blocks
-                .into_iter()
-                .next()
+                .get(0)
                 .expect("No blocks found")
             {
-                Block::StepBlock(step) => step,
+                Block::StepBlock(step) => step.clone(),
                 _ => panic!("Expected first block to be a Step"),
             }
             .items,
@@ -216,13 +261,15 @@ a test @step @salt{1%mg} more text
     }
 
     #[test]
-    fn test_parse_metadata() {
-        use crate::parse_metadata;
-        use std::collections::HashMap;
+    fn test_metadata_helpers() {
+        use crate::{metadata_source, metadata_title, metadata_servings, metadata_tags, parse_recipe, Servings};
 
-        let metadata = parse_metadata(
+        let recipe = parse_recipe(
             r#"---
+title: Test Recipe
 source: https://google.com
+servings: 4
+tags: easy, quick, vegetarian
 ---
 a test @step @salt{1%mg} more text
 "#
@@ -230,10 +277,70 @@ a test @step @salt{1%mg} more text
             1.0,
         );
 
+        // Test title
         assert_eq!(
-            metadata,
-            HashMap::from([("source".to_string(), "https://google.com".to_string())])
+            metadata_title(&recipe),
+            Some("Test Recipe".to_string())
         );
+
+        // Test source
+        let source = metadata_source(&recipe);
+        assert!(source.is_some());
+        let source = source.unwrap();
+        assert_eq!(source.url, Some("https://google.com".to_string()));
+
+        // Test servings
+        let servings = metadata_servings(&recipe);
+        assert!(servings.is_some());
+        match servings.unwrap() {
+            Servings::Number { value } => assert_eq!(value, 4),
+            _ => panic!("Expected number servings"),
+        }
+
+        // Test tags
+        let tags = metadata_tags(&recipe);
+        assert!(tags.is_some());
+        let tags = tags.unwrap();
+        assert_eq!(tags.len(), 3);
+        assert!(tags.contains(&"easy".to_string()));
+        assert!(tags.contains(&"quick".to_string()));
+        assert!(tags.contains(&"vegetarian".to_string()));
+    }
+
+    #[test]
+    fn test_metadata_advanced() {
+        use crate::{metadata_author, metadata_servings, parse_recipe, Servings};
+
+        let recipe = parse_recipe(
+            r#"---
+author: John Doe <https://johndoe.com>
+time: 1h 30m
+servings: 2-3 portions
+---
+Cook something delicious
+"#
+            .to_string(),
+            1.0,
+        );
+
+        // Test author with URL
+        let author = metadata_author(&recipe);
+        assert!(author.is_some());
+        let author = author.unwrap();
+        assert_eq!(author.name, Some("John Doe".to_string()));
+        assert_eq!(author.url, Some("https://johndoe.com".to_string()));
+
+        // Note: Time parsing requires units to be loaded in the converter
+        // Since we're using an empty converter, time parsing won't work for "1h 30m"
+        // We would need to add units configuration for this to work
+
+        // Test text servings
+        let servings = metadata_servings(&recipe);
+        assert!(servings.is_some());
+        match servings.unwrap() {
+            Servings::Text { value } => assert_eq!(value, "2-3 portions"),
+            _ => panic!("Expected text servings"),
+        }
     }
 
     #[test]
@@ -380,19 +487,17 @@ Cook @onions{3%large} until brown
 
         let first_section = recipe
             .sections
-            .into_iter()
-            .next()
+            .get(0)
             .expect("No sections found");
 
         assert_eq!(first_section.blocks.len(), 2);
 
         // Check note block
-        let mut iterator = first_section.blocks.into_iter();
-        let note_block = iterator.next().expect("No blocks found");
+        let note_block = first_section.blocks.get(0).expect("No blocks found");
 
         assert_eq!(
             match note_block {
-                Block::NoteBlock(note) => note,
+                Block::NoteBlock(note) => note.clone(),
                 _ => panic!("Expected first block to be a Note"),
             }
             .text,
@@ -401,11 +506,11 @@ Cook @onions{3%large} until brown
         );
 
         // Check step block
-        let step_block = iterator.next().expect("No blocks found");
+        let step_block = first_section.blocks.get(1).expect("No blocks found");
 
         assert_eq!(
             match step_block {
-                Block::StepBlock(step) => step,
+                Block::StepBlock(step) => step.clone(),
                 _ => panic!("Expected second block to be a Step"),
             }
             .items,
@@ -438,19 +543,17 @@ simmer for 10 minutes
         );
         let first_section = recipe
             .sections
-            .into_iter()
-            .next()
+            .get(0)
             .expect("No sections found");
         assert_eq!(first_section.blocks.len(), 2);
 
         // Check first step
-        let mut iterator = first_section.blocks.into_iter();
-        let first_block = iterator.next().expect("No blocks found");
-        let second_block = iterator.next().expect("No blocks found");
+        let first_block = first_section.blocks.get(0).expect("No blocks found");
+        let second_block = first_section.blocks.get(1).expect("No blocks found");
 
         assert_eq!(
             match first_block {
-                Block::StepBlock(step) => step,
+                Block::StepBlock(step) => step.clone(),
                 _ => panic!("Expected first block to be a Step"),
             }
             .items,
@@ -468,7 +571,7 @@ simmer for 10 minutes
         // Check second step
         assert_eq!(
             match second_block {
-                Block::StepBlock(step) => step,
+                Block::StepBlock(step) => step.clone(),
                 _ => panic!("Expected second block to be a Step"),
             }
             .items,
@@ -502,21 +605,20 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
             1.0,
         );
 
-        let mut sections = recipe.sections.into_iter();
+        let sections = &recipe.sections;
 
         // Check first section
-        let first_section = sections.next().expect("No sections found");
+        let first_section = sections.get(0).expect("No sections found");
         assert_eq!(first_section.title, Some("Dough".to_string()));
         assert_eq!(first_section.blocks.len(), 1);
 
         let first_block = first_section
             .blocks
-            .into_iter()
-            .next()
+            .get(0)
             .expect("No blocks found");
         assert_eq!(
             match first_block {
-                Block::StepBlock(step) => step,
+                Block::StepBlock(step) => step.clone(),
                 _ => panic!("Expected block to be a Step"),
             }
             .items,
@@ -536,18 +638,17 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
         );
 
         // Check second section
-        let second_section = sections.next().expect("No second section found");
+        let second_section = sections.get(1).expect("No second section found");
         assert_eq!(second_section.title, Some("Filling".to_string()));
         assert_eq!(second_section.blocks.len(), 1);
 
         let second_block = second_section
             .blocks
-            .into_iter()
-            .next()
+            .get(0)
             .expect("No blocks found");
         assert_eq!(
             match second_block {
-                Block::StepBlock(step) => step,
+                Block::StepBlock(step) => step.clone(),
                 _ => panic!("Expected block to be a Step"),
             }
             .items,

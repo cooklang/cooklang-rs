@@ -275,7 +275,8 @@ pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
 pub fn parse_lenient(input: &str) -> PassResult<AisleConf> {
     let mut report = SourceReport::empty();
 
-    let conf = parse_core(input, true, Some(&mut report)).expect("lenient parsing should never fail");
+    let conf =
+        parse_core(input, true, Some(&mut report)).expect("lenient parsing should never fail");
     PassResult::new(Some(conf), report)
 }
 
