@@ -20,7 +20,6 @@ pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
     Arc::new(into_simple_recipe(&parsed))
 }
 
-
 #[uniffi::export]
 pub fn deref_component(recipe: &Arc<CooklangRecipe>, item: Item) -> Component {
     match item {
@@ -135,7 +134,10 @@ pub fn metadata_description(recipe: &Arc<CooklangRecipe>) -> Option<String> {
 
 #[uniffi::export]
 pub fn metadata_tags(recipe: &Arc<CooklangRecipe>) -> Option<Vec<String>> {
-    recipe.metadata.tags().map(|tags| tags.into_iter().map(|t| t.to_string()).collect())
+    recipe
+        .metadata
+        .tags()
+        .map(|tags| tags.into_iter().map(|t| t.to_string()).collect())
 }
 
 #[uniffi::export]
@@ -156,7 +158,11 @@ pub fn metadata_time(recipe: &Arc<CooklangRecipe>) -> Option<RecipeTime> {
 
 #[uniffi::export]
 pub fn metadata_get(recipe: &Arc<CooklangRecipe>, key: String) -> Option<String> {
-    recipe.metadata.get(&key).and_then(|v| v.as_str()).map(|s| s.to_string())
+    recipe
+        .metadata
+        .get(&key)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 #[uniffi::export]
@@ -178,7 +184,11 @@ pub fn metadata_get_std(recipe: &Arc<CooklangRecipe>, key: StdKey) -> Option<Str
         StdKey::Images => OriginalStdKey::Images,
         StdKey::Locale => OriginalStdKey::Locale,
     };
-    recipe.metadata.get(original_key).and_then(|v| v.as_str()).map(|s| s.to_string())
+    recipe
+        .metadata
+        .get(original_key)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 uniffi::setup_scaffolding!();
@@ -262,7 +272,10 @@ a test @step @salt{1%mg} more text
 
     #[test]
     fn test_metadata_helpers() {
-        use crate::{metadata_source, metadata_title, metadata_servings, metadata_tags, parse_recipe, Servings};
+        use crate::{
+            metadata_servings, metadata_source, metadata_tags, metadata_title, parse_recipe,
+            Servings,
+        };
 
         let recipe = parse_recipe(
             r#"---
@@ -278,10 +291,7 @@ a test @step @salt{1%mg} more text
         );
 
         // Test title
-        assert_eq!(
-            metadata_title(&recipe),
-            Some("Test Recipe".to_string())
-        );
+        assert_eq!(metadata_title(&recipe), Some("Test Recipe".to_string()));
 
         // Test source
         let source = metadata_source(&recipe);
@@ -485,10 +495,7 @@ Cook @onions{3%large} until brown
             1.0,
         );
 
-        let first_section = recipe
-            .sections
-            .get(0)
-            .expect("No sections found");
+        let first_section = recipe.sections.get(0).expect("No sections found");
 
         assert_eq!(first_section.blocks.len(), 2);
 
@@ -541,10 +548,7 @@ simmer for 10 minutes
             .to_string(),
             1.0,
         );
-        let first_section = recipe
-            .sections
-            .get(0)
-            .expect("No sections found");
+        let first_section = recipe.sections.get(0).expect("No sections found");
         assert_eq!(first_section.blocks.len(), 2);
 
         // Check first step
@@ -612,10 +616,7 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
         assert_eq!(first_section.title, Some("Dough".to_string()));
         assert_eq!(first_section.blocks.len(), 1);
 
-        let first_block = first_section
-            .blocks
-            .get(0)
-            .expect("No blocks found");
+        let first_block = first_section.blocks.get(0).expect("No blocks found");
         assert_eq!(
             match first_block {
                 Block::StepBlock(step) => step.clone(),
@@ -642,10 +643,7 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
         assert_eq!(second_section.title, Some("Filling".to_string()));
         assert_eq!(second_section.blocks.len(), 1);
 
-        let second_block = second_section
-            .blocks
-            .get(0)
-            .expect("No blocks found");
+        let second_block = second_section.blocks.get(0).expect("No blocks found");
         assert_eq!(
             match second_block {
                 Block::StepBlock(step) => step.clone(),

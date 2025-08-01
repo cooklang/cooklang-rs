@@ -579,6 +579,137 @@ public func FfiConverterTypeAisleConf_lower(_ value: AisleConf) -> UnsafeMutable
     return FfiConverterTypeAisleConf.lower(value)
 }
 
+public protocol CooklangRecipeProtocol: AnyObject {
+    func cookware() -> [Cookware]
+
+    func ingredients() -> [Ingredient]
+
+    func sections() -> [Section]
+
+    func timers() -> [Timer]
+}
+
+open class CooklangRecipe:
+    CooklangRecipeProtocol
+{
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+    public required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public init(noPointer _: NoPointer) {
+        pointer = nil
+    }
+
+    #if swift(>=5.8)
+        @_documentation(visibility: private)
+    #endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_cooklang_bindings_fn_clone_cooklangrecipe(self.pointer, $0) }
+    }
+
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_cooklang_bindings_fn_free_cooklangrecipe(pointer, $0) }
+    }
+
+    open func cookware() -> [Cookware] {
+        return try! FfiConverterSequenceTypeCookware.lift(try! rustCall {
+            uniffi_cooklang_bindings_fn_method_cooklangrecipe_cookware(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func ingredients() -> [Ingredient] {
+        return try! FfiConverterSequenceTypeIngredient.lift(try! rustCall {
+            uniffi_cooklang_bindings_fn_method_cooklangrecipe_ingredients(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func sections() -> [Section] {
+        return try! FfiConverterSequenceTypeSection.lift(try! rustCall {
+            uniffi_cooklang_bindings_fn_method_cooklangrecipe_sections(self.uniffiClonePointer(), $0)
+        })
+    }
+
+    open func timers() -> [Timer] {
+        return try! FfiConverterSequenceTypeTimer.lift(try! rustCall {
+            uniffi_cooklang_bindings_fn_method_cooklangrecipe_timers(self.uniffiClonePointer(), $0)
+        })
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCooklangRecipe: FfiConverter {
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = CooklangRecipe
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> CooklangRecipe {
+        return CooklangRecipe(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: CooklangRecipe) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CooklangRecipe {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if ptr == nil {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: CooklangRecipe, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCooklangRecipe_lift(_ pointer: UnsafeMutableRawPointer) throws -> CooklangRecipe {
+    return try FfiConverterTypeCooklangRecipe.lift(pointer)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCooklangRecipe_lower(_ value: CooklangRecipe) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeCooklangRecipe.lower(value)
+}
+
 public struct AisleCategory {
     public let name: String
     public let ingredients: [AisleIngredient]
@@ -815,91 +946,6 @@ public func FfiConverterTypeBlockNote_lower(_ value: BlockNote) -> RustBuffer {
     return FfiConverterTypeBlockNote.lower(value)
 }
 
-public struct CooklangRecipe {
-    public let metadata: [String: String]
-    public let sections: [Section]
-    public let ingredients: [Ingredient]
-    public let cookware: [Cookware]
-    public let timers: [Timer]
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(metadata: [String: String], sections: [Section], ingredients: [Ingredient], cookware: [Cookware], timers: [Timer]) {
-        self.metadata = metadata
-        self.sections = sections
-        self.ingredients = ingredients
-        self.cookware = cookware
-        self.timers = timers
-    }
-}
-
-extension CooklangRecipe: Equatable, Hashable {
-    public static func == (lhs: CooklangRecipe, rhs: CooklangRecipe) -> Bool {
-        if lhs.metadata != rhs.metadata {
-            return false
-        }
-        if lhs.sections != rhs.sections {
-            return false
-        }
-        if lhs.ingredients != rhs.ingredients {
-            return false
-        }
-        if lhs.cookware != rhs.cookware {
-            return false
-        }
-        if lhs.timers != rhs.timers {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(metadata)
-        hasher.combine(sections)
-        hasher.combine(ingredients)
-        hasher.combine(cookware)
-        hasher.combine(timers)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public struct FfiConverterTypeCooklangRecipe: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CooklangRecipe {
-        return
-            try CooklangRecipe(
-                metadata: FfiConverterDictionaryStringString.read(from: &buf),
-                sections: FfiConverterSequenceTypeSection.read(from: &buf),
-                ingredients: FfiConverterSequenceTypeIngredient.read(from: &buf),
-                cookware: FfiConverterSequenceTypeCookware.read(from: &buf),
-                timers: FfiConverterSequenceTypeTimer.read(from: &buf)
-            )
-    }
-
-    public static func write(_ value: CooklangRecipe, into buf: inout [UInt8]) {
-        FfiConverterDictionaryStringString.write(value.metadata, into: &buf)
-        FfiConverterSequenceTypeSection.write(value.sections, into: &buf)
-        FfiConverterSequenceTypeIngredient.write(value.ingredients, into: &buf)
-        FfiConverterSequenceTypeCookware.write(value.cookware, into: &buf)
-        FfiConverterSequenceTypeTimer.write(value.timers, into: &buf)
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeCooklangRecipe_lift(_ buf: RustBuffer) throws -> CooklangRecipe {
-    return try FfiConverterTypeCooklangRecipe.lift(buf)
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
-public func FfiConverterTypeCooklangRecipe_lower(_ value: CooklangRecipe) -> RustBuffer {
-    return FfiConverterTypeCooklangRecipe.lower(value)
-}
-
 public struct Cookware {
     public let name: String
     public let amount: Amount?
@@ -1089,6 +1135,67 @@ public func FfiConverterTypeIngredient_lift(_ buf: RustBuffer) throws -> Ingredi
 #endif
 public func FfiConverterTypeIngredient_lower(_ value: Ingredient) -> RustBuffer {
     return FfiConverterTypeIngredient.lower(value)
+}
+
+public struct NameAndUrl {
+    public let name: String?
+    public let url: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(name: String?, url: String?) {
+        self.name = name
+        self.url = url
+    }
+}
+
+extension NameAndUrl: Equatable, Hashable {
+    public static func == (lhs: NameAndUrl, rhs: NameAndUrl) -> Bool {
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.url != rhs.url {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(name)
+        hasher.combine(url)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeNameAndUrl: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NameAndUrl {
+        return
+            try NameAndUrl(
+                name: FfiConverterOptionString.read(from: &buf),
+                url: FfiConverterOptionString.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: NameAndUrl, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.name, into: &buf)
+        FfiConverterOptionString.write(value.url, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNameAndUrl_lift(_ buf: RustBuffer) throws -> NameAndUrl {
+    return try FfiConverterTypeNameAndUrl.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeNameAndUrl_lower(_ value: NameAndUrl) -> RustBuffer {
+    return FfiConverterTypeNameAndUrl.lower(value)
 }
 
 public struct Section {
@@ -1591,6 +1698,251 @@ extension QuantityType: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
+public enum RecipeTime {
+    case total(minutes: UInt32
+    )
+    case composed(prepTime: UInt32?, cookTime: UInt32?)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeRecipeTime: FfiConverterRustBuffer {
+    typealias SwiftType = RecipeTime
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RecipeTime {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .total(minutes: FfiConverterUInt32.read(from: &buf)
+            )
+
+        case 2: return try .composed(prepTime: FfiConverterOptionUInt32.read(from: &buf), cookTime: FfiConverterOptionUInt32.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: RecipeTime, into buf: inout [UInt8]) {
+        switch value {
+        case let .total(minutes):
+            writeInt(&buf, Int32(1))
+            FfiConverterUInt32.write(minutes, into: &buf)
+
+        case let .composed(prepTime, cookTime):
+            writeInt(&buf, Int32(2))
+            FfiConverterOptionUInt32.write(prepTime, into: &buf)
+            FfiConverterOptionUInt32.write(cookTime, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRecipeTime_lift(_ buf: RustBuffer) throws -> RecipeTime {
+    return try FfiConverterTypeRecipeTime.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeRecipeTime_lower(_ value: RecipeTime) -> RustBuffer {
+    return FfiConverterTypeRecipeTime.lower(value)
+}
+
+extension RecipeTime: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum Servings {
+    case number(value: UInt32
+    )
+    case text(value: String
+    )
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeServings: FfiConverterRustBuffer {
+    typealias SwiftType = Servings
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Servings {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .number(value: FfiConverterUInt32.read(from: &buf)
+            )
+
+        case 2: return try .text(value: FfiConverterString.read(from: &buf)
+            )
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: Servings, into buf: inout [UInt8]) {
+        switch value {
+        case let .number(value):
+            writeInt(&buf, Int32(1))
+            FfiConverterUInt32.write(value, into: &buf)
+
+        case let .text(value):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(value, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeServings_lift(_ buf: RustBuffer) throws -> Servings {
+    return try FfiConverterTypeServings.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeServings_lower(_ value: Servings) -> RustBuffer {
+    return FfiConverterTypeServings.lower(value)
+}
+
+extension Servings: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+public enum StdKey {
+    case title
+    case description
+    case tags
+    case author
+    case source
+    case course
+    case time
+    case prepTime
+    case cookTime
+    case servings
+    case difficulty
+    case cuisine
+    case diet
+    case images
+    case locale
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeStdKey: FfiConverterRustBuffer {
+    typealias SwiftType = StdKey
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StdKey {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return .title
+
+        case 2: return .description
+
+        case 3: return .tags
+
+        case 4: return .author
+
+        case 5: return .source
+
+        case 6: return .course
+
+        case 7: return .time
+
+        case 8: return .prepTime
+
+        case 9: return .cookTime
+
+        case 10: return .servings
+
+        case 11: return .difficulty
+
+        case 12: return .cuisine
+
+        case 13: return .diet
+
+        case 14: return .images
+
+        case 15: return .locale
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: StdKey, into buf: inout [UInt8]) {
+        switch value {
+        case .title:
+            writeInt(&buf, Int32(1))
+
+        case .description:
+            writeInt(&buf, Int32(2))
+
+        case .tags:
+            writeInt(&buf, Int32(3))
+
+        case .author:
+            writeInt(&buf, Int32(4))
+
+        case .source:
+            writeInt(&buf, Int32(5))
+
+        case .course:
+            writeInt(&buf, Int32(6))
+
+        case .time:
+            writeInt(&buf, Int32(7))
+
+        case .prepTime:
+            writeInt(&buf, Int32(8))
+
+        case .cookTime:
+            writeInt(&buf, Int32(9))
+
+        case .servings:
+            writeInt(&buf, Int32(10))
+
+        case .difficulty:
+            writeInt(&buf, Int32(11))
+
+        case .cuisine:
+            writeInt(&buf, Int32(12))
+
+        case .diet:
+            writeInt(&buf, Int32(13))
+
+        case .images:
+            writeInt(&buf, Int32(14))
+
+        case .locale:
+            writeInt(&buf, Int32(15))
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeStdKey_lift(_ buf: RustBuffer) throws -> StdKey {
+    return try FfiConverterTypeStdKey.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeStdKey_lower(_ value: StdKey) -> RustBuffer {
+    return FfiConverterTypeStdKey.lower(value)
+}
+
+extension StdKey: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
 public enum Value {
     case number(value: Double
     )
@@ -1663,6 +2015,30 @@ extension Value: Equatable, Hashable {}
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
+    typealias SwiftType = UInt32?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterUInt32.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterUInt32.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -1703,6 +2079,102 @@ private struct FfiConverterOptionTypeAmount: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterTypeAmount.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionTypeNameAndUrl: FfiConverterRustBuffer {
+    typealias SwiftType = NameAndUrl?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeNameAndUrl.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeNameAndUrl.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionTypeRecipeTime: FfiConverterRustBuffer {
+    typealias SwiftType = RecipeTime?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeRecipeTime.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeRecipeTime.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionTypeServings: FfiConverterRustBuffer {
+    typealias SwiftType = Servings?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeServings.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeServings.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionSequenceString: FfiConverterRustBuffer {
+    typealias SwiftType = [String]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceString.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -1936,32 +2408,6 @@ private struct FfiConverterSequenceTypeItem: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
-private struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
-    public static func write(_ value: [String: String], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for (key, value) in value {
-            FfiConverterString.write(key, into: &buf)
-            FfiConverterString.write(value, into: &buf)
-        }
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
-        let len: Int32 = try readInt(&buf)
-        var dict = [String: String]()
-        dict.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            let key = try FfiConverterString.read(from: &buf)
-            let value = try FfiConverterString.read(from: &buf)
-            dict[key] = value
-        }
-        return dict
-    }
-}
-
-#if swift(>=5.8)
-    @_documentation(visibility: private)
-#endif
 private struct FfiConverterDictionaryStringDictionaryTypeGroupedQuantityKeyTypeValue: FfiConverterRustBuffer {
     public static func write(_ value: [String: [GroupedQuantityKey: Value]], into buf: inout [UInt8]) {
         let len = Int32(value.count)
@@ -2064,19 +2510,84 @@ public func derefTimer(recipe: CooklangRecipe, index: UInt32) -> Timer {
     })
 }
 
-public func parseAisleConfig(input: String) -> AisleConf {
-    return try! FfiConverterTypeAisleConf.lift(try! rustCall {
-        uniffi_cooklang_bindings_fn_func_parse_aisle_config(
-            FfiConverterString.lower(input), $0
+public func metadataAuthor(recipe: CooklangRecipe) -> NameAndUrl? {
+    return try! FfiConverterOptionTypeNameAndUrl.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_author(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
         )
     })
 }
 
-public func parseMetadata(input: String, scalingFactor: Double) -> [String: String] {
-    return try! FfiConverterDictionaryStringString.lift(try! rustCall {
-        uniffi_cooklang_bindings_fn_func_parse_metadata(
-            FfiConverterString.lower(input),
-            FfiConverterDouble.lower(scalingFactor), $0
+public func metadataDescription(recipe: CooklangRecipe) -> String? {
+    return try! FfiConverterOptionString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_description(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+public func metadataGet(recipe: CooklangRecipe, key: String) -> String? {
+    return try! FfiConverterOptionString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_get(
+            FfiConverterTypeCooklangRecipe.lower(recipe),
+            FfiConverterString.lower(key), $0
+        )
+    })
+}
+
+public func metadataGetStd(recipe: CooklangRecipe, key: StdKey) -> String? {
+    return try! FfiConverterOptionString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_get_std(
+            FfiConverterTypeCooklangRecipe.lower(recipe),
+            FfiConverterTypeStdKey.lower(key), $0
+        )
+    })
+}
+
+public func metadataServings(recipe: CooklangRecipe) -> Servings? {
+    return try! FfiConverterOptionTypeServings.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_servings(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+public func metadataSource(recipe: CooklangRecipe) -> NameAndUrl? {
+    return try! FfiConverterOptionTypeNameAndUrl.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_source(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+public func metadataTags(recipe: CooklangRecipe) -> [String]? {
+    return try! FfiConverterOptionSequenceString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_tags(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+public func metadataTime(recipe: CooklangRecipe) -> RecipeTime? {
+    return try! FfiConverterOptionTypeRecipeTime.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_time(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+public func metadataTitle(recipe: CooklangRecipe) -> String? {
+    return try! FfiConverterOptionString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_title(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+public func parseAisleConfig(input: String) -> AisleConf {
+    return try! FfiConverterTypeAisleConf.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_parse_aisle_config(
+            FfiConverterString.lower(input), $0
         )
     })
 }
@@ -2112,28 +2623,64 @@ private var initializationResult: InitializationResult = {
     if uniffi_cooklang_bindings_checksum_func_combine_ingredients_selected() != 56749 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_component() != 22158 {
+    if uniffi_cooklang_bindings_checksum_func_deref_component() != 11104 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_cookware() != 9760 {
+    if uniffi_cooklang_bindings_checksum_func_deref_cookware() != 38038 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_ingredient() != 50661 {
+    if uniffi_cooklang_bindings_checksum_func_deref_ingredient() != 16524 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_timer() != 50822 {
+    if uniffi_cooklang_bindings_checksum_func_deref_timer() != 18113 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_author() != 40301 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_description() != 57014 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_get() != 23295 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_get_std() != 33766 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_servings() != 48632 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_source() != 36897 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_tags() != 16588 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_time() != 28150 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_metadata_title() != 8486 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_func_parse_aisle_config() != 49190 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_parse_metadata() != 62014 {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if uniffi_cooklang_bindings_checksum_func_parse_recipe() != 51184 {
+    if uniffi_cooklang_bindings_checksum_func_parse_recipe() != 56147 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_method_aisleconf_category_for() != 17275 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_cookware() != 12279 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_ingredients() != 2547 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_sections() != 62397 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_timers() != 32547 {
         return InitializationResult.apiChecksumMismatch
     }
 

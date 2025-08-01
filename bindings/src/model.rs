@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use cooklang::metadata::{
-    NameAndUrl as OriginalNameAndUrl, RecipeTime as OriginalRecipeTime, Servings as OriginalServings,
-    StdKey as OriginalStdKey,
+    NameAndUrl as OriginalNameAndUrl, RecipeTime as OriginalRecipeTime,
+    Servings as OriginalServings, StdKey as OriginalStdKey,
 };
 use cooklang::model::Item as OriginalItem;
 use cooklang::quantity::{Quantity as OriginalQuantity, Value as OriginalValue};
@@ -16,6 +16,26 @@ pub struct CooklangRecipe {
     pub cookware: Vec<Cookware>,
     pub timers: Vec<Timer>,
 }
+
+#[uniffi::export]
+impl CooklangRecipe {
+    pub fn sections(&self) -> Vec<Section> {
+        self.sections.clone()
+    }
+
+    pub fn ingredients(&self) -> Vec<Ingredient> {
+        self.ingredients.clone()
+    }
+
+    pub fn cookware(&self) -> Vec<Cookware> {
+        self.cookware.clone()
+    }
+
+    pub fn timers(&self) -> Vec<Timer> {
+        self.timers.clone()
+    }
+}
+
 pub type ComponentRef = u32;
 
 #[derive(uniffi::Record, Debug, Clone)]
@@ -243,22 +263,29 @@ impl From<OriginalNameAndUrl> for NameAndUrl {
 
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum RecipeTime {
-    Total { minutes: u32 },
-    Composed { prep_time: Option<u32>, cook_time: Option<u32> },
+    Total {
+        minutes: u32,
+    },
+    Composed {
+        prep_time: Option<u32>,
+        cook_time: Option<u32>,
+    },
 }
 
 impl From<OriginalRecipeTime> for RecipeTime {
     fn from(time: OriginalRecipeTime) -> Self {
         match time {
             OriginalRecipeTime::Total(m) => RecipeTime::Total { minutes: m },
-            OriginalRecipeTime::Composed { prep_time, cook_time } => RecipeTime::Composed {
+            OriginalRecipeTime::Composed {
+                prep_time,
+                cook_time,
+            } => RecipeTime::Composed {
                 prep_time,
                 cook_time,
             },
         }
     }
 }
-
 
 trait Amountable {
     fn extract_amount(&self) -> Amount;

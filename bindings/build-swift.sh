@@ -127,3 +127,26 @@ import SystemConfiguration
 #endif
 EOT
 cat $OUT_PATH/import.txt $OUT_PATH/$NAME.swift > $WRAPPER_PATH/$NAME.swift
+
+# Create zip archive
+echo "Creating zip archive..."
+ZIP_NAME="$XC_FRAMEWORK_NAME.zip"
+pushd $OUT_PATH
+rm -rf $ZIP_NAME
+zip -r $ZIP_NAME $XC_FRAMEWORK_NAME
+popd
+
+# Calculate SHA256 checksum
+echo "Calculating SHA256 checksum..."
+SHA256=$(shasum -a 256 $OUT_PATH/$ZIP_NAME | awk '{print $1}')
+echo "SHA256: $SHA256"
+
+# Update Package.swift with new version and checksum
+echo "Updating Package.swift..."
+PACKAGE_SWIFT_PATH="../Package.swift"
+sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/v[^/]*/CooklangParserFFI.xcframework.zip\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/v$VERSION/CooklangParserFFI.xcframework.zip\"|" $PACKAGE_SWIFT_PATH
+sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"$SHA256\"|" $PACKAGE_SWIFT_PATH
+
+echo "Build complete! Archive ready at: $OUT_PATH/$ZIP_NAME"
+echo "Version: $VERSION"
+echo "SHA256: $SHA256"

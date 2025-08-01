@@ -3,7 +3,6 @@
 use crate::{convert::Converter, quantity::Value, Quantity, Recipe};
 use thiserror::Error;
 
-
 /// Error type for scaling operations
 #[derive(Debug, Error, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
