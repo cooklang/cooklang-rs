@@ -21,6 +21,18 @@ pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
 }
 
 #[uniffi::export]
+pub fn create_empty_recipe() -> Arc<CooklangRecipe> {
+    // Create an empty recipe object for testing
+    Arc::new(CooklangRecipe {
+        sections: vec![],
+        ingredients: vec![],
+        cookware: vec![],
+        timers: vec![],
+        metadata: cooklang::metadata::Metadata::default(),
+    })
+}
+
+#[uniffi::export]
 pub fn deref_component(recipe: &Arc<CooklangRecipe>, item: Item) -> Component {
     match item {
         Item::IngredientRef { index } => {
