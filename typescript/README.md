@@ -2,6 +2,9 @@
 
 A TypeScript/JavaScript library for parsing CookLang recipes, built with Rust and WebAssembly.
 
+> [!NOTE]  
+> Package is under development. What exists here may not be published to NPM yet.
+
 ## Prerequisites
 
 This project uses Rust compiled to WebAssembly, so you'll need to set up the Rust toolchain properly before development.
