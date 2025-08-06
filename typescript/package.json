@@ -27,7 +27,6 @@
   },
   "devDependencies": {
     "vite-plugin-wasm": "^3.4.1",
-    "vitest": "^3.2.3",
-    "wasm-pack": "^0.13.1"
+    "vitest": "^3.2.3"
   }
 }
