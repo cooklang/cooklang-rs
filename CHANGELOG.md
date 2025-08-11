@@ -2,6 +2,8 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.16.3 - 2025/08/11
+
 - Remove generics from `Recipe`. Now recipes are scalable multiple times.
 - Remove `Recipe::default_scale`.
 - Scaling is now infallible, text values are ignored. Removed `ScaleOutcome`, if

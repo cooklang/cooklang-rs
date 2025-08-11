@@ -47,6 +47,63 @@ This library exports methods:
     // let combined_ingredients_from_section1 = combine_ingredients_selected(recipe.ingredients, section1.ingredient_refs);
     // let combined_ingredients_from_step1 = combine_ingredients_selected(recipe.ingredients, step1.ingredient_refs);
     combine_ingredients_selected(ingredients: Vec<Ingredient>, indices: Vec<u32>) -> IngredientList;
+
+    // Metadata helper functions - convenient accessors for common recipe metadata fields
+    // Returns the servings from metadata (e.g., "4" or "2-3 portions")
+    metadata_servings(recipe: &CooklangRecipe) -> Option<Servings>;
+
+    // Returns the recipe title
+    metadata_title(recipe: &CooklangRecipe) -> Option<String>;
+
+    // Returns the recipe description
+    metadata_description(recipe: &CooklangRecipe) -> Option<String>;
+
+    // Returns the recipe tags as a list
+    metadata_tags(recipe: &CooklangRecipe) -> Option<Vec<String>>;
+
+    // Returns the recipe author with optional URL
+    metadata_author(recipe: &CooklangRecipe) -> Option<NameAndUrl>;
+
+    // Returns the recipe source with optional URL
+    metadata_source(recipe: &CooklangRecipe) -> Option<NameAndUrl>;
+
+    // Returns the recipe time (total or prep+cook)
+    metadata_time(recipe: &CooklangRecipe) -> Option<RecipeTime>;
+
+    // Get a custom metadata value by key
+    metadata_get(recipe: &CooklangRecipe, key: String) -> Option<String>;
+
+    // Get a standard metadata value using StdKey enum
+    metadata_get_std(recipe: &CooklangRecipe, key: StdKey) -> Option<String>;
+
+    // Get all non-standard (custom) metadata keys
+    // Returns a list of all metadata keys that are not part of the Cooklang standard
+    // Useful for discovering custom metadata fields in recipes
+    // usage example:
+    // let custom_keys = metadata_custom_keys(&recipe); // Returns ["nutrition", "rating", "custom-field"]
+    metadata_custom_keys(recipe: &CooklangRecipe) -> Vec<String>;
+
+    // Format a Value to a display string with proper fraction handling
+    // Converts decimals to fractions where appropriate (e.g., 0.666667 -> "2/3", 1.5 -> "1 1/2")
+    // Handles floating point precision issues from scaling (e.g., 0.89999999 -> "0.9")
+    // Returns None for Empty values
+    // usage example:
+    // let formatted = format_value(&Value::Number { value: 0.666667 }); // Returns Some("2/3")
+    format_value(value: &Value) -> Option<String>;
+
+    // Parse a string into a Value
+    // Supports fractions (e.g., "1/2" -> 0.5), mixed numbers (e.g., "1 1/2" -> 1.5)
+    // Supports ranges (e.g., "1/2 - 3/4" -> Range{0.5, 0.75})
+    // Falls back to Text if not parseable as number or range
+    // usage example:
+    // let value = parse_value("2/3".to_string()); // Returns Value::Number { value: 0.666667 }
+    parse_value(s: String) -> Value;
+
+    // Format an Amount to a display string with units
+    // Combines formatted quantity with units (e.g., "2/3 cups", "1 1/2 tsp")
+    // usage example:
+    // let formatted = format_amount(&amount); // Returns "2/3 cups" for 0.666667 cups
+    format_amount(amount: &Amount) -> String;
 ```
 
 ### Exposed data structures
@@ -184,8 +241,137 @@ This library exports methods:
         Text,
         Empty,
     }
+
+    /// Represents recipe servings
+    enum Servings {
+        /// Numeric servings (e.g., 4)
+        Number { value: u32 },
+        /// Text servings (e.g., "2-3 portions")
+        Text { value: String },
+    }
+
+    /// Represents a name with optional URL
+    struct NameAndUrl {
+        /// Optional name (e.g., "John Doe")
+        name: Option<String>,
+        /// Optional URL (e.g., "https://johndoe.com")
+        url: Option<String>,
+    }
+
+    /// Represents recipe time
+    enum RecipeTime {
+        /// Total time in minutes
+        Total { minutes: u32 },
+        /// Separate prep and cook times
+        Composed {
+            prep_time: Option<u32>,
+            cook_time: Option<u32>,
+        },
+    }
+
+    /// Standard metadata keys
+    enum StdKey {
+        Title,
+        Description,
+        Tags,
+        Author,
+        Source,
+        Course,
+        Time,
+        PrepTime,
+        CookTime,
+        Servings,
+        Difficulty,
+        Cuisine,
+        Diet,
+        Images,
+        Locale,
+    }
 ```
 
+
+### Metadata Access Example
+
+The metadata helper functions provide convenient access to common recipe metadata fields:
+
+```rust
+let recipe = parse_recipe(recipe_text, 1.0);
+
+// Access common metadata fields
+if let Some(title) = metadata_title(&recipe) {
+    println!("Recipe: {}", title);
+}
+
+if let Some(servings) = metadata_servings(&recipe) {
+    match servings {
+        Servings::Number { value } => println!("Serves: {}", value),
+        Servings::Text { value } => println!("Serves: {}", value),
+    }
+}
+
+if let Some(tags) = metadata_tags(&recipe) {
+    println!("Tags: {}", tags.join(", "));
+}
+
+if let Some(author) = metadata_author(&recipe) {
+    if let Some(name) = author.name {
+        print!("Author: {}", name);
+    }
+    if let Some(url) = author.url {
+        print!(" ({})", url);
+    }
+}
+
+// Access custom metadata
+if let Some(difficulty) = metadata_get(&recipe, "difficulty".to_string()) {
+    println!("Difficulty: {}", difficulty);
+}
+
+// Or use standard keys
+if let Some(cuisine) = metadata_get_std(&recipe, StdKey::Cuisine) {
+    println!("Cuisine: {}", cuisine);
+}
+
+// Discover all custom metadata fields
+let custom_keys = metadata_custom_keys(&recipe);
+for key in custom_keys {
+    if let Some(value) = metadata_get(&recipe, key.clone()) {
+        println!("Custom field '{}': {}", key, value);
+    }
+}
+```
+
+### Formatting Values Example (Android/Kotlin)
+
+Instead of implementing value formatting in Kotlin (which can produce values like "0.66666666 cups"), use the provided formatting functions:
+
+```kotlin
+// Before (problematic Kotlin code):
+// internal fun Value.asString(): String? {
+//     return when (this) {
+//         Value.Empty -> null
+//         is Value.Number -> value.toFormattedString() // Would show "0.66666666"
+//         ...
+//     }
+// }
+
+// After (using the bindings):
+fun formatIngredientAmount(ingredient: Ingredient): String? {
+    return ingredient.amount?.let { formatAmount(it) }
+}
+
+// Or format just the value:
+fun formatValue(value: Value): String? {
+    return formatValue(value)
+}
+
+// Examples:
+// formatValue(Value.Number(0.666667)) -> "2/3"
+// formatValue(Value.Number(0.5)) -> "1/2"
+// formatValue(Value.Number(1.5)) -> "1 1/2"
+// formatValue(Value.Number(0.89999999)) -> "0.9" (handles scaling precision issues)
+// formatAmount(Amount(Value.Number(0.666667), "cups")) -> "2/3 cups"
+```
 
 ### Shopping list usage example
 

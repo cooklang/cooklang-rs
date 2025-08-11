@@ -8,6 +8,7 @@ use cooklang::model::Item as OriginalItem;
 use cooklang::quantity::{Quantity as OriginalQuantity, Value as OriginalValue};
 use cooklang::Recipe as OriginalRecipe;
 
+/// A parsed Cooklang recipe containing all recipe components
 #[derive(uniffi::Object, Debug)]
 pub struct CooklangRecipe {
     pub(crate) metadata: cooklang::metadata::Metadata,
@@ -19,18 +20,22 @@ pub struct CooklangRecipe {
 
 #[uniffi::export]
 impl CooklangRecipe {
+    /// Returns all sections in the recipe
     pub fn sections(&self) -> Vec<Section> {
         self.sections.clone()
     }
 
+    /// Returns all ingredients used in the recipe
     pub fn ingredients(&self) -> Vec<Ingredient> {
         self.ingredients.clone()
     }
 
+    /// Returns all cookware used in the recipe
     pub fn cookware(&self) -> Vec<Cookware> {
         self.cookware.clone()
     }
 
+    /// Returns all timers in the recipe
     pub fn timers(&self) -> Vec<Timer> {
         self.timers.clone()
     }
@@ -38,6 +43,7 @@ impl CooklangRecipe {
 
 pub type ComponentRef = u32;
 
+/// Represents a distinct section of a recipe, optionally with a title
 #[derive(uniffi::Record, Debug, Clone)]
 pub struct Section {
     pub title: Option<String>,
@@ -47,12 +53,14 @@ pub struct Section {
     pub timer_refs: Vec<ComponentRef>,
 }
 
+/// A block can either be a cooking step or a note
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum Block {
     StepBlock(Step),
     NoteBlock(BlockNote),
 }
 
+/// Types of components that can be referenced in a recipe
 #[derive(uniffi::Enum, Debug, PartialEq)]
 pub enum Component {
     IngredientComponent(Ingredient),
@@ -61,6 +69,7 @@ pub enum Component {
     TextComponent(String),
 }
 
+/// Represents a single cooking instruction step
 #[derive(uniffi::Record, Debug, Clone)]
 pub struct Step {
     pub items: Vec<Item>,
@@ -69,11 +78,13 @@ pub struct Step {
     pub timer_refs: Vec<ComponentRef>,
 }
 
+/// A text note within the recipe
 #[derive(uniffi::Record, Debug, Clone)]
 pub struct BlockNote {
     pub text: String,
 }
 
+/// Represents an ingredient in the recipe
 #[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Ingredient {
     pub name: String,
@@ -81,18 +92,21 @@ pub struct Ingredient {
     pub descriptor: Option<String>,
 }
 
+/// Represents a piece of cookware used in the recipe
 #[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Cookware {
     pub name: String,
     pub amount: Option<Amount>,
 }
 
+/// Represents a timer in the recipe
 #[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Timer {
     pub name: Option<String>,
     pub amount: Option<Amount>,
 }
 
+/// Elements that can appear in a recipe step
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
 pub enum Item {
     Text { value: String },
@@ -159,6 +173,7 @@ pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
     GroupedQuantity::from([(key, value)])
 }
 
+/// Type of quantity value in a grouped quantity
 #[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum QuantityType {
     Number,
@@ -167,6 +182,7 @@ pub enum QuantityType {
     Empty,
 }
 
+/// Key for grouping quantities by unit and type
 #[derive(uniffi::Record, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct GroupedQuantityKey {
     pub name: String,
@@ -175,12 +191,14 @@ pub struct GroupedQuantityKey {
 
 pub type GroupedQuantity = HashMap<GroupedQuantityKey, Value>;
 
+/// Represents a quantity with optional units
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
 pub struct Amount {
     pub(crate) quantity: Value,
     pub(crate) units: Option<String>,
 }
 
+/// Types of values that can represent quantities
 #[derive(uniffi::Enum, Debug, Clone, PartialEq)]
 pub enum Value {
     Number { value: f64 },
@@ -190,6 +208,7 @@ pub enum Value {
 }
 
 // Metadata types
+/// Standard metadata keys from the Cooklang specification
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum StdKey {
     Title,
@@ -231,6 +250,7 @@ impl From<&OriginalStdKey> for StdKey {
     }
 }
 
+/// Recipe servings as either a number or text description
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum Servings {
     Number { value: u32 },
@@ -246,6 +266,7 @@ impl From<OriginalServings> for Servings {
     }
 }
 
+/// A name with an optional URL (used for author/source)
 #[derive(uniffi::Record, Debug, Clone)]
 pub struct NameAndUrl {
     pub name: Option<String>,
@@ -261,6 +282,7 @@ impl From<OriginalNameAndUrl> for NameAndUrl {
     }
 }
 
+/// Recipe time as either total minutes or separate prep/cook times
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum RecipeTime {
     Total {
