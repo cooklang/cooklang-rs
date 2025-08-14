@@ -225,6 +225,7 @@ servings: "varies"
         cooklang::scale::ScaleError::InvalidServings => {
             // Expected error
         }
+        _ => panic!("Expected InvalidServings error, got a different error"),
     }
 
     // Recipe should remain unchanged
