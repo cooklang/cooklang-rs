@@ -23,8 +23,6 @@ pub enum ScaleError {
 impl Recipe {
     /// Scale a recipe
     ///
-    /// Note that this returns a [`ScaledRecipe`] wich doesn't implement this
-    /// method. A recipe can only be scaled once.
     pub fn scale(&mut self, factor: f64, converter: &Converter) {
         let scale_quantity = |q: &mut Quantity| {
             if q.scalable {
@@ -103,6 +101,45 @@ impl Recipe {
             }
         }
         Ok(())
+    }
+
+    /// Scale to a target value with optional unit
+    ///
+    /// This function intelligently chooses the appropriate scaling method:
+    /// - If `target_unit` is `Some("servings")`, scales by servings
+    /// - If `target_unit` is `Some(other_unit)`, scales by yield with that unit
+    /// - If `target_unit` is `None`, applies direct scaling factor
+    ///
+    /// # Arguments
+    /// - `target_value` - The target value (servings count, yield amount, or scaling factor)
+    /// - `target_unit` - Optional unit ("servings" for servings-based, other for yield-based, None for direct factor)
+    /// - `converter` - Unit converter for fitting quantities
+    ///
+    /// # Returns
+    /// - `Ok(())` on successful scaling
+    /// - `Err(ScaleError)` if scaling cannot be performed
+    pub fn scale_to_target(
+        &mut self,
+        target_value: f64,
+        target_unit: Option<&str>,
+        converter: &Converter,
+    ) -> Result<(), ScaleError> {
+        match target_unit {
+            Some("servings") | Some("serving") => {
+                // Scale by servings - convert f64 to u32
+                let servings = target_value.round() as u32;
+                self.scale_to_servings(servings, converter)
+            }
+            Some(unit) => {
+                // Scale by yield with the specified unit
+                self.scale_to_yield(target_value, unit, converter)
+            }
+            None => {
+                // Direct scaling factor
+                self.scale(target_value, converter);
+                Ok(())
+            }
+        }
     }
 
     /// Scale to a specific yield amount with unit
