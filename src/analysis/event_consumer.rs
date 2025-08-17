@@ -228,14 +228,15 @@ impl<'i> RecipeCollector<'i, '_> {
             Err(err) => {
                 // ! This message (can) contains line and column number, but line numbers
                 // ! are off by one thanks to the starting `---`
-                let mut diag = error!(err.to_string());
+                let mut diag = warning!(format!("Invalid YAML frontmatter syntax: {}", err));
                 let err_span = err
                     .location()
                     .map(|loc| Span::pos(yaml_text.span().start() + loc.index()));
                 if let Some(loc) = err_span {
                     diag = diag.label(label!(loc));
                 }
-                self.ctx.error(diag);
+                diag.add_hint("The frontmatter will be ignored. Fix the YAML syntax to use metadata.");
+                self.ctx.warn(diag);
                 return;
             }
         };
