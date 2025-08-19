@@ -56,7 +56,7 @@ pub mod _extensions {
 
 #[cfg(doc)]
 pub mod _features {
-    //! This lib has 2 features, both enabled by default:
+    //! This lib has 3 features, 2 enabled by default:
     //! - `bundled_units`. Includes a units file with the most common units for
     //!   recipes in English. These units are available to load when you want
     //!   without the need to read a file. The default
@@ -64,10 +64,14 @@ pub mod _features {
     //!   enabled. [This is the bundled file](https://github.com/cooklang/cooklang-rs/blob/main/units.toml)
     //!
     //! - `aisle`. Enables the [`aisle`](crate::aisle) module.
+    //!
+    //! - `pantry`. Enables the [`pantry`](crate::pantry) module.
 }
 
 #[cfg(feature = "aisle")]
 pub mod aisle;
+#[cfg(feature = "pantry")]
+pub mod pantry;
 pub mod analysis;
 pub mod ast;
 pub mod convert;

@@ -2,13 +2,17 @@
 
 ## Unreleased - ReleaseDate
 
-## 0.16.3 - 2025/08/11
+## 0.17.0
+- Softens YAML frontmatter parsing by @dubadub in https://github.com/cooklang/cooklang-rs/pull/57
+- Adds pantry config
 
-- Remove generics from `Recipe`. Now recipes are scalable multiple times.
-- Remove `Recipe::default_scale`.
-- Scaling is now infallible, text values are ignored. Removed `ScaleOutcome`, if
-  this functionality was needed, it can easily be replaced by checking if the
-  quatity is text or not scalable.
+## 0.16.6 - 2025/08/11
+
+- (breaking) Remove generics from `Recipe`. Now recipes are scalable multiple times.
+- (breaking) Remove `Recipe::default_scale`.
+- (breaking) Scaling is now infallible, text values are ignored. Removed
+  `ScaleOutcome`, if this functionality was needed, it can easily
+  be replaced by checking if the quatity is text or not scalable.
 - Cookware now can have full quantities with units, not just values.
 - Servings value in metadata now isn't a vector
 

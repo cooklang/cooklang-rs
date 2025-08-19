@@ -1,6 +1,6 @@
 [package]
 name = "cooklang"
-version = "0.16.6"
+version = "0.17.0"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
@@ -26,6 +26,7 @@ smallvec = { version = "1" }
 unicase = "2.7.0"
 yansi = "1.0.1"
 serde_yaml = "0.9.34"
+toml = { version = "0.8", optional = true }
 tsify = { version = "0.5", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
@@ -47,6 +48,7 @@ proc-macro2 = { version = "1", optional = true }
 default = ["aisle", "bundled_units"]
 bundled_units = ["toml", "prettyplease", "quote", "syn", "proc-macro2"]
 aisle = []
+pantry = ["toml"]
 ts = ["wasm-bindgen", "tsify"]
 
 [[bench]]

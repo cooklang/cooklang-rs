@@ -471,10 +471,25 @@ private struct FfiConverterString: FfiConverter {
     }
 }
 
+/**
+ * Configuration for organizing ingredients into shopping aisles
+ */
 public protocol AisleConfProtocol: AnyObject {
+    /**
+     * Returns the category name for a given ingredient
+     *
+     * # Arguments
+     * * `ingredient_name` - The name of the ingredient to categorize
+     *
+     * # Returns
+     * The category name if the ingredient is found, None otherwise
+     */
     func categoryFor(ingredientName: String) -> String?
 }
 
+/**
+ * Configuration for organizing ingredients into shopping aisles
+ */
 open class AisleConf:
     AisleConfProtocol
 {
@@ -524,6 +539,15 @@ open class AisleConf:
         try! rustCall { uniffi_cooklang_bindings_fn_free_aisleconf(pointer, $0) }
     }
 
+    /**
+     * Returns the category name for a given ingredient
+     *
+     * # Arguments
+     * * `ingredient_name` - The name of the ingredient to categorize
+     *
+     * # Returns
+     * The category name if the ingredient is found, None otherwise
+     */
     open func categoryFor(ingredientName: String) -> String? {
         return try! FfiConverterOptionString.lift(try! rustCall {
             uniffi_cooklang_bindings_fn_method_aisleconf_category_for(self.uniffiClonePointer(),
@@ -579,16 +603,34 @@ public func FfiConverterTypeAisleConf_lower(_ value: AisleConf) -> UnsafeMutable
     return FfiConverterTypeAisleConf.lower(value)
 }
 
+/**
+ * A parsed Cooklang recipe containing all recipe components
+ */
 public protocol CooklangRecipeProtocol: AnyObject {
+    /**
+     * Returns all cookware used in the recipe
+     */
     func cookware() -> [Cookware]
 
+    /**
+     * Returns all ingredients used in the recipe
+     */
     func ingredients() -> [Ingredient]
 
+    /**
+     * Returns all sections in the recipe
+     */
     func sections() -> [Section]
 
+    /**
+     * Returns all timers in the recipe
+     */
     func timers() -> [Timer]
 }
 
+/**
+ * A parsed Cooklang recipe containing all recipe components
+ */
 open class CooklangRecipe:
     CooklangRecipeProtocol
 {
@@ -638,24 +680,36 @@ open class CooklangRecipe:
         try! rustCall { uniffi_cooklang_bindings_fn_free_cooklangrecipe(pointer, $0) }
     }
 
+    /**
+     * Returns all cookware used in the recipe
+     */
     open func cookware() -> [Cookware] {
         return try! FfiConverterSequenceTypeCookware.lift(try! rustCall {
             uniffi_cooklang_bindings_fn_method_cooklangrecipe_cookware(self.uniffiClonePointer(), $0)
         })
     }
 
+    /**
+     * Returns all ingredients used in the recipe
+     */
     open func ingredients() -> [Ingredient] {
         return try! FfiConverterSequenceTypeIngredient.lift(try! rustCall {
             uniffi_cooklang_bindings_fn_method_cooklangrecipe_ingredients(self.uniffiClonePointer(), $0)
         })
     }
 
+    /**
+     * Returns all sections in the recipe
+     */
     open func sections() -> [Section] {
         return try! FfiConverterSequenceTypeSection.lift(try! rustCall {
             uniffi_cooklang_bindings_fn_method_cooklangrecipe_sections(self.uniffiClonePointer(), $0)
         })
     }
 
+    /**
+     * Returns all timers in the recipe
+     */
     open func timers() -> [Timer] {
         return try! FfiConverterSequenceTypeTimer.lift(try! rustCall {
             uniffi_cooklang_bindings_fn_method_cooklangrecipe_timers(self.uniffiClonePointer(), $0)
@@ -710,6 +764,9 @@ public func FfiConverterTypeCooklangRecipe_lower(_ value: CooklangRecipe) -> Uns
     return FfiConverterTypeCooklangRecipe.lower(value)
 }
 
+/**
+ * A shopping aisle category containing related ingredients
+ */
 public struct AisleCategory {
     public let name: String
     public let ingredients: [AisleIngredient]
@@ -771,6 +828,9 @@ public func FfiConverterTypeAisleCategory_lower(_ value: AisleCategory) -> RustB
     return FfiConverterTypeAisleCategory.lower(value)
 }
 
+/**
+ * An ingredient with its name and aliases for aisle categorization
+ */
 public struct AisleIngredient {
     public let name: String
     public let aliases: [String]
@@ -832,6 +892,9 @@ public func FfiConverterTypeAisleIngredient_lower(_ value: AisleIngredient) -> R
     return FfiConverterTypeAisleIngredient.lower(value)
 }
 
+/**
+ * Represents a quantity with optional units
+ */
 public struct Amount {
     public let quantity: Value
     public let units: String?
@@ -893,6 +956,9 @@ public func FfiConverterTypeAmount_lower(_ value: Amount) -> RustBuffer {
     return FfiConverterTypeAmount.lower(value)
 }
 
+/**
+ * A text note within the recipe
+ */
 public struct BlockNote {
     public let text: String
 
@@ -946,6 +1012,9 @@ public func FfiConverterTypeBlockNote_lower(_ value: BlockNote) -> RustBuffer {
     return FfiConverterTypeBlockNote.lower(value)
 }
 
+/**
+ * Represents a piece of cookware used in the recipe
+ */
 public struct Cookware {
     public let name: String
     public let amount: Amount?
@@ -1007,6 +1076,9 @@ public func FfiConverterTypeCookware_lower(_ value: Cookware) -> RustBuffer {
     return FfiConverterTypeCookware.lower(value)
 }
 
+/**
+ * Key for grouping quantities by unit and type
+ */
 public struct GroupedQuantityKey {
     public let name: String
     public let unitType: QuantityType
@@ -1068,6 +1140,9 @@ public func FfiConverterTypeGroupedQuantityKey_lower(_ value: GroupedQuantityKey
     return FfiConverterTypeGroupedQuantityKey.lower(value)
 }
 
+/**
+ * Represents an ingredient in the recipe
+ */
 public struct Ingredient {
     public let name: String
     public let amount: Amount?
@@ -1137,6 +1212,9 @@ public func FfiConverterTypeIngredient_lower(_ value: Ingredient) -> RustBuffer 
     return FfiConverterTypeIngredient.lower(value)
 }
 
+/**
+ * A name with an optional URL (used for author/source)
+ */
 public struct NameAndUrl {
     public let name: String?
     public let url: String?
@@ -1198,6 +1276,9 @@ public func FfiConverterTypeNameAndUrl_lower(_ value: NameAndUrl) -> RustBuffer 
     return FfiConverterTypeNameAndUrl.lower(value)
 }
 
+/**
+ * Represents a distinct section of a recipe, optionally with a title
+ */
 public struct Section {
     public let title: String?
     public let blocks: [Block]
@@ -1283,6 +1364,9 @@ public func FfiConverterTypeSection_lower(_ value: Section) -> RustBuffer {
     return FfiConverterTypeSection.lower(value)
 }
 
+/**
+ * Represents a single cooking instruction step
+ */
 public struct Step {
     public let items: [Item]
     public let ingredientRefs: [UInt32]
@@ -1360,6 +1444,9 @@ public func FfiConverterTypeStep_lower(_ value: Step) -> RustBuffer {
     return FfiConverterTypeStep.lower(value)
 }
 
+/**
+ * Represents a timer in the recipe
+ */
 public struct Timer {
     public let name: String?
     public let amount: Amount?
@@ -1423,6 +1510,9 @@ public func FfiConverterTypeTimer_lower(_ value: Timer) -> RustBuffer {
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * A block can either be a cooking step or a note
+ */
 
 public enum Block {
     case stepBlock(Step
@@ -1481,6 +1571,9 @@ extension Block: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Types of components that can be referenced in a recipe
+ */
 
 public enum Component {
     case ingredientComponent(Ingredient
@@ -1557,6 +1650,9 @@ extension Component: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Elements that can appear in a recipe step
+ */
 
 public enum Item {
     case text(value: String
@@ -1633,6 +1729,9 @@ extension Item: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Type of quantity value in a grouped quantity
+ */
 
 public enum QuantityType {
     case number
@@ -1697,6 +1796,9 @@ extension QuantityType: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Recipe time as either total minutes or separate prep/cook times
+ */
 
 public enum RecipeTime {
     case total(minutes: UInt32
@@ -1754,6 +1856,9 @@ extension RecipeTime: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Recipe servings as either a number or text description
+ */
 
 public enum Servings {
     case number(value: UInt32
@@ -1812,6 +1917,9 @@ extension Servings: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Standard metadata keys from the Cooklang specification
+ */
 
 public enum StdKey {
     case title
@@ -1942,6 +2050,9 @@ extension StdKey: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Types of values that can represent quantities
+ */
 
 public enum Value {
     case number(value: Double
@@ -2457,6 +2568,15 @@ private struct FfiConverterDictionaryTypeGroupedQuantityKeyTypeValue: FfiConvert
     }
 }
 
+/**
+ * Combines a list of ingredients, grouping by name and summing quantities
+ *
+ * # Arguments
+ * * `ingredients` - List of ingredients to combine
+ *
+ * # Returns
+ * A map of ingredient names to their combined quantities
+ */
 public func combineIngredients(ingredients: [Ingredient]) -> [String: [GroupedQuantityKey: Value]] {
     return try! FfiConverterDictionaryStringDictionaryTypeGroupedQuantityKeyTypeValue.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_combine_ingredients(
@@ -2465,6 +2585,16 @@ public func combineIngredients(ingredients: [Ingredient]) -> [String: [GroupedQu
     })
 }
 
+/**
+ * Combines selected ingredients by their indices
+ *
+ * # Arguments
+ * * `ingredients` - Full list of ingredients
+ * * `indices` - Indices of ingredients to combine
+ *
+ * # Returns
+ * A map of ingredient names to their combined quantities
+ */
 public func combineIngredientsSelected(ingredients: [Ingredient], indices: [UInt32]) -> [String: [GroupedQuantityKey: Value]] {
     return try! FfiConverterDictionaryStringDictionaryTypeGroupedQuantityKeyTypeValue.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_combine_ingredients_selected(
@@ -2474,6 +2604,16 @@ public func combineIngredientsSelected(ingredients: [Ingredient], indices: [UInt
     })
 }
 
+/**
+ * Dereferences a component reference to get the actual component
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing the components
+ * * `item` - The item reference (IngredientRef, CookwareRef, TimerRef, or Text)
+ *
+ * # Returns
+ * The actual component (Ingredient, Cookware, Timer, or Text)
+ */
 public func derefComponent(recipe: CooklangRecipe, item: Item) -> Component {
     return try! FfiConverterTypeComponent.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_deref_component(
@@ -2483,6 +2623,16 @@ public func derefComponent(recipe: CooklangRecipe, item: Item) -> Component {
     })
 }
 
+/**
+ * Gets cookware by its index
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing the cookware
+ * * `index` - The index of the cookware
+ *
+ * # Returns
+ * The cookware at the specified index
+ */
 public func derefCookware(recipe: CooklangRecipe, index: UInt32) -> Cookware {
     return try! FfiConverterTypeCookware.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_deref_cookware(
@@ -2492,6 +2642,16 @@ public func derefCookware(recipe: CooklangRecipe, index: UInt32) -> Cookware {
     })
 }
 
+/**
+ * Gets an ingredient by its index
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing the ingredients
+ * * `index` - The index of the ingredient
+ *
+ * # Returns
+ * The ingredient at the specified index
+ */
 public func derefIngredient(recipe: CooklangRecipe, index: UInt32) -> Ingredient {
     return try! FfiConverterTypeIngredient.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_deref_ingredient(
@@ -2501,6 +2661,16 @@ public func derefIngredient(recipe: CooklangRecipe, index: UInt32) -> Ingredient
     })
 }
 
+/**
+ * Gets a timer by its index
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing the timers
+ * * `index` - The index of the timer
+ *
+ * # Returns
+ * The timer at the specified index
+ */
 public func derefTimer(recipe: CooklangRecipe, index: UInt32) -> Timer {
     return try! FfiConverterTypeTimer.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_deref_timer(
@@ -2510,6 +2680,54 @@ public func derefTimer(recipe: CooklangRecipe, index: UInt32) -> Timer {
     })
 }
 
+/**
+ * Formats an Amount to a display string with units
+ *
+ * Combines formatted quantity with units (e.g., "2/3 cups", "1 1/2 tsp")
+ *
+ * # Arguments
+ * * `amount` - The amount to format
+ *
+ * # Returns
+ * Formatted string with quantity and units
+ */
+public func formatAmount(amount: Amount) -> String {
+    return try! FfiConverterString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_format_amount(
+            FfiConverterTypeAmount.lower(amount), $0
+        )
+    })
+}
+
+/**
+ * Formats a Value to a display string with proper fraction handling
+ *
+ * Converts decimals to fractions where appropriate (e.g., 0.666667 -> "2/3")
+ * Handles floating point precision issues from scaling (e.g., 0.89999999 -> "0.9")
+ *
+ * # Arguments
+ * * `value` - The value to format
+ *
+ * # Returns
+ * Formatted string or None for Empty values
+ */
+public func formatValue(value: Value) -> String? {
+    return try! FfiConverterOptionString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_format_value(
+            FfiConverterTypeValue.lower(value), $0
+        )
+    })
+}
+
+/**
+ * Gets the author information from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get author from
+ *
+ * # Returns
+ * Author name and optional URL
+ */
 public func metadataAuthor(recipe: CooklangRecipe) -> NameAndUrl? {
     return try! FfiConverterOptionTypeNameAndUrl.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_author(
@@ -2518,6 +2736,32 @@ public func metadataAuthor(recipe: CooklangRecipe) -> NameAndUrl? {
     })
 }
 
+/**
+ * Gets all non-standard (custom) metadata keys
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing metadata
+ *
+ * # Returns
+ * List of custom metadata keys that are not part of the Cooklang standard
+ */
+public func metadataCustomKeys(recipe: CooklangRecipe) -> [String] {
+    return try! FfiConverterSequenceString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_metadata_custom_keys(
+            FfiConverterTypeCooklangRecipe.lower(recipe), $0
+        )
+    })
+}
+
+/**
+ * Gets the description from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get the description from
+ *
+ * # Returns
+ * The recipe description if present
+ */
 public func metadataDescription(recipe: CooklangRecipe) -> String? {
     return try! FfiConverterOptionString.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_description(
@@ -2526,6 +2770,16 @@ public func metadataDescription(recipe: CooklangRecipe) -> String? {
     })
 }
 
+/**
+ * Gets a custom metadata value by key
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing metadata
+ * * `key` - The metadata key to retrieve
+ *
+ * # Returns
+ * The metadata value if present
+ */
 public func metadataGet(recipe: CooklangRecipe, key: String) -> String? {
     return try! FfiConverterOptionString.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_get(
@@ -2535,6 +2789,16 @@ public func metadataGet(recipe: CooklangRecipe, key: String) -> String? {
     })
 }
 
+/**
+ * Gets a standard metadata value using the StdKey enum
+ *
+ * # Arguments
+ * * `recipe` - The recipe containing metadata
+ * * `key` - The standard metadata key
+ *
+ * # Returns
+ * The metadata value if present
+ */
 public func metadataGetStd(recipe: CooklangRecipe, key: StdKey) -> String? {
     return try! FfiConverterOptionString.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_get_std(
@@ -2544,6 +2808,15 @@ public func metadataGetStd(recipe: CooklangRecipe, key: StdKey) -> String? {
     })
 }
 
+/**
+ * Gets the servings from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get servings from
+ *
+ * # Returns
+ * Servings as either a number (e.g., 4) or text (e.g., "2-3 portions")
+ */
 public func metadataServings(recipe: CooklangRecipe) -> Servings? {
     return try! FfiConverterOptionTypeServings.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_servings(
@@ -2552,6 +2825,15 @@ public func metadataServings(recipe: CooklangRecipe) -> Servings? {
     })
 }
 
+/**
+ * Gets the source information from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get source from
+ *
+ * # Returns
+ * Source name and optional URL
+ */
 public func metadataSource(recipe: CooklangRecipe) -> NameAndUrl? {
     return try! FfiConverterOptionTypeNameAndUrl.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_source(
@@ -2560,6 +2842,15 @@ public func metadataSource(recipe: CooklangRecipe) -> NameAndUrl? {
     })
 }
 
+/**
+ * Gets tags from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get tags from
+ *
+ * # Returns
+ * A list of tags if present
+ */
 public func metadataTags(recipe: CooklangRecipe) -> [String]? {
     return try! FfiConverterOptionSequenceString.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_tags(
@@ -2568,6 +2859,15 @@ public func metadataTags(recipe: CooklangRecipe) -> [String]? {
     })
 }
 
+/**
+ * Gets the time information from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get time from
+ *
+ * # Returns
+ * Total time or separate prep/cook times in minutes
+ */
 public func metadataTime(recipe: CooklangRecipe) -> RecipeTime? {
     return try! FfiConverterOptionTypeRecipeTime.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_time(
@@ -2576,6 +2876,15 @@ public func metadataTime(recipe: CooklangRecipe) -> RecipeTime? {
     })
 }
 
+/**
+ * Gets the title from recipe metadata
+ *
+ * # Arguments
+ * * `recipe` - The recipe to get the title from
+ *
+ * # Returns
+ * The recipe title if present
+ */
 public func metadataTitle(recipe: CooklangRecipe) -> String? {
     return try! FfiConverterOptionString.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_metadata_title(
@@ -2584,6 +2893,15 @@ public func metadataTitle(recipe: CooklangRecipe) -> String? {
     })
 }
 
+/**
+ * Parses an aisle configuration for shopping list organization
+ *
+ * # Arguments
+ * * `input` - The aisle configuration text
+ *
+ * # Returns
+ * Parsed aisle configuration with categories and ingredient mappings
+ */
 public func parseAisleConfig(input: String) -> AisleConf {
     return try! FfiConverterTypeAisleConf.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_parse_aisle_config(
@@ -2592,11 +2910,41 @@ public func parseAisleConfig(input: String) -> AisleConf {
     })
 }
 
+/**
+ * Parses a Cooklang recipe from text and applies a scaling factor
+ *
+ * # Arguments
+ * * `input` - The raw recipe text in Cooklang format
+ * * `scaling_factor` - Factor to scale ingredient quantities (1.0 for no scaling)
+ *
+ * # Returns
+ * A parsed recipe object with metadata, sections, ingredients, cookware and timers
+ */
 public func parseRecipe(input: String, scalingFactor: Double) -> CooklangRecipe {
     return try! FfiConverterTypeCooklangRecipe.lift(try! rustCall {
         uniffi_cooklang_bindings_fn_func_parse_recipe(
             FfiConverterString.lower(input),
             FfiConverterDouble.lower(scalingFactor), $0
+        )
+    })
+}
+
+/**
+ * Parses a string into a Value
+ *
+ * Supports fractions (e.g., "1/2" -> 0.5), mixed numbers (e.g., "1 1/2" -> 1.5),
+ * ranges (e.g., "1/2 - 3/4" -> Range{0.5, 0.75}), or falls back to text
+ *
+ * # Arguments
+ * * `s` - The string to parse
+ *
+ * # Returns
+ * Parsed Value (Number, Range, or Text)
+ */
+public func parseValue(s: String) -> Value {
+    return try! FfiConverterTypeValue.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_parse_value(
+            FfiConverterString.lower(s), $0
         )
     })
 }
@@ -2617,70 +2965,82 @@ private var initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_combine_ingredients() != 48221 {
+    if uniffi_cooklang_bindings_checksum_func_combine_ingredients() != 36610 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_combine_ingredients_selected() != 56749 {
+    if uniffi_cooklang_bindings_checksum_func_combine_ingredients_selected() != 40919 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_component() != 11104 {
+    if uniffi_cooklang_bindings_checksum_func_deref_component() != 34036 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_cookware() != 38038 {
+    if uniffi_cooklang_bindings_checksum_func_deref_cookware() != 554 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_ingredient() != 16524 {
+    if uniffi_cooklang_bindings_checksum_func_deref_ingredient() != 19669 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_deref_timer() != 18113 {
+    if uniffi_cooklang_bindings_checksum_func_deref_timer() != 59309 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_author() != 40301 {
+    if uniffi_cooklang_bindings_checksum_func_format_amount() != 64895 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_description() != 57014 {
+    if uniffi_cooklang_bindings_checksum_func_format_value() != 29360 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_get() != 23295 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_author() != 27104 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_get_std() != 33766 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_custom_keys() != 26863 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_servings() != 48632 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_description() != 22848 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_source() != 36897 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_get() != 30261 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_tags() != 16588 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_get_std() != 65428 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_time() != 28150 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_servings() != 62006 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_metadata_title() != 8486 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_source() != 51247 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_parse_aisle_config() != 49190 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_tags() != 63258 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_func_parse_recipe() != 56147 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_time() != 27261 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_method_aisleconf_category_for() != 17275 {
+    if uniffi_cooklang_bindings_checksum_func_metadata_title() != 16632 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_cookware() != 12279 {
+    if uniffi_cooklang_bindings_checksum_func_parse_aisle_config() != 10549 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_ingredients() != 2547 {
+    if uniffi_cooklang_bindings_checksum_func_parse_recipe() != 26150 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_sections() != 62397 {
+    if uniffi_cooklang_bindings_checksum_func_parse_value() != 41886 {
         return InitializationResult.apiChecksumMismatch
     }
-    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_timers() != 32547 {
+    if uniffi_cooklang_bindings_checksum_method_aisleconf_category_for() != 45672 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_cookware() != 42673 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_ingredients() != 36256 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_sections() != 55375 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_cooklangrecipe_timers() != 63040 {
         return InitializationResult.apiChecksumMismatch
     }
 
