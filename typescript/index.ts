@@ -1,15 +1,6 @@
 import {version, Parser, ScaledRecipeWithReport, Ingredient, FallibleResult} from "./pkg/cooklang_wasm";
 
 
-export function parseCooklangRecipe(input: string, extensions?: string[]): CooklangRecipe {
-    // TODO: extensions
-    let parser = new Parser;
-    let recipe = parser.parse(input);
-    let result = new CooklangRecipe();
-    result.setRecipe(recipe);
-    return result
-}
-
 export class CooklangRecipe {
     metadata = {};
     ingredients = new Map();
@@ -23,11 +14,17 @@ export class CooklangRecipe {
             // TODO: extensions
             let parser = new Parser;
             let recipe = parser.parse(input);
-            this.setRecipe(recipe);
+            this.#setRecipe(recipe);
         }
     }
 
-    setRecipe(rawParsed: ScaledRecipeWithReport) {
+    set input(input: string) {
+        let parser = new Parser;
+        let recipe = parser.parse(input);
+        this.#setRecipe(recipe);
+    }
+
+    #setRecipe(rawParsed: ScaledRecipeWithReport) {
         this.metadata = {};
         // this.ingredients = [];
         // this.steps = [];
