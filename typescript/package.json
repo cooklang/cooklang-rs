@@ -23,7 +23,8 @@
     "build-wasm": "wasm-pack build --target bundler",
     "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler",
     "prepare": "npm run build-wasm && npm run build",
-    "test": "vitest"
+    "test": "vitest",
+    "bench": "vitest bench"
   },
   "devDependencies": {
     "vite-plugin-wasm": "^3.4.1",
