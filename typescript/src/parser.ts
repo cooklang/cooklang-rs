@@ -37,25 +37,22 @@ class CooklangParser extends CooklangRecipe {
   public extensionList: string[];
   #rust_parser: RustParser;
   constructor(public rawContent?: string) {
-    const rustParser = new RustParser();
-    if (rawContent) {
-      const parsed = rustParser.parse(rawContent);
-      super(parsed);
-    } else {
-      super();
-    }
+    super();
     this.version = version();
     this.extensionList = [] as string[];
-    this.#rust_parser = rustParser;
+    this.#rust_parser = new RustParser();
+    if (rawContent) this.raw = rawContent;
   }
 
   set raw(raw: string) {
     this.rawContent = raw;
+    const parsed = this.#rust_parser.parse(raw);
+    this.setRecipe(parsed);
   }
 
   get raw() {
     if (!this.rawContent)
-      throw new Error("recipe not set, call .raw(content) to set it first");
+      throw new Error('recipe not set, set .raw = "content" to set it first');
     return this.rawContent;
   }
 
