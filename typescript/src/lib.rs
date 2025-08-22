@@ -27,6 +27,9 @@ pub struct ScaledRecipeWithReport {
     report: String,
 }
 
+// TODO see if we can pull this out of an impl
+//  and use simple functions which may make our TS
+//  easier to manage and check, move the class creation to JS
 #[wasm_bindgen]
 impl Parser {
     #[wasm_bindgen(constructor)]
