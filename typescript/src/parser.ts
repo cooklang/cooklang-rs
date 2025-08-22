@@ -22,8 +22,10 @@ class CooklangRecipe {
   }
 
   setRecipe(rawParsed: ScaledRecipeWithReport) {
-    this.metadata = {};
-    // this.ingredients = [];
+    // this.metadata = {};
+    this.ingredients = new Map(
+      rawParsed.recipe.ingredients.map((recipe) => [recipe.name, recipe])
+    );
     // this.steps = [];
     // this.cookware = [];
     // this.timers = [];
@@ -33,10 +35,18 @@ class CooklangRecipe {
 class CooklangParser extends CooklangRecipe {
   public version: string;
   public extensionList: string[];
+  #rust_parser: RustParser;
   constructor(public rawContent?: string) {
-    super();
+    const rustParser = new RustParser();
+    if (rawContent) {
+      const parsed = rustParser.parse(rawContent);
+      super(parsed);
+    } else {
+      super();
+    }
     this.version = version();
     this.extensionList = [] as string[];
+    this.#rust_parser = rustParser;
   }
 
   set raw(raw: string) {
@@ -90,19 +100,14 @@ class CooklangParser extends CooklangRecipe {
     return input;
   }
 
-  // TODO return fully typed JS Object
   parse(recipeString?: string) {
     const input = this.#handleFunctionalOrInstance(recipeString);
-    // TODO actually parse
-    const parsed = {
-      recipe: { ingredients: [input] },
-    } as unknown as ScaledRecipeWithReport;
+    const parsed = this.#rust_parser.parse(input);
     if (this.rawContent) {
       this.setRecipe(parsed);
     }
     if (!this.rawContent && recipeString) {
-      const direct = new CooklangRecipe(parsed);
-      return direct;
+      return new CooklangRecipe(parsed);
     } else {
       throw new Error("should never reach this");
     }
