@@ -188,7 +188,7 @@ impl Recipe {
 
         // Update yield metadata to the target value (always use % format)
         if let Some(yield_meta) = self.metadata.get_mut("yield") {
-            *yield_meta = serde_yaml::Value::String(format!("{}%{}", target_value, target_unit));
+            *yield_meta = serde_yaml::Value::String(format!("{target_value}%{target_unit}"));
         }
 
         Ok(())

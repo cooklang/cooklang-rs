@@ -235,7 +235,9 @@ impl<'i> RecipeCollector<'i, '_> {
                 if let Some(loc) = err_span {
                     diag = diag.label(label!(loc));
                 }
-                diag.add_hint("The frontmatter will be ignored. Fix the YAML syntax to use metadata.");
+                diag.add_hint(
+                    "The frontmatter will be ignored. Fix the YAML syntax to use metadata.",
+                );
                 self.ctx.warn(diag);
                 return;
             }
@@ -1501,7 +1503,7 @@ fn parse_reference(name: &str) -> Option<RecipeReference> {
         let file_stem = components.pop().unwrap();
         Some(RecipeReference {
             components,
-            name: file_stem.into(),
+            name: file_stem,
         })
     } else {
         None
