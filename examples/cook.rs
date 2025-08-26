@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok((recipe, warnings)) => {
             warnings.eprint(&in_file, &input, true)?;
             if let Some(mut out) = out_file {
-                writeln!(out, "{:#?}", recipe)?;
+                writeln!(out, "{recipe:#?}")?;
             }
         }
         Err(e) => {

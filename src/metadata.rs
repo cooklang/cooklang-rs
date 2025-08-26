@@ -561,8 +561,8 @@ impl Servings {
 impl std::fmt::Display for Servings {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Servings::Number(n) => write!(f, "{}", n),
-            Servings::Text(s) => write!(f, "{}", s),
+            Servings::Number(n) => write!(f, "{n}"),
+            Servings::Text(s) => write!(f, "{s}"),
         }
     }
 }

@@ -156,7 +156,7 @@ fn parse_core<'i>(
                 if lenient {
                     if let Some(report) = report.as_mut() {
                         let warning = SourceDiag::warning(
-                            format!("Duplicate category: '{}'", name),
+                            format!("Duplicate category: '{name}'"),
                             (calc_span(name), Some("duplicate found here".into())),
                             Stage::Parse,
                         );
@@ -189,7 +189,7 @@ fn parse_core<'i>(
                     if lenient {
                         if let Some(report) = report.as_mut() {
                             let warning = SourceDiag::warning(
-                                format!("Duplicate ingredient: '{}'", n),
+                                format!("Duplicate ingredient: '{n}'"),
                                 (calc_span(n), Some("duplicate found here".into())),
                                 Stage::Parse,
                             );
@@ -212,25 +212,23 @@ fn parse_core<'i>(
             if !names.is_empty() {
                 if let Some(cat) = &mut current_category {
                     cat.ingredients.push(Ingredient { names });
-                } else {
-                    if lenient {
-                        if let Some(report) = report.as_mut() {
-                            let warning = SourceDiag::warning(
-                                "Ingredient found before any category",
-                                (
-                                    calc_span(line),
-                                    Some("add a category before listing ingredients".into()),
-                                ),
-                                Stage::Parse,
-                            );
-                            report.push(warning);
-                        }
-                    } else {
-                        return Err(AisleConfError::Parse {
-                            span: calc_span(line),
-                            message: "Expected category".to_string(),
-                        });
+                } else if lenient {
+                    if let Some(report) = report.as_mut() {
+                        let warning = SourceDiag::warning(
+                            "Ingredient found before any category",
+                            (
+                                calc_span(line),
+                                Some("add a category before listing ingredients".into()),
+                            ),
+                            Stage::Parse,
+                        );
+                        report.push(warning);
                     }
+                } else {
+                    return Err(AisleConfError::Parse {
+                        span: calc_span(line),
+                        message: "Expected category".to_string(),
+                    });
                 }
             }
         }
@@ -290,7 +288,7 @@ pub fn write(conf: &AisleConf, mut write: impl std::io::Write) -> std::io::Resul
                 let mut iter = ingredient.names.iter();
                 write!(w, "{}", iter.next().unwrap())?;
                 for name in iter {
-                    write!(w, "|{}", name)?;
+                    write!(w, "|{name}")?;
                 }
                 writeln!(w)?
             }

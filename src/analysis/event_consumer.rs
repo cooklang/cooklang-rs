@@ -1503,7 +1503,7 @@ fn parse_reference(name: &str) -> Option<RecipeReference> {
         let file_stem = components.pop().unwrap();
         Some(RecipeReference {
             components,
-            name: file_stem.into(),
+            name: file_stem,
         })
     } else {
         None

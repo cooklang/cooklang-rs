@@ -1,6 +1,6 @@
 //! Support for recipe scaling
 
-use crate::{convert::Converter, metadata_value, quantity::Value, Quantity, Recipe};
+use crate::{convert::Converter, quantity::Value, Quantity, Recipe};
 use thiserror::Error;
 
 /// Error type for scaling operations
@@ -40,14 +40,12 @@ impl Recipe {
                 {
                     // Preserve the original type (string or number)
                     match servings_value {
-                        metadata_value::MetadataValue::String(_) => {
-                            *servings_value = metadata_value::MetadataValue::String(
-                                new_servings.to_string().into(),
-                            );
+                        serde_yaml::Value::String(_) => {
+                            *servings_value = serde_yaml::Value::String(new_servings.to_string());
                         }
                         _ => {
                             *servings_value =
-                                metadata_value::MetadataValue::Number(new_servings as f64);
+                                serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
                         }
                     }
                 }
@@ -94,12 +92,11 @@ impl Recipe {
         if let Some(servings_value) = self.metadata.get_mut(crate::metadata::StdKey::Servings) {
             // Preserve the original type (string or number)
             match servings_value {
-                metadata_value::MetadataValue::String(_) => {
-                    *servings_value =
-                        metadata_value::MetadataValue::String(target.to_string().into());
+                serde_yaml::Value::String(_) => {
+                    *servings_value = serde_yaml::Value::String(target.to_string());
                 }
                 _ => {
-                    *servings_value = metadata_value::MetadataValue::Number(target as f64);
+                    *servings_value = serde_yaml::Value::Number(serde_yaml::Number::from(target));
                 }
             }
         }
@@ -190,11 +187,8 @@ impl Recipe {
         self.scale(factor, converter);
 
         // Update yield metadata to the target value (always use % format)
-        // TODO: should use StdKeys
         if let Some(yield_meta) = self.metadata.get_mut("yield") {
-            *yield_meta = metadata_value::MetadataValue::String(
-                format!("{}%{}", target_value, target_unit).into(),
-            );
+            *yield_meta = serde_yaml::Value::String(format!("{target_value}%{target_unit}"));
         }
 
         Ok(())
