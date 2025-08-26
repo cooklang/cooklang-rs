@@ -5,7 +5,7 @@
 
 use crate::{
     error::{CowStr, PassResult, SourceDiag},
-    Recipe,
+    metadata_value, Recipe,
 };
 
 mod event_consumer;
@@ -114,4 +114,4 @@ impl CheckOptions {
 
 pub type RecipeRefCheck<'a> = Box<dyn FnMut(&str) -> CheckResult + 'a>;
 pub type MetadataValidator<'a> =
-    Box<dyn FnMut(&serde_yaml::Value, &serde_yaml::Value, &mut CheckOptions) -> CheckResult + 'a>;
+    Box<dyn FnMut(&str, &metadata_value::MetadataValue, &mut CheckOptions) -> CheckResult + 'a>;

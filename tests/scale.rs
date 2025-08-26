@@ -1,4 +1,4 @@
-use cooklang::{Converter, CooklangParser, Extensions};
+use cooklang::{metadata_value, Converter, CooklangParser, Extensions};
 
 #[test]
 fn test_scale_updates_servings_metadata() {
@@ -23,7 +23,7 @@ Mix and bake."#;
         .metadata
         .get(cooklang::metadata::StdKey::Servings)
         .unwrap();
-    assert_eq!(orig_servings_value.as_u64(), Some(4));
+    assert_eq!(orig_servings_value.as_f64(), Some(4.0));
 
     // Scale to 8 servings (2x)
     recipe.scale_to_servings(8, &Converter::default()).unwrap();
@@ -33,7 +33,7 @@ Mix and bake."#;
         .metadata
         .get(cooklang::metadata::StdKey::Servings)
         .unwrap();
-    assert_eq!(scaled_servings_value.as_u64(), Some(8));
+    assert_eq!(scaled_servings_value.as_f64(), Some(8.0));
 }
 
 #[test]
@@ -56,8 +56,8 @@ fn test_scale_by_factor_updates_servings_metadata() {
         .unwrap();
     // Handle both string and number formats
     match scaled_servings_value {
-        serde_yaml::Value::String(s) => assert_eq!(s, "6"),
-        serde_yaml::Value::Number(n) => assert_eq!(n.as_u64(), Some(6)),
+        metadata_value::MetadataValue::String(s) => assert_eq!(s, "6"),
+        metadata_value::MetadataValue::Number(n) => assert_eq!(*n, 6.0),
         _ => panic!("Unexpected servings value type"),
     }
 }
@@ -102,8 +102,8 @@ fn test_scale_with_fractional_servings() {
         .unwrap();
     // Handle both string and number formats
     match scaled_servings_value {
-        serde_yaml::Value::String(s) => assert_eq!(s, "5"),
-        serde_yaml::Value::Number(n) => assert_eq!(n.as_u64(), Some(5)),
+        metadata_value::MetadataValue::String(s) => assert_eq!(s, "5"),
+        metadata_value::MetadataValue::Number(n) => assert_eq!(*n, 5.0),
         _ => panic!("Unexpected servings value type"),
     }
 }

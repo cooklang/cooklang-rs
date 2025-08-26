@@ -1,14 +1,16 @@
 //! Metadata of a recipe
 
-use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
-
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
+use crate::metadata_value::MetadataValue;
 use crate::{
     convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
     Converter,
 };
+use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
+use thiserror::Error;
+use tsify::Tsify;
 
 /// Metadata of a recipe
 ///
@@ -23,9 +25,10 @@ use crate::{
 /// was not present or the value was not of the expected type. You can also
 /// decide to not use them and extract the metadata you prefer.
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Metadata {
     /// All the raw key/value pairs from the recipe
-    pub map: serde_yaml::Mapping,
+    pub map: HashMap<String, MetadataValue>,
 }
 
 /// Standard keys from the cooklang spec
@@ -114,28 +117,24 @@ impl AsRef<str> for StdKey {
 }
 
 impl Metadata {
-    pub fn get(&self, index: impl MetaIndex) -> Option<&serde_yaml::Value> {
+    pub fn get(&self, index: impl MetaIndex) -> Option<&MetadataValue> {
         index.index_into(&self.map)
     }
 
-    pub fn get_mut(&mut self, index: impl MetaIndex) -> Option<&mut serde_yaml::Value> {
+    pub fn get_mut(&mut self, index: impl MetaIndex) -> Option<&mut MetadataValue> {
         index.index_into_mut(&mut self.map)
     }
 
     /// Iterates over all entries except the standard keys
-    pub fn map_filtered(&self) -> impl Iterator<Item = (&serde_yaml::Value, &serde_yaml::Value)> {
-        self.map.iter().filter(|(key, _)| {
-            if let Some(key_t) = key.as_str() {
-                StdKey::from_str(key_t).is_err()
-            } else {
-                true
-            }
-        })
+    pub fn map_filtered(&self) -> impl Iterator<Item = (&String, &MetadataValue)> {
+        self.map
+            .iter()
+            .filter(|(key, _)| StdKey::from_str(key).is_err())
     }
 
     /// Title of the recipe
     pub fn title(&self) -> Option<&str> {
-        self.get(StdKey::Title).and_then(serde_yaml::Value::as_str)
+        self.get(StdKey::Title).and_then(MetadataValue::as_str)
     }
 
     /// Description of the recipe
@@ -143,7 +142,7 @@ impl Metadata {
     /// Just the `description` key as a string.
     pub fn description(&self) -> Option<&str> {
         self.get(StdKey::Description)
-            .and_then(serde_yaml::Value::as_str)
+            .and_then(MetadataValue::as_str)
     }
 
     /// List of tags
@@ -213,64 +212,67 @@ impl Metadata {
 }
 
 pub trait MetaIndex: private::Sealed {
-    fn index_into<'a>(&self, m: &'a serde_yaml::Mapping) -> Option<&'a serde_yaml::Value>;
+    fn index_into<'a>(&self, m: &'a HashMap<String, MetadataValue>) -> Option<&'a MetadataValue>;
     fn index_into_mut<'a>(
         &self,
-        m: &'a mut serde_yaml::Mapping,
-    ) -> Option<&'a mut serde_yaml::Value>;
+        m: &'a mut HashMap<String, MetadataValue>,
+    ) -> Option<&'a mut MetadataValue>;
 }
 
 mod private {
+    use std::borrow::Borrow;
+
     pub trait Sealed {}
     impl Sealed for super::StdKey {}
-    impl<T> Sealed for T where T: serde_yaml::mapping::Index {}
+    impl Sealed for super::MetadataValue {}
+    impl<T> Sealed for T where T: Borrow<str> {}
 }
 
 impl MetaIndex for StdKey {
     #[inline]
-    fn index_into<'a>(&self, m: &'a serde_yaml::Mapping) -> Option<&'a serde_yaml::Value> {
+    fn index_into<'a>(&self, m: &'a HashMap<String, MetadataValue>) -> Option<&'a MetadataValue> {
         m.get(self.as_ref())
     }
 
     #[inline]
     fn index_into_mut<'a>(
         &self,
-        m: &'a mut serde_yaml::Mapping,
-    ) -> Option<&'a mut serde_yaml::Value> {
+        m: &'a mut HashMap<String, MetadataValue>,
+    ) -> Option<&'a mut MetadataValue> {
         m.get_mut(self.as_ref())
     }
 }
 
 impl<T> MetaIndex for T
 where
-    T: serde_yaml::mapping::Index,
+    T: Borrow<str>,
 {
     #[inline]
-    fn index_into<'a>(&self, m: &'a serde_yaml::Mapping) -> Option<&'a serde_yaml::Value> {
-        m.get(self)
+    fn index_into<'a>(&self, m: &'a HashMap<String, MetadataValue>) -> Option<&'a MetadataValue> {
+        m.get(self.borrow())
     }
 
     #[inline]
     fn index_into_mut<'a>(
         &self,
-        m: &'a mut serde_yaml::Mapping,
-    ) -> Option<&'a mut serde_yaml::Value> {
-        m.get_mut(self)
+        m: &'a mut HashMap<String, MetadataValue>,
+    ) -> Option<&'a mut MetadataValue> {
+        m.get_mut(self.borrow())
     }
 }
 
-/// This trait is implemented for [`serde_yaml::Value`] and adds more ways to
+/// This trait is implemented for [`MetadataValue`] and adds more ways to
 /// transform the value from YAML.
 pub trait CooklangValueExt: private::Sealed {
     /// Comma (',') separated string or YAML sequence of strings
     ///
     /// Duplicates and empty entries removed.
-    fn as_tags(&self) -> Option<Vec<Cow<str>>>;
+    fn as_tags<'a>(&'a self) -> Option<Vec<Cow<'a, str>>>;
 
     /// String separated by `sep` or YAML sequence of strings and/or numbers
     ///
     /// This only checks types and convert numbers to strings if neccesary.
-    fn as_string_list<'a>(&'a self, sep: &str) -> Option<Vec<std::borrow::Cow<'a, str>>>;
+    fn as_string_list<'a>(&'a self, sep: &str) -> Option<Vec<Cow<'a, str>>>;
 
     /// Get a [`NameAndUrl`]
     ///
@@ -319,7 +321,7 @@ pub trait CooklangValueExt: private::Sealed {
     fn as_servings(&self) -> Option<Servings>;
 }
 
-impl CooklangValueExt for serde_yaml::Value {
+impl CooklangValueExt for MetadataValue {
     fn as_tags(&self) -> Option<Vec<Cow<str>>> {
         value_as_tags(self).ok()
     }
@@ -329,7 +331,7 @@ impl CooklangValueExt for serde_yaml::Value {
             let v = s.split(sep).map(|e| e.into()).collect();
             Some(v)
         } else if let Some(seq) = self.as_sequence() {
-            let mut v = Vec::<std::borrow::Cow<'a, str>>::with_capacity(seq.len());
+            let mut v = Vec::with_capacity(seq.len());
             for e in seq {
                 if let Some(s) = e.as_str_like() {
                     v.push(s);
@@ -344,7 +346,7 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 
     fn as_name_and_url(&self) -> Option<NameAndUrl> {
-        if let Some(s) = self.as_str_like() {
+        if let Some(s) = self.as_str() {
             Some(NameAndUrl::parse(&s))
         } else if let Some(map) = self.as_mapping() {
             let name = map.get("name").and_then(|v| v.as_str());
@@ -367,7 +369,7 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 
     fn as_u32(&self) -> Option<u32> {
-        self.as_u64()?.try_into().ok()
+        self.as_f64().map(|f| f as u32)
     }
 
     fn as_locale(&self) -> Option<(&str, Option<&str>)> {
@@ -377,7 +379,7 @@ impl CooklangValueExt for serde_yaml::Value {
     fn as_str_like(&self) -> Option<Cow<str>> {
         if let Some(s) = self.as_str() {
             Some(Cow::from(s))
-        } else if let serde_yaml::Value::Number(num) = self {
+        } else if let MetadataValue::Number(num) = self {
             Some(Cow::from(num.to_string()))
         } else {
             None
@@ -404,13 +406,13 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 }
 
-fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError> {
-    let entries = if let Some(s) = val.as_str() {
+fn value_as_tags(val: &MetadataValue) -> Result<Vec<Cow<str>>, MetadataError> {
+    let entries: Vec<Cow<str>> = if let Some(s) = val.as_str() {
         s.split(',').map(|e| e.trim().into()).collect()
     } else if let Some(seq) = val.as_sequence() {
         seq.iter()
             .map(|val| val.as_str_like())
-            .collect::<Option<Vec<_>>>()
+            .collect::<Option<_>>()
             .ok_or(MetadataError::BadSequenceType {
                 expected: MetaType::String,
                 got: seq.first().map(MetaType::from).unwrap_or(MetaType::Unknown),
@@ -428,7 +430,7 @@ fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError
     Ok(tags)
 }
 
-fn value_as_minutes(val: &serde_yaml::Value, converter: &Converter) -> Result<u32, MetadataError> {
+fn value_as_minutes(val: &MetadataValue, converter: &Converter) -> Result<u32, MetadataError> {
     if let Some(s) = val.as_str() {
         let t = parse_time(s, converter)?;
         Ok(t)
@@ -439,10 +441,7 @@ fn value_as_minutes(val: &serde_yaml::Value, converter: &Converter) -> Result<u3
     }
 }
 
-fn value_as_time(
-    val: &serde_yaml::Value,
-    converter: &Converter,
-) -> Result<RecipeTime, MetadataError> {
+fn value_as_time(val: &MetadataValue, converter: &Converter) -> Result<RecipeTime, MetadataError> {
     let total_res = value_as_minutes(val, converter);
     match total_res {
         Ok(total) => Ok(RecipeTime::Total(total)),
@@ -467,7 +466,7 @@ fn value_as_time(
     }
 }
 
-fn value_as_locale(val: &serde_yaml::Value) -> Result<(&str, Option<&str>), MetadataError> {
+fn value_as_locale(val: &MetadataValue) -> Result<(&str, Option<&str>), MetadataError> {
     let s = val
         .as_str()
         .ok_or(MetadataError::expect_type(MetaType::String, val))?;
@@ -488,7 +487,7 @@ fn value_as_locale(val: &serde_yaml::Value) -> Result<(&str, Option<&str>), Meta
 
 pub(crate) fn check_std_entry(
     key: StdKey,
-    value: &serde_yaml::Value,
+    value: &MetadataValue,
     converter: &Converter,
 ) -> Result<(), MetadataError> {
     match key {
@@ -831,7 +830,7 @@ pub(crate) enum MetadataError {
 }
 
 impl MetadataError {
-    fn expect_type(expected: MetaType, val: &serde_yaml::Value) -> Self {
+    fn expect_type(expected: MetaType, val: &MetadataValue) -> Self {
         let got = MetaType::from(val);
         if expected == got && expected == MetaType::Mapping {
             return Self::BadMapping;
@@ -852,16 +851,15 @@ pub(crate) enum MetaType {
     Unknown,
 }
 
-impl From<&serde_yaml::Value> for MetaType {
-    fn from(value: &serde_yaml::Value) -> Self {
+impl From<&MetadataValue> for MetaType {
+    fn from(value: &MetadataValue) -> Self {
         match value {
-            serde_yaml::Value::Null => Self::Null,
-            serde_yaml::Value::Bool(_) => Self::Bool,
-            serde_yaml::Value::Number(_) => Self::Number,
-            serde_yaml::Value::String(_) => Self::String,
-            serde_yaml::Value::Sequence(_) => Self::Sequence,
-            serde_yaml::Value::Mapping(_) => Self::Mapping,
-            serde_yaml::Value::Tagged(_) => Self::Unknown,
+            MetadataValue::Null => Self::Null,
+            MetadataValue::Bool(_) => Self::Bool,
+            MetadataValue::Number(_) => Self::Number,
+            MetadataValue::String(_) => Self::String,
+            MetadataValue::Vector(_) => Self::Sequence,
+            MetadataValue::Mapping(_) => Self::Mapping,
         }
     }
 }
@@ -869,6 +867,7 @@ impl From<&serde_yaml::Value> for MetaType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metadata_value;
 
     #[cfg(feature = "bundled_units")]
     #[test]
@@ -1026,15 +1025,12 @@ mod tests {
 
     #[test]
     fn tags_from_nums() {
-        let v = serde_yaml::from_str("[2022, baking, summer]").unwrap();
+        let v: serde_yaml::Value = serde_yaml::from_str("[2022, baking, summer]").unwrap();
+        let v: metadata_value::MetadataValue = v.try_into().unwrap();
         let res = value_as_tags(&v).unwrap();
         assert_eq!(
             res,
-            vec![
-                Cow::Owned(String::from("2022")),
-                Cow::Borrowed("baking"),
-                Cow::Borrowed("summer"),
-            ]
+            vec![Cow::from("2022"), "baking".into(), "summer".into(),]
         );
     }
 }

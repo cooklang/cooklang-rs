@@ -70,8 +70,6 @@ pub mod _features {
 
 #[cfg(feature = "aisle")]
 pub mod aisle;
-#[cfg(feature = "pantry")]
-pub mod pantry;
 pub mod analysis;
 pub mod ast;
 pub mod convert;
@@ -79,7 +77,10 @@ pub mod error;
 pub mod ingredient_list;
 pub mod located;
 pub mod metadata;
+pub mod metadata_value;
 pub mod model;
+#[cfg(feature = "pantry")]
+pub mod pantry;
 pub mod parser;
 pub mod quantity;
 pub mod scale;
