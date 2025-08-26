@@ -4,6 +4,7 @@ use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::fmt::Write;
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -130,7 +131,7 @@ impl Parser {
                 #[derive(Debug)]
                 #[allow(dead_code)]
                 struct StdMeta<'a> {
-                    tags: Option<Vec<std::borrow::Cow<'a, str>>>,
+                    tags: Option<Vec<Cow<'a, str>>>,
                     author: Option<NameAndUrl>,
                     source: Option<NameAndUrl>,
                     time: Option<RecipeTime>,
@@ -193,7 +194,7 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
             ul {
                 @for (key, value) in &r.metadata.map {
                     li.metadata {
-                        span.key { (key.as_str_like().unwrap_or_else(|| format!("{key:?}").into())) } ":" (value.as_str_like().unwrap_or_else(|| format!("{value:?}").into()))
+                        span.key { (key) } ":" (value.as_str_like().unwrap_or_else(|| format!("{value:?}").into()))
                     }
                 }
             }

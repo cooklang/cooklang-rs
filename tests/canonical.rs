@@ -1,7 +1,10 @@
 //! Cooklang canonical tests https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 
-use cooklang::{quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Recipe};
+use cooklang::{
+    metadata_value, quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Recipe,
+};
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Deserialize, PartialEq, Debug)]
 struct TestCase {
@@ -12,7 +15,7 @@ struct TestCase {
 #[derive(Deserialize, PartialEq, Debug)]
 struct TestResult {
     steps: Vec<TestStep>,
-    metadata: serde_yaml::Mapping,
+    metadata: HashMap<String, metadata_value::MetadataValue>,
 }
 
 #[derive(Deserialize, PartialEq, Debug)]

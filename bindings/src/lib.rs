@@ -279,7 +279,7 @@ pub fn metadata_time(recipe: &Arc<CooklangRecipe>) -> Option<RecipeTime> {
 pub fn metadata_get(recipe: &Arc<CooklangRecipe>, key: String) -> Option<String> {
     recipe
         .metadata
-        .get(&key)
+        .get(key.as_str())
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
 }
@@ -335,15 +335,12 @@ pub fn metadata_custom_keys(recipe: &Arc<CooklangRecipe>) -> Vec<String> {
         .map
         .keys()
         .filter_map(|key| {
-            // Get the string representation of the key
-            key.as_str().and_then(|key_str| {
-                // Check if it's a standard key by trying to parse it
-                if StdKey::from_str(key_str).is_ok() {
-                    None // It's a standard key, exclude it
-                } else {
-                    Some(key_str.to_string()) // It's a custom key, include it
-                }
-            })
+            // Check if it's a standard key by trying to parse it
+            if StdKey::from_str(key).is_ok() {
+                None // It's a standard key, exclude it
+            } else {
+                Some(key.to_string()) // It's a custom key, include it
+            }
         })
         .collect()
 }

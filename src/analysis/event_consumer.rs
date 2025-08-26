@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use super::{AnalysisResult, CheckOptions, DefineMode, DuplicateMode};
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
 use crate::metadata::{check_std_entry, StdKey};
+use crate::metadata_value::yaml_mapping_to_value_map;
 use crate::parser::{
     self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
     Modifiers,
@@ -12,9 +14,7 @@ use crate::parser::{
 use crate::quantity::{Quantity, Value};
 use crate::span::Span;
 use crate::text::Text;
-use crate::{model::*, Extensions, ParseOptions};
-
-use super::{AnalysisResult, CheckOptions, DefineMode, DuplicateMode};
+use crate::{metadata_value, model::*, Extensions, ParseOptions};
 
 macro_rules! error {
     ($msg:expr, $label:expr $(,)?) => {
@@ -223,7 +223,7 @@ impl<'i> RecipeCollector<'i, '_> {
     fn process_frontmatter(&mut self, yaml_text: Text<'i>) {
         self.old_style_metadata = false;
         let yaml_str = yaml_text.text();
-        let mut yaml_map = match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_str) {
+        let yaml_map = match serde_yaml::from_str::<serde_yaml::Mapping>(&yaml_str) {
             Ok(yaml_map) => yaml_map,
             Err(err) => {
                 // ! This message (can) contains line and column number, but line numbers
@@ -235,9 +235,18 @@ impl<'i> RecipeCollector<'i, '_> {
                 if let Some(loc) = err_span {
                     diag = diag.label(label!(loc));
                 }
-                diag.add_hint("The frontmatter will be ignored. Fix the YAML syntax to use metadata.");
+                diag.add_hint(
+                    "The frontmatter will be ignored. Fix the YAML syntax to use metadata.",
+                );
                 self.ctx.warn(diag);
                 return;
+            }
+        };
+
+        let mut yaml_map = match yaml_mapping_to_value_map(yaml_map) {
+            Ok(yaml_map) => yaml_map,
+            Err(_) => {
+                return; //TODO: add nice diagnostics
             }
         };
 
@@ -248,10 +257,8 @@ impl<'i> RecipeCollector<'i, '_> {
             if let Some(validator) = self.parse_options.metadata_validator.as_mut() {
                 let res = validator(key, value, &mut action);
                 if let Some(mut diag) = res.into_source_diag(|| "Invalid metadata entry") {
-                    if let Some(key_s) = key.as_str() {
-                        if let Some(pos) = yaml_find_key_position(&yaml_str, key_s) {
-                            diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
-                        }
+                    if let Some(pos) = yaml_find_key_position(&yaml_str, key) {
+                        diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
                     }
                     self.ctx.push(diag);
                 }
@@ -264,24 +271,19 @@ impl<'i> RecipeCollector<'i, '_> {
             if !action.run_std_checks {
                 continue;
             }
-            if let Some(sk) = key.as_str().and_then(|s| StdKey::from_str(s).ok()) {
+            if let Some(sk) = StdKey::from_str(key).ok() {
                 if let Err(err) = check_std_entry(sk, value, self.converter) {
-                    let mut diag = warning!(format!(
-                        "Unsupported value for key: '{}'",
-                        key.as_str().unwrap()
-                    ))
-                    .set_source(err);
-                    if let Some(key_s) = key.as_str() {
-                        if let Some(pos) = yaml_find_key_position(&yaml_str, key_s) {
-                            diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
-                        }
+                    let mut diag =
+                        warning!(format!("Unsupported value for key: '{}'", key)).set_source(err);
+                    if let Some(pos) = yaml_find_key_position(&yaml_str, key) {
+                        diag.add_label(label!(Span::pos(yaml_text.span().start() + pos)));
                     }
                     self.ctx.warn(diag);
                 }
             }
         }
         for key in &to_remove {
-            yaml_map.shift_remove(key);
+            yaml_map.remove(key);
         }
 
         if yaml_map.contains_key(StdKey::Time.as_ref()) {
@@ -364,8 +366,8 @@ impl<'i> RecipeCollector<'i, '_> {
                     );
                     if self.old_style_metadata {
                         self.content.metadata.map.insert(
-                            serde_yaml::Value::String(key_t.into_owned()),
-                            serde_yaml::Value::String(value_t.into_owned()),
+                            key_t.into_owned(),
+                            metadata_value::MetadataValue::String(value_t.into_owned().into()),
                         );
                     }
                 }
@@ -376,8 +378,8 @@ impl<'i> RecipeCollector<'i, '_> {
         self.old_style_metadata_used
             .push(Span::new(key.span().start(), value.span().end()));
 
-        let yaml_key = serde_yaml::Value::String(key_t.to_string());
-        let yaml_value = serde_yaml::Value::String(value_t.to_string());
+        let yaml_key = key_t.to_string();
+        let yaml_value = metadata_value::MetadataValue::String(value_t.to_string().into());
 
         // run custom validator if any
         let mut action = CheckOptions::default();
