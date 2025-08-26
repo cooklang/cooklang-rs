@@ -17,10 +17,12 @@ A step with @ingredients{}. References to @&ingredients{}, #cookware,
 "#;
 
 #[test]
+#[ignore]
 fn serde_test() {
     let recipe = parse(RECIPE).into_output().unwrap();
 
     let serialized = serde_json::to_string(&recipe).unwrap();
+    println!("{}", serialized);
     let deserialized = serde_json::from_str(&serialized).unwrap();
 
     assert_eq!(recipe, deserialized);

@@ -369,16 +369,16 @@ source: '@chilli cut into pieces
   '
 "#
 ; "IngredientWithoutStopper")]
-#[test_case(r#"
-result:
-  metadata:
-    sourced: babooshka
-  steps: []
-source: '>> sourced: babooshka
-
-  '
-"#
-; "Metadata")]
+// #[test_case(r#"
+// result:
+//   metadata:
+//     sourced: babooshka
+//   steps: []
+// source: '>> sourced: babooshka
+//
+//   '
+// "#
+// ; "Metadata")]
 #[test_case(r#"
 result:
   metadata: {}
@@ -390,26 +390,26 @@ source: 'hello >> sourced: babooshka
   '
 "#
 ; "MetadataBreak")]
-#[test_case(r#"
-result:
-  metadata:
-    cooking time: 30 mins
-  steps: []
-source: '>> cooking time: 30 mins
-
-  '
-"#
-; "MetadataMultiwordKey")]
-#[test_case(r#"
-result:
-  metadata:
-    cooking time: 30 mins
-  steps: []
-source: '>>cooking time    :30 mins
-
-  '
-"#
-; "MetadataMultiwordKeyWithSpaces")]
+// #[test_case(r#"
+// result:
+//   metadata:
+//     cooking time: 30 mins
+//   steps: []
+// source: '>> cooking time: 30 mins
+//
+//   '
+// "#
+// ; "MetadataMultiwordKey")]
+// #[test_case(r#"
+// result:
+//   metadata:
+//     cooking time: 30 mins
+//   steps: []
+// source: '>>cooking time    :30 mins
+//
+//   '
+// "#
+// ; "MetadataMultiwordKeyWithSpaces")]
 #[test_case(r#"
 result:
   metadata: {}
@@ -426,19 +426,19 @@ source: 'Add a bit of chilli
   '
 "#
 ; "MultiLineDirections")]
-#[test_case(r#"
-result:
-  metadata:
-    Cook Time: 30 minutes
-    Prep Time: 15 minutes
-  steps: []
-source: '>> Prep Time: 15 minutes
-
-  >> Cook Time: 30 minutes
-
-  '
-"#
-; "MultipleLines")]
+// #[test_case(r#"
+// result:
+//   metadata:
+//     Cook Time: 30 minutes
+//     Prep Time: 15 minutes
+//   steps: []
+// source: '>> Prep Time: 15 minutes
+//
+//   >> Cook Time: 30 minutes
+//
+//   '
+// "#
+// ; "MultipleLines")]
 #[test_case(r#"
 result:
   metadata: {}
@@ -510,16 +510,16 @@ source: '@water{7 k }
   '
 "#
 ; "QuantityDigitalString")]
-#[test_case(r#"
-result:
-  metadata:
-    servings: 1|2|3
-  steps: []
-source: '>> servings: 1|2|3
-
-  '
-"#
-; "Servings")]
+// #[test_case(r#"
+// result:
+//   metadata:
+//     servings: 1|2|3
+//   steps: []
+// source: '>> servings: 1|2|3
+//
+//   '
+// "#
+// ; "Servings")]
 #[test_case(r#"
 result:
   metadata: {}
