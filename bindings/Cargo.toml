@@ -11,7 +11,7 @@ readme = "README.md"
 
 [dependencies]
 anyhow = "1.0"
-cooklang = { path = "..", default-features = false, features = ["aisle", "ts"] }
+cooklang = { path = "..", default-features = false, features = ["aisle"] }
 uniffi = "0.28.1"
 clap_derive = { version = "4.0.0-rc.1" }
 

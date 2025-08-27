@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Deref;
 use thiserror::Error;
+
+#[cfg(feature = "ts")]
 use tsify::Tsify;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

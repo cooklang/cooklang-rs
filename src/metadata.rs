@@ -10,6 +10,8 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 use thiserror::Error;
+
+#[cfg(feature = "ts")]
 use tsify::Tsify;
 
 /// Metadata of a recipe
