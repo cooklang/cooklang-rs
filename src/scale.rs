@@ -1,7 +1,7 @@
 //! Support for recipe scaling
 
 use crate::metadata_value::MetadataValue;
-use crate::{convert::Converter, metadata_value, quantity::Value, Quantity, Recipe};
+use crate::{convert::Converter, quantity::Value, Quantity, Recipe};
 use thiserror::Error;
 
 /// Error type for scaling operations
