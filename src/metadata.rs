@@ -5,6 +5,9 @@ use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(feature = "ts")]
+use tsify::Tsify;
+
 use crate::{
     convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
     Converter,
@@ -23,8 +26,10 @@ use crate::{
 /// was not present or the value was not of the expected type. You can also
 /// decide to not use them and extract the metadata you prefer.
 #[derive(Debug, PartialEq, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Metadata {
     /// All the raw key/value pairs from the recipe
+    #[cfg_attr(feature = "ts", tsify(type = "Record<any, any>"))]
     pub map: serde_yaml::Mapping,
 }
 
