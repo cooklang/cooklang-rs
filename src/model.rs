@@ -26,7 +26,6 @@ use crate::{
 #[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Recipe {
     /// Metadata
-    #[cfg_attr(feature = "ts", serde(skip))]
     pub metadata: Metadata,
     /// Each of the sections
     ///
