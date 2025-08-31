@@ -25,7 +25,8 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Recipe {
-    /// Metadata
+    /// Metadata as read from preamble
+    #[cfg_attr(feature = "ts", serde(rename = "raw_metadata"))]
     pub metadata: Metadata,
     /// Each of the sections
     ///

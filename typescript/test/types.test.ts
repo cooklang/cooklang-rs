@@ -10,15 +10,15 @@ it("generates Recipe type", async () => {
     expectTypeOf(recipe).toEqualTypeOf<ScaledRecipeWithReport>();
 });
 
-it("generates metadata", async () => {
+it("generates raw metadata", async () => {
     const parser = new Parser();
     const recipeRaw = `
 ---
-key: value
+title: value
 ---
 aaa bbb
     `;
     const recipe = parser.parse(recipeRaw);
-    expectTypeOf(recipe.recipe.metadata).toEqualTypeOf<Metadata>();
-    expect(recipe.recipe.metadata.map["key"]).equals("value");
+    expectTypeOf(recipe.recipe.raw_metadata).toEqualTypeOf<Metadata>();
+    expect(recipe.recipe.raw_metadata.map["title"]).equals("value");
 });
