@@ -2,6 +2,7 @@
   "name": "@cooklang/cooklang-ts",
   "version": "0.0.0",
   "license": "MIT",
+  "type": "module",
   "main": "index.js",
   "files": [
     "index.js",
