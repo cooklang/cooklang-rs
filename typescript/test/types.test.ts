@@ -1,7 +1,7 @@
 import {it, expectTypeOf, expect} from "vitest";
-import {Parser} from "..";
-import type {ScaledRecipeWithReport} from "..";
-import {Metadata} from "../pkg";
+import {Parser} from "../index.js";
+import type {ScaledRecipeWithReport} from "../index.js";
+import {Metadata} from "../pkg/cooklang_wasm.js";
 
 it("generates Recipe type", async () => {
     const parser = new Parser();
