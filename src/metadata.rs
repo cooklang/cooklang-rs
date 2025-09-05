@@ -67,12 +67,13 @@ impl std::fmt::Display for StdKey {
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
-#[error("Faile to parse '{0}' as a standard key")]
+#[error("Failed to parse '{0}' as a standard key")]
 pub struct StdKeyParseError(String);
 
 impl FromStr for StdKey {
     type Err = StdKeyParseError;
 
+    // TODO: error: alternative names are neither used as aliases nor emitted as custom tags
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let k = match s {
             "title" => Self::Title,
@@ -577,9 +578,12 @@ impl std::fmt::Display for Servings {
 ///
 /// At least one of the fields is [`Some`].
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(deny_unknown_fields)]
 pub struct NameAndUrl {
+    #[cfg_attr(feature = "ts", tsify(optional))]
     name: Option<String>,
+    #[cfg_attr(feature = "ts", tsify(optional))]
     url: Option<String>,
 }
 
@@ -654,6 +658,7 @@ fn is_url(s: &str) -> bool {
 ///
 /// All values are in minutes.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(untagged, deny_unknown_fields)]
 pub enum RecipeTime {
     /// Total time
@@ -663,8 +668,10 @@ pub enum RecipeTime {
     /// At least one is [`Some`]
     Composed {
         #[serde(alias = "prep")]
+        #[cfg_attr(feature = "ts", tsify(optional))]
         prep_time: Option<u32>,
         #[serde(alias = "cook")]
+        #[cfg_attr(feature = "ts", tsify(optional))]
         cook_time: Option<u32>,
     },
 }

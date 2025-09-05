@@ -158,6 +158,7 @@ impl Recipe {
         converter: &Converter,
     ) -> Result<(), ScaleError> {
         // Get current yield from metadata
+        // TODO: use std keys
         let yield_value = self.metadata.get("yield").ok_or(ScaleError::InvalidYield)?;
 
         let yield_str = yield_value
@@ -187,6 +188,7 @@ impl Recipe {
         self.scale(factor, converter);
 
         // Update yield metadata to the target value (always use % format)
+        // TODO: use std keys
         if let Some(yield_meta) = self.metadata.get_mut("yield") {
             *yield_meta = serde_yaml::Value::String(format!("{target_value}%{target_unit}"));
         }

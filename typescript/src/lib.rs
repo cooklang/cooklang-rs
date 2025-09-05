@@ -1,9 +1,10 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
-use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
+use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime, Servings, StdKey};
 use cooklang::{parser::PullParser, Extensions};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Write;
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -21,9 +22,43 @@ pub struct Parser {
 }
 
 #[derive(Tsify, Serialize, Deserialize)]
+pub struct InterpretedMetadata {
+    #[tsify(optional)]
+    title: Option<String>,
+    #[tsify(optional)]
+    description: Option<String>,
+    #[tsify(optional)]
+    tags: Option<Vec<String>>,
+    #[tsify(optional)]
+    author: Option<NameAndUrl>,
+    #[tsify(optional)]
+    source: Option<NameAndUrl>,
+    #[tsify(optional, type = "any")]
+    course: Option<serde_yaml::Value>,
+    #[tsify(optional)]
+    time: Option<RecipeTime>,
+    #[tsify(optional)]
+    servings: Option<Servings>,
+    #[tsify(optional, type = "any")]
+    difficulty: Option<serde_yaml::Value>,
+    #[tsify(optional, type = "any")]
+    cuisine: Option<serde_yaml::Value>,
+    #[tsify(optional, type = "any")]
+    diet: Option<serde_yaml::Value>,
+    #[tsify(optional, type = "any")]
+    images: Option<serde_yaml::Value>,
+    #[tsify(optional)]
+    locale: Option<(String, Option<String>)>,
+
+    #[tsify(type = "Record<any, any>")]
+    custom: HashMap<serde_yaml::Value, serde_yaml::Value>,
+}
+
+#[derive(Tsify, Serialize, Deserialize)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct ScaledRecipeWithReport {
     recipe: cooklang::Recipe,
+    metadata: InterpretedMetadata,
     report: String,
 }
 
@@ -87,8 +122,37 @@ impl Parser {
         let (recipe, _report) = self.parser.parse(input).into_tuple();
         let mut recipe = recipe.expect("expected recipe");
         recipe.scale(1., self.parser.converter());
+
+        let metadata = InterpretedMetadata {
+            title: recipe.metadata.title().map(str::to_string),
+            description: recipe.metadata.description().map(str::to_string),
+            tags: recipe
+                .metadata
+                .tags()
+                .map(|v| v.iter().map(|s| s.to_string()).collect()),
+            author: recipe.metadata.author(),
+            source: recipe.metadata.source(),
+            course: recipe.metadata.get(StdKey::Course).cloned(),
+            time: recipe.metadata.time(self.parser.converter()),
+            servings: recipe.metadata.servings(),
+            difficulty: recipe.metadata.get(StdKey::Difficulty).cloned(),
+            cuisine: recipe.metadata.get(StdKey::Cuisine).cloned(),
+            diet: recipe.metadata.get(StdKey::Diet).cloned(),
+            images: recipe.metadata.get(StdKey::Images).cloned(),
+            locale: recipe
+                .metadata
+                .locale()
+                .map(|(a, b)| (a.to_string(), b.map(str::to_string))),
+            custom: recipe
+                .metadata
+                .map_filtered()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        };
+
         let data = ScaledRecipeWithReport {
             recipe,
+            metadata,
             report: "<no output>".to_string(),
         };
         data
@@ -302,5 +366,5 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
             }
         }
     }
-    .into_string()
+        .into_string()
 }
