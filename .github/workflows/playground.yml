@@ -25,7 +25,7 @@ jobs:
       - name: Build
         run: |
           cd playground
-          npm run build
+          npx vite build --base=/cooklang-rs/
         env:
           BUILD_COOKLANG_RS_VERSION: ${{ steps.ghd.outputs.describe }}
 
