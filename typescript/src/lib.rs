@@ -205,10 +205,12 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
             h2 { "Ingredients:" }
             ul {
                 @for entry in &ingredient_list {
-                    li {
-                        b { (entry.ingredient.display_name()) }
-                        @if !entry.quantity.is_empty() {": " (entry.quantity) }
-                        @if let Some(n) = &entry.ingredient.note { " (" (n) ")" }
+                    @if entry.ingredient.modifiers().should_be_listed() {
+                        li {
+                            b { (entry.ingredient.display_name()) }
+                            @if !entry.quantity.is_empty() {": " (entry.quantity) }
+                            @if let Some(n) = &entry.ingredient.note { " (" (n) ")" }
+                        }
                     }
                 }
             }
@@ -216,17 +218,18 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
         @if !r.cookware.is_empty() {
             h2 { "Cookware:" }
             ul {
-                // TODO should_be_listed
                 @for entry in &cookware_list {
-                    li {
-                        b { (entry.cookware.display_name()) }
-                        @if !entry.quantity.is_empty() { ": " (entry.quantity) }
-                        @if let Some(n) = &entry.cookware.note { " (" (n) ")" }
+                    @if entry.cookware.modifiers().should_be_listed() {
+                        li {
+                            b { (entry.cookware.display_name()) }
+                            @if !entry.quantity.is_empty() { ": " (entry.quantity) }
+                            @if let Some(n) = &entry.cookware.note { " (" (n) ")" }
+                        }
                     }
                 }
             }
         }
-        @if !r.cookware.is_empty() || !ingredient_list.is_empty() {
+        @if !cookware_list.is_empty() || !ingredient_list.is_empty() {
             hr {}
         }
         @for (s_index, section) in r.sections.iter().enumerate() {
