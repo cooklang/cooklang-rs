@@ -169,7 +169,7 @@ bitflags! {
 }
 
 impl Modifiers {
-    /// Returns true if the component should be diplayed in a list
+    /// Returns true if the component should be displayed in a list
     pub fn should_be_listed(self) -> bool {
         !self.intersects(Modifiers::HIDDEN | Modifiers::REF)
     }
