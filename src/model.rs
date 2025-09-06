@@ -4,12 +4,12 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "ts")]
+use tsify::Tsify;
+
 use crate::{
     convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity, GroupedQuantity,
 };
-#[cfg(feature = "ts")]
-use tsify::Tsify;
-use wasm_bindgen::prelude::wasm_bindgen;
 
 /// A complete recipe
 ///

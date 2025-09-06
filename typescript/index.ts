@@ -102,7 +102,7 @@ export class CooklangRecipe {
 }
 
 export class HTMLRenderer {
-    private result = "";
+    protected result = "";
 
     render(recipe: CooklangRecipe): string {
         this.result = "";
