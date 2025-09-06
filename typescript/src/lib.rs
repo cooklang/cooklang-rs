@@ -1,7 +1,7 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime, Servings, StdKey};
-use cooklang::{parser::PullParser, Extensions};
+use cooklang::{parser::PullParser, Extensions, GroupedQuantity, Ingredient};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -12,6 +12,14 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub fn version() -> String {
     include_str!(concat!(env!("OUT_DIR"), "/version")).to_string()
+}
+
+// wasm cannot export pure tuples yet
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct GroupedIndexAndQuantity {
+    index: usize,
+    quantity: GroupedQuantity,
 }
 
 #[wasm_bindgen]
@@ -158,6 +166,18 @@ impl Parser {
         data
     }
 
+    /// returns vector of indices in r.recipe.ingredients and their quantities
+    pub fn group_ingredients(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
+        r.recipe
+            .group_ingredients(self.parser.converter())
+            .into_iter()
+            .map(|r| GroupedIndexAndQuantity {
+                index: r.index,
+                quantity: r.quantity,
+            })
+            .collect()
+    }
+
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
         let (recipe, report) = self.parser.parse(input).into_tuple();
         let value = match recipe {
@@ -247,6 +267,26 @@ impl FallibleResult {
         let error = ansi_to_html::convert(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
         FallibleResult { value, error }
     }
+}
+
+#[wasm_bindgen]
+pub fn ingredient_should_be_listed(this: &Ingredient) -> bool {
+    this.modifiers().should_be_listed()
+}
+
+#[wasm_bindgen]
+pub fn ingredient_display_name(this: &Ingredient) -> String {
+    this.display_name().to_string()
+}
+
+#[wasm_bindgen]
+pub fn grouped_quantity_is_empty(this: &GroupedQuantity) -> bool {
+    this.is_empty()
+}
+
+#[wasm_bindgen]
+pub fn grouped_quantity_display(this: &GroupedQuantity) -> String {
+    this.to_string()
 }
 
 fn render(r: cooklang::Recipe, converter: &Converter) -> String {

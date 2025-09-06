@@ -4,7 +4,8 @@ import {
     InterpretedMetadata,
     NameAndUrl,
     RecipeTime,
-    Servings, Section, Ingredient, Cookware, Timer, Quantity, Recipe
+    Servings, Section, Ingredient, Cookware, Timer, Quantity, Recipe, ScaledRecipeWithReport, GroupedQuantity,
+    ingredient_should_be_listed, ingredient_display_name, grouped_quantity_is_empty, grouped_quantity_display
 } from "./pkg/cooklang_wasm.js";
 
 export {version, Parser};
@@ -13,8 +14,10 @@ export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
 export class CooklangRecipe {
     // Inner
     private parser: Parser;
-    private rawString: string;
+    private rawString_: string;
+    private rawRecipe: ScaledRecipeWithReport;
 
+    // TODO: make all of those private with public getter
     // Metadata
     title?: string;
     description?: string;
@@ -43,21 +46,26 @@ export class CooklangRecipe {
         this.parser = new Parser();
 
         if (raw) {
-            this.raw = raw;
-        } else {
             this.rawString = raw;
+        } else {
+            this.rawString_ = raw;
         }
     }
 
-    set raw(raw: string) {
-        this.rawString = raw;
-        const recipe = this.parser.parse(raw);
-        this.setMetadata(recipe.metadata);
-        this.setData(recipe.recipe);
+    set rawString(raw: string) {
+        this.rawString_ = raw;
+        this.rawRecipe = this.parser.parse(raw);
+        this.setMetadata(this.rawRecipe.metadata);
+        this.setData(this.rawRecipe.recipe);
     }
 
-    get raw(): string {
-        return this.rawString;
+    get rawString(): string {
+        return this.rawString_;
+    }
+
+    get groupedIngredients(): [Ingredient, GroupedQuantity][] {
+        const groups = this.parser.group_ingredients(this.rawRecipe);
+        return groups.map((iaq) => [this.ingredients[iaq.index], iaq.quantity]);
     }
 
     private setMetadata(metadata: InterpretedMetadata) {
@@ -90,5 +98,74 @@ export class CooklangRecipe {
         this.cookware = data.cookware;
         this.timers = data.timers;
         this.inlineQuantities = data.inline_quantities;
+    }
+}
+
+export class HTMLRenderer {
+    private result = "";
+
+    render(recipe: CooklangRecipe): string {
+        this.result = "";
+
+        this.renderMetadata(recipe.rawMetadata);
+        this.renderGroupedIngredients(recipe.groupedIngredients);
+
+        return this.result;
+    }
+
+    protected renderMetadata(metadata: Map<any, any>) {
+        if (metadata.size > 0) {
+            this.result += "<ul>";
+
+            for (const [key, value] of metadata)
+                this.renderMetadatum(key, value);
+
+            this.result += "</ul>";
+            this.result += "<hr>";
+        }
+    }
+
+    protected renderMetadatum(key: any, value: any) {
+        this.result += "<li class='metadata'>";
+        this.result += `<span class='key'>${key}</span>: <span class='value'>${value}</span>`;
+        this.result += "</li>";
+    }
+
+    protected renderGroupedIngredients(ingredients: [Ingredient, GroupedQuantity][]) {
+        if (ingredients.length > 0) {
+            this.result += "<h2>Ingredients:</h2>";
+            this.result += "<ul>";
+
+            for (const [ingredient, quantity] of ingredients) {
+                this.renderGroupedIngredientHelper(ingredient, quantity);
+            }
+
+            this.result += "</ul>";
+        }
+    }
+
+    protected renderGroupedIngredientHelper(ingredient: Ingredient, quantity: GroupedQuantity) {
+        if (ingredient_should_be_listed(ingredient)) {
+            const ingredientName = ingredient_display_name(ingredient);
+
+            const quantityString = !grouped_quantity_is_empty(quantity) ?
+                grouped_quantity_display(quantity)
+                : null;
+
+            this.renderGroupedIngredient(ingredientName, quantityString, ingredient.note);
+        }
+    }
+
+    protected renderGroupedIngredient(name: string, quantity: string, note: string) {
+        this.result += "<li class='ingredients'>";
+        this.result += `<b>${name}</b>`;
+
+        if (quantity)
+            this.result += `: ${quantity}`;
+
+        if (note)
+            this.result += ` (${note})`;
+
+        this.result += "</li>";
     }
 }

@@ -4,12 +4,12 @@ use std::borrow::Cow;
 
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "ts")]
-use tsify::Tsify;
-
 use crate::{
     convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity, GroupedQuantity,
 };
+#[cfg(feature = "ts")]
+use tsify::Tsify;
+use wasm_bindgen::prelude::wasm_bindgen;
 
 /// A complete recipe
 ///
@@ -171,6 +171,7 @@ impl RecipeReference {
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
+#[cfg_attr(feature = "ts", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Ingredient {
     /// Name
     ///
@@ -287,7 +288,7 @@ pub struct Cookware {
     pub note: Option<String>,
     /// How the cookware is related to others
     pub relation: ComponentRelation,
-    #[cfg_attr(not(feature = "ts"), serde(skip))]
+    #[cfg_attr(feature = "ts", serde(skip))]
     pub(crate) modifiers: Modifiers,
 }
 
