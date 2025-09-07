@@ -1,7 +1,6 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime, Servings, StdKey};
-use cooklang::parser::Quantity;
 use cooklang::{parser::PullParser, quantity, Cookware, Extensions, GroupedQuantity, Ingredient};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use serde::{Deserialize, Serialize};
