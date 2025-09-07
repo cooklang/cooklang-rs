@@ -6,19 +6,16 @@ import {
     RecipeTime,
     Servings, Section, Ingredient, Cookware, Timer, Quantity, Recipe, ScaledRecipeWithReport, GroupedQuantity,
     ingredient_should_be_listed, ingredient_display_name, grouped_quantity_is_empty, grouped_quantity_display,
-    cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display
+    cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display, GroupedIndexAndQuantity
 } from "./pkg/cooklang_wasm.js";
 
 export {version, Parser};
 export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
 
-export class CooklangRecipe {
-    // Inner
-    private parser: Parser;
-    private rawString_: string;
-    private rawRecipe: ScaledRecipeWithReport;
 
-    // TODO: make all of those private with public getter
+// TODO: units, extensions, scaling, error output
+
+export class CooklangRecipe {
     // Metadata
     title?: string;
     description?: string;
@@ -43,35 +40,17 @@ export class CooklangRecipe {
     timers?: Timer[];
     inlineQuantities?: Quantity[];
 
-    constructor(raw?: string) {
-        this.parser = new Parser();
+    // Preprocessed
+    groupedIngredients: [Ingredient, GroupedQuantity][];
+    groupedCookware: [Cookware, GroupedQuantity][];
 
-        if (raw) {
-            this.rawString = raw;
-        } else {
-            this.rawString_ = raw;
-        }
-    }
-
-    set rawString(raw: string) {
-        this.rawString_ = raw;
-        this.rawRecipe = this.parser.parse(raw);
-        this.setMetadata(this.rawRecipe.metadata);
-        this.setData(this.rawRecipe.recipe);
-    }
-
-    get rawString(): string {
-        return this.rawString_;
-    }
-
-    get groupedIngredients(): [Ingredient, GroupedQuantity][] {
-        const groups = this.parser.group_ingredients(this.rawRecipe);
-        return groups.map((iaq) => [this.ingredients[iaq.index], iaq.quantity]);
-    }
-
-    get groupedCookware(): [Cookware, GroupedQuantity][] {
-        const groups = this.parser.group_cookware(this.rawRecipe);
-        return groups.map((iaq) => [this.cookware[iaq.index], iaq.quantity]);
+    constructor(raw: ScaledRecipeWithReport,
+                groupedIngredients: GroupedIndexAndQuantity[],
+                groupedCookware: GroupedIndexAndQuantity[]) {
+        this.setMetadata(raw.metadata);
+        this.setData(raw.recipe);
+        this.groupedIngredients = groupedIngredients.map((iaq) => [this.ingredients[iaq.index], iaq.quantity]);
+        this.groupedCookware = groupedCookware.map((iaq) => [this.cookware[iaq.index], iaq.quantity]);
     }
 
     private setMetadata(metadata: InterpretedMetadata) {
@@ -104,6 +83,19 @@ export class CooklangRecipe {
         this.cookware = data.cookware;
         this.timers = data.timers;
         this.inlineQuantities = data.inline_quantities;
+    }
+}
+
+export class CooklangParser {
+    private parser: Parser;
+
+    constructor() {
+        this.parser = new Parser();
+    }
+
+    parse(input: string): CooklangRecipe {
+        let raw = this.parser.parse(input);
+        return new CooklangRecipe(raw, this.parser.group_ingredients(raw), this.parser.group_cookware(raw));
     }
 }
 
@@ -254,7 +246,7 @@ export class HTMLRenderer {
     }
 
     protected renderStep(current_section: Section, step: Step) {
-        this.result += `<b>${step.number}. </b>`;
+        this.result += `<p><b>${step.number}. </b>`;
         for (const item of step.items) {
             switch (item.type) {
                 case "text":
@@ -274,6 +266,7 @@ export class HTMLRenderer {
                     break;
             }
         }
+        this.result += "</p>";
     }
 
     protected renderInlineIngredient(current_section: Section, ingredient: Ingredient) {
@@ -312,7 +305,7 @@ export class HTMLRenderer {
             this.result += `(${timer.name})`;
         }
         if (timer.quantity) {
-            this.result += `<i>(${quantity_display(timer.quantity)})</i>`;
+            this.result += `<i>${quantity_display(timer.quantity)}</i>`;
         }
 
         this.result += "</span>";
@@ -323,7 +316,7 @@ export class HTMLRenderer {
     }
 
     private renderInlineCookware(cookware: Cookware) {
-        this.result += "<span class='ingredient'>";
+        this.result += "<span class='cookware'>";
 
         this.result += cookware_display_name(cookware);
 

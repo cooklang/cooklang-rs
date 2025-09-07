@@ -1,37 +1,6 @@
 import {it, expect} from "vitest";
-import {CooklangRecipe} from "../index.js";
+import {CooklangParser, CooklangRecipe} from "../index.js";
 
-it("keeps raw string", async () => {
-    const input = `
----
-title: Some title
-description: Some description
----
-some step
-    `;
-
-    const recipe = new CooklangRecipe(input);
-    expect(recipe.rawString).toEqual(input);
-
-});
-
-it("can change raw string", async () => {
-    const input = `
----
-title: Some title
-description: Some description
----
-some step
-    `;
-
-    const recipe = new CooklangRecipe("");
-    expect(recipe.rawString).toEqual("");
-    expect(recipe.title).toEqual(undefined);
-
-    recipe.rawString = input;
-    expect(recipe.rawString).toEqual(input);
-    expect(recipe.title).toEqual("Some title");
-});
 
 it("reads interpreted metadata", async () => {
     const input = `
@@ -56,7 +25,8 @@ custom2: some string
 ---
     `;
 
-    const recipe = new CooklangRecipe(input);
+    const parser = new CooklangParser();
+    const recipe = parser.parse(input);
     expect(recipe.title).toEqual("Some title");
     expect(recipe.description).toEqual("Some description");
     expect(recipe.tags).toEqual(new Set(["tag1", "tag2"]));
@@ -82,7 +52,8 @@ title: Some title
 A step. @ingredient #ware ~timer{2min}
     `;
 
-    const recipe = new CooklangRecipe(input);
+    const parser = new CooklangParser();
+    const recipe = parser.parse(input);
     expect(recipe.rawMetadata).toEqual(new Map([
         ["title", "Some title"],
     ]));
