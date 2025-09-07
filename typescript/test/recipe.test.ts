@@ -11,7 +11,7 @@ some step
     `;
 
     const recipe = new CooklangRecipe(input);
-    expect(recipe.raw).toEqual(input);
+    expect(recipe.rawString).toEqual(input);
 
 });
 
@@ -25,11 +25,11 @@ some step
     `;
 
     const recipe = new CooklangRecipe("");
-    expect(recipe.raw).toEqual("");
+    expect(recipe.rawString).toEqual("");
     expect(recipe.title).toEqual(undefined);
 
-    recipe.raw = input;
-    expect(recipe.raw).toEqual(input);
+    recipe.rawString = input;
+    expect(recipe.rawString).toEqual(input);
     expect(recipe.title).toEqual("Some title");
 });
 
