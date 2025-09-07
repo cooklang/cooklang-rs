@@ -275,6 +275,7 @@ impl Ingredient {
 /// A recipe cookware item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
+#[cfg_attr(feature = "ts", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cookware {
     /// Name
     pub name: String,
@@ -405,7 +406,6 @@ impl ComponentRelation {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct IngredientRelation {
-    #[cfg_attr(feature = "ts", serde(flatten))]
     relation: ComponentRelation,
     reference_target: Option<IngredientReferenceTarget>,
 }

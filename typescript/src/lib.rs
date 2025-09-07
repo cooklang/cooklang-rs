@@ -1,7 +1,7 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime, Servings, StdKey};
-use cooklang::{parser::PullParser, Extensions, GroupedQuantity, Ingredient};
+use cooklang::{parser::PullParser, quantity, Cookware, Extensions, GroupedQuantity, Ingredient};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -178,6 +178,18 @@ impl Parser {
             .collect()
     }
 
+    /// returns vector of indices in r.recipe.cookware and their quantities
+    pub fn group_cookware(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
+        r.recipe
+            .group_cookware(self.parser.converter())
+            .into_iter()
+            .map(|r| GroupedIndexAndQuantity {
+                index: r.index,
+                quantity: r.quantity,
+            })
+            .collect()
+    }
+
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
         let (recipe, report) = self.parser.parse(input).into_tuple();
         let value = match recipe {
@@ -280,12 +292,27 @@ pub fn ingredient_display_name(this: &Ingredient) -> String {
 }
 
 #[wasm_bindgen]
+pub fn cookware_should_be_listed(this: &Cookware) -> bool {
+    this.modifiers().should_be_listed()
+}
+
+#[wasm_bindgen]
+pub fn cookware_display_name(this: &Cookware) -> String {
+    this.display_name().to_string()
+}
+
+#[wasm_bindgen]
 pub fn grouped_quantity_is_empty(this: &GroupedQuantity) -> bool {
     this.is_empty()
 }
 
 #[wasm_bindgen]
 pub fn grouped_quantity_display(this: &GroupedQuantity) -> String {
+    this.to_string()
+}
+
+#[wasm_bindgen]
+pub fn quantity_display(this: &quantity::Quantity) -> String {
     this.to_string()
 }
 

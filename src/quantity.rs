@@ -14,6 +14,7 @@ use crate::convert::{ConvertError, Converter, PhysicalQuantity, Unit};
 /// A quantity used in components
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
+#[cfg_attr(feature = "ts", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Quantity {
     pub(crate) value: Value,
     pub(crate) unit: Option<String>,
