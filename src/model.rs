@@ -13,7 +13,7 @@ use crate::{
 
 /// A complete recipe
 ///
-/// The recipes does not have a name. You give it externally or maybe use
+/// The recipes do not have a name. You give it externally or maybe use
 /// some metadata key.
 ///
 /// The recipe returned from parsing is a [`ScalableRecipe`].
