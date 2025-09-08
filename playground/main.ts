@@ -1,4 +1,4 @@
-import {Parser, version, CooklangRecipe, HTMLRenderer, CooklangParser} from "@cooklang/cooklang-ts";
+import {Parser, version, HTMLRenderer, CooklangParser} from "@cooklang/cooklang-ts";
 
 declare global {
     interface Window {
@@ -46,10 +46,12 @@ async function run(): Promise<void> {
     if (search.has("loadUnits")) {
         const load = search.get("loadUnits") === "true";
         parser.load_units = load;
+        parser2.units = load;
     }
     loadUnits.checked = parser.load_units;
     if (search.has("extensions")) {
         parser.extensions = Number(search.get("extensions"));
+        parser2.extensions = Number(search.get("extensions"));
     }
     let mode = search.get("mode") || localStorage.getItem("mode");
     if (mode !== null) {
@@ -97,10 +99,10 @@ async function run(): Promise<void> {
                 break;
             }
             case "render2": {
-                const recipe = parser2.parse(input);
+                const [recipe, report] = parser2.parse(input, servings.value.length === 0 ? null : servings.valueAsNumber);
                 const renderer = new HTMLRenderer();
                 output.innerHTML = renderer.render(recipe);
-                errors.innerHTML = "";
+                errors.innerHTML = report;
                 break;
             }
         }
@@ -131,6 +133,7 @@ async function run(): Promise<void> {
         const params = new URLSearchParams(window.location.search);
         const target = ev.target as HTMLInputElement;
         parser.load_units = !!target.checked;
+        parser2.units = !!target.checked;
         if (target.checked) {
             params.delete("loadUnits");
         } else {
@@ -186,6 +189,7 @@ async function run(): Promise<void> {
         });
         console.log(e);
         parser.extensions = e;
+        parser2.extensions = e;
 
         const params = new URLSearchParams(window.location.search);
         params.set("extensions", e.toString());
@@ -211,8 +215,8 @@ async function run(): Promise<void> {
         const servingsContainer = document.getElementById(
             "servingscontainer"
         ) as HTMLDivElement;
-        jsonContainer.hidden = mode === "render" || mode === "events";
-        servingsContainer.hidden = mode !== "render";
+        jsonContainer.hidden = mode === "render" || mode === "render2" || mode === "events";
+        servingsContainer.hidden = mode !== "render" && mode !== "render2";
         localStorage.setItem("mode", mode);
         parse();
     }

@@ -13,8 +13,6 @@ export {version, Parser};
 export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
 
 
-// TODO: units, extensions, scaling, error output
-
 export class CooklangRecipe {
     // Metadata
     title?: string;
@@ -93,9 +91,25 @@ export class CooklangParser {
         this.parser = new Parser();
     }
 
-    parse(input: string): CooklangRecipe {
-        let raw = this.parser.parse(input);
-        return new CooklangRecipe(raw, this.parser.group_ingredients(raw), this.parser.group_cookware(raw));
+    parse(input: string, scale?: number | null): [CooklangRecipe, string] {
+        let raw = this.parser.parse(input, scale);
+        return [new CooklangRecipe(raw, this.parser.group_ingredients(raw), this.parser.group_cookware(raw)), raw.report];
+    }
+
+    set units(value: boolean) {
+        this.parser.load_units = value;
+    }
+
+    get units(): boolean {
+        return this.parser.load_units
+    }
+
+    set extensions(value: number) {
+        this.parser.extensions = value;
+    }
+
+    get extensions(): number {
+        return this.parser.extensions
     }
 }
 
