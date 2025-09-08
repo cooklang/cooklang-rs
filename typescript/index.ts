@@ -1,10 +1,9 @@
 import {
     version,
     Parser,
-    InterpretedMetadata,
     NameAndUrl,
     RecipeTime,
-    Servings, Section, Ingredient, Cookware, Timer, Quantity, Recipe, ScaledRecipeWithReport, GroupedQuantity,
+    Servings, Section, Ingredient, Cookware, Timer, Quantity, ScaledRecipeWithReport, GroupedQuantity,
     ingredient_should_be_listed, ingredient_display_name, grouped_quantity_is_empty, grouped_quantity_display,
     cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display, GroupedIndexAndQuantity
 } from "./pkg/cooklang_wasm.js";
@@ -17,26 +16,26 @@ export class CooklangRecipe {
     // Metadata
     title?: string;
     description?: string;
-    tags?: Set<string>;
+    tags: Set<string>;
     author?: NameAndUrl;
     source?: NameAndUrl;
-    course?: any;
+    course: any;
     time?: RecipeTime;
     servings?: Servings;
-    difficulty?: any;
-    cuisine?: any;
-    diet?: any;
-    images?: any;
-    locale?: [string, string?];
+    difficulty: any;
+    cuisine: any;
+    diet: any;
+    images: any;
+    locale?: [string, string | null];
     custom_metadata: Map<any, any>;
 
     // Data
-    rawMetadata?: Map<any, any>;
-    sections?: Section[];
-    ingredients?: Ingredient[];
-    cookware?: Cookware[];
-    timers?: Timer[];
-    inlineQuantities?: Quantity[];
+    rawMetadata: Map<any, any>;
+    sections: Section[];
+    ingredients: Ingredient[];
+    cookware: Cookware[];
+    timers: Timer[];
+    inlineQuantities: Quantity[];
 
     // Preprocessed
     groupedIngredients: [Ingredient, GroupedQuantity][];
@@ -45,42 +44,36 @@ export class CooklangRecipe {
     constructor(raw: ScaledRecipeWithReport,
                 groupedIngredients: GroupedIndexAndQuantity[],
                 groupedCookware: GroupedIndexAndQuantity[]) {
-        this.setMetadata(raw.metadata);
-        this.setData(raw.recipe);
-        this.groupedIngredients = groupedIngredients.map((iaq) => [this.ingredients[iaq.index], iaq.quantity]);
-        this.groupedCookware = groupedCookware.map((iaq) => [this.cookware[iaq.index], iaq.quantity]);
-    }
-
-    private setMetadata(metadata: InterpretedMetadata) {
-        this.title = metadata.title;
-        this.description = metadata.description;
-        this.tags = new Set(metadata.tags);
-        this.author = metadata.author;
-        this.source = metadata.source;
-        this.course = metadata.course;
-        this.time = metadata.time;
-        this.servings = metadata.servings;
-        this.difficulty = metadata.difficulty;
-        this.cuisine = metadata.cuisine;
-        this.diet = metadata.diet;
-        this.images = metadata.images;
-        this.locale = metadata.locale;
+        this.title = raw.metadata.title;
+        this.description = raw.metadata.description;
+        this.tags = new Set(raw.metadata.tags);
+        this.author = raw.metadata.author;
+        this.source = raw.metadata.source;
+        this.course = raw.metadata.course;
+        this.time = raw.metadata.time;
+        this.servings = raw.metadata.servings;
+        this.difficulty = raw.metadata.difficulty;
+        this.cuisine = raw.metadata.cuisine;
+        this.diet = raw.metadata.diet;
+        this.images = raw.metadata.images;
+        this.locale = raw.metadata.locale;
 
         this.custom_metadata = new Map();
-        for (let key in metadata.custom)
-            this.custom_metadata.set(key, metadata.custom[key]);
-    }
+        for (let key in raw.metadata.custom)
+            this.custom_metadata.set(key, raw.metadata.custom[key]);
 
-    private setData(data: Recipe) {
         this.rawMetadata = new Map();
-        for (let key in data.raw_metadata.map)
-            this.rawMetadata.set(key, data.raw_metadata.map[key]);
+        for (let key in raw.recipe.raw_metadata.map)
+            this.rawMetadata.set(key, raw.recipe.raw_metadata.map[key]);
 
-        this.sections = data.sections;
-        this.ingredients = data.ingredients;
-        this.cookware = data.cookware;
-        this.timers = data.timers;
-        this.inlineQuantities = data.inline_quantities;
+        this.sections = raw.recipe.sections;
+        this.ingredients = raw.recipe.ingredients;
+        this.cookware = raw.recipe.cookware;
+        this.timers = raw.recipe.timers;
+        this.inlineQuantities = raw.recipe.inline_quantities;
+
+        this.groupedIngredients = groupedIngredients.map((iaq) => [this.ingredients[iaq.index], iaq.quantity]);
+        this.groupedCookware = groupedCookware.map((iaq) => [this.cookware[iaq.index], iaq.quantity]);
     }
 }
 
@@ -114,8 +107,8 @@ export class CooklangParser {
 }
 
 export class HTMLRenderer {
-    protected result: string;
-    protected recipe: CooklangRecipe;
+    protected result!: string;
+    protected recipe!: CooklangRecipe;
 
     render(recipe: CooklangRecipe): string {
         this.result = "";
@@ -180,7 +173,7 @@ export class HTMLRenderer {
         }
     }
 
-    protected renderGroupedIngredient(name: string, quantity: string, note: string) {
+    protected renderGroupedIngredient(name: string, quantity: string | null, note: string | null) {
         this.result += "<li>";
         this.result += `<b>${name}</b>`;
 
@@ -218,7 +211,7 @@ export class HTMLRenderer {
         }
     }
 
-    protected renderGroupedCookware(name: string, quantity: string, note: string) {
+    protected renderGroupedCookware(name: string, quantity: string | null, note: string | null) {
         this.result += "<li>";
         this.result += `<b>${name}</b>`;
 
