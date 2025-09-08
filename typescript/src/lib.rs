@@ -126,10 +126,15 @@ impl Parser {
         FallibleResult::new(value, report, input)
     }
 
-    pub fn parse(&self, input: &str) -> ScaledRecipeWithReport {
-        let (recipe, _report) = self.parser.parse(input).into_tuple();
+    pub fn parse(&self, input: &str, scale: Option<f64>) -> ScaledRecipeWithReport {
+        let (recipe, report) = self.parser.parse(input).into_tuple();
         let mut recipe = recipe.expect("expected recipe");
-        recipe.scale(1., self.parser.converter());
+
+        let report = display_report(report, input);
+
+        if let Some(scale) = scale {
+            recipe.scale(scale, self.parser.converter());
+        }
 
         let metadata = InterpretedMetadata {
             title: recipe.metadata.title().map(str::to_string),
@@ -161,7 +166,7 @@ impl Parser {
         let data = ScaledRecipeWithReport {
             recipe,
             metadata,
-            report: "<no output>".to_string(),
+            report,
         };
         data
     }
@@ -265,6 +270,13 @@ impl Parser {
     }
 }
 
+fn display_report(report: SourceReport, input: &str) -> String {
+    let mut buf = Vec::new();
+    report.write("playground", input, true, &mut buf).unwrap();
+    let ansi_error = String::from_utf8_lossy(&buf);
+    ansi_to_html::convert(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned())
+}
+
 #[wasm_bindgen(getter_with_clone)]
 pub struct FallibleResult {
     pub value: String,
@@ -273,10 +285,7 @@ pub struct FallibleResult {
 
 impl FallibleResult {
     pub fn new(value: String, report: SourceReport, input: &str) -> Self {
-        let mut buf = Vec::new();
-        report.write("playground", input, true, &mut buf).unwrap();
-        let ansi_error = String::from_utf8_lossy(&buf);
-        let error = ansi_to_html::convert(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
+        let error = display_report(report, input);
         FallibleResult { value, error }
     }
 }

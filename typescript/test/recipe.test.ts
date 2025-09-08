@@ -1,5 +1,5 @@
 import {it, expect} from "vitest";
-import {CooklangParser, CooklangRecipe} from "../index.js";
+import {CooklangParser} from "../index.js";
 
 
 it("reads interpreted metadata", async () => {
@@ -26,7 +26,7 @@ custom2: some string
     `;
 
     const parser = new CooklangParser();
-    const recipe = parser.parse(input);
+    const recipe = parser.parse(input)[0];
     expect(recipe.title).toEqual("Some title");
     expect(recipe.description).toEqual("Some description");
     expect(recipe.tags).toEqual(new Set(["tag1", "tag2"]));
@@ -53,7 +53,7 @@ A step. @ingredient #ware ~timer{2min}
     `;
 
     const parser = new CooklangParser();
-    const recipe = parser.parse(input);
+    const recipe = parser.parse(input)[0];
     expect(recipe.rawMetadata).toEqual(new Map([
         ["title", "Some title"],
     ]));
