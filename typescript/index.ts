@@ -10,7 +10,13 @@ import {
 
 export {version, Parser};
 export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
-
+export {
+    NameAndUrl,
+    RecipeTime,
+    Servings, Section, Ingredient, Cookware, Timer, Quantity, GroupedQuantity,
+    ingredient_should_be_listed, ingredient_display_name, grouped_quantity_is_empty, grouped_quantity_display,
+    cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display, GroupedIndexAndQuantity
+};
 
 export class CooklangRecipe {
     // Metadata
