@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "type": "module",
-  "main": "index.js",
+  "main": "index.ts",
   "files": [
-    "index.js",
+    "index.ts",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
     "pkg/cooklang_wasm.d.ts",
