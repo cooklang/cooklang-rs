@@ -1,4 +1,4 @@
-import {
+import init, {
     version,
     Parser,
     NameAndUrl,
@@ -20,6 +20,8 @@ export type {
     Servings, Section, Ingredient, Cookware, Timer, Quantity, GroupedQuantity,
     Content, Step, GroupedIndexAndQuantity
 };
+
+await init();
 
 export class CooklangRecipe {
     // Metadata
