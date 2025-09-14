@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CooklangParser, CooklangRendererBase } from "../src/parser";
+import { CooklangParser, CooklangRendererBase } from "../src";
 
 const recipeString = "Make your first recipe with an @ingredient!";
 

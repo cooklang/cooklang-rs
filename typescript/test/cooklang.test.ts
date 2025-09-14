@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { CooklangRecipe, recipe as recipeFn } from "../src/parser";
+import { CooklangRecipe, recipe as recipeFn } from "../src";
 
 const recipeString = "Make your first recipe with an @ingredient!";
 

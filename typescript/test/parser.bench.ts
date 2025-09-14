@@ -1,10 +1,10 @@
 import { bench, describe } from "vitest";
-import { CooklangParser } from "../src/parser";
+import { CooklangParser, CooklangRecipe } from "../src";
 
 const recipeString = "Make your first @recipe!";
 describe("parser", () => {
   bench("instance", () => {
-    const recipe = new CooklangParser(recipeString);
+    const recipe = new CooklangRecipe(recipeString);
   });
 
   // init the parser outside of the bench which
