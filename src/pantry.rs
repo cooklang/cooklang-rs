@@ -75,6 +75,29 @@ pub struct ItemWithAttributes {
     /// Quantity of the item (optional) - stored as string but can be parsed as cooklang Quantity
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quantity: Option<String>,
+    /// Low stock threshold quantity (optional) - e.g. "500%ml", "2%kg"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub low: Option<String>,
+}
+
+/// Parse a quantity string to extract numeric value and unit
+/// Handles formats like "500%ml", "2%kg", "5", etc.
+fn parse_quantity(quantity: &str) -> Option<(f64, String)> {
+    // Remove % if present and split into parts
+    let cleaned = quantity.replace('%', " ");
+    let parts: Vec<&str> = cleaned.split_whitespace().collect();
+
+    if let Some(number_str) = parts.first() {
+        if let Ok(value) = number_str.parse::<f64>() {
+            let unit = if parts.len() > 1 {
+                parts[1].to_lowercase()
+            } else {
+                String::new() // No unit means it's just a count
+            };
+            return Some((value, unit));
+        }
+    }
+    None
 }
 
 impl PantryItem {
@@ -109,6 +132,37 @@ impl PantryItem {
         match self {
             PantryItem::Simple(_) => None,
             PantryItem::WithAttributes(item) => item.quantity.as_deref(),
+        }
+    }
+
+    /// Check if the item is low on stock
+    /// Compares current quantity with the low threshold if both are set and have the same unit
+    pub fn is_low(&self) -> bool {
+        match self {
+            PantryItem::Simple(_) => false,
+            PantryItem::WithAttributes(item) => {
+                if let (Some(quantity), Some(low_threshold)) = (&item.quantity, &item.low) {
+                    // Parse both quantities with their units
+                    if let (Some((current_val, current_unit)), Some((threshold_val, threshold_unit))) = (
+                        parse_quantity(quantity),
+                        parse_quantity(low_threshold)
+                    ) {
+                        // Only compare if units match
+                        if current_unit == threshold_unit {
+                            return current_val <= threshold_val;
+                        }
+                    }
+                }
+                false
+            }
+        }
+    }
+
+    /// Get the low stock threshold if explicitly set
+    pub fn low(&self) -> Option<&str> {
+        match self {
+            PantryItem::Simple(_) => None,
+            PantryItem::WithAttributes(item) => item.low.as_deref(),
         }
     }
 }
@@ -286,6 +340,7 @@ fn parse_core(
                     bought: None,
                     expire: None,
                     quantity: Some(quantity.clone()),
+                    low: None,
                 }));
                 continue; // Skip to next item
             }
@@ -301,6 +356,7 @@ fn parse_core(
                                 bought: None,
                                 expire: None,
                                 quantity: Some(quantity.clone()),
+                                low: None,
                             }));
                         }
                         toml::Value::Table(attrs) => {
@@ -328,6 +384,13 @@ fn parse_core(
                                     None
                                 }
                             });
+                            let low = item_table.remove("low").and_then(|val| {
+                                if let toml::Value::String(s) = val {
+                                    Some(s)
+                                } else {
+                                    None
+                                }
+                            });
 
                             // Warn about unknown attributes
                             if !item_table.is_empty() && lenient {
@@ -335,7 +398,7 @@ fn parse_core(
                                     for key in item_table.keys() {
                                         let warning = SourceDiag::warning(
                                             format!("Unknown field '{}' in item '{}'", key, item_key),
-                                            (Span::new(0, 0), Some("valid attributes are: bought, expire, quantity".into())),
+                                            (Span::new(0, 0), Some("valid attributes are: bought, expire, quantity, low".into())),
                                             Stage::Parse,
                                         );
                                         report.push(warning);
@@ -348,6 +411,7 @@ fn parse_core(
                                 bought,
                                 expire,
                                 quantity,
+                                low,
                             }));
                         }
                         _ => {
@@ -535,6 +599,7 @@ fn parse_item_from_table(
         bought,
         expire,
         quantity,
+        low: None,
     }))
 }
 
@@ -920,6 +985,7 @@ rice = "5%kg"
                     bought: None,
                     expire: None,
                     quantity: Some("1%kg".to_string()),
+                    low: None,
                 }));
             }
             sections.insert(section_name, items);

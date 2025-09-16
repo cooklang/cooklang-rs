@@ -1,9 +1,10 @@
 use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
-use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime};
-use cooklang::{parser::PullParser, Extensions};
+use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime, Servings, StdKey};
+use cooklang::{parser::PullParser, quantity, Cookware, Extensions, GroupedQuantity, Ingredient};
 use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Write;
 use tsify::Tsify;
 use wasm_bindgen::prelude::*;
@@ -11,6 +12,14 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub fn version() -> String {
     include_str!(concat!(env!("OUT_DIR"), "/version")).to_string()
+}
+
+// wasm cannot export pure tuples yet
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct GroupedIndexAndQuantity {
+    index: usize,
+    quantity: GroupedQuantity,
 }
 
 #[wasm_bindgen]
@@ -21,9 +30,43 @@ pub struct Parser {
 }
 
 #[derive(Tsify, Serialize, Deserialize)]
+pub struct InterpretedMetadata {
+    #[tsify(optional)]
+    title: Option<String>,
+    #[tsify(optional)]
+    description: Option<String>,
+    #[tsify(optional)]
+    tags: Option<Vec<String>>,
+    #[tsify(optional)]
+    author: Option<NameAndUrl>,
+    #[tsify(optional)]
+    source: Option<NameAndUrl>,
+    #[tsify(optional, type = "any")]
+    course: Option<serde_yaml::Value>,
+    #[tsify(optional)]
+    time: Option<RecipeTime>,
+    #[tsify(optional)]
+    servings: Option<Servings>,
+    #[tsify(optional, type = "any")]
+    difficulty: Option<serde_yaml::Value>,
+    #[tsify(optional, type = "any")]
+    cuisine: Option<serde_yaml::Value>,
+    #[tsify(optional, type = "any")]
+    diet: Option<serde_yaml::Value>,
+    #[tsify(optional, type = "any")]
+    images: Option<serde_yaml::Value>,
+    #[tsify(optional)]
+    locale: Option<(String, Option<String>)>,
+
+    #[tsify(type = "Record<any, any>")]
+    custom: HashMap<serde_yaml::Value, serde_yaml::Value>,
+}
+
+#[derive(Tsify, Serialize, Deserialize)]
 #[tsify(into_wasm_abi, from_wasm_abi)]
 pub struct ScaledRecipeWithReport {
     recipe: cooklang::Recipe,
+    metadata: InterpretedMetadata,
     report: String,
 }
 
@@ -83,15 +126,73 @@ impl Parser {
         FallibleResult::new(value, report, input)
     }
 
-    pub fn parse(&self, input: &str) -> ScaledRecipeWithReport {
-        let (recipe, _report) = self.parser.parse(input).into_tuple();
+    pub fn parse(&self, input: &str, scale: Option<f64>) -> ScaledRecipeWithReport {
+        let (recipe, report) = self.parser.parse(input).into_tuple();
         let mut recipe = recipe.expect("expected recipe");
-        recipe.scale(1., self.parser.converter());
+
+        let report = display_report(report, input);
+
+        if let Some(scale) = scale {
+            recipe.scale(scale, self.parser.converter());
+        }
+
+        let metadata = InterpretedMetadata {
+            title: recipe.metadata.title().map(str::to_string),
+            description: recipe.metadata.description().map(str::to_string),
+            tags: recipe
+                .metadata
+                .tags()
+                .map(|v| v.iter().map(|s| s.to_string()).collect()),
+            author: recipe.metadata.author(),
+            source: recipe.metadata.source(),
+            course: recipe.metadata.get(StdKey::Course).cloned(),
+            time: recipe.metadata.time(self.parser.converter()),
+            servings: recipe.metadata.servings(),
+            difficulty: recipe.metadata.get(StdKey::Difficulty).cloned(),
+            cuisine: recipe.metadata.get(StdKey::Cuisine).cloned(),
+            diet: recipe.metadata.get(StdKey::Diet).cloned(),
+            images: recipe.metadata.get(StdKey::Images).cloned(),
+            locale: recipe
+                .metadata
+                .locale()
+                .map(|(a, b)| (a.to_string(), b.map(str::to_string))),
+            custom: recipe
+                .metadata
+                .map_filtered()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        };
+
         let data = ScaledRecipeWithReport {
             recipe,
-            report: "<no output>".to_string(),
+            metadata,
+            report,
         };
         data
+    }
+
+    /// returns vector of indices in r.recipe.ingredients and their quantities
+    pub fn group_ingredients(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
+        r.recipe
+            .group_ingredients(self.parser.converter())
+            .into_iter()
+            .map(|r| GroupedIndexAndQuantity {
+                index: r.index,
+                quantity: r.quantity,
+            })
+            .collect()
+    }
+
+    /// returns vector of indices in r.recipe.cookware and their quantities
+    pub fn group_cookware(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
+        r.recipe
+            .group_cookware(self.parser.converter())
+            .into_iter()
+            .map(|r| GroupedIndexAndQuantity {
+                index: r.index,
+                quantity: r.quantity,
+            })
+            .collect()
     }
 
     pub fn parse_full(&self, input: &str, json: bool) -> FallibleResult {
@@ -169,6 +270,13 @@ impl Parser {
     }
 }
 
+fn display_report(report: SourceReport, input: &str) -> String {
+    let mut buf = Vec::new();
+    report.write("playground", input, true, &mut buf).unwrap();
+    let ansi_error = String::from_utf8_lossy(&buf);
+    ansi_to_html::convert(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned())
+}
+
 #[wasm_bindgen(getter_with_clone)]
 pub struct FallibleResult {
     pub value: String,
@@ -177,12 +285,44 @@ pub struct FallibleResult {
 
 impl FallibleResult {
     pub fn new(value: String, report: SourceReport, input: &str) -> Self {
-        let mut buf = Vec::new();
-        report.write("playground", input, true, &mut buf).unwrap();
-        let ansi_error = String::from_utf8_lossy(&buf);
-        let error = ansi_to_html::convert(&ansi_error).unwrap_or_else(|_| ansi_error.into_owned());
+        let error = display_report(report, input);
         FallibleResult { value, error }
     }
+}
+
+#[wasm_bindgen]
+pub fn ingredient_should_be_listed(this: &Ingredient) -> bool {
+    this.modifiers().should_be_listed()
+}
+
+#[wasm_bindgen]
+pub fn ingredient_display_name(this: &Ingredient) -> String {
+    this.display_name().to_string()
+}
+
+#[wasm_bindgen]
+pub fn cookware_should_be_listed(this: &Cookware) -> bool {
+    this.modifiers().should_be_listed()
+}
+
+#[wasm_bindgen]
+pub fn cookware_display_name(this: &Cookware) -> String {
+    this.display_name().to_string()
+}
+
+#[wasm_bindgen]
+pub fn grouped_quantity_is_empty(this: &GroupedQuantity) -> bool {
+    this.is_empty()
+}
+
+#[wasm_bindgen]
+pub fn grouped_quantity_display(this: &GroupedQuantity) -> String {
+    this.to_string()
+}
+
+#[wasm_bindgen]
+pub fn quantity_display(this: &quantity::Quantity) -> String {
+    this.to_string()
 }
 
 fn render(r: cooklang::Recipe, converter: &Converter) -> String {
@@ -205,10 +345,12 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
             h2 { "Ingredients:" }
             ul {
                 @for entry in &ingredient_list {
-                    li {
-                        b { (entry.ingredient.display_name()) }
-                        @if !entry.quantity.is_empty() {": " (entry.quantity) }
-                        @if let Some(n) = &entry.ingredient.note { " (" (n) ")" }
+                    @if entry.ingredient.modifiers().should_be_listed() {
+                        li {
+                            b { (entry.ingredient.display_name()) }
+                            @if !entry.quantity.is_empty() {": " (entry.quantity) }
+                            @if let Some(n) = &entry.ingredient.note { " (" (n) ")" }
+                        }
                     }
                 }
             }
@@ -216,17 +358,18 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
         @if !r.cookware.is_empty() {
             h2 { "Cookware:" }
             ul {
-                // TODO should_be_listed
                 @for entry in &cookware_list {
-                    li {
-                        b { (entry.cookware.display_name()) }
-                        @if !entry.quantity.is_empty() { ": " (entry.quantity) }
-                        @if let Some(n) = &entry.cookware.note { " (" (n) ")" }
+                    @if entry.cookware.modifiers().should_be_listed() {
+                        li {
+                            b { (entry.cookware.display_name()) }
+                            @if !entry.quantity.is_empty() { ": " (entry.quantity) }
+                            @if let Some(n) = &entry.cookware.note { " (" (n) ")" }
+                        }
                     }
                 }
             }
         }
-        @if !r.cookware.is_empty() || !ingredient_list.is_empty() {
+        @if !cookware_list.is_empty() || !ingredient_list.is_empty() {
             hr {}
         }
         @for (s_index, section) in r.sections.iter().enumerate() {
@@ -299,5 +442,5 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
             }
         }
     }
-    .into_string()
+        .into_string()
 }

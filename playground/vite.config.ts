@@ -6,4 +6,7 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ["@cooklang/cooklang-ts"],
   },
+  build: {
+    target: "esnext",
+  }
 });

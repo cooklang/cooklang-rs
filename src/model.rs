@@ -13,7 +13,7 @@ use crate::{
 
 /// A complete recipe
 ///
-/// The recipes does not have a name. You give it externally or maybe use
+/// The recipes do not have a name. You give it externally or maybe use
 /// some metadata key.
 ///
 /// The recipe returned from parsing is a [`ScalableRecipe`].
@@ -25,8 +25,8 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct Recipe {
-    /// Metadata
-    #[cfg_attr(feature = "ts", serde(skip))]
+    /// Metadata as read from preamble
+    #[cfg_attr(feature = "ts", serde(rename = "raw_metadata"))]
     pub metadata: Metadata,
     /// Each of the sections
     ///
@@ -171,6 +171,7 @@ impl RecipeReference {
 /// A recipe ingredient
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
+#[cfg_attr(feature = "ts", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Ingredient {
     /// Name
     ///
@@ -274,6 +275,7 @@ impl Ingredient {
 /// A recipe cookware item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
+#[cfg_attr(feature = "ts", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Cookware {
     /// Name
     pub name: String,
@@ -287,7 +289,7 @@ pub struct Cookware {
     pub note: Option<String>,
     /// How the cookware is related to others
     pub relation: ComponentRelation,
-    #[cfg_attr(not(feature = "ts"), serde(skip))]
+    #[cfg_attr(feature = "ts", serde(skip))]
     pub(crate) modifiers: Modifiers,
 }
 
@@ -404,7 +406,6 @@ impl ComponentRelation {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
 pub struct IngredientRelation {
-    #[cfg_attr(feature = "ts", serde(flatten))]
     relation: ComponentRelation,
     reference_target: Option<IngredientReferenceTarget>,
 }
