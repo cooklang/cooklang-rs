@@ -109,6 +109,12 @@ impl PantryItem {
         }
     }
 
+    /// Parse the quantity and return as (value, unit)
+    /// Returns None if no quantity or if parsing fails
+    pub fn parsed_quantity(&self) -> Option<(f64, String)> {
+        self.quantity().and_then(parse_quantity)
+    }
+
     /// Get the bought date if available
     pub fn bought(&self) -> Option<&str> {
         match self {

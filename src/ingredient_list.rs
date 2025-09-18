@@ -120,6 +120,140 @@ impl IngredientList {
         list
     }
 
+    /// Subtract pantry quantities from the ingredient list.
+    ///
+    /// For each ingredient in the list, if it exists in the pantry with a valid quantity,
+    /// subtract that quantity from the required amount. Only subtracts when units match.
+    /// Returns a new IngredientList with the remaining quantities needed.
+    ///
+    /// # Arguments
+    ///
+    /// * `pantry` - The pantry configuration to subtract from
+    /// * `converter` - The unit converter for quantity operations
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let shopping_list = ingredient_list.subtract_pantry(&pantry_conf, converter);
+    /// ```
+    #[cfg(feature = "pantry")]
+    pub fn subtract_pantry(
+        &self,
+        pantry: &crate::pantry::PantryConf,
+        converter: &Converter,
+    ) -> Self {
+        let mut result = Self::new();
+
+        for (ingredient_name, required_quantity) in self.iter() {
+            // Check if ingredient exists in pantry
+            if let Some((_section, pantry_item)) = pantry.find_ingredient(ingredient_name) {
+                // Get pantry quantity if available
+                if let Some(pantry_qty_str) = pantry_item.quantity() {
+                    // Check for special "unlim" case
+                    if pantry_qty_str == "unlim" || pantry_qty_str == "unlimited" {
+                        tracing::info!(
+                            "Removing '{}' from shopping list (unlimited in pantry)",
+                            ingredient_name
+                        );
+                        continue; // Skip this item entirely
+                    }
+
+                    // Try to parse pantry quantity
+                    if let Some((pantry_value, pantry_unit)) = pantry_item.parsed_quantity() {
+                        // If pantry has 0, keep everything in the shopping list
+                        if pantry_value <= 0.0 {
+                            result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                            continue;
+                        }
+
+                        // Try to subtract from each quantity variant
+                        let mut remaining_quantities = crate::quantity::GroupedQuantity::empty();
+                        let mut any_subtracted = false;
+                        let mut unit_mismatch = false;
+
+                        for req_qty in required_quantity.iter() {
+                            let req_unit = req_qty.unit().map(|u| u.to_lowercase()).unwrap_or_default();
+
+                            if req_unit == pantry_unit {
+                                // Units match, we can subtract
+                                if let crate::quantity::Value::Number(req_num) = req_qty.value() {
+                                    let req_value: f64 = req_num.value();
+                                    let remaining_value = req_value - pantry_value;
+
+                                    if remaining_value > 0.0 {
+                                        let remaining_qty = crate::quantity::Quantity::new(
+                                            crate::quantity::Value::Number(
+                                                crate::quantity::Number::Regular(remaining_value)
+                                            ),
+                                            req_qty.unit().map(|s| s.to_string())
+                                        );
+                                        remaining_quantities.add(&remaining_qty, converter);
+                                        let unit_display = if req_unit.is_empty() { "" } else { &req_unit };
+                                        tracing::info!(
+                                            "Reduced '{}' from {} {} to {} {} (pantry has {} {})",
+                                            ingredient_name,
+                                            req_value,
+                                            unit_display,
+                                            remaining_value,
+                                            unit_display,
+                                            pantry_value,
+                                            unit_display
+                                        );
+                                    } else {
+                                        let unit_display = if pantry_unit.is_empty() { "" } else { &pantry_unit };
+                                        tracing::info!(
+                                            "Removing '{}' from shopping list (sufficient in pantry: {} {})",
+                                            ingredient_name,
+                                            pantry_value,
+                                            unit_display
+                                        );
+                                    }
+                                    any_subtracted = true;
+                                } else {
+                                    remaining_quantities.add(req_qty, converter);
+                                }
+                            } else {
+                                // Units don't match
+                                remaining_quantities.add(req_qty, converter);
+                                unit_mismatch = true;
+                                tracing::warn!(
+                                    "Unit mismatch for '{}': recipe needs '{}', pantry has '{}'",
+                                    ingredient_name,
+                                    req_unit,
+                                    pantry_unit
+                                );
+                            }
+                        }
+
+                        if unit_mismatch && !any_subtracted {
+                            // Keep full amount due to unit mismatch
+                            result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                        } else if !remaining_quantities.is_empty() {
+                            // Add the remaining quantities
+                            result.add_ingredient(ingredient_name.clone(), &remaining_quantities, converter);
+                        }
+                        // If remaining_quantities is empty and no unit mismatch, item is fully covered
+                    } else {
+                        // Can't parse pantry quantity, keep original
+                        tracing::warn!("Cannot parse pantry quantity for '{}': {}", ingredient_name, pantry_qty_str);
+                        result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                    }
+                } else {
+                    // No quantity specified in pantry, assume we have it (backward compatibility)
+                    tracing::info!(
+                        "Removing '{}' from shopping list (found in pantry without quantity)",
+                        ingredient_name
+                    );
+                }
+            } else {
+                // Not in pantry, keep it in the list
+                result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+            }
+        }
+
+        result
+    }
+
     /// Add the ingredients from a recipe to the list.
     ///
     /// This is a convenience method instead of manually calling [`IngredientList::add_ingredient`]
@@ -297,5 +431,177 @@ impl Iterator for CategorizedIntoIter {
                 .filter(|l| !l.is_empty())
                 .map(|l| ("other".to_string(), l))
         })
+    }
+}
+
+#[cfg(all(test, feature = "pantry"))]
+mod tests {
+    use super::*;
+    use crate::{CooklangParser, Extensions};
+
+    #[test]
+    fn test_subtract_pantry_unlimited() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Create a recipe with some ingredients
+        let recipe = parser.parse("@salt{1%tsp} @water{1%l} @flour{500%g}")
+            .into_output()
+            .unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        // Create pantry with unlimited water
+        let pantry_toml = r#"
+[kitchen]
+water = "unlim"
+salt = "0.5%tsp"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+
+        // Subtract pantry
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // Water should be completely removed (unlimited)
+        assert!(!result.iter().any(|(name, _)| name.as_str() == "water"));
+
+        // Salt should have 0.5 tsp remaining (1 - 0.5)
+        let salt_qty = result.iter().find(|(name, _)| name.as_str() == "salt");
+        assert!(salt_qty.is_some());
+
+        // Flour should remain unchanged (not in pantry)
+        let flour_qty = result.iter().find(|(name, _)| name.as_str() == "flour");
+        assert!(flour_qty.is_some());
+    }
+
+    #[test]
+    fn test_subtract_pantry_with_quantities() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Create a recipe needing 2 avocados
+        let recipe = parser.parse("@avocados{2}")
+            .into_output()
+            .unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        // Test with 1 avocado in pantry
+        let pantry_toml = r#"
+[fridge]
+avocados = "1"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // Should have 1 avocado remaining
+        let avocado_qty = result.iter().find(|(name, _)| name.as_str() == "avocados");
+        assert!(avocado_qty.is_some());
+        let (_, qty) = avocado_qty.unwrap();
+        assert_eq!(qty.to_string(), "1");
+    }
+
+    #[test]
+    fn test_subtract_pantry_unit_mismatch() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe needs grams, pantry has liters
+        let recipe = parser.parse("@oil{500%g}")
+            .into_output()
+            .unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        let pantry_toml = r#"
+[pantry]
+oil = "1%l"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // Should keep full amount due to unit mismatch
+        let oil_qty = result.iter().find(|(name, _)| name.as_str() == "oil");
+        assert!(oil_qty.is_some());
+        let (_, qty) = oil_qty.unwrap();
+        assert_eq!(qty.to_string(), "500 g");
+    }
+
+    #[test]
+    fn test_subtract_pantry_zero_quantity() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        let recipe = parser.parse("@milk{1%l}")
+            .into_output()
+            .unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        // Pantry has 0 milk
+        let pantry_toml = r#"
+[fridge]
+milk = "0%l"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // Should keep full amount when pantry has 0
+        let milk_qty = result.iter().find(|(name, _)| name.as_str() == "milk");
+        assert!(milk_qty.is_some());
+        let (_, qty) = milk_qty.unwrap();
+        assert_eq!(qty.to_string(), "1 l");
+    }
+
+    #[test]
+    fn test_subtract_pantry_exact_match() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        let recipe = parser.parse("@rice{2%kg}")
+            .into_output()
+            .unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        // Pantry has exactly what we need
+        let pantry_toml = r#"
+[pantry]
+rice = "2%kg"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // Rice should be completely removed
+        assert!(!result.iter().any(|(name, _)| name.as_str() == "rice"));
+    }
+
+    #[test]
+    fn test_subtract_pantry_more_than_needed() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        let recipe = parser.parse("@sugar{100%g}")
+            .into_output()
+            .unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        // Pantry has more than we need
+        let pantry_toml = r#"
+[cupboard]
+sugar = "500%g"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // Sugar should be completely removed
+        assert!(!result.iter().any(|(name, _)| name.as_str() == "sugar"));
     }
 }
