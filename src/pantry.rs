@@ -547,6 +547,13 @@ fn parse_item_from_table(
             None
         }
     });
+    let low = table.remove("low").and_then(|val| {
+        if let toml::Value::String(s) = val {
+            Some(s)
+        } else {
+            None
+        }
+    });
 
     // Look for a "name" field
     let name = if let Some(val) = table.remove("name") {
@@ -586,7 +593,7 @@ fn parse_item_from_table(
             for key in table.keys() {
                 let warning = SourceDiag::warning(
                     format!("Unknown field '{}' in item '{}'", key, name),
-                    (Span::new(0, 0), Some("item should have only one name field plus optional bought, expire, quantity".into())),
+                    (Span::new(0, 0), Some("item should have only one name field plus optional bought, expire, quantity, low".into())),
                     Stage::Parse,
                 );
                 report.push(warning);
@@ -599,7 +606,7 @@ fn parse_item_from_table(
         bought,
         expire,
         quantity,
-        low: None,
+        low,
     }))
 }
 
