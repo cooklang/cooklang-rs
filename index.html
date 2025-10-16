@@ -2,81 +2,83 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cooklang playground</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Cooklang playground</title>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.min.js"
-    integrity="sha512-b50cBUHAI9jUOcKkDpgiY5pLMlX+WLLr7S6pV841OmBFv+x6efFs3QMxRs7ggJPxLAhrgIejeVovT/JuDYCM0A=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap"
-    rel="stylesheet" />
-  <script type="module" crossorigin src="/cooklang-rs/assets/index-CL0C_tZW.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.min.js"
+            integrity="sha512-b50cBUHAI9jUOcKkDpgiY5pLMlX+WLLr7S6pV841OmBFv+x6efFs3QMxRs7ggJPxLAhrgIejeVovT/JuDYCM0A=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap"
+            rel="stylesheet"/>
+  <script type="module" crossorigin src="/cooklang-rs/assets/index-CLMRoyPg.js"></script>
   <link rel="stylesheet" crossorigin href="/cooklang-rs/assets/index-CMB7dn0j.css">
 </head>
 
 <body>
-  <main>
+<main>
     <h1>cooklang-rs playground</h1>
 
 
     <div id="controls">
-      <div class="inline">
-        <div>
-          <a href="https://github.com/cooklang/cooklang-rs">Repo</a> |
-          <strong>Version:</strong>
-          <pre style="display: inline;" id="version">[loading]</pre> |
-        </div>
-
-        <select id="parserSelect">
-          <option value="render" selected>Render</option>
-          <option value="full">Full parse</option>
-          <option value="events">Events</option>
-          <option value="ast">AST</option>
-          <option value="stdmeta">Standard metadata</option>
-        </select>
-        <div id="servingscontainer">
-          <label for="servings">Servings</label>
-          <input type="number" name="servings" id="servings" />
-        </div>
-        <div hidden id="jsoncontainer">
-          <input type="checkbox" name="json" id="json" />
-          <label for="json">JSON output</label>
-        </div>
-      </div>
-      <div class="narrow">
-        <details id="extra">
-          <summary>More options</summary>
-
-          <div class="container">
+        <div class="inline">
             <div>
-              <input type="checkbox" name="loadUnits" id="loadUnits">
-              <label for="loadUnits">Load units</label>
+                <a href="https://github.com/cooklang/cooklang-rs">Repo</a> |
+                <strong>Version:</strong>
+                <pre style="display: inline;" id="version">[loading]</pre>
+                |
             </div>
 
-            <fieldset>
-              <legend>Extensions</legend>
-              <div id="extensions-container"></div>
-            </fieldset>
-          </div>
-        </details>
-      </div>
+            <select id="parserSelect">
+                <option value="render" selected>Render</option>
+                <option value="full">Full parse</option>
+                <option value="events">Events</option>
+                <option value="ast">AST</option>
+                <option value="stdmeta">Standard metadata</option>
+                <option value="render2">New renderer</option>
+            </select>
+            <div id="servingscontainer">
+                <label for="servings">Servings</label>
+                <input type="number" name="servings" id="servings"/>
+            </div>
+            <div hidden id="jsoncontainer">
+                <input type="checkbox" name="json" id="json"/>
+                <label for="json">JSON output</label>
+            </div>
+        </div>
+        <div class="narrow">
+            <details id="extra">
+                <summary>More options</summary>
+
+                <div class="container">
+                    <div>
+                        <input type="checkbox" name="loadUnits" id="loadUnits">
+                        <label for="loadUnits">Load units</label>
+                    </div>
+
+                    <fieldset>
+                        <legend>Extensions</legend>
+                        <div id="extensions-container"></div>
+                    </fieldset>
+                </div>
+            </details>
+        </div>
     </div>
 
     <div class="code-panes">
-      <div id="editor"></div>
-      <div class="output-pane">
-        <pre class="codeblock" id="output"></pre>
-        <details id="errors-details">
-          <summary>Errors and warnings</summary>
-          <pre class="codeblock" id="errors"></pre>
-        </details>
-      </div>
+        <div id="editor"></div>
+        <div class="output-pane">
+            <pre class="codeblock" id="output"></pre>
+            <details id="errors-details">
+                <summary>Errors and warnings</summary>
+                <pre class="codeblock" id="errors"></pre>
+            </details>
+        </div>
     </div>
-  </main>
+</main>
 
 </body>
 
