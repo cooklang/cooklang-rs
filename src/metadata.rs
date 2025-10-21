@@ -155,7 +155,7 @@ impl Metadata {
     /// List of tags
     ///
     /// The `tags` key [`as_tags`](CooklangValueExt::as_tags)
-    pub fn tags(&self) -> Option<Vec<Cow<str>>> {
+    pub fn tags(&self) -> Option<Vec<Cow<'_, str>>> {
         self.get(StdKey::Tags).and_then(CooklangValueExt::as_tags)
     }
 
@@ -271,7 +271,7 @@ pub trait CooklangValueExt: private::Sealed {
     /// Comma (',') separated string or YAML sequence of strings
     ///
     /// Duplicates and empty entries removed.
-    fn as_tags(&self) -> Option<Vec<Cow<str>>>;
+    fn as_tags(&self) -> Option<Vec<Cow<'_, str>>>;
 
     /// String separated by `sep` or YAML sequence of strings and/or numbers
     ///
@@ -317,7 +317,7 @@ pub trait CooklangValueExt: private::Sealed {
     fn as_locale(&self) -> Option<(&str, Option<&str>)>;
 
     /// String or number as a string
-    fn as_str_like(&self) -> Option<Cow<str>>;
+    fn as_str_like(&self) -> Option<Cow<'_, str>>;
 
     /// Get servings information
     ///
@@ -326,7 +326,7 @@ pub trait CooklangValueExt: private::Sealed {
 }
 
 impl CooklangValueExt for serde_yaml::Value {
-    fn as_tags(&self) -> Option<Vec<Cow<str>>> {
+    fn as_tags(&self) -> Option<Vec<Cow<'_, str>>> {
         value_as_tags(self).ok()
     }
 
@@ -380,7 +380,7 @@ impl CooklangValueExt for serde_yaml::Value {
         value_as_locale(self).ok()
     }
 
-    fn as_str_like(&self) -> Option<Cow<str>> {
+    fn as_str_like(&self) -> Option<Cow<'_, str>> {
         if let Some(s) = self.as_str() {
             Some(Cow::from(s))
         } else if let serde_yaml::Value::Number(num) = self {
@@ -410,7 +410,7 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 }
 
-fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<str>>, MetadataError> {
+fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<'_, str>>, MetadataError> {
     let entries = if let Some(s) = val.as_str() {
         s.split(',').map(|e| e.trim().into()).collect()
     } else if let Some(seq) = val.as_sequence() {

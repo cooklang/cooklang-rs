@@ -162,7 +162,11 @@ impl IngredientList {
                     if let Some((pantry_value, pantry_unit)) = pantry_item.parsed_quantity() {
                         // If pantry has 0, keep everything in the shopping list
                         if pantry_value <= 0.0 {
-                            result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                            result.add_ingredient(
+                                ingredient_name.clone(),
+                                required_quantity,
+                                converter,
+                            );
                             continue;
                         }
 
@@ -172,7 +176,8 @@ impl IngredientList {
                         let mut unit_mismatch = false;
 
                         for req_qty in required_quantity.iter() {
-                            let req_unit = req_qty.unit().map(|u| u.to_lowercase()).unwrap_or_default();
+                            let req_unit =
+                                req_qty.unit().map(|u| u.to_lowercase()).unwrap_or_default();
 
                             if req_unit == pantry_unit {
                                 // Units match, we can subtract
@@ -183,12 +188,13 @@ impl IngredientList {
                                     if remaining_value > 0.0 {
                                         let remaining_qty = crate::quantity::Quantity::new(
                                             crate::quantity::Value::Number(
-                                                crate::quantity::Number::Regular(remaining_value)
+                                                crate::quantity::Number::Regular(remaining_value),
                                             ),
-                                            req_qty.unit().map(|s| s.to_string())
+                                            req_qty.unit().map(|s| s.to_string()),
                                         );
                                         remaining_quantities.add(&remaining_qty, converter);
-                                        let unit_display = if req_unit.is_empty() { "" } else { &req_unit };
+                                        let unit_display =
+                                            if req_unit.is_empty() { "" } else { &req_unit };
                                         tracing::info!(
                                             "Reduced '{}' from {} {} to {} {} (pantry has {} {})",
                                             ingredient_name,
@@ -200,7 +206,11 @@ impl IngredientList {
                                             unit_display
                                         );
                                     } else {
-                                        let unit_display = if pantry_unit.is_empty() { "" } else { &pantry_unit };
+                                        let unit_display = if pantry_unit.is_empty() {
+                                            ""
+                                        } else {
+                                            &pantry_unit
+                                        };
                                         tracing::info!(
                                             "Removing '{}' from shopping list (sufficient in pantry: {} {})",
                                             ingredient_name,
@@ -227,16 +237,32 @@ impl IngredientList {
 
                         if unit_mismatch && !any_subtracted {
                             // Keep full amount due to unit mismatch
-                            result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                            result.add_ingredient(
+                                ingredient_name.clone(),
+                                required_quantity,
+                                converter,
+                            );
                         } else if !remaining_quantities.is_empty() {
                             // Add the remaining quantities
-                            result.add_ingredient(ingredient_name.clone(), &remaining_quantities, converter);
+                            result.add_ingredient(
+                                ingredient_name.clone(),
+                                &remaining_quantities,
+                                converter,
+                            );
                         }
                         // If remaining_quantities is empty and no unit mismatch, item is fully covered
                     } else {
                         // Can't parse pantry quantity, keep original
-                        tracing::warn!("Cannot parse pantry quantity for '{}': {}", ingredient_name, pantry_qty_str);
-                        result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                        tracing::warn!(
+                            "Cannot parse pantry quantity for '{}': {}",
+                            ingredient_name,
+                            pantry_qty_str
+                        );
+                        result.add_ingredient(
+                            ingredient_name.clone(),
+                            required_quantity,
+                            converter,
+                        );
                     }
                 } else {
                     // No quantity specified in pantry, assume we have it (backward compatibility)
@@ -445,7 +471,8 @@ mod tests {
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
         // Create a recipe with some ingredients
-        let recipe = parser.parse("@salt{1%tsp} @water{1%l} @flour{500%g}")
+        let recipe = parser
+            .parse("@salt{1%tsp} @water{1%l} @flour{500%g}")
             .into_output()
             .unwrap();
 
@@ -481,9 +508,7 @@ salt = "0.5%tsp"
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
         // Create a recipe needing 2 avocados
-        let recipe = parser.parse("@avocados{2}")
-            .into_output()
-            .unwrap();
+        let recipe = parser.parse("@avocados{2}").into_output().unwrap();
 
         let mut list = IngredientList::new();
         list.add_recipe(&recipe, &converter, false);
@@ -509,9 +534,7 @@ avocados = "1"
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
         // Recipe needs grams, pantry has liters
-        let recipe = parser.parse("@oil{500%g}")
-            .into_output()
-            .unwrap();
+        let recipe = parser.parse("@oil{500%g}").into_output().unwrap();
 
         let mut list = IngredientList::new();
         list.add_recipe(&recipe, &converter, false);
@@ -535,9 +558,7 @@ oil = "1%l"
         let converter = Converter::bundled();
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
-        let recipe = parser.parse("@milk{1%l}")
-            .into_output()
-            .unwrap();
+        let recipe = parser.parse("@milk{1%l}").into_output().unwrap();
 
         let mut list = IngredientList::new();
         list.add_recipe(&recipe, &converter, false);
@@ -562,9 +583,7 @@ milk = "0%l"
         let converter = Converter::bundled();
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
-        let recipe = parser.parse("@rice{2%kg}")
-            .into_output()
-            .unwrap();
+        let recipe = parser.parse("@rice{2%kg}").into_output().unwrap();
 
         let mut list = IngredientList::new();
         list.add_recipe(&recipe, &converter, false);
@@ -586,9 +605,7 @@ rice = "2%kg"
         let converter = Converter::bundled();
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
-        let recipe = parser.parse("@sugar{100%g}")
-            .into_output()
-            .unwrap();
+        let recipe = parser.parse("@sugar{100%g}").into_output().unwrap();
 
         let mut list = IngredientList::new();
         list.add_recipe(&recipe, &converter, false);

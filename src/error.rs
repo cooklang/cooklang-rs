@@ -55,11 +55,11 @@ impl std::fmt::Display for SourceDiag {
 }
 
 impl RichError for SourceDiag {
-    fn labels(&self) -> Cow<[Label]> {
+    fn labels(&self) -> Cow<'_, [Label]> {
         self.labels.as_slice().into()
     }
 
-    fn hints(&self) -> Cow<[CowStr]> {
+    fn hints(&self) -> Cow<'_, [CowStr]> {
         self.hints.as_slice().into()
     }
 
@@ -434,10 +434,10 @@ impl<T> PassResult<T> {
 
 /// Trait to enhace errors with rich metadata
 pub trait RichError: std::error::Error {
-    fn labels(&self) -> Cow<[Label]> {
+    fn labels(&self) -> Cow<'_, [Label]> {
         Cow::Borrowed(&[])
     }
-    fn hints(&self) -> Cow<[CowStr]> {
+    fn hints(&self) -> Cow<'_, [CowStr]> {
         Cow::Borrowed(&[])
     }
     fn severity(&self) -> Severity {

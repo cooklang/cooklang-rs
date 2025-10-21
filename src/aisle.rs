@@ -74,7 +74,7 @@ impl AisleConf<'_> {
 
     /// Returns a reversed configuration, where each ingredient has a
     /// corresponding [`IngredientInfo`]
-    pub fn ingredients_info(&self) -> HashMap<&str, IngredientInfo> {
+    pub fn ingredients_info(&self) -> HashMap<&str, IngredientInfo<'_>> {
         let mut map = HashMap::with_capacity(self.len.get());
         for cat in &self.categories {
             for igr in &cat.ingredients {
@@ -245,7 +245,7 @@ fn parse_core<'i>(
 }
 
 /// Parse an [`AisleConf`] with the cooklang shopping list format
-pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
+pub fn parse(input: &str) -> Result<AisleConf<'_>, AisleConfError> {
     parse_core(input, false, None)
 }
 
@@ -270,7 +270,7 @@ pub fn parse(input: &str) -> Result<AisleConf, AisleConfError> {
 /// assert_eq!(parsed.categories.len(), 1);
 /// assert_eq!(parsed.categories[0].ingredients.len(), 2);
 /// ```
-pub fn parse_lenient(input: &str) -> PassResult<AisleConf> {
+pub fn parse_lenient(input: &str) -> PassResult<AisleConf<'_>> {
     let mut report = SourceReport::empty();
 
     let conf =
@@ -325,7 +325,7 @@ pub enum AisleConfError {
 }
 
 impl RichError for AisleConfError {
-    fn labels(&self) -> Cow<[Label]> {
+    fn labels(&self) -> Cow<'_, [Label]> {
         use crate::error::label;
         match self {
             AisleConfError::Parse { span, .. } => vec![label!(span)],
@@ -349,7 +349,7 @@ impl RichError for AisleConfError {
         .into()
     }
 
-    fn hints(&self) -> Cow<[CowStr]> {
+    fn hints(&self) -> Cow<'_, [CowStr]> {
         match self {
             AisleConfError::DuplicateCategory { .. } => {
                 vec!["Remove the duplicate category".into()]

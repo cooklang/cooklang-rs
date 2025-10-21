@@ -145,7 +145,7 @@ impl<'a> Text<'a> {
     }
 
     /// Convenience method to the the text in [`Located`]
-    pub fn located_text_trimmed(&self) -> Located<Cow<str>> {
+    pub fn located_text_trimmed(&self) -> Located<Cow<'_, str>> {
         Located::new(self.text_trimmed(), self.span())
     }
 

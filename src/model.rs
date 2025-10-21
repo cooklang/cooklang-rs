@@ -193,7 +193,7 @@ pub struct Ingredient {
 
 impl Ingredient {
     /// Gets the name the ingredient should be displayed with
-    pub fn display_name(&self) -> Cow<str> {
+    pub fn display_name(&self) -> Cow<'_, str> {
         let mut name = Cow::from(&self.name);
         if self.modifiers.contains(Modifiers::RECIPE) {
             if let Some(recipe_name) = std::path::Path::new(&self.name)

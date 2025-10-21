@@ -149,10 +149,11 @@ impl PantryItem {
             PantryItem::WithAttributes(item) => {
                 if let (Some(quantity), Some(low_threshold)) = (&item.quantity, &item.low) {
                     // Parse both quantities with their units
-                    if let (Some((current_val, current_unit)), Some((threshold_val, threshold_unit))) = (
-                        parse_quantity(quantity),
-                        parse_quantity(low_threshold)
-                    ) {
+                    if let (
+                        Some((current_val, current_unit)),
+                        Some((threshold_val, threshold_unit)),
+                    ) = (parse_quantity(quantity), parse_quantity(low_threshold))
+                    {
                         // Only compare if units match
                         if current_unit == threshold_unit {
                             return current_val <= threshold_val;

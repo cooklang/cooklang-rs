@@ -8,7 +8,7 @@ pub struct FrontMatterSplit<'i> {
 
 const YAML_FENCE: &str = "---";
 
-pub fn parse_frontmatter(input: &str) -> Option<FrontMatterSplit> {
+pub fn parse_frontmatter(input: &str) -> Option<FrontMatterSplit<'_>> {
     let mut fences = fences(input, YAML_FENCE);
     let (_, yaml_start) = fences.next()?;
     let (yaml_end, cooklang_start) = fences.next()?;
