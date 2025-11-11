@@ -105,6 +105,40 @@ async function run(): Promise<void> {
                 errors.innerHTML = report;
                 break;
             }
+            case "debug": {
+                const debug = parser.debug_info(input);
+                const debugOutput = `# Debug Information
+
+**Version:** ${debug.version}
+**Extensions:** ${debug.extensions}
+**Load units:** ${debug.load_units}
+
+## Parser Configuration
+- Extensions bitmask: ${debug.extensions}
+- Unit conversion: ${debug.load_units ? 'enabled' : 'disabled'}
+
+## Copy below for issue reports:
+
+\`\`\`
+Version: ${debug.version}
+Extensions: ${debug.extensions}
+Load Units: ${debug.load_units}
+\`\`\`
+
+## Events
+${debug.events}
+
+## Full Recipe
+\`\`\`json
+${debug.full_recipe}
+\`\`\`
+
+## Metadata
+${debug.metadata}`;
+                output.textContent = debugOutput;
+                errors.innerHTML = debug.report;
+                break;
+            }
         }
         errorsDetails.open = errors.childElementCount !== 0;
     }
@@ -215,7 +249,7 @@ async function run(): Promise<void> {
         const servingsContainer = document.getElementById(
             "servingscontainer"
         ) as HTMLDivElement;
-        jsonContainer.hidden = mode === "render" || mode === "render2" || mode === "events";
+        jsonContainer.hidden = mode === "render" || mode === "render2" || mode === "events" || mode === "debug";
         servingsContainer.hidden = mode !== "render" && mode !== "render2";
         localStorage.setItem("mode", mode);
         parse();

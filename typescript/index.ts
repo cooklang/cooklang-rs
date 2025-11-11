@@ -1,3 +1,9 @@
+/**
+ * @cooklang/cooklang-ts - TypeScript library for parsing Cooklang recipes
+ * 
+ * For debug and version information, see {@link DEBUG.md}
+ */
+
 import {
     version,
     Parser,
@@ -9,7 +15,7 @@ import {
 } from "./pkg/cooklang_wasm.js";
 
 export {version, Parser};
-export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
+export type {ScaledRecipeWithReport, DebugInfo} from "./pkg/cooklang_wasm.js";
 
 
 export class CooklangRecipe {

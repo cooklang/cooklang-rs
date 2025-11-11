@@ -31,9 +31,12 @@ pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<
     let mut items = Vec::new();
     let mut ctx = SourceReport::empty();
     for event in events {
-        match event {
-            Event::YAMLFrontMatter(_) => todo!(),
-            Event::Metadata { key, value } => blocks.push(Block::Metadata { key, value }),
+    match event {
+    Event::YAMLFrontMatter(_) => {
+        // YAML frontmatter is processed separately by the analysis pass
+                 // and doesn't get included in the AST
+             }
+             Event::Metadata { key, value } => blocks.push(Block::Metadata { key, value }),
             Event::Section { name } => blocks.push(Block::Section { name }),
             Event::Start(_kind) => items.clear(),
             Event::End(kind) => {
