@@ -6,6 +6,7 @@
   "main": "index.ts",
   "files": [
     "index.ts",
+    "DEBUG.md",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
     "pkg/cooklang_wasm.d.ts",

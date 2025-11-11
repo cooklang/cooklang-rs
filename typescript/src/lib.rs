@@ -70,6 +70,19 @@ pub struct ScaledRecipeWithReport {
     report: String,
 }
 
+#[derive(Tsify, Serialize)]
+#[tsify(into_wasm_abi)]
+pub struct DebugInfo {
+    pub version: String,
+    pub extensions: u32,
+    pub load_units: bool,
+    pub ast: String,
+    pub events: String,
+    pub full_recipe: String,
+    pub metadata: String,
+    pub report: String,
+}
+
 #[wasm_bindgen]
 impl Parser {
     #[wasm_bindgen(constructor)]
@@ -251,6 +264,71 @@ impl Parser {
             None => "<no output>".to_string(),
         };
         FallibleResult::new(value, report, input)
+    }
+
+    pub fn debug_info(&self, input: &str) -> DebugInfo {
+        // Parse AST
+        let events = PullParser::new(input, self.extensions);
+        let (ast, _ast_report) = build_ast(events).into_tuple();
+        let ast_value = match ast {
+            Some(ast) => serde_json::to_string_pretty(&ast).unwrap(),
+            None => "<no output>".to_string(),
+        };
+
+        // Parse events
+        let mut events_str = String::new();
+        let events = PullParser::new(input, self.extensions);
+        for e in events {
+            writeln!(events_str, "{e:#?}").unwrap();
+        }
+
+        // Parse full recipe
+        let (recipe, recipe_report) = self.parser.parse(input).into_tuple();
+        let full_recipe = match recipe {
+            Some(r) => serde_json::to_string_pretty(&r).unwrap(),
+            None => "<no output>".to_string(),
+        };
+
+        // Parse metadata
+        let (meta, _meta_report) = self.parser.parse_metadata(input).into_tuple();
+        let metadata_value = match meta {
+            Some(m) => {
+                #[derive(Debug)]
+                #[allow(dead_code)]
+                struct StdMeta<'a> {
+                    tags: Option<Vec<std::borrow::Cow<'a, str>>>,
+                    author: Option<NameAndUrl>,
+                    source: Option<NameAndUrl>,
+                    time: Option<RecipeTime>,
+                    servings: Option<cooklang::metadata::Servings>,
+                    locale: Option<(&'a str, Option<&'a str>)>,
+                }
+                let val = StdMeta {
+                    tags: m.tags(),
+                    author: m.author(),
+                    source: m.source(),
+                    time: m.time(self.parser.converter()),
+                    servings: m.servings(),
+                    locale: m.locale(),
+                };
+                format!("{val:#?}")
+            }
+            None => "<no output>".to_string(),
+        };
+
+        // Combine all reports (prefer recipe_report as most comprehensive)
+        let combined_report = display_report(recipe_report, input);
+
+        DebugInfo {
+            version: version(),
+            extensions: self.extensions.bits(),
+            load_units: self.load_units,
+            ast: ast_value,
+            events: events_str,
+            full_recipe,
+            metadata: metadata_value,
+            report: combined_report,
+        }
     }
 }
 
