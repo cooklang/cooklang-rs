@@ -3,9 +3,10 @@
   "version": "0.0.0",
   "license": "MIT",
   "type": "module",
-  "main": "index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
-    "index.ts",
+    "dist/",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
     "pkg/cooklang_wasm_bg.js",
@@ -21,13 +22,14 @@
     "markup"
   ],
   "scripts": {
-    "build": "echo noop",
+    "build": "tsc",
     "build-wasm": "wasm-pack build --target bundler",
     "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler",
     "prepare": "npm run build-wasm && npm run build",
     "test": "vitest"
   },
   "devDependencies": {
+    "typescript": "^5.7.2",
     "vite-plugin-wasm": "^3.4.1",
     "vitest": "^3.2.3",
     "wasm-pack": "^0.13.1"
