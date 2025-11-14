@@ -8,3 +8,7 @@ out/
 node_modules
 .wireit
 dist
+
+# TypeScript compiled output
+typescript/index.js
+typescript/index.d.ts

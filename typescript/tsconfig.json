@@ -8,12 +8,11 @@
     ],
     "strict": true,
     "declaration": true,
-    "outDir": "./dist",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "NodeNext"
   },
   "include": ["index.ts"],
-  "exclude": ["node_modules", "pkg", "dist"]
+  "exclude": ["node_modules", "pkg"]
 }

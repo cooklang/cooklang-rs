@@ -9,7 +9,7 @@ import {
 } from "./pkg/cooklang_wasm.js";
 
 export {version, Parser};
-import { ... } from "../pkg/cooklang_wasm.js";
+export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
 
 
 export class CooklangRecipe {
