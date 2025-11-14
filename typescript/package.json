@@ -8,6 +8,7 @@
     "index.ts",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
+    "pkg/cooklang_wasm_bg.js",
     "pkg/cooklang_wasm.d.ts",
     "pkg/cooklang_wasm.js"
   ],
@@ -21,8 +22,8 @@
   ],
   "scripts": {
     "build": "echo noop",
-    "build-wasm": "wasm-pack build --target bundler",
-    "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler",
+    "build-wasm": "wasm-pack build --target nodejs",
+    "watch-wasm": "wasm-pack build --dev --mode no-install --target nodejs",
     "prepare": "npm run build-wasm && npm run build",
     "test": "vitest"
   },
