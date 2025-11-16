@@ -8,6 +8,7 @@
   "files": [
     "index.js",
     "index.d.ts",
+    "pkg-types.d.ts",
     "fix-wasm-start.cjs",
     "pkg/cooklang_wasm_bg.wasm",
     "pkg/cooklang_wasm_bg.wasm.d.ts",
@@ -24,7 +25,7 @@
     "markup"
   ],
   "scripts": {
-    "build": "tsc && node append-pkg-types.cjs",
+    "build": "tsc",
     "build-wasm": "wasm-pack build --target bundler && node fix-wasm-start.cjs",
     "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler && node fix-wasm-start.cjs",
     "prepare": "npm run build-wasm && npm run build",
