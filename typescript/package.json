@@ -24,7 +24,7 @@
     "markup"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node append-pkg-types.cjs",
     "build-wasm": "wasm-pack build --target bundler && node fix-wasm-start.cjs",
     "watch-wasm": "wasm-pack build --dev --mode no-install --target bundler && node fix-wasm-start.cjs",
     "prepare": "npm run build-wasm && npm run build",
