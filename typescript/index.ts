@@ -5,12 +5,218 @@ import {
     RecipeTime,
     Servings, Section, Ingredient, Cookware, Timer, Quantity, ScaledRecipeWithReport, GroupedQuantity,
     ingredient_should_be_listed, ingredient_display_name, grouped_quantity_is_empty, grouped_quantity_display,
-    cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display, GroupedIndexAndQuantity
+    cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display, GroupedIndexAndQuantity,
+    Value, Item
 } from "./pkg/cooklang_wasm.js";
 
-export {version, Parser};
-export type {ScaledRecipeWithReport} from "./pkg/cooklang_wasm.js";
+export {
+    version,
+    Parser,
+    ingredient_should_be_listed,
+    ingredient_display_name,
+    grouped_quantity_is_empty,
+    grouped_quantity_display,
+    cookware_should_be_listed,
+    cookware_display_name,
+    quantity_display
+};
+export type {ScaledRecipeWithReport, Value, Quantity, Ingredient, Cookware, Timer, Section, Content, Step, Item} from "./pkg/cooklang_wasm.js";
 
+// ============================================================================
+// Numeric Value Extraction Helpers
+// ============================================================================
+
+/**
+ * Extract a numeric value from a WASM Value type.
+ *
+ * For ranges, returns the start value.
+ * For text values, returns null.
+ *
+ * @param value - The Value to extract from
+ * @returns The numeric value or null if not a number/range
+ *
+ * @example
+ * ```typescript
+ * const value = ingredient.quantity?.value;
+ * const numeric = getNumericValue(value); // 2.5
+ * ```
+ */
+export function getNumericValue(value: Value | null | undefined): number | null {
+    if (!value) {
+        return null;
+    }
+
+    if (value.type === 'number') {
+        // WASM returns nested structure: { type: "number", value: { type: "regular", value: 3 } }
+        // The type definitions are incomplete, so we need to cast
+        const numValue = value.value as any;
+        return Number(numValue.value);
+    } else if (value.type === 'range') {
+        // Range structure: { type: "range", value: { start: { type: "regular", value: X }, end: { ... } } }
+        // Return start of range
+        const rangeValue = value.value as any;
+        return Number(rangeValue.start.value);
+    }
+    return null;
+}
+
+/**
+ * Extract the numeric value from a Quantity.
+ *
+ * Convenience wrapper around getNumericValue for Quantity objects.
+ *
+ * @param quantity - The Quantity to extract from
+ * @returns The numeric value or null
+ *
+ * @example
+ * ```typescript
+ * const qty = getQuantityValue(ingredient.quantity); // 2.5
+ * ```
+ */
+export function getQuantityValue(quantity: Quantity | null | undefined): number | null {
+    return quantity ? getNumericValue(quantity.value) : null;
+}
+
+/**
+ * Extract the unit string from a Quantity.
+ *
+ * @param quantity - The Quantity to extract from
+ * @returns The unit string or null if no unit
+ *
+ * @example
+ * ```typescript
+ * const unit = getQuantityUnit(ingredient.quantity); // "cups"
+ * ```
+ */
+export function getQuantityUnit(quantity: Quantity | null | undefined): string | null {
+    return quantity?.unit ?? null;
+}
+
+// ============================================================================
+// Flat List Helpers
+// ============================================================================
+
+/**
+ * Simple ingredient with display-ready values.
+ * For more control, use recipe.groupedIngredients with the display functions.
+ */
+export interface FlatIngredient {
+    /** Display name of the ingredient */
+    name: string;
+    /** Numeric quantity (start of range if range), or null if none */
+    quantity: number | null;
+    /** Unit string, or null if none */
+    unit: string | null;
+    /** Formatted display text for the quantity (e.g., "1-2 cups", "3/4 tsp") */
+    displayText: string | null;
+    /** Optional note/modifier (e.g., "finely chopped") */
+    note: string | null;
+}
+
+/**
+ * Simple cookware with display-ready values.
+ */
+export interface FlatCookware {
+    /** Display name of the cookware */
+    name: string;
+    /** Numeric quantity, or null if none */
+    quantity: number | null;
+    /** Formatted display text for the quantity */
+    displayText: string | null;
+    /** Optional note/modifier */
+    note: string | null;
+}
+
+/**
+ * Simple timer with display-ready values.
+ */
+export interface FlatTimer {
+    /** Optional timer name */
+    name: string | null;
+    /** Numeric quantity (in seconds after unit conversion), or null if none */
+    quantity: number | null;
+    /** Unit string (e.g., "minutes", "hours"), or null if none */
+    unit: string | null;
+    /** Formatted display text for the quantity */
+    displayText: string | null;
+}
+
+/**
+ * Get a flat list of all ingredients with simple, display-ready values.
+ *
+ * This is a convenience function for simple use cases. For more control over
+ * grouping and display, use recipe.groupedIngredients with the display functions.
+ *
+ * @param recipe - The parsed recipe
+ * @returns Array of flat ingredient objects
+ *
+ * @example
+ * ```typescript
+ * const ingredients = getFlatIngredients(recipe);
+ * ingredients.forEach(ing => {
+ *   console.log(`${ing.displayText || ''} ${ing.name}`);
+ * });
+ * ```
+ */
+export function getFlatIngredients(recipe: CooklangRecipe): FlatIngredient[] {
+    return recipe.ingredients.map(ing => ({
+        name: ingredient_display_name(ing),
+        quantity: getQuantityValue(ing.quantity),
+        unit: getQuantityUnit(ing.quantity),
+        displayText: ing.quantity ? quantity_display(ing.quantity) : null,
+        note: ing.note
+    }));
+}
+
+/**
+ * Get a flat list of all cookware with simple, display-ready values.
+ *
+ * @param recipe - The parsed recipe
+ * @returns Array of flat cookware objects
+ *
+ * @example
+ * ```typescript
+ * const cookware = getFlatCookware(recipe);
+ * cookware.forEach(cw => {
+ *   console.log(`${cw.displayText || ''} ${cw.name}`);
+ * });
+ * ```
+ */
+export function getFlatCookware(recipe: CooklangRecipe): FlatCookware[] {
+    return recipe.cookware.map(cw => ({
+        name: cookware_display_name(cw),
+        quantity: getQuantityValue(cw.quantity),
+        displayText: cw.quantity ? quantity_display(cw.quantity) : null,
+        note: cw.note
+    }));
+}
+
+/**
+ * Get a flat list of all timers from the recipe.
+ *
+ * @param recipe - The parsed recipe
+ * @returns Array of flat timer objects
+ *
+ * @example
+ * ```typescript
+ * const timers = getFlatTimers(recipe);
+ * timers.forEach(timer => {
+ *   console.log(`${timer.name}: ${timer.displayText}`);
+ * });
+ * ```
+ */
+export function getFlatTimers(recipe: CooklangRecipe): FlatTimer[] {
+    return recipe.timers.map(tm => ({
+        name: tm.name,
+        quantity: getQuantityValue(tm.quantity),
+        unit: getQuantityUnit(tm.quantity),
+        displayText: tm.quantity ? quantity_display(tm.quantity) : null
+    }));
+}
+
+// ============================================================================
+// Recipe and Parser Classes
+// ============================================================================
 
 export class CooklangRecipe {
     // Metadata
