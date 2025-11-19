@@ -14,7 +14,7 @@ FRAMEWORK_NAME="$FRAMEWORK_LIBRARY_NAME.framework"
 XC_FRAMEWORK_NAME="$FRAMEWORK_LIBRARY_NAME.xcframework"
 HEADER_NAME="${NAME}FFI.h"
 OUT_PATH="out"
-MIN_IOS_VERSION="15.0"
+MIN_IOS_VERSION="16.0"
 WRAPPER_PATH="../swift/Sources/CooklangParser"
 
 AARCH64_APPLE_IOS_PATH="../target/aarch64-apple-ios/release"
@@ -108,6 +108,24 @@ cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/macos/
 mv $OUT_PATH/sim-$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
 mv $OUT_PATH/macos-$LIBRARY_NAME $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
 cp $AARCH64_APPLE_IOS_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+
+# Convert macOS framework to versioned bundle structure
+echo "Converting macOS framework to versioned bundle structure..."
+MACOS_FRAMEWORK_PATH="$OUT_PATH/frameworks/macos/$FRAMEWORK_NAME"
+mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Headers"
+mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Modules"
+mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Resources"
+mv "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/$FRAMEWORK_LIBRARY_NAME"
+mv "$MACOS_FRAMEWORK_PATH/Headers/$HEADER_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/Headers/$HEADER_NAME"
+mv "$MACOS_FRAMEWORK_PATH/Modules/module.modulemap" "$MACOS_FRAMEWORK_PATH/Versions/A/Modules/module.modulemap"
+mv "$MACOS_FRAMEWORK_PATH/Info.plist" "$MACOS_FRAMEWORK_PATH/Versions/A/Resources/Info.plist"
+rmdir "$MACOS_FRAMEWORK_PATH/Headers"
+rmdir "$MACOS_FRAMEWORK_PATH/Modules"
+ln -s A "$MACOS_FRAMEWORK_PATH/Versions/Current"
+ln -s Versions/Current/$FRAMEWORK_LIBRARY_NAME "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME"
+ln -s Versions/Current/Headers "$MACOS_FRAMEWORK_PATH/Headers"
+ln -s Versions/Current/Modules "$MACOS_FRAMEWORK_PATH/Modules"
+ln -s Versions/Current/Resources "$MACOS_FRAMEWORK_PATH/Resources"
 
 # Create xcframework
 echo "Creating xcframework..."
