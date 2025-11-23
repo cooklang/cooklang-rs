@@ -1,10 +1,20 @@
 {
-  "name": "@cooklang/cooklang-ts",
-  "version": "0.0.0",
+  "name": "@cooklang/cooklang",
+  "version": "0.17.2",
   "license": "MIT",
+  "description": "Official Cooklang parser - Rust-powered WASM implementation for high performance recipe parsing",
   "type": "module",
   "main": "index.js",
   "types": "index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cooklang/cooklang-rs.git",
+    "directory": "typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/cooklang/cooklang-rs/issues"
+  },
+  "homepage": "https://cooklang.org",
   "files": [
     "index.js",
     "index.d.ts",
@@ -14,15 +24,20 @@
     "pkg/cooklang_wasm_bg.wasm.d.ts",
     "pkg/cooklang_wasm_bg.js",
     "pkg/cooklang_wasm.d.ts",
-    "pkg/cooklang_wasm.js"
+    "pkg/cooklang_wasm.js",
+    "README.md",
+    "MIGRATION.md"
   ],
   "keywords": [
     "cooklang",
-    "parsing",
-    "typescript",
-    "cooking-recipes",
+    "parser",
+    "recipe",
     "cooking",
-    "markup"
+    "markup",
+    "wasm",
+    "rust",
+    "typescript",
+    "javascript"
   ],
   "scripts": {
     "build": "tsc",
