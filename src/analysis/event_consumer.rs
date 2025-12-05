@@ -1499,12 +1499,16 @@ fn parse_reference(name: &str) -> Option<RecipeReference> {
         || name.starts_with("..\\")
     {
         let path = name.replace('\\', "/");
-        let mut components: Vec<String> = path.split('/').map(String::from).skip(1).collect();
+        let mut components: Vec<String> = path.split('/').map(String::from).collect();
         let file_stem = components.pop().unwrap();
-        Some(RecipeReference {
-            components,
-            name: file_stem,
-        })
+        if !file_stem.is_empty() {
+            Some(RecipeReference {
+                components,
+                name: file_stem,
+            })
+        } else {
+            None
+        }
     } else {
         None
     }
@@ -1520,7 +1524,7 @@ mod tests {
         assert_eq!(
             parse_reference("./pasta/spaghetti"),
             Some(RecipeReference {
-                components: vec!["pasta".to_string()],
+                components: vec![".".to_string(), "pasta".to_string()],
                 name: "spaghetti".into()
             })
         );
@@ -1528,7 +1532,7 @@ mod tests {
         assert_eq!(
             parse_reference("../sauces/tomato"),
             Some(RecipeReference {
-                components: vec!["sauces".to_string()],
+                components: vec!["..".to_string(), "sauces".to_string()],
                 name: "tomato".into()
             })
         );
@@ -1537,7 +1541,7 @@ mod tests {
         assert_eq!(
             parse_reference(r#".\pasta\spaghetti"#),
             Some(RecipeReference {
-                components: vec!["pasta".to_string()],
+                components: vec![".".to_string(), "pasta".to_string()],
                 name: "spaghetti".into()
             })
         );
@@ -1545,7 +1549,7 @@ mod tests {
         assert_eq!(
             parse_reference(r#"..\sauces\tomato"#),
             Some(RecipeReference {
-                components: vec!["sauces".to_string()],
+                components: vec!["..".to_string(), "sauces".to_string()],
                 name: "tomato".into()
             })
         );
@@ -1555,6 +1559,7 @@ mod tests {
             parse_reference("./recipes/italian/pasta/spaghetti"),
             Some(RecipeReference {
                 components: vec![
+                    ".".to_string(),
                     "recipes".to_string(),
                     "italian".to_string(),
                     "pasta".to_string()
@@ -1567,7 +1572,16 @@ mod tests {
         assert_eq!(
             parse_reference("./spaghetti"),
             Some(RecipeReference {
-                components: vec![],
+                components: vec![".".to_string()],
+                name: "spaghetti".into()
+            })
+        );
+
+        // Test paths with upper directories
+        assert_eq!(
+            parse_reference("./../../spaghetti"),
+            Some(RecipeReference {
+                components: vec![".".to_string(), "..".to_string(), "..".to_string()],
                 name: "spaghetti".into()
             })
         );
@@ -1578,5 +1592,19 @@ mod tests {
         assert_eq!(parse_reference("pasta\\spaghetti"), None);
         assert_eq!(parse_reference("/pasta/spaghetti"), None);
         assert_eq!(parse_reference("\\pasta\\spaghetti"), None);
+        assert_eq!(parse_reference("./"), None);
+        assert_eq!(parse_reference(".\\"), None);
+        assert_eq!(parse_reference("../"), None);
+        assert_eq!(parse_reference("..\\"), None);
+
+        // Test path generation
+        let reference = RecipeReference {
+            components: vec![".".to_string()],
+            name: "Sicilian-style Scottadito Lamb Chops".into(),
+        };
+        assert_eq!(
+            "./Sicilian-style Scottadito Lamb Chops",
+            reference.path("/")
+        );
     }
 }
