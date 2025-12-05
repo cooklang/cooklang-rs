@@ -1,4 +1,4 @@
-import {Parser, version, HTMLRenderer, CooklangParser} from "@cooklang/cooklang-ts";
+import {Parser, version, HTMLRenderer, CooklangParser} from "@cooklang/cooklang";
 
 declare global {
     interface Window {

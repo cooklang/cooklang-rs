@@ -2,6 +2,9 @@
 
 ## Unreleased - ReleaseDate
 
+## 0.17.3
+- Fixes references components by @mawo66 in https://github.com/cooklang/cooklang-rs/pull/81
+
 ## 0.17.0
 - Softens YAML frontmatter parsing by @dubadub in https://github.com/cooklang/cooklang-rs/pull/57
 - Adds pantry config

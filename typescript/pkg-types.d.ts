@@ -1,12 +1,12 @@
 // Type declarations for WASM package internals
 // These are provided for consumers who need direct access to the WASM bindings
 
-declare module '@cooklang/cooklang-ts/pkg/cooklang_wasm_bg.wasm' {
+declare module '@cooklang/cooklang/pkg/cooklang_wasm_bg.wasm' {
     const wasmModule: WebAssembly.Module | (() => Promise<WebAssembly.Module>);
     export default wasmModule;
 }
 
-declare module '@cooklang/cooklang-ts/pkg/cooklang_wasm_bg.js' {
+declare module '@cooklang/cooklang/pkg/cooklang_wasm_bg.js' {
     export class Parser {
         constructor();
         parse(input: string, scale?: number | null): any;
@@ -25,7 +25,7 @@ declare module '@cooklang/cooklang-ts/pkg/cooklang_wasm_bg.js' {
     export function __wbindgen_throw(arg0: any, arg1: any): void;
 }
 
-declare module '@cooklang/cooklang-ts/pkg/cooklang_wasm.js' {
+declare module '@cooklang/cooklang/pkg/cooklang_wasm.js' {
     export function initSync(module: any): void;
     export default function init(module: any): Promise<void>;
 

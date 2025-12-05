@@ -8,7 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@cooklang/cooklang-ts": "*"
+    "@cooklang/cooklang": "*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

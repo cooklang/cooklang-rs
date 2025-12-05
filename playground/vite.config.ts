@@ -4,7 +4,7 @@ import wasm from "vite-plugin-wasm";
 export default defineConfig({
   plugins: [wasm()],
   optimizeDeps: {
-    exclude: ["@cooklang/cooklang-ts"],
+    exclude: ["@cooklang/cooklang"],
   },
   build: {
     target: "esnext",
