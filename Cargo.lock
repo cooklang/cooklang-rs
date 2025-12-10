@@ -258,7 +258,7 @@ checksum = "2205f7f6d3de68ecf4c291c789b3edf07b6569268abd0188819086f71ae42225"
 
 [[package]]
 name = "cooklang"
-version = "0.17.3"
+version = "0.17.4"
 dependencies = [
  "bitflags",
  "codesnake",
@@ -288,7 +288,7 @@ dependencies = [
 
 [[package]]
 name = "cooklang-bindings"
-version = "0.17.1"
+version = "0.17.4"
 dependencies = [
  "anyhow",
  "clap_derive",
