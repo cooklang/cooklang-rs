@@ -1,6 +1,71 @@
 # Bindings
 
-This repository exports UniFFI difined bindings that can be used to call Rust Cooklang parser code from languages other than Rust: Kotlin, Swift, Ruby, Python and [some other languages](https://mozilla.github.io/uniffi-rs/#third-party-foreign-language-bindings).
+This repository exports UniFFI defined bindings that can be used to call Rust Cooklang parser code from languages other than Rust: Kotlin, Swift, Ruby, Python and [some other languages](https://mozilla.github.io/uniffi-rs/#third-party-foreign-language-bindings).
+
+## Installation
+
+### iOS/macOS (Swift Package Manager)
+
+Add to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/cooklang/cooklang-rs.git", from: "0.18.0")
+]
+```
+
+Or in Xcode: File → Add Package Dependencies → Enter `https://github.com/cooklang/cooklang-rs`
+
+**Supported architectures:**
+- iOS arm64 (devices)
+- iOS arm64 (simulator, Apple Silicon)
+- iOS x86_64 (simulator, Intel)
+- macOS arm64 (Apple Silicon)
+- macOS x86_64 (Intel)
+
+### Android (GitHub Packages Maven)
+
+1. Add the GitHub Packages repository to your `settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven {
+            url = uri("https://maven.pkg.github.com/cooklang/cooklang-rs")
+            credentials {
+                username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user") as String?
+                password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key") as String?
+            }
+        }
+    }
+}
+```
+
+2. Add the dependency to your module's `build.gradle.kts`:
+
+```kotlin
+dependencies {
+    implementation("com.github.cooklang:parser:0.18.0")
+}
+```
+
+3. Configure credentials in `~/.gradle/gradle.properties`:
+
+```properties
+gpr.user=YOUR_GITHUB_USERNAME
+gpr.key=YOUR_GITHUB_TOKEN
+```
+
+Generate a GitHub token at https://github.com/settings/tokens with `read:packages` scope.
+
+**Supported architectures:**
+- arm64-v8a
+- armeabi-v7a
+- x86_64
+
+> **Note:** This package replaces the deprecated `cooklang-kotlin` repository. If migrating, just update the maven URL from `cooklang-kotlin` to `cooklang-rs`.
 
 ## UniFFI
 

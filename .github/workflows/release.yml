@@ -1,0 +1,736 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (skip release creation and publishing)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Build iOS/macOS artifacts on macOS
+  build-ios:
+    name: Build iOS/macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-ios-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-ios-cargo-
+
+      - name: Build iOS/macOS targets
+        run: |
+          targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64-apple-darwin" "x86_64-apple-darwin")
+          for target in "${targets[@]}"; do
+            echo "Building for $target..."
+            cargo build --release --target $target -p cooklang-bindings
+          done
+
+      - name: Generate Swift bindings
+        working-directory: bindings
+        run: |
+          mkdir -p out
+          CURRENT_ARCH=$(rustc --version --verbose | grep host | cut -f2 -d' ')
+          cargo run --features="uniffi/cli" --bin uniffi-bindgen generate \
+            --config uniffi.toml \
+            --library ../target/$CURRENT_ARCH/release/libcooklang_bindings.a \
+            --language swift \
+            --out-dir out
+
+      - name: Create XCFramework
+        working-directory: bindings
+        run: |
+          NAME="CooklangParser"
+          LIBRARY_NAME="libcooklang_bindings.a"
+          FRAMEWORK_LIBRARY_NAME="${NAME}FFI"
+          FRAMEWORK_NAME="$FRAMEWORK_LIBRARY_NAME.framework"
+          XC_FRAMEWORK_NAME="$FRAMEWORK_LIBRARY_NAME.xcframework"
+          HEADER_NAME="${NAME}FFI.h"
+          OUT_PATH="out"
+          MIN_IOS_VERSION="16.0"
+          BUNDLE_IDENTIFIER="org.cooklang.$NAME"
+
+          # Target paths
+          AARCH64_APPLE_IOS_PATH="../target/aarch64-apple-ios/release"
+          AARCH64_APPLE_IOS_SIM_PATH="../target/aarch64-apple-ios-sim/release"
+          X86_64_APPLE_IOS_PATH="../target/x86_64-apple-ios/release"
+          AARCH64_APPLE_DARWIN_PATH="../target/aarch64-apple-darwin/release"
+          X86_64_APPLE_DARWIN_PATH="../target/x86_64-apple-darwin/release"
+
+          # Merge libraries with lipo
+          echo "Merging libraries with lipo..."
+          lipo -create $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME \
+                       $X86_64_APPLE_IOS_PATH/$LIBRARY_NAME \
+               -output $OUT_PATH/sim-$LIBRARY_NAME
+          lipo -create $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
+                       $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
+               -output $OUT_PATH/macos-$LIBRARY_NAME
+
+          # Create framework template
+          rm -rf $OUT_PATH/$FRAMEWORK_NAME
+          mkdir -p $OUT_PATH/$FRAMEWORK_NAME/Headers
+          mkdir -p $OUT_PATH/$FRAMEWORK_NAME/Modules
+          cp $OUT_PATH/$HEADER_NAME $OUT_PATH/$FRAMEWORK_NAME/Headers
+
+          cat > $OUT_PATH/$FRAMEWORK_NAME/Modules/module.modulemap << EOF
+          framework module $FRAMEWORK_LIBRARY_NAME {
+            umbrella header "$HEADER_NAME"
+
+            export *
+            module * { export * }
+          }
+          EOF
+
+          cat > $OUT_PATH/$FRAMEWORK_NAME/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleDevelopmentRegion</key>
+            <string>en</string>
+            <key>CFBundleExecutable</key>
+            <string>$FRAMEWORK_LIBRARY_NAME</string>
+            <key>CFBundleIdentifier</key>
+            <string>$BUNDLE_IDENTIFIER</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundleName</key>
+            <string>$FRAMEWORK_LIBRARY_NAME</string>
+            <key>CFBundlePackageType</key>
+            <string>FMWK</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundleVersion</key>
+            <string>1.0</string>
+            <key>NSPrincipalClass</key>
+            <string></string>
+            <key>MinimumOSVersion</key>
+            <string>$MIN_IOS_VERSION</string>
+          </dict>
+          </plist>
+          EOF
+
+          # Prepare frameworks for each platform
+          rm -rf $OUT_PATH/frameworks
+          mkdir -p $OUT_PATH/frameworks/sim
+          mkdir -p $OUT_PATH/frameworks/ios
+          mkdir -p $OUT_PATH/frameworks/macos
+          cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/sim/
+          cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/ios/
+          cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/macos/
+          mv $OUT_PATH/sim-$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+          mv $OUT_PATH/macos-$LIBRARY_NAME $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+          cp $AARCH64_APPLE_IOS_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+
+          # Convert macOS framework to versioned bundle structure
+          echo "Converting macOS framework to versioned bundle structure..."
+          MACOS_FRAMEWORK_PATH="$OUT_PATH/frameworks/macos/$FRAMEWORK_NAME"
+          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Headers"
+          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Modules"
+          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Resources"
+          mv "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/$FRAMEWORK_LIBRARY_NAME"
+          mv "$MACOS_FRAMEWORK_PATH/Headers/$HEADER_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/Headers/$HEADER_NAME"
+          mv "$MACOS_FRAMEWORK_PATH/Modules/module.modulemap" "$MACOS_FRAMEWORK_PATH/Versions/A/Modules/module.modulemap"
+          mv "$MACOS_FRAMEWORK_PATH/Info.plist" "$MACOS_FRAMEWORK_PATH/Versions/A/Resources/Info.plist"
+          rmdir "$MACOS_FRAMEWORK_PATH/Headers"
+          rmdir "$MACOS_FRAMEWORK_PATH/Modules"
+          ln -s A "$MACOS_FRAMEWORK_PATH/Versions/Current"
+          ln -s Versions/Current/$FRAMEWORK_LIBRARY_NAME "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME"
+          ln -s Versions/Current/Headers "$MACOS_FRAMEWORK_PATH/Headers"
+          ln -s Versions/Current/Modules "$MACOS_FRAMEWORK_PATH/Modules"
+          ln -s Versions/Current/Resources "$MACOS_FRAMEWORK_PATH/Resources"
+
+          # Create xcframework
+          echo "Creating xcframework..."
+          rm -rf $OUT_PATH/$XC_FRAMEWORK_NAME
+          xcodebuild -create-xcframework \
+              -framework $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME \
+              -framework $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME \
+              -framework $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME \
+              -output $OUT_PATH/$XC_FRAMEWORK_NAME
+
+      - name: Package iOS artifacts
+        run: |
+          cd bindings/out
+          zip -r ../../CooklangParserFFI.xcframework.zip CooklangParserFFI.xcframework
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-artifacts
+          path: CooklangParserFFI.xcframework.zip
+
+  # Build Android artifacts on Linux
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-android-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-android-cargo-
+
+      - name: Setup Android NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        run: |
+          sdkmanager --install "ndk;26.1.10909125"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> $GITHUB_ENV
+
+      - name: Install cargo-ndk
+        run: command -v cargo-ndk || cargo install cargo-ndk --locked
+
+      - name: Build uniffi-bindgen for host
+        working-directory: bindings
+        run: cargo build --features="uniffi/cli" --bin uniffi-bindgen --release
+
+      - name: Build Android targets
+        working-directory: bindings
+        run: |
+          cargo ndk --target aarch64-linux-android --platform 21 build --release
+          cargo ndk --target armv7-linux-androideabi --platform 21 build --release
+          cargo ndk --target x86_64-linux-android --platform 21 build --release
+
+      - name: Generate Kotlin bindings
+        working-directory: bindings
+        run: |
+          rm -rf out/kotlin
+          mkdir -p out/kotlin
+          ../target/release/uniffi-bindgen generate \
+            --config uniffi.toml \
+            --library ../target/aarch64-linux-android/release/libcooklang_bindings.so \
+            --language kotlin \
+            --out-dir out/kotlin
+
+      - name: Organize JNI libraries
+        run: |
+          mkdir -p target/android/jniLibs/{arm64-v8a,armeabi-v7a,x86_64}
+          cp target/aarch64-linux-android/release/libcooklang_bindings.so target/android/jniLibs/arm64-v8a/
+          cp target/armv7-linux-androideabi/release/libcooklang_bindings.so target/android/jniLibs/armeabi-v7a/
+          cp target/x86_64-linux-android/release/libcooklang_bindings.so target/android/jniLibs/x86_64/
+
+      - name: Create Android library module
+        run: |
+          mkdir -p target/android/parser/src/main/kotlin
+          mkdir -p target/android/parser/src/main/jniLibs
+
+          # Copy JNI libs
+          cp -R target/android/jniLibs/* target/android/parser/src/main/jniLibs/
+
+          # Copy Kotlin bindings
+          find bindings/out/kotlin -name "*.kt" -exec cp {} target/android/parser/src/main/kotlin/ \;
+
+          # Create build.gradle.kts
+          cat > target/android/parser/build.gradle.kts << 'EOF'
+          plugins {
+              id("com.android.library")
+              id("org.jetbrains.kotlin.android")
+          }
+
+          android {
+              namespace = "org.cooklang.parser"
+              compileSdk = 34
+
+              defaultConfig {
+                  minSdk = 26
+                  testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+                  consumerProguardFiles("consumer-rules.pro")
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      proguardFiles(
+                          getDefaultProguardFile("proguard-android-optimize.txt"),
+                          "proguard-rules.pro"
+                      )
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+              sourceSets {
+                  getByName("main") {
+                      jniLibs.srcDirs("src/main/jniLibs")
+                  }
+              }
+          }
+
+          dependencies {
+              implementation("net.java.dev.jna:jna:5.14.0@aar")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+          }
+          EOF
+
+          # Create AndroidManifest.xml
+          cat > target/android/parser/src/main/AndroidManifest.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+          </manifest>
+          EOF
+
+          # Create proguard rules
+          cat > target/android/parser/proguard-rules.pro << 'EOF'
+          -keep class uniffi.** { *; }
+          -keep class org.cooklang.** { *; }
+          -keep class com.sun.jna.** { *; }
+          -keepclassmembers class * extends com.sun.jna.** { public *; }
+          EOF
+
+          cat > target/android/parser/consumer-rules.pro << 'EOF'
+          -keep class uniffi.** { *; }
+          -keep class org.cooklang.** { *; }
+          EOF
+
+      - name: Package Android artifacts
+        run: |
+          cd target/android
+          zip -r ../../cooklang-parser-android.zip parser jniLibs
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: cooklang-parser-android.zip
+
+  # Create GitHub Release
+  release:
+    name: Create Release
+    needs: [build-ios, build-android]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Download iOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-artifacts
+
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-artifacts
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          generate_release_notes: true
+          files: |
+            CooklangParserFFI.xcframework.zip
+            cooklang-parser-android.zip
+          body: |
+            ## Cooklang Parser Release ${{ steps.version.outputs.VERSION }}
+
+            ### iOS/macOS (Swift Package Manager)
+
+            Add to your `Package.swift` or Xcode project:
+            ```swift
+            .package(url: "https://github.com/cooklang/cooklang-rs.git", from: "${{ steps.version.outputs.VERSION }}")
+            ```
+
+            Or download `CooklangParserFFI.xcframework.zip` for manual integration.
+
+            **Supported architectures:**
+            - iOS arm64 (devices)
+            - iOS arm64 (simulator, Apple Silicon)
+            - iOS x86_64 (simulator, Intel)
+            - macOS arm64 (Apple Silicon)
+            - macOS x86_64 (Intel)
+
+            ### Android (GitHub Packages Maven)
+
+            Add to your `settings.gradle.kts`:
+            ```kotlin
+            dependencyResolutionManagement {
+                repositories {
+                    maven {
+                        url = uri("https://maven.pkg.github.com/cooklang/cooklang-rs")
+                        credentials {
+                            username = System.getenv("GITHUB_ACTOR") ?: project.findProperty("gpr.user") as String?
+                            password = System.getenv("GITHUB_TOKEN") ?: project.findProperty("gpr.key") as String?
+                        }
+                    }
+                }
+            }
+            ```
+
+            Add to your `build.gradle.kts`:
+            ```kotlin
+            implementation("com.github.cooklang:parser:${{ steps.version.outputs.VERSION }}")
+            ```
+
+            Or download `cooklang-parser-android.zip` for manual integration.
+
+            **Supported architectures:**
+            - arm64-v8a
+            - armeabi-v7a
+            - x86_64
+
+            > **Note:** This replaces the deprecated `cooklang-kotlin` repository.
+
+            ### Rust (crates.io)
+
+            ```toml
+            [dependencies]
+            cooklang = "${{ steps.version.outputs.VERSION }}"
+            ```
+
+            ### TypeScript/JavaScript (npm)
+
+            ```bash
+            npm install @cooklang/cooklang
+            ```
+
+            See the README for detailed integration instructions.
+
+  # Update Package.swift for Swift Package Manager
+  update-swift-package:
+    name: Update Package.swift
+    needs: [release]
+    runs-on: macos-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Download iOS zip and compute checksum
+        id: checksum
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          URL="https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip"
+
+          echo "Downloading from: ${URL}"
+          curl -fsSL "$URL" -o ios.zip
+
+          CHECKSUM=$(swift package compute-checksum ios.zip)
+          echo "Checksum: ${CHECKSUM}"
+          echo "CHECKSUM=${CHECKSUM}" >> $GITHUB_OUTPUT
+
+      - name: Update Package.swift
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          CHECKSUM="${{ steps.checksum.outputs.CHECKSUM }}"
+
+          # Update the URL and checksum in Package.swift
+          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/v[^/]*/CooklangParserFFI.xcframework.zip\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
+          sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
+
+          echo "Updated Package.swift:"
+          cat Package.swift
+
+      - name: Commit and push Package.swift
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Package.swift
+          git commit -m "Update Package.swift for ${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
+          git push origin main
+
+  # Publish Android package to GitHub Packages
+  publish-android:
+    name: Publish Android to GitHub Packages
+    needs: [build-android, release]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Download Android artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-artifacts
+
+      - name: Extract Android artifacts
+        run: |
+          mkdir -p target/android
+          unzip cooklang-parser-android.zip -d target/android/
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Configure Android library for publishing
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          ANDROID_DIR="target/android/parser"
+
+          # Create settings.gradle.kts with plugin management
+          cat > "${ANDROID_DIR}/settings.gradle.kts" << 'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "parser"
+          EOF
+
+          # Create build.gradle.kts with publishing
+          cat > "${ANDROID_DIR}/build.gradle.kts" << EOF
+          plugins {
+              id("com.android.library") version "8.2.0"
+              id("org.jetbrains.kotlin.android") version "1.9.22"
+              id("maven-publish")
+          }
+
+          group = "com.github.cooklang"
+          version = "${VERSION}"
+
+          android {
+              namespace = "org.cooklang.parser"
+              compileSdk = 34
+
+              defaultConfig {
+                  minSdk = 26
+                  testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+                  consumerProguardFiles("consumer-rules.pro")
+
+                  aarMetadata {
+                      minCompileSdk = 26
+                  }
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                      proguardFiles(
+                          getDefaultProguardFile("proguard-android-optimize.txt"),
+                          "proguard-rules.pro"
+                      )
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+              sourceSets {
+                  getByName("main") {
+                      jniLibs.srcDirs("src/main/jniLibs")
+                  }
+              }
+
+              publishing {
+                  singleVariant("release") {
+                      withSourcesJar()
+                  }
+              }
+          }
+
+          dependencies {
+              implementation("net.java.dev.jna:jna:5.14.0@aar")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+          }
+
+          publishing {
+              publications {
+                  register<MavenPublication>("release") {
+                      groupId = "com.github.cooklang"
+                      artifactId = "parser"
+                      version = "${VERSION}"
+
+                      afterEvaluate {
+                          from(components["release"])
+                      }
+
+                      pom {
+                          name.set("cooklang-parser")
+                          description.set("Cooklang Parser Library for Android")
+                          url.set("https://github.com/cooklang/cooklang-rs")
+
+                          licenses {
+                              license {
+                                  name.set("The MIT License (MIT)")
+                                  url.set("http://opensource.org/licenses/MIT")
+                              }
+                          }
+
+                          developers {
+                              developer {
+                                  id.set("dubadub")
+                                  name.set("Alexey Dubovskoy")
+                              }
+                          }
+
+                          scm {
+                              connection.set("scm:git:git://github.com/cooklang/cooklang-rs.git")
+                              developerConnection.set("scm:git:ssh://github.com:cooklang/cooklang-rs.git")
+                              url.set("https://github.com/cooklang/cooklang-rs")
+                          }
+                      }
+                  }
+              }
+
+              repositories {
+                  maven {
+                      name = "GitHubPackages"
+                      url = uri("https://maven.pkg.github.com/cooklang/cooklang-rs")
+                      credentials {
+                          username = System.getenv("GITHUB_ACTOR")
+                          password = System.getenv("GITHUB_TOKEN")
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # Create gradle.properties
+          cat > "${ANDROID_DIR}/gradle.properties" << 'GRADLE_EOF'
+          android.useAndroidX=true
+          kotlin.code.style=official
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.nonTransitiveRClass=true
+          GRADLE_EOF
+
+      - name: Publish to GitHub Packages
+        working-directory: target/android/parser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: |
+          gradle wrapper --gradle-version 8.5
+          ./gradlew publish --no-daemon
+
+  # Publish Rust crate to crates.io
+  publish-rust:
+    name: Publish to crates.io
+    needs: [build-ios, build-android]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --no-verify
+
+  # Publish TypeScript package to npm
+  publish-typescript:
+    name: Publish to npm
+    needs: [build-ios, build-android]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked || true
+
+      - name: Build TypeScript package
+        working-directory: typescript
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish to npm
+        working-directory: typescript
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
