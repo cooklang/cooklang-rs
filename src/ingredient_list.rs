@@ -367,6 +367,20 @@ impl IngredientList {
     pub fn iter(&self) -> impl Iterator<Item = (&String, &GroupedQuantity)> {
         self.0.iter()
     }
+
+    /// Replace names of ingredients with common names given by aisle configuration.
+    pub fn use_common_names(self, aisle: &AisleConf, converter: &Converter) -> Self {
+        let ingredients_info = aisle.ingredients_info();
+        let mut normalized = Self::new();
+        for (ingredient_name, quantity) in self.iter(){
+            let common_name = ingredients_info
+                .get(ingredient_name.as_str())
+                .map(|info| info.common_name.to_string())
+                .unwrap_or(ingredient_name.to_string());
+            normalized.add_ingredient(common_name, quantity, converter);
+        }
+        normalized
+    }
 }
 
 impl IntoIterator for IngredientList {
@@ -620,5 +634,44 @@ sugar = "500%g"
 
         // Sugar should be completely removed
         assert!(!result.iter().any(|(name, _)| name.as_str() == "sugar"));
+    }
+
+    #[test]
+    fn test_use_common_names() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        let recipe = parser
+            .parse("@unsalted butter{250%g} plus @milk{100%ml} and @unsalted_butter{250%g}")
+            .into_output()
+            .unwrap();
+
+        // Aisle has some alternative names
+        let aisle_toml = r#"
+[milk and dairy]
+milk
+butter | unsalted butter | unsalted_butter
+"#;
+        let aisle = crate::aisle::parse(aisle_toml).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let list = list.use_common_names(&aisle, &converter);
+
+        // Pantry has some butter
+        let pantry_toml = r#"
+[fridge]
+butter = "200%g"
+milk = "500%ml"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // List should contain 300g (500g - 200g) butter and no milk
+        assert!(!result.iter().any(|(name, _)| name.as_str() == "milk"));
+        let butter_qty = result.iter().find(|(name, _)| name.as_str() == "butter");
+        assert!(butter_qty.is_some());
+        let (_, qty) = butter_qty.unwrap();
+        assert_eq!(qty.to_string(), "300 g");
     }
 }
