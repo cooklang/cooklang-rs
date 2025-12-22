@@ -1,6 +1,6 @@
 [package]
 name = "cooklang-bindings"
-version = "0.17.4"
+version = "0.17.5"
 edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Cooklang Uniffi bindings"
@@ -13,7 +13,6 @@ readme = "README.md"
 anyhow = "1.0"
 cooklang = { path = "..", default-features = false, features = ["aisle"] }
 uniffi = "0.28.1"
-clap_derive = { version = "4.0.0-rc.1" }
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

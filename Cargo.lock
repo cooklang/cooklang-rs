@@ -233,18 +233,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap_derive"
-version = "4.5.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54b755194d6389280185988721fffba69495eed5ee9feeee9a599b53db80318c"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "clap_lex"
 version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -258,7 +246,7 @@ checksum = "2205f7f6d3de68ecf4c291c789b3edf07b6569268abd0188819086f71ae42225"
 
 [[package]]
 name = "cooklang"
-version = "0.17.4"
+version = "0.17.5"
 dependencies = [
  "bitflags",
  "codesnake",
@@ -288,10 +276,9 @@ dependencies = [
 
 [[package]]
 name = "cooklang-bindings"
-version = "0.17.4"
+version = "0.17.5"
 dependencies = [
  "anyhow",
- "clap_derive",
  "cooklang",
  "uniffi",
 ]

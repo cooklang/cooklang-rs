@@ -19,11 +19,10 @@ WRAPPER_PATH="../swift/Sources/CooklangParser"
 
 AARCH64_APPLE_IOS_PATH="../target/aarch64-apple-ios/release"
 AARCH64_APPLE_IOS_SIM_PATH="../target/aarch64-apple-ios-sim/release"
-X86_64_APPLE_IOS_PATH="../target/x86_64-apple-ios/release"
 AARCH64_APPLE_DARWIN_PATH="../target/aarch64-apple-darwin/release"
 X86_64_APPLE_DARWIN_PATH="../target/x86_64-apple-darwin/release"
 
-targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64-apple-darwin" "x86_64-apple-darwin")
+targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "aarch64-apple-darwin" "x86_64-apple-darwin")
 
 # Build for all targets
 for target in "${targets[@]}"; do
@@ -47,9 +46,7 @@ cargo run --features="uniffi/cli"  \
 
 # Merge libraries with lipo
 echo "Merging libraries with lipo..."
-lipo -create $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME \
-             $X86_64_APPLE_IOS_PATH/$LIBRARY_NAME \
-     -output $OUT_PATH/sim-$LIBRARY_NAME
+cp $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME $OUT_PATH/sim-$LIBRARY_NAME
 lipo -create $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
              $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
      -output $OUT_PATH/macos-$LIBRARY_NAME

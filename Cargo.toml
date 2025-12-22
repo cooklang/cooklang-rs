@@ -1,6 +1,6 @@
 [package]
 name = "cooklang"
-version = "0.17.4"
+version = "0.17.5"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
@@ -61,3 +61,7 @@ harness = false
 
 [workspace]
 members = [".", "typescript", "bindings", "fuzz"]
+
+[profile.release]
+codegen-units = 1
+strip = true
