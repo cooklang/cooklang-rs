@@ -5,7 +5,6 @@ import class Foundation.ProcessInfo
 var package = Package(
     name: "cooklang-rs",
     platforms: [
-        .macOS(.v10_15),
         .iOS(.v15),
     ],
     products: [
