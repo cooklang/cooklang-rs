@@ -24,8 +24,8 @@ var package = Package(
             path: "swift/Tests/CooklangParserTests"),
         .binaryTarget(
             name: "CooklangParserFFI",
-            url: "https://github.com/cooklang/cooklang-rs/releases/download/v0.17.10/CooklangParserFFI.xcframework.zip",
-            checksum: "969f8c928e7314ade49bb39d9ce6f5fbedab0fcdd5af260c67a54fece3e6de80"),
+            url: "https://github.com/cooklang/cooklang-rs/releases/download/v0.17.11/CooklangParserFFI.xcframework.zip",
+            checksum: "641c3722cee4e9314d53c6e93dadb7a32b299dc0eb48bc286e71ce0edbb07f2b"),
     ]
 )
 
