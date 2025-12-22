@@ -372,7 +372,7 @@ jobs:
 
             Add to your `build.gradle.kts`:
             ```kotlin
-            implementation("com.github.cooklang:parser:${{ steps.version.outputs.VERSION }}")
+            implementation("org.cooklang:parser:${{ steps.version.outputs.VERSION }}")
             ```
 
             Or download `cooklang-parser-android.zip` for manual integration.
@@ -525,7 +525,7 @@ jobs:
               id("maven-publish")
           }
 
-          group = "com.github.cooklang"
+          group = "org.cooklang"
           version = "${VERSION}"
 
           android {
@@ -579,7 +579,7 @@ jobs:
           publishing {
               publications {
                   register<MavenPublication>("release") {
-                      groupId = "com.github.cooklang"
+                      groupId = "org.cooklang"
                       artifactId = "parser"
                       version = "${VERSION}"
 
