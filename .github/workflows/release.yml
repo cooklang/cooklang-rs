@@ -53,10 +53,9 @@ jobs:
         working-directory: bindings
         run: |
           mkdir -p out
-          CURRENT_ARCH=$(rustc --version --verbose | grep host | cut -f2 -d' ')
           cargo run --features="uniffi/cli" --bin uniffi-bindgen generate \
             --config uniffi.toml \
-            --library ../target/$CURRENT_ARCH/release/libcooklang_bindings.a \
+            --library ../target/aarch64-apple-ios/release/libcooklang_bindings.a \
             --language swift \
             --out-dir out
 
