@@ -16,9 +16,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Build iOS/macOS artifacts on macOS
+  # Build iOS artifacts on macOS
   build-ios:
-    name: Build iOS/macOS
+    name: Build iOS
     runs-on: macos-latest
     steps:
       - name: Checkout sources
@@ -27,7 +27,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -41,9 +41,9 @@ jobs:
           key: ${{ runner.os }}-ios-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-ios-cargo-
 
-      - name: Build iOS/macOS targets
+      - name: Build iOS targets
         run: |
-          targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64-apple-darwin" "x86_64-apple-darwin")
+          targets=("aarch64-apple-ios" "aarch64-apple-ios-sim")
           for target in "${targets[@]}"; do
             echo "Building for $target..."
             cargo build --release --target $target -p cooklang-bindings
@@ -76,18 +76,6 @@ jobs:
           # Target paths
           AARCH64_APPLE_IOS_PATH="../target/aarch64-apple-ios/release"
           AARCH64_APPLE_IOS_SIM_PATH="../target/aarch64-apple-ios-sim/release"
-          X86_64_APPLE_IOS_PATH="../target/x86_64-apple-ios/release"
-          AARCH64_APPLE_DARWIN_PATH="../target/aarch64-apple-darwin/release"
-          X86_64_APPLE_DARWIN_PATH="../target/x86_64-apple-darwin/release"
-
-          # Merge libraries with lipo
-          echo "Merging libraries with lipo..."
-          lipo -create $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME \
-                       $X86_64_APPLE_IOS_PATH/$LIBRARY_NAME \
-               -output $OUT_PATH/sim-$LIBRARY_NAME
-          lipo -create $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
-                       $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
-               -output $OUT_PATH/macos-$LIBRARY_NAME
 
           # Create framework template
           rm -rf $OUT_PATH/$FRAMEWORK_NAME
@@ -137,31 +125,10 @@ jobs:
           rm -rf $OUT_PATH/frameworks
           mkdir -p $OUT_PATH/frameworks/sim
           mkdir -p $OUT_PATH/frameworks/ios
-          mkdir -p $OUT_PATH/frameworks/macos
           cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/sim/
           cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/ios/
-          cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/macos/
-          mv $OUT_PATH/sim-$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
-          mv $OUT_PATH/macos-$LIBRARY_NAME $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+          cp $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
           cp $AARCH64_APPLE_IOS_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
-
-          # Convert macOS framework to versioned bundle structure
-          echo "Converting macOS framework to versioned bundle structure..."
-          MACOS_FRAMEWORK_PATH="$OUT_PATH/frameworks/macos/$FRAMEWORK_NAME"
-          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Headers"
-          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Modules"
-          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Resources"
-          mv "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/$FRAMEWORK_LIBRARY_NAME"
-          mv "$MACOS_FRAMEWORK_PATH/Headers/$HEADER_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/Headers/$HEADER_NAME"
-          mv "$MACOS_FRAMEWORK_PATH/Modules/module.modulemap" "$MACOS_FRAMEWORK_PATH/Versions/A/Modules/module.modulemap"
-          mv "$MACOS_FRAMEWORK_PATH/Info.plist" "$MACOS_FRAMEWORK_PATH/Versions/A/Resources/Info.plist"
-          rmdir "$MACOS_FRAMEWORK_PATH/Headers"
-          rmdir "$MACOS_FRAMEWORK_PATH/Modules"
-          ln -s A "$MACOS_FRAMEWORK_PATH/Versions/Current"
-          ln -s Versions/Current/$FRAMEWORK_LIBRARY_NAME "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME"
-          ln -s Versions/Current/Headers "$MACOS_FRAMEWORK_PATH/Headers"
-          ln -s Versions/Current/Modules "$MACOS_FRAMEWORK_PATH/Modules"
-          ln -s Versions/Current/Resources "$MACOS_FRAMEWORK_PATH/Resources"
 
           # Create xcframework
           echo "Creating xcframework..."
@@ -169,7 +136,6 @@ jobs:
           xcodebuild -create-xcframework \
               -framework $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME \
               -framework $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME \
-              -framework $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME \
               -output $OUT_PATH/$XC_FRAMEWORK_NAME
 
       - name: Package iOS artifacts
@@ -375,7 +341,7 @@ jobs:
           body: |
             ## Cooklang Parser Release ${{ steps.version.outputs.VERSION }}
 
-            ### iOS/macOS (Swift Package Manager)
+            ### iOS (Swift Package Manager)
 
             Add to your `Package.swift` or Xcode project:
             ```swift
@@ -387,9 +353,6 @@ jobs:
             **Supported architectures:**
             - iOS arm64 (devices)
             - iOS arm64 (simulator, Apple Silicon)
-            - iOS x86_64 (simulator, Intel)
-            - macOS arm64 (Apple Silicon)
-            - macOS x86_64 (Intel)
 
             ### Android (GitHub Packages Maven)
 

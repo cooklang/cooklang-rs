@@ -1,6 +1,6 @@
 [package]
 name = "cooklang-bindings"
-version = "0.17.6"
+version = "0.17.7"
 edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Cooklang Uniffi bindings"
