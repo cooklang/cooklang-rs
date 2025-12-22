@@ -156,7 +156,7 @@ jobs:
           VERSION="${GITHUB_REF#refs/tags/}"
           CHECKSUM="${{ steps.checksum.outputs.CHECKSUM }}"
 
-          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/v[^/]*/CooklangParserFFI.xcframework.zip\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
+          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/[^\"]*\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
           sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
 
           echo "Updated Package.swift:"
