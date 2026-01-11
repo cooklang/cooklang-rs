@@ -645,6 +645,9 @@ jobs:
     needs: [build-ios, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -669,6 +672,4 @@ jobs:
 
       - name: Publish to npm
         working-directory: typescript
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public
