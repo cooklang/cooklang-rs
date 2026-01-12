@@ -19,7 +19,7 @@ use model::*;
 /// A parsed recipe object with metadata, sections, ingredients, cookware and timers
 #[uniffi::export]
 pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
-    let parser = cooklang::CooklangParser::canonical();
+    let parser = cooklang::CooklangParser::default();
 
     let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
@@ -630,6 +630,59 @@ a test @step @salt{1%mg} more text
                     descriptor: None
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn test_decimal_range_parsing() {
+        use crate::{parse_recipe, Amount, Ingredient, Value};
+
+        let recipe = parse_recipe(
+            "For line and @granulated sugar{1.5-2.25%cups}".to_string(),
+            1.0,
+        );
+
+        assert_eq!(recipe.ingredients.len(), 1);
+        assert_eq!(
+            recipe.ingredients[0],
+            Ingredient {
+                name: "granulated sugar".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Range {
+                        start: 1.5,
+                        end: 2.25
+                    },
+                    units: Some("cups".to_string())
+                }),
+                descriptor: None
+            }
+        );
+    }
+
+    #[test]
+    fn test_decimal_range_scaling() {
+        use crate::{parse_recipe, Amount, Ingredient, Value};
+
+        // Test scaling by 2.0
+        let recipe = parse_recipe(
+            "@granulated sugar{1.5-2.25%cups}".to_string(),
+            2.0,
+        );
+
+        assert_eq!(recipe.ingredients.len(), 1);
+        assert_eq!(
+            recipe.ingredients[0],
+            Ingredient {
+                name: "granulated sugar".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Range {
+                        start: 3.0,  // 1.5 * 2.0
+                        end: 4.5     // 2.25 * 2.0
+                    },
+                    units: Some("cups".to_string())
+                }),
+                descriptor: None
+            }
         );
     }
 
