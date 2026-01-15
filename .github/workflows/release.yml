@@ -1,30 +1,54 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Release version (e.g., 0.17.12)'
+        required: true
+        type: string
       dry_run:
         description: 'Dry run (skip release creation and publishing)'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Build iOS artifacts on macOS
-  build-ios:
-    name: Build iOS
-    runs-on: macos-latest
+  # Prepare release - set version outputs
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      version_tag: ${{ steps.set-version.outputs.version_tag }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set version outputs
+        id: set-version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+  # Build iOS artifacts on macOS
+  build-ios:
+    name: Build iOS
+    needs: prepare-release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -144,33 +168,6 @@ jobs:
           cd bindings/out
           zip -r ../../CooklangParserFFI.xcframework.zip CooklangParserFFI.xcframework
 
-      - name: Compute checksum
-        id: checksum
-        run: |
-          CHECKSUM=$(swift package compute-checksum CooklangParserFFI.xcframework.zip)
-          echo "CHECKSUM=${CHECKSUM}" >> $GITHUB_OUTPUT
-          echo "Checksum: ${CHECKSUM}"
-
-      - name: Update Package.swift
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-          CHECKSUM="${{ steps.checksum.outputs.CHECKSUM }}"
-
-          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/[^\"]*\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
-          sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
-
-          echo "Updated Package.swift:"
-          grep -A2 "binaryTarget" Package.swift | head -5
-
-      - name: Commit Package.swift
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add Package.swift
-          git commit -m "Update Package.swift for ${GITHUB_REF#refs/tags/}" || echo "No changes to commit"
-          git push origin HEAD:main
-
       - name: Upload iOS artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -180,10 +177,13 @@ jobs:
   # Build Android artifacts on Linux
   build-android:
     name: Build Android
+    needs: prepare-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -330,17 +330,66 @@ jobs:
           name: android-artifacts
           path: cooklang-parser-android.zip
 
-  # Create GitHub Release
-  release:
-    name: Create Release
-    needs: [build-ios, build-android]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+  # Update Package.swift with correct checksum
+  update-package-swift:
+    name: Update Package.swift
+    needs: [prepare-release, build-ios]
+    runs-on: macos-latest
     permissions:
       contents: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download iOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-artifacts
+
+      - name: Compute checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(swift package compute-checksum CooklangParserFFI.xcframework.zip)
+          echo "checksum=${CHECKSUM}" >> $GITHUB_OUTPUT
+          echo "Computed checksum: ${CHECKSUM}"
+
+      - name: Update Package.swift
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version_tag }}"
+          CHECKSUM="${{ steps.checksum.outputs.checksum }}"
+
+          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/[^\"]*\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
+          sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
+
+          echo "Updated Package.swift:"
+          grep -A2 "binaryTarget" Package.swift | head -5
+
+      - name: Commit Package.swift
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Package.swift
+          git commit -m "Update Package.swift for ${{ needs.prepare-release.outputs.version_tag }}" || echo "No changes to commit"
+          git push origin HEAD:main
+
+  # Create GitHub Release
+  create-release:
+    name: Create Release
+    needs: [prepare-release, build-ios, build-android, update-package-swift]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry_run != 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download iOS artifacts
         uses: actions/download-artifact@v4
@@ -352,28 +401,36 @@ jobs:
         with:
           name: android-artifacts
 
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Create and push tag
+        run: |
+          VERSION_TAG="${{ needs.prepare-release.outputs.version_tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create tag at current commit (which includes updated Package.swift)
+          git tag "${VERSION_TAG}"
+          git push origin "${VERSION_TAG}"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ needs.prepare-release.outputs.version_tag }}
+          name: Release ${{ needs.prepare-release.outputs.version_tag }}
           draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          prerelease: ${{ contains(github.event.inputs.version, 'alpha') || contains(github.event.inputs.version, 'beta') || contains(github.event.inputs.version, 'rc') }}
           generate_release_notes: true
           files: |
             CooklangParserFFI.xcframework.zip
             cooklang-parser-android.zip
           body: |
-            ## Cooklang Parser Release ${{ steps.version.outputs.VERSION }}
+            ## Cooklang Parser Release ${{ needs.prepare-release.outputs.version_tag }}
 
             ### iOS (Swift Package Manager)
 
             Add to your `Package.swift` or Xcode project:
             ```swift
-            .package(url: "https://github.com/cooklang/cooklang-rs.git", from: "${{ steps.version.outputs.VERSION }}")
+            .package(url: "https://github.com/cooklang/cooklang-rs.git", from: "${{ needs.prepare-release.outputs.version_tag }}")
             ```
 
             Or download `CooklangParserFFI.xcframework.zip` for manual integration.
@@ -401,7 +458,7 @@ jobs:
 
             Add to your `build.gradle.kts`:
             ```kotlin
-            implementation("org.cooklang:parser:${{ steps.version.outputs.VERSION }}")
+            implementation("org.cooklang:parser:${{ needs.prepare-release.outputs.version_tag }}")
             ```
 
             Or download `cooklang-parser-android.zip` for manual integration.
@@ -417,7 +474,7 @@ jobs:
 
             ```toml
             [dependencies]
-            cooklang = "${{ steps.version.outputs.VERSION }}"
+            cooklang = "${{ needs.prepare-release.outputs.version }}"
             ```
 
             ### TypeScript/JavaScript (npm)
@@ -431,15 +488,17 @@ jobs:
   # Publish Android package to GitHub Packages
   publish-android:
     name: Publish Android to GitHub Packages
-    needs: [build-android, release]
+    needs: [prepare-release, build-android, create-release]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Download Android artifacts
         uses: actions/download-artifact@v4
@@ -450,12 +509,6 @@ jobs:
         run: |
           mkdir -p target/android
           unzip cooklang-parser-android.zip -d target/android/
-
-      - name: Get version from tag
-        id: version
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Setup JDK
         uses: actions/setup-java@v4
@@ -471,7 +524,7 @@ jobs:
 
       - name: Configure Android library for publishing
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          VERSION="${{ needs.prepare-release.outputs.version }}"
           ANDROID_DIR="target/android/parser"
 
           # Create settings.gradle.kts with plugin management
@@ -624,12 +677,14 @@ jobs:
   # Publish Rust crate to crates.io
   publish-rust:
     name: Publish to crates.io
-    needs: [build-ios, build-android]
+    needs: [prepare-release, build-ios, build-android]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -646,15 +701,17 @@ jobs:
   # Publish TypeScript package to npm
   publish-typescript:
     name: Publish to npm
-    needs: [build-ios, build-android]
+    needs: [prepare-release, build-ios, build-android]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     permissions:
       contents: read
       id-token: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
