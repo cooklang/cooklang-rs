@@ -581,7 +581,8 @@ a test @step @salt{1%mg} more text
                     quantity: Value::Number { value: 1.0 },
                     units: Some("mg".to_string())
                 }),
-                descriptor: None
+                descriptor: None,
+                reference: None
             })
         );
 
@@ -619,7 +620,8 @@ a test @step @salt{1%mg} more text
                 Ingredient {
                     name: "step".to_string(),
                     amount: None,
-                    descriptor: None
+                    descriptor: None,
+                    reference: None
                 },
                 Ingredient {
                     name: "salt".to_string(),
@@ -627,7 +629,8 @@ a test @step @salt{1%mg} more text
                         quantity: Value::Number { value: 1.0 },
                         units: Some("mg".to_string())
                     }),
-                    descriptor: None
+                    descriptor: None,
+                    reference: None
                 },
             ]
         );
@@ -809,6 +812,7 @@ dried oregano
                     units: Some("g".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
             },
             Ingredient {
                 name: "pepper".to_string(),
@@ -817,6 +821,7 @@ dried oregano
                     units: Some("mg".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
             },
             Ingredient {
                 name: "salt".to_string(),
@@ -825,6 +830,7 @@ dried oregano
                     units: Some("kg".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
             },
             Ingredient {
                 name: "pepper".to_string(),
@@ -833,6 +839,7 @@ dried oregano
                     units: Some("tsp".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
             },
         ];
 
@@ -1210,6 +1217,33 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
             Value::Text {
                 value: "pinch".to_string()
             }
+        );
+    }
+
+    #[test]
+    fn test_recipe_reference() {
+        use crate::{parse_recipe, RecipeReference};
+
+        let recipe = parse_recipe(
+            r#"
+Serve the @./pasta/spaghetti{1%portion} with sauce
+"#
+            .to_string(),
+            1.0,
+        );
+
+        let ingredient = recipe
+            .ingredients
+            .get(0)
+            .expect("No ingredients found");
+
+        assert_eq!(ingredient.name, "spaghetti");
+        assert_eq!(
+            ingredient.reference,
+            Some(RecipeReference {
+                name: "spaghetti".to_string(),
+                components: vec![".".to_string(), "pasta".to_string()],
+            })
         );
     }
 }
