@@ -174,6 +174,12 @@ jobs:
           name: ios-artifacts
           path: CooklangParserFFI.xcframework.zip
 
+      - name: Upload Swift wrapper
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-wrapper
+          path: bindings/out/CooklangParser.swift
+
   # Build Android artifacts on Linux
   build-android:
     name: Build Android
@@ -349,6 +355,11 @@ jobs:
         with:
           name: ios-artifacts
 
+      - name: Download Swift wrapper
+        uses: actions/download-artifact@v4
+        with:
+          name: swift-wrapper
+
       - name: Compute checksum
         id: checksum
         run: |
@@ -367,12 +378,16 @@ jobs:
           echo "Updated Package.swift:"
           grep -A2 "binaryTarget" Package.swift | head -5
 
-      - name: Commit Package.swift
+      - name: Update Swift wrapper
+        run: |
+          cp CooklangParser.swift swift/Sources/CooklangParser/CooklangParser.swift
+
+      - name: Commit Package.swift and Swift wrapper
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add Package.swift
+          git add Package.swift swift/Sources/CooklangParser/CooklangParser.swift
           git commit -m "Update Package.swift for ${{ needs.prepare-release.outputs.version_tag }}" || echo "No changes to commit"
           git push origin HEAD:main
 
