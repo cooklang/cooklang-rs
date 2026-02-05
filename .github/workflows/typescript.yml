@@ -13,9 +13,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      # Use nested install strategy to avoid npm hoisting issues with
-      # platform-specific optional dependencies (rollup/vitest)
-      - run: npm ci --install-strategy=nested
+      - run: npm ci
+      # Reinstall in typescript dir to fix npm optional dependency bug
+      # See: https://github.com/npm/cli/issues/4828
+      - name: install typescript deps
+        run: npm ci
+        working-directory: ./typescript
       - name: test pkg
         run: npm test
         working-directory: ./typescript

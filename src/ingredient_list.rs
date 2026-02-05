@@ -1,7 +1,5 @@
 //! Generate ingredients lists from recipes
 
-use std::collections::BTreeMap;
-
 use indexmap::IndexMap;
 use serde::Serialize;
 
@@ -102,11 +100,11 @@ impl Recipe {
 
 /// List of ingredients with quantities.
 ///
-/// This will only store the ingredient name and quantity. Sorted by name. This
-/// is used to combine multiple recipes into a single list. For ingredients of a
-/// single recipe, check [`ScaledRecipe::group_ingredients`].
+/// This will only store the ingredient name and quantity. This is used to
+/// combine multiple recipes into a single list. For ingredients of a single
+/// recipe, check [`ScaledRecipe::group_ingredients`].
 #[derive(Debug, Default)]
-pub struct IngredientList(BTreeMap<String, GroupedQuantity>);
+pub struct IngredientList(IndexMap<String, GroupedQuantity>);
 
 impl IngredientList {
     /// Empty list
@@ -345,41 +343,55 @@ impl IngredientList {
 
     /// Split this list into different categories.
     ///
-    /// Categories are returned in the same order as they appear in the aisle configuration.
+    /// Categories and ingredients within each category are returned in the same
+    /// order as they appear in the aisle configuration.
     /// Ingredients without category will be placed in `"other"`.
     pub fn categorize(self, aisle: &AisleConf) -> CategorizedIngredientList {
-        let iinfo = aisle.ingredients_info();
+        // Build a lookup from the shopping list (lowercase name -> (original_name, quantity))
+        let mut shopping_lookup: IndexMap<String, (String, GroupedQuantity)> = self
+            .0
+            .into_iter()
+            .map(|(name, qty)| (name.to_lowercase(), (name, qty)))
+            .collect();
 
-        // Pre-create categories in aisle.conf order
         let mut categorized = CategorizedIngredientList {
-            categories: aisle
-                .categories
-                .iter()
-                .map(|cat| (cat.name.to_string(), IngredientList::new()))
-                .collect(),
+            categories: IndexMap::new(),
             other: IngredientList::new(),
         };
 
-        for (name, quantity) in self.0 {
-            // Use lowercase for case-insensitive lookup
-            if let Some(info) = iinfo.get(&name.to_lowercase()) {
+        // Iterate through aisle.conf categories and ingredients in order
+        for category in &aisle.categories {
+            let mut category_list = IngredientList::new();
+
+            for ingredient in &category.ingredients {
+                // Check each name variant (synonyms) for this ingredient
+                for name in &ingredient.names {
+                    let lookup_key = name.to_lowercase();
+                    if let Some((_, quantity)) = shopping_lookup.swap_remove(&lookup_key) {
+                        // Use the common name (first name in the ingredient definition)
+                        let common_name = ingredient.names.first().unwrap_or(name);
+                        category_list.0.insert(common_name.to_string(), quantity);
+                        break; // Found this ingredient, move to next
+                    }
+                }
+            }
+
+            if !category_list.is_empty() {
                 categorized
                     .categories
-                    .entry(info.category.to_string())
-                    .or_default()
-                    .0
-                    .insert(info.common_name.to_string(), quantity);
-            } else {
-                categorized.other.0.insert(name, quantity);
+                    .insert(category.name.to_string(), category_list);
             }
         }
 
-        // Remove empty categories
-        categorized.categories.retain(|_, list| !list.is_empty());
+        // Any remaining items go to "other"
+        for (_, (name, quantity)) in shopping_lookup {
+            categorized.other.0.insert(name, quantity);
+        }
+
         categorized
     }
 
-    /// Iterate over all ingredients sorted by name
+    /// Iterate over all ingredients in insertion order
     pub fn iter(&self) -> impl Iterator<Item = (&String, &GroupedQuantity)> {
         self.0.iter()
     }
@@ -405,9 +417,9 @@ impl IngredientList {
 impl IntoIterator for IngredientList {
     type Item = (String, GroupedQuantity);
 
-    type IntoIter = std::collections::btree_map::IntoIter<String, GroupedQuantity>;
+    type IntoIter = indexmap::map::IntoIter<String, GroupedQuantity>;
 
-    /// Iterate over all ingrediends sorted by name
+    /// Iterate over all ingredients in insertion order
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -620,6 +632,41 @@ apple
         // "other" should appear at the end
         let category_names: Vec<&str> = categorized.iter().map(|(name, _)| name).collect();
         assert_eq!(category_names, vec!["produce", "other"]);
+    }
+
+    #[test]
+    fn test_ingredients_preserve_aisle_order_within_category() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe with ingredients in different order than aisle.conf
+        // (zucchini comes before apple alphabetically, but apple is first in aisle.conf)
+        let recipe = parser
+            .parse("@zucchini{1} @carrot{2} @apple{3} @banana{1}")
+            .into_output()
+            .unwrap();
+
+        // Aisle config: apple, banana, carrot, zucchini
+        let aisle_conf = r#"
+[produce]
+apple
+banana
+carrot
+zucchini
+"#;
+        let aisle = crate::aisle::parse(aisle_conf).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let categorized = list.categorize(&aisle);
+
+        // Ingredients within produce should be in aisle.conf order: apple, banana, carrot, zucchini
+        let produce = categorized.categories.get("produce").unwrap();
+        let ingredient_names: Vec<&String> = produce.iter().map(|(name, _)| name).collect();
+        assert_eq!(
+            ingredient_names,
+            vec!["apple", "banana", "carrot", "zucchini"]
+        );
     }
 }
 
