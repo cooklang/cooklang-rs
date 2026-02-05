@@ -70,6 +70,8 @@ pub mod _features {
 
 #[cfg(feature = "aisle")]
 pub mod aisle;
+#[cfg(feature = "shopping_list")]
+pub mod shopping_list;
 pub mod analysis;
 pub mod ast;
 pub mod convert;
