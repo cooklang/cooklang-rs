@@ -290,4 +290,123 @@ mod tests {
             _ => panic!("expected ingredient"),
         }
     }
+
+    #[test]
+    fn nested_recipes() {
+        let input = "\
+./Breakfast/Easy Pancakes{2}
+  ./Some/Nested Recipe{2}
+  ./Another Nested{1}";
+        let list = parse(input).unwrap();
+        assert_eq!(list.items.len(), 1);
+        match &list.items[0] {
+            ShoppingListItem::Recipe(r) => {
+                assert_eq!(r.path, "Breakfast/Easy Pancakes");
+                assert_eq!(r.multiplier, Some(2.0));
+                assert_eq!(r.children.len(), 2);
+                match &r.children[0] {
+                    ShoppingListItem::Recipe(nested) => {
+                        assert_eq!(nested.path, "Some/Nested Recipe");
+                        assert_eq!(nested.multiplier, Some(2.0));
+                    }
+                    _ => panic!("expected nested recipe"),
+                }
+            }
+            _ => panic!("expected recipe"),
+        }
+    }
+
+    #[test]
+    fn full_example() {
+        let input = "\
+./Breakfast/Easy Pancakes{2}
+  ./Some/Nested Recipe{2}
+free hand ingredient{4%l}
+salt";
+        let list = parse(input).unwrap();
+        assert_eq!(list.items.len(), 3);
+        assert!(matches!(&list.items[0], ShoppingListItem::Recipe(_)));
+        assert!(matches!(&list.items[1], ShoppingListItem::Ingredient(_)));
+        assert!(matches!(&list.items[2], ShoppingListItem::Ingredient(_)));
+
+        match &list.items[0] {
+            ShoppingListItem::Recipe(r) => {
+                assert_eq!(r.children.len(), 1);
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn deeply_nested() {
+        let input = "\
+./Top{1}
+  ./Mid{2}
+    ./Deep{3}";
+        let list = parse(input).unwrap();
+        match &list.items[0] {
+            ShoppingListItem::Recipe(top) => {
+                assert_eq!(top.path, "Top");
+                match &top.children[0] {
+                    ShoppingListItem::Recipe(mid) => {
+                        assert_eq!(mid.path, "Mid");
+                        match &mid.children[0] {
+                            ShoppingListItem::Recipe(deep) => {
+                                assert_eq!(deep.path, "Deep");
+                                assert_eq!(deep.multiplier, Some(3.0));
+                            }
+                            _ => panic!("expected deep recipe"),
+                        }
+                    }
+                    _ => panic!("expected mid recipe"),
+                }
+            }
+            _ => panic!("expected top recipe"),
+        }
+    }
+
+    #[test]
+    fn recipe_with_child_ingredients() {
+        let input = "\
+./Pancakes{2}
+  flour{500%g}
+  milk{200%ml}";
+        let list = parse(input).unwrap();
+        match &list.items[0] {
+            ShoppingListItem::Recipe(r) => {
+                assert_eq!(r.children.len(), 2);
+                match &r.children[0] {
+                    ShoppingListItem::Ingredient(i) => {
+                        assert_eq!(i.name, "flour");
+                        assert_eq!(i.quantity.as_deref(), Some("500%g"));
+                    }
+                    _ => panic!("expected ingredient child"),
+                }
+            }
+            _ => panic!("expected recipe"),
+        }
+    }
+
+    #[test]
+    fn empty_lines_ignored() {
+        let input = "\
+./Recipe{1}
+
+salt
+
+pepper";
+        let list = parse(input).unwrap();
+        assert_eq!(list.items.len(), 3);
+    }
+
+    #[test]
+    fn fractional_multiplier() {
+        let list = parse("./Recipe{0.5}").unwrap();
+        match &list.items[0] {
+            ShoppingListItem::Recipe(r) => {
+                assert_eq!(r.multiplier, Some(0.5));
+            }
+            _ => panic!("expected recipe"),
+        }
+    }
 }
