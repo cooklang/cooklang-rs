@@ -206,6 +206,43 @@ fn parse_ingredient_line(
     }
 }
 
+/// Write a [`ShoppingList`] in the shopping list format
+pub fn write(list: &ShoppingList, mut w: impl std::io::Write) -> std::io::Result<()> {
+    write_items(&list.items, 0, &mut w)
+}
+
+fn write_items(
+    items: &[ShoppingListItem],
+    depth: usize,
+    w: &mut impl std::io::Write,
+) -> std::io::Result<()> {
+    let indent = "  ".repeat(depth);
+    for item in items {
+        match item {
+            ShoppingListItem::Recipe(recipe) => {
+                write!(w, "{indent}./{}", recipe.path)?;
+                if let Some(m) = recipe.multiplier {
+                    if m.fract() == 0.0 {
+                        write!(w, "{{{}}}", m as i64)?;
+                    } else {
+                        write!(w, "{{{m}}}")?;
+                    }
+                }
+                writeln!(w)?;
+                write_items(&recipe.children, depth + 1, w)?;
+            }
+            ShoppingListItem::Ingredient(ingredient) => {
+                write!(w, "{indent}{}", ingredient.name)?;
+                if let Some(q) = &ingredient.quantity {
+                    write!(w, "{{{q}}}")?;
+                }
+                writeln!(w)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -408,5 +445,46 @@ pepper";
             }
             _ => panic!("expected recipe"),
         }
+    }
+
+    #[test]
+    fn write_roundtrip() {
+        let input = "\
+./Breakfast/Easy Pancakes{2}
+  ./Some/Nested Recipe{2}
+free hand ingredient{4%l}
+salt
+";
+        let list = parse(input).unwrap();
+        let mut buf = Vec::new();
+        write(&list, &mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        let list2 = parse(&output).unwrap();
+        assert_eq!(list, list2);
+    }
+
+    #[test]
+    fn write_deep_nesting() {
+        let input = "\
+./Top{1}
+  ./Mid{2}
+    ./Deep{3}
+    ingredient{1%kg}
+";
+        let list = parse(input).unwrap();
+        let mut buf = Vec::new();
+        write(&list, &mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        let list2 = parse(&output).unwrap();
+        assert_eq!(list, list2);
+    }
+
+    #[test]
+    fn write_empty() {
+        let list = ShoppingList::default();
+        let mut buf = Vec::new();
+        write(&list, &mut buf).unwrap();
+        let output = String::from_utf8(buf).unwrap();
+        assert_eq!(output, "");
     }
 }
