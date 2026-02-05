@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::error::{CowStr, Label, RichError};
 use crate::span::Span;
 
 /// A shopping list containing recipe references and free-hand ingredients
@@ -54,6 +55,39 @@ pub enum ShoppingListError {
     InvalidMultiplier { span: Span, message: String },
     #[error("Invalid indentation at line")]
     InvalidIndentation { span: Span },
+}
+
+impl RichError for ShoppingListError {
+    fn labels(&self) -> std::borrow::Cow<'_, [Label]> {
+        use crate::error::label;
+        match self {
+            ShoppingListError::Parse { span, .. } => vec![label!(span)],
+            ShoppingListError::InvalidMultiplier { span, .. } => {
+                vec![label!(span, "invalid multiplier here")]
+            }
+            ShoppingListError::InvalidIndentation { span } => {
+                vec![label!(span, "unexpected indentation")]
+            }
+        }
+        .into()
+    }
+
+    fn hints(&self) -> std::borrow::Cow<'_, [CowStr]> {
+        match self {
+            ShoppingListError::InvalidIndentation { .. } => {
+                vec!["Use 2 spaces per indentation level".into()]
+            }
+            ShoppingListError::InvalidMultiplier { .. } => {
+                vec!["Multiplier must be a number, e.g. {2} or {0.5}".into()]
+            }
+            _ => vec![],
+        }
+        .into()
+    }
+
+    fn severity(&self) -> crate::error::Severity {
+        crate::error::Severity::Error
+    }
 }
 
 /// Parse a [`ShoppingList`] from the shopping list format
@@ -486,5 +520,24 @@ salt
         write(&list, &mut buf).unwrap();
         let output = String::from_utf8(buf).unwrap();
         assert_eq!(output, "");
+    }
+
+    #[test]
+    fn error_invalid_multiplier() {
+        let err = parse("./Recipe{abc}").unwrap_err();
+        assert!(matches!(err, ShoppingListError::InvalidMultiplier { .. }));
+    }
+
+    #[test]
+    fn error_empty_ingredient_name() {
+        let err = parse("{4%l}").unwrap_err();
+        assert!(matches!(err, ShoppingListError::Parse { .. }));
+    }
+
+    #[test]
+    fn error_bad_indentation() {
+        let input = "./Recipe{1}\n   ./Bad{2}"; // 3 spaces instead of 2
+        let err = parse(input).unwrap_err();
+        assert!(matches!(err, ShoppingListError::InvalidIndentation { .. }));
     }
 }
