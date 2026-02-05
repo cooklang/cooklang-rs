@@ -45,9 +45,10 @@ syn = { version = "2", optional = true }
 proc-macro2 = { version = "1", optional = true }
 
 [features]
-default = ["aisle", "bundled_units"]
+default = ["aisle", "bundled_units", "shopping_list"]
 bundled_units = ["toml", "prettyplease", "quote", "syn", "proc-macro2"]
 aisle = []
+shopping_list = []
 pantry = ["toml"]
 ts = ["wasm-bindgen", "tsify"]
 
