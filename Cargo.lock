@@ -253,6 +253,7 @@ dependencies = [
  "criterion",
  "enum-map",
  "finl_unicode",
+ "indexmap",
  "indoc",
  "prettyplease",
  "proc-macro2",
@@ -628,6 +629,7 @@ checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
  "hashbrown",
+ "serde",
 ]
 
 [[package]]
