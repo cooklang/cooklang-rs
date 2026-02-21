@@ -639,20 +639,21 @@ apple
         let converter = Converter::bundled();
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
-        // Recipe with ingredients in different order than aisle.conf
-        // (zucchini comes before apple alphabetically, but apple is first in aisle.conf)
+        // Recipe with ingredients added in arbitrary order
         let recipe = parser
-            .parse("@zucchini{1} @carrot{2} @apple{3} @banana{1}")
+            .parse("@apple{3} @zucchini{1} @carrot{2} @banana{1}")
             .into_output()
             .unwrap();
 
-        // Aisle config: apple, banana, carrot, zucchini
+        // Aisle config with NON-alphabetical order: zucchini, banana, carrot, apple
+        // This ensures the test fails if ingredients are sorted alphabetically
+        // instead of preserving aisle.conf order
         let aisle_conf = r#"
 [produce]
-apple
+zucchini
 banana
 carrot
-zucchini
+apple
 "#;
         let aisle = crate::aisle::parse(aisle_conf).unwrap();
 
@@ -660,12 +661,12 @@ zucchini
         list.add_recipe(&recipe, &converter, false);
         let categorized = list.categorize(&aisle);
 
-        // Ingredients within produce should be in aisle.conf order: apple, banana, carrot, zucchini
+        // Ingredients within produce should follow aisle.conf order, NOT alphabetical
         let produce = categorized.categories.get("produce").unwrap();
         let ingredient_names: Vec<&String> = produce.iter().map(|(name, _)| name).collect();
         assert_eq!(
             ingredient_names,
-            vec!["apple", "banana", "carrot", "zucchini"]
+            vec!["zucchini", "banana", "carrot", "apple"]
         );
     }
 }
