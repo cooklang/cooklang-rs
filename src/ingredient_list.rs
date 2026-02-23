@@ -1,7 +1,6 @@
 //! Generate ingredients lists from recipes
 
-use std::collections::BTreeMap;
-
+use indexmap::IndexMap;
 use serde::Serialize;
 
 use crate::{
@@ -101,11 +100,11 @@ impl Recipe {
 
 /// List of ingredients with quantities.
 ///
-/// This will only store the ingredient name and quantity. Sorted by name. This
-/// is used to combine multiple recipes into a single list. For ingredients of a
-/// single recipe, check [`ScaledRecipe::group_ingredients`].
+/// This will only store the ingredient name and quantity. This is used to
+/// combine multiple recipes into a single list. For ingredients of a single
+/// recipe, check [`ScaledRecipe::group_ingredients`].
 #[derive(Debug, Default)]
-pub struct IngredientList(BTreeMap<String, GroupedQuantity>);
+pub struct IngredientList(IndexMap<String, GroupedQuantity>);
 
 impl IngredientList {
     /// Empty list
@@ -344,37 +343,69 @@ impl IngredientList {
 
     /// Split this list into different categories.
     ///
+    /// Categories and ingredients within each category are returned in the same
+    /// order as they appear in the aisle configuration.
     /// Ingredients without category will be placed in `"other"`.
     pub fn categorize(self, aisle: &AisleConf) -> CategorizedIngredientList {
-        let iifno = aisle.ingredients_info();
-        let mut categorized = CategorizedIngredientList::default();
-        for (name, quantity) in self.0 {
-            if let Some(info) = iifno.get(name.as_str()) {
+        // Build a lookup from the shopping list (lowercase name -> (original_name, quantity))
+        let mut shopping_lookup: IndexMap<String, (String, GroupedQuantity)> = self
+            .0
+            .into_iter()
+            .map(|(name, qty)| (name.to_lowercase(), (name, qty)))
+            .collect();
+
+        let mut categorized = CategorizedIngredientList {
+            categories: IndexMap::new(),
+            other: IngredientList::new(),
+        };
+
+        // Iterate through aisle.conf categories and ingredients in order
+        for category in &aisle.categories {
+            let mut category_list = IngredientList::new();
+
+            for ingredient in &category.ingredients {
+                // Check each name variant (synonyms) for this ingredient
+                for name in &ingredient.names {
+                    let lookup_key = name.to_lowercase();
+                    if let Some((_, quantity)) = shopping_lookup.swap_remove(&lookup_key) {
+                        // Use the common name (first name in the ingredient definition)
+                        let common_name = ingredient.names.first().unwrap_or(name);
+                        category_list.0.insert(common_name.to_string(), quantity);
+                        break; // Found this ingredient, move to next
+                    }
+                }
+            }
+
+            if !category_list.is_empty() {
                 categorized
                     .categories
-                    .entry(info.category.to_string())
-                    .or_default()
-                    .0
-                    .insert(info.common_name.to_string(), quantity);
-            } else {
-                categorized.other.0.insert(name, quantity);
+                    .insert(category.name.to_string(), category_list);
             }
         }
+
+        // Any remaining items go to "other"
+        for (_, (name, quantity)) in shopping_lookup {
+            categorized.other.0.insert(name, quantity);
+        }
+
         categorized
     }
 
-    /// Iterate over all ingredients sorted by name
+    /// Iterate over all ingredients in insertion order
     pub fn iter(&self) -> impl Iterator<Item = (&String, &GroupedQuantity)> {
         self.0.iter()
     }
 
     /// Replace names of ingredients with common names given by aisle configuration.
+    ///
+    /// Matching is case-insensitive.
     pub fn use_common_names(self, aisle: &AisleConf, converter: &Converter) -> Self {
         let ingredients_info = aisle.ingredients_info();
         let mut normalized = Self::new();
-        for (ingredient_name, quantity) in self.iter(){
+        for (ingredient_name, quantity) in self.iter() {
+            // Use lowercase for case-insensitive lookup
             let common_name = ingredients_info
-                .get(ingredient_name.as_str())
+                .get(&ingredient_name.to_lowercase())
                 .map(|info| info.common_name.to_string())
                 .unwrap_or(ingredient_name.to_string());
             normalized.add_ingredient(common_name, quantity, converter);
@@ -386,9 +417,9 @@ impl IngredientList {
 impl IntoIterator for IngredientList {
     type Item = (String, GroupedQuantity);
 
-    type IntoIter = std::collections::btree_map::IntoIter<String, GroupedQuantity>;
+    type IntoIter = indexmap::map::IntoIter<String, GroupedQuantity>;
 
-    /// Iterate over all ingrediends sorted by name
+    /// Iterate over all ingredients in insertion order
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
     }
@@ -401,8 +432,8 @@ impl IntoIterator for IngredientList {
 pub struct CategorizedIngredientList {
     /// One ingredient list per category
     ///
-    /// Because this is a [`BTreeMap`], the categories are sorted by name
-    pub categories: BTreeMap<String, IngredientList>,
+    /// Categories are ordered according to the aisle configuration file order.
+    pub categories: IndexMap<String, IngredientList>,
     /// Ingredients with no category assigned
     pub other: IngredientList,
 }
@@ -420,7 +451,7 @@ impl CategorizedIngredientList {
 
 /// See [`CategorizedIngredientList::iter`]
 pub struct CategorizedIter<'a> {
-    categories: std::collections::btree_map::Iter<'a, String, IngredientList>,
+    categories: indexmap::map::Iter<'a, String, IngredientList>,
     other: Option<&'a IngredientList>,
 }
 
@@ -457,7 +488,7 @@ impl IntoIterator for CategorizedIngredientList {
 
 /// See [`CategorizedIngredientList::into_iter`]
 pub struct CategorizedIntoIter {
-    categories: std::collections::btree_map::IntoIter<String, IngredientList>,
+    categories: indexmap::map::IntoIter<String, IngredientList>,
     other: Option<IngredientList>,
 }
 
@@ -474,8 +505,174 @@ impl Iterator for CategorizedIntoIter {
     }
 }
 
-#[cfg(all(test, feature = "pantry"))]
+#[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::{CooklangParser, Extensions};
+
+    #[test]
+    fn test_categorize_preserves_aisle_order() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe with ingredients from different categories
+        let recipe = parser
+            .parse("@milk{1%l} @apple{2} @chicken{500%g}")
+            .into_output()
+            .unwrap();
+
+        // Aisle config: produce first, then dairy, then meat
+        let aisle_conf = r#"
+[produce]
+apple
+banana
+
+[dairy]
+milk
+butter
+
+[meat]
+chicken
+beef
+"#;
+        let aisle = crate::aisle::parse(aisle_conf).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let categorized = list.categorize(&aisle);
+
+        // Categories should be in aisle.conf order: produce, dairy, meat
+        let category_names: Vec<&str> = categorized.iter().map(|(name, _)| name).collect();
+        assert_eq!(category_names, vec!["produce", "dairy", "meat"]);
+    }
+
+    #[test]
+    fn test_categorize_case_insensitive() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe with "Chili flakes" (capital C)
+        let recipe = parser
+            .parse("@Chili flakes{1%tsp}")
+            .into_output()
+            .unwrap();
+
+        // Aisle config has "chili flakes" (lowercase)
+        let aisle_conf = r#"
+[spices]
+chili flakes
+"#;
+        let aisle = crate::aisle::parse(aisle_conf).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let categorized = list.categorize(&aisle);
+
+        // Should find the category despite case difference
+        let category_names: Vec<&str> = categorized.iter().map(|(name, _)| name).collect();
+        assert_eq!(category_names, vec!["spices"]);
+
+        // Ingredient should use common name from config
+        let spices = categorized.categories.get("spices").unwrap();
+        assert!(spices.iter().any(|(name, _)| name == "chili flakes"));
+    }
+
+    #[test]
+    fn test_use_common_names_case_insensitive() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe with various case variations
+        let recipe = parser
+            .parse("@CHILI FLAKES{1%tsp} @Olive Oil{2%tbsp}")
+            .into_output()
+            .unwrap();
+
+        // Aisle config with specific casing
+        let aisle_conf = r#"
+[spices]
+chili flakes
+
+[oils]
+olive oil
+"#;
+        let aisle = crate::aisle::parse(aisle_conf).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let normalized = list.use_common_names(&aisle, &converter);
+
+        // Both should be normalized to lowercase common names
+        let names: Vec<&String> = normalized.iter().map(|(name, _)| name).collect();
+        assert!(names.contains(&&"chili flakes".to_string()));
+        assert!(names.contains(&&"olive oil".to_string()));
+    }
+
+    #[test]
+    fn test_uncategorized_items_go_to_other() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe with both categorized and uncategorized ingredients
+        let recipe = parser
+            .parse("@apple{2} @mystery ingredient{1}")
+            .into_output()
+            .unwrap();
+
+        let aisle_conf = r#"
+[produce]
+apple
+"#;
+        let aisle = crate::aisle::parse(aisle_conf).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let categorized = list.categorize(&aisle);
+
+        // "other" should appear at the end
+        let category_names: Vec<&str> = categorized.iter().map(|(name, _)| name).collect();
+        assert_eq!(category_names, vec!["produce", "other"]);
+    }
+
+    #[test]
+    fn test_ingredients_preserve_aisle_order_within_category() {
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        // Recipe with ingredients added in arbitrary order
+        let recipe = parser
+            .parse("@apple{3} @zucchini{1} @carrot{2} @banana{1}")
+            .into_output()
+            .unwrap();
+
+        // Aisle config with NON-alphabetical order: zucchini, banana, carrot, apple
+        // This ensures the test fails if ingredients are sorted alphabetically
+        // instead of preserving aisle.conf order
+        let aisle_conf = r#"
+[produce]
+zucchini
+banana
+carrot
+apple
+"#;
+        let aisle = crate::aisle::parse(aisle_conf).unwrap();
+
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+        let categorized = list.categorize(&aisle);
+
+        // Ingredients within produce should follow aisle.conf order, NOT alphabetical
+        let produce = categorized.categories.get("produce").unwrap();
+        let ingredient_names: Vec<&String> = produce.iter().map(|(name, _)| name).collect();
+        assert_eq!(
+            ingredient_names,
+            vec!["zucchini", "banana", "carrot", "apple"]
+        );
+    }
+}
+
+#[cfg(all(test, feature = "pantry"))]
+mod pantry_tests {
     use super::*;
     use crate::{CooklangParser, Extensions};
 

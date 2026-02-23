@@ -65,7 +65,7 @@ impl AisleConf<'_> {
     /// Returns a reversed configuration, where each key is an ingredient
     /// and the value is its category.
     #[deprecated = "Use `ingredients_info` instead"]
-    pub fn reverse(&self) -> HashMap<&str, &str> {
+    pub fn reverse(&self) -> HashMap<String, &str> {
         self.ingredients_info()
             .into_iter()
             .map(|(n, i)| (n, i.name))
@@ -74,7 +74,10 @@ impl AisleConf<'_> {
 
     /// Returns a reversed configuration, where each ingredient has a
     /// corresponding [`IngredientInfo`]
-    pub fn ingredients_info(&self) -> HashMap<&str, IngredientInfo<'_>> {
+    ///
+    /// The keys are lowercase for case-insensitive lookups. Use
+    /// `name.to_lowercase()` when looking up ingredients.
+    pub fn ingredients_info(&self) -> HashMap<String, IngredientInfo<'_>> {
         let mut map = HashMap::with_capacity(self.len.get());
         for cat in &self.categories {
             for igr in &cat.ingredients {
@@ -88,7 +91,8 @@ impl AisleConf<'_> {
                         common_name,
                         category: cat.name,
                     };
-                    map.insert(*name, info);
+                    // Store lowercase key for case-insensitive lookups
+                    map.insert(name.to_lowercase(), info);
                 }
             }
         }
@@ -481,13 +485,31 @@ tuna|chicken of the sea
 "#;
         let a = parse(input).unwrap();
         let p = a.ingredients_info();
+        // Keys are lowercase for case-insensitive lookup
         assert_eq!(
             vec!["tuna", "tuna"],
             ["tuna", "chicken of the sea"]
                 .iter()
-                .map(|igr| p.get(igr).unwrap().common_name)
+                .map(|igr| p.get(&igr.to_lowercase()).unwrap().common_name)
                 .collect::<Vec<&str>>()
         )
+    }
+
+    #[test]
+    fn case_insensitive_lookup() {
+        let input = r#"[spices]
+chili flakes
+"#;
+        let a = parse(input).unwrap();
+        let p = a.ingredients_info();
+        // All case variants should find the same ingredient
+        assert!(p.get("chili flakes").is_some());
+        assert!(p.get(&"Chili flakes".to_lowercase()).is_some());
+        assert!(p.get(&"CHILI FLAKES".to_lowercase()).is_some());
+        assert_eq!(
+            p.get("chili flakes").unwrap().common_name,
+            p.get(&"Chili Flakes".to_lowercase()).unwrap().common_name
+        );
     }
 
     #[test]

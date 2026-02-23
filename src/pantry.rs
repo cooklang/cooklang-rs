@@ -671,7 +671,7 @@ pub enum PantryConfError {
 }
 
 impl RichError for PantryConfError {
-    fn labels(&self) -> Cow<[Label]> {
+    fn labels(&self) -> Cow<'_, [Label]> {
         use crate::error::label;
         match self {
             PantryConfError::Parse { .. } => vec![label!(Span::new(0, 0))],
@@ -679,7 +679,7 @@ impl RichError for PantryConfError {
         .into()
     }
 
-    fn hints(&self) -> Cow<[CowStr]> {
+    fn hints(&self) -> Cow<'_, [CowStr]> {
         match self {
             PantryConfError::Parse { .. } => {
                 vec!["Check TOML syntax".into()]
