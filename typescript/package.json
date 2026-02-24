@@ -1,6 +1,6 @@
 {
   "name": "@cooklang/cooklang",
-  "version": "0.17.4",
+  "version": "0.18.0",
   "license": "MIT",
   "description": "Official Cooklang parser - Rust-powered WASM implementation for high performance recipe parsing",
   "type": "module",
