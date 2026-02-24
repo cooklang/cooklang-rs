@@ -387,7 +387,7 @@ pub fn expand_with_ingredients(
 }
 
 // I(dubadub) haven't found a way to export these methods with mutable argument
-fn add_to_ingredient_list(
+pub(crate) fn add_to_ingredient_list(
     list: &mut IngredientList,
     name: &String,
     quantity_to_add: &GroupedQuantity,
