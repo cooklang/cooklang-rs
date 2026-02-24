@@ -198,15 +198,16 @@ fn parse_recipe_line(line: &ParsedLine<'_>) -> Result<(String, Option<f64>), Sho
         if content.ends_with('}') {
             let path = content[..brace_start].trim().to_string();
             let multiplier_str = &content[brace_start + 1..content.len() - 1];
-            let multiplier: f64 = multiplier_str.parse().map_err(|_| {
-                ShoppingListError::InvalidMultiplier {
-                    span: Span::new(
-                        line.offset + 2 + brace_start + 1,
-                        line.offset + 2 + content.len() - 1,
-                    ),
-                    message: format!("'{multiplier_str}' is not a valid number"),
-                }
-            })?;
+            let multiplier: f64 =
+                multiplier_str
+                    .parse()
+                    .map_err(|_| ShoppingListError::InvalidMultiplier {
+                        span: Span::new(
+                            line.offset + 2 + brace_start + 1,
+                            line.offset + 2 + content.len() - 1,
+                        ),
+                        message: format!("'{multiplier_str}' is not a valid number"),
+                    })?;
             Ok((path, Some(multiplier)))
         } else {
             Ok((content.trim().to_string(), None))

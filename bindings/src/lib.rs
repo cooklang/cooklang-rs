@@ -102,7 +102,8 @@ pub fn deref_timer(recipe: &Arc<CooklangRecipe>, index: u32) -> Timer {
 pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let mut categories: Vec<AisleCategory> = Vec::new();
     let mut cache: AisleReverseCategory = AisleReverseCategory::default();
-    let mut common_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut common_names: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     // Use the lenient parser that handles duplicates as warnings
     let result = parse_lenient(&input);
@@ -143,7 +144,11 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
         categories.push(category);
     });
 
-    let config = AisleConf { categories, cache, common_names };
+    let config = AisleConf {
+        categories,
+        cache,
+        common_names,
+    };
 
     Arc::new(config)
 }
@@ -1321,10 +1326,7 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
             1.0,
         );
 
-        let ingredient = recipe
-            .ingredients
-            .get(0)
-            .expect("No ingredients found");
+        let ingredient = recipe.ingredients.get(0).expect("No ingredients found");
 
         assert_eq!(ingredient.name, "spaghetti");
         assert_eq!(

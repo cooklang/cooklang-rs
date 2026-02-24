@@ -552,10 +552,7 @@ beef
         let parser = CooklangParser::new(Extensions::all(), converter.clone());
 
         // Recipe with "Chili flakes" (capital C)
-        let recipe = parser
-            .parse("@Chili flakes{1%tsp}")
-            .into_output()
-            .unwrap();
+        let recipe = parser.parse("@Chili flakes{1%tsp}").into_output().unwrap();
 
         // Aisle config has "chili flakes" (lowercase)
         let aisle_conf = r#"
