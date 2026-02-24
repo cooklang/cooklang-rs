@@ -40,6 +40,11 @@ impl AisleConf {
         self.cache.get(&ingredient_name).cloned()
     }
 
+    /// Returns all categories in the order they appear in the aisle configuration file
+    pub fn categories(&self) -> Vec<AisleCategory> {
+        self.categories.clone()
+    }
+
     /// Returns the common name for an ingredient using aisle configuration
     ///
     /// Performs case-insensitive lookup against ingredient names and aliases.
