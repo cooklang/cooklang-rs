@@ -102,6 +102,7 @@ pub fn deref_timer(recipe: &Arc<CooklangRecipe>, index: u32) -> Timer {
 pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let mut categories: Vec<AisleCategory> = Vec::new();
     let mut cache: AisleReverseCategory = AisleReverseCategory::default();
+    let mut common_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
     // Use the lenient parser that handles duplicates as warnings
     let result = parse_lenient(&input);
@@ -131,16 +132,18 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
         // building cache
         category.ingredients.iter().for_each(|i| {
             cache.insert(i.name.clone(), category.name.clone());
+            common_names.insert(i.name.to_lowercase(), i.name.clone());
 
             i.aliases.iter().for_each(|a| {
                 cache.insert(a.to_string(), category.name.clone());
+                common_names.insert(a.to_lowercase(), i.name.clone());
             });
         });
 
         categories.push(category);
     });
 
-    let config = AisleConf { categories, cache };
+    let config = AisleConf { categories, cache, common_names };
 
     Arc::new(config)
 }
@@ -176,6 +179,24 @@ pub fn combine_ingredients_selected(
     expand_with_ingredients(ingredients, &mut combined, indices);
 
     combined
+}
+
+/// Replaces ingredient names with their common names from aisle configuration
+///
+/// # Arguments
+/// * `list` - The ingredient list to normalize
+/// * `aisle` - The aisle configuration containing common name mappings
+///
+/// # Returns
+/// A new ingredient list with names replaced by their common names
+#[uniffi::export]
+pub fn use_common_names(list: IngredientList, aisle: &AisleConf) -> IngredientList {
+    let mut normalized: IngredientList = IngredientList::default();
+    for (ingredient_name, quantity) in list.iter() {
+        let common_name = aisle.common_name_for(ingredient_name.clone());
+        add_to_ingredient_list(&mut normalized, &common_name, &quantity);
+    }
+    normalized
 }
 
 // Metadata helper functions
@@ -884,6 +905,74 @@ dried oregano
                 ),
             ])
         );
+    }
+
+    #[test]
+    fn test_use_common_names() {
+        use crate::{
+            combine_ingredients, parse_aisle_config, use_common_names, Amount, Ingredient, Value,
+        };
+
+        let ingredients = vec![
+            Ingredient {
+                name: "apples".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Number { value: 3.0 },
+                    units: None,
+                }),
+                descriptor: None,
+                reference: None,
+            },
+            Ingredient {
+                name: "eggs".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Number { value: 2.0 },
+                    units: None,
+                }),
+                descriptor: None,
+                reference: None,
+            },
+            Ingredient {
+                name: "salt".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Number { value: 1.0 },
+                    units: Some("tsp".to_string()),
+                }),
+                descriptor: None,
+                reference: None,
+            },
+        ];
+
+        let aisle = parse_aisle_config(
+            r#"
+[fruit and veg]
+apple gala | apples
+aubergine
+
+[milk and dairy]
+egg | eggs
+"#
+            .to_string(),
+        );
+
+        let combined = combine_ingredients(&ingredients);
+
+        // "apples" should exist before common names
+        assert!(combined.contains_key("apples"));
+        assert!(combined.contains_key("eggs"));
+
+        let normalized = use_common_names(combined, &aisle);
+
+        // "apples" should be replaced by common name "apple gala"
+        assert!(normalized.contains_key("apple gala"));
+        assert!(!normalized.contains_key("apples"));
+
+        // "eggs" should be replaced by common name "egg"
+        assert!(normalized.contains_key("egg"));
+        assert!(!normalized.contains_key("eggs"));
+
+        // "salt" not in aisle config, should stay as is
+        assert!(normalized.contains_key("salt"));
     }
 
     #[test]

@@ -24,6 +24,7 @@ pub struct AisleCategory {
 pub struct AisleConf {
     pub categories: Vec<AisleCategory>, // cache for quick category search
     pub cache: AisleReverseCategory,
+    pub common_names: HashMap<String, String>, // lowercase name/alias -> common name
 }
 
 #[uniffi::export]
@@ -37,6 +38,17 @@ impl AisleConf {
     /// The category name if the ingredient is found, None otherwise
     pub fn category_for(&self, ingredient_name: String) -> Option<String> {
         self.cache.get(&ingredient_name).cloned()
+    }
+
+    /// Returns the common name for an ingredient using aisle configuration
+    ///
+    /// Performs case-insensitive lookup against ingredient names and aliases.
+    /// Returns the original name if not found in the configuration.
+    pub fn common_name_for(&self, ingredient_name: String) -> String {
+        self.common_names
+            .get(&ingredient_name.to_lowercase())
+            .cloned()
+            .unwrap_or(ingredient_name)
     }
 }
 
