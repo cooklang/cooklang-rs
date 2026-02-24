@@ -3,7 +3,7 @@ import PackageDescription
 import class Foundation.ProcessInfo
 
 var package = Package(
-    name: "cooklang-rs",
+    name: "CooklangParser",
     platforms: [
         .iOS(.v15),
     ],
