@@ -72,6 +72,25 @@ impl AisleConf<'_> {
             .collect()
     }
 
+    /// Returns the sort key (category_index, ingredient_index) for an ingredient.
+    ///
+    /// Performs case-insensitive lookup. Returns `None` if the ingredient
+    /// is not found in any category. Synonym names return the same position
+    /// as their primary name.
+    pub fn ingredient_sort_key(&self, name: &str) -> Option<(usize, usize)> {
+        let lower = name.to_lowercase();
+        for (cat_idx, category) in self.categories.iter().enumerate() {
+            for (igr_idx, ingredient) in category.ingredients.iter().enumerate() {
+                for n in &ingredient.names {
+                    if n.to_lowercase() == lower {
+                        return Some((cat_idx, igr_idx));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Returns a reversed configuration, where each ingredient has a
     /// corresponding [`IngredientInfo`]
     ///
@@ -656,6 +675,34 @@ apple
         assert_eq!(meat.name, "meat");
         assert_eq!(meat.ingredients.len(), 1); // only chicken
         assert_eq!(meat.ingredients[0].names, vec!["chicken"]);
+    }
+
+    #[test]
+    fn test_ingredient_sort_key() {
+        let aisle_conf = r#"
+[produce]
+apple
+banana
+carrot
+
+[dairy]
+milk
+butter | unsalted butter
+"#;
+        let aisle = parse(aisle_conf).unwrap();
+
+        // Items in aisle.conf get (category_index, ingredient_index)
+        assert_eq!(aisle.ingredient_sort_key("apple"), Some((0, 0)));
+        assert_eq!(aisle.ingredient_sort_key("banana"), Some((0, 1)));
+        assert_eq!(aisle.ingredient_sort_key("carrot"), Some((0, 2)));
+        assert_eq!(aisle.ingredient_sort_key("milk"), Some((1, 0)));
+        assert_eq!(aisle.ingredient_sort_key("butter"), Some((1, 1)));
+        // Synonyms map to the same position
+        assert_eq!(aisle.ingredient_sort_key("unsalted butter"), Some((1, 1)));
+        // Case insensitive
+        assert_eq!(aisle.ingredient_sort_key("Apple"), Some((0, 0)));
+        // Unknown ingredient returns None
+        assert_eq!(aisle.ingredient_sort_key("mystery"), None);
     }
 
     #[test]
