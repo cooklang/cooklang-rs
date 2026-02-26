@@ -72,7 +72,7 @@ impl AisleConf<'_> {
             .collect()
     }
 
-    /// Returns the sort key (category_index, ingredient_index) for an ingredient.
+    /// Returns the sort key (`category_index`, `ingredient_index`) for an ingredient.
     ///
     /// Performs case-insensitive lookup. Returns `None` if the ingredient
     /// is not found in any category. Synonym names return the same position
