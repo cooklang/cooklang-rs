@@ -473,6 +473,11 @@ private struct FfiConverterString: FfiConverter {
  */
 public protocol AisleConfProtocol: AnyObject {
     /**
+     * Returns all categories in the order they appear in the aisle configuration file
+     */
+    func categories() -> [AisleCategory]
+
+    /**
      * Returns the category name for a given ingredient
      *
      * # Arguments
@@ -542,6 +547,15 @@ open class AisleConf:
         }
 
         try! rustCall { uniffi_cooklang_bindings_fn_free_aisleconf(pointer, $0) }
+    }
+
+    /**
+     * Returns all categories in the order they appear in the aisle configuration file
+     */
+    open func categories() -> [AisleCategory] {
+        return try! FfiConverterSequenceTypeAisleCategory.lift(try! rustCall {
+            uniffi_cooklang_bindings_fn_method_aisleconf_categories(self.uniffiClonePointer(), $0)
+        })
     }
 
     /**
@@ -2448,6 +2462,31 @@ private struct FfiConverterSequenceString: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeAisleCategory: FfiConverterRustBuffer {
+    typealias SwiftType = [AisleCategory]
+
+    static func write(_ value: [AisleCategory], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeAisleCategory.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [AisleCategory] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [AisleCategory]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeAisleCategory.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeAisleIngredient: FfiConverterRustBuffer {
     typealias SwiftType = [AisleIngredient]
 
@@ -3152,6 +3191,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_func_use_common_names() != 42613 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_method_aisleconf_categories() != 45384 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_method_aisleconf_category_for() != 45672 {
