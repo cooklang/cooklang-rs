@@ -230,14 +230,20 @@ jobs:
           cargo ndk --target armv7-linux-androideabi --platform 21 build --release
           cargo ndk --target x86_64-linux-android --platform 21 build --release
 
+      - name: Build host library for bindings generation
+        working-directory: bindings
+        run: cargo build --lib
+
       - name: Generate Kotlin bindings
         working-directory: bindings
         run: |
           rm -rf out/kotlin
           mkdir -p out/kotlin
+          # Use debug host library (not stripped) so uniffi-bindgen can read metadata symbols.
+          # The release profile has strip=true which removes symbols uniffi-bindgen needs.
           ../target/release/uniffi-bindgen generate \
             --config uniffi.toml \
-            --library ../target/aarch64-linux-android/release/libcooklang_bindings.so \
+            --library ../target/debug/libcooklang_bindings.so \
             --language kotlin \
             --out-dir out/kotlin
 
