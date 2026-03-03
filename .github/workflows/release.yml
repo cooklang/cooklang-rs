@@ -241,6 +241,15 @@ jobs:
             --language kotlin \
             --out-dir out/kotlin
 
+          # Verify bindings were generated
+          KT_COUNT=$(find out/kotlin -name "*.kt" | wc -l)
+          if [ "$KT_COUNT" -eq 0 ]; then
+            echo "ERROR: No Kotlin bindings were generated!"
+            exit 1
+          fi
+          echo "Generated $KT_COUNT Kotlin binding file(s):"
+          find out/kotlin -name "*.kt" -exec ls -la {} \;
+
       - name: Organize JNI libraries
         run: |
           mkdir -p target/android/jniLibs/{arm64-v8a,armeabi-v7a,x86_64}
@@ -256,8 +265,17 @@ jobs:
           # Copy JNI libs
           cp -R target/android/jniLibs/* target/android/parser/src/main/jniLibs/
 
-          # Copy Kotlin bindings
-          find bindings/out/kotlin -name "*.kt" -exec cp {} target/android/parser/src/main/kotlin/ \;
+          # Copy Kotlin bindings (preserve directory structure)
+          cp -r bindings/out/kotlin/* target/android/parser/src/main/kotlin/
+
+          # Verify Kotlin bindings were copied
+          KT_COUNT=$(find target/android/parser/src/main/kotlin -name "*.kt" | wc -l)
+          if [ "$KT_COUNT" -eq 0 ]; then
+            echo "ERROR: No Kotlin bindings found in Android module!"
+            exit 1
+          fi
+          echo "Kotlin bindings in Android module:"
+          find target/android/parser/src/main/kotlin -name "*.kt" -exec ls -la {} \;
 
           # Create build.gradle.kts
           cat > target/android/parser/build.gradle.kts << 'EOF'
@@ -302,6 +320,7 @@ jobs:
           dependencies {
               implementation("net.java.dev.jna:jna:5.14.0@aar")
               implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+              implementation("androidx.core:core-ktx:1.9.0")
           }
           EOF
 
@@ -525,6 +544,16 @@ jobs:
           mkdir -p target/android
           unzip cooklang-parser-android.zip -d target/android/
 
+          # Verify Kotlin sources are present
+          KT_COUNT=$(find target/android/parser/src/main/kotlin -name "*.kt" | wc -l)
+          if [ "$KT_COUNT" -eq 0 ]; then
+            echo "ERROR: No Kotlin sources found in extracted artifacts!"
+            echo "Contents of parser directory:"
+            find target/android/parser -type f
+            exit 1
+          fi
+          echo "Found $KT_COUNT Kotlin source file(s)"
+
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
@@ -618,6 +647,7 @@ jobs:
           dependencies {
               implementation("net.java.dev.jna:jna:5.14.0@aar")
               implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+              implementation("androidx.core:core-ktx:1.9.0")
           }
 
           publishing {
