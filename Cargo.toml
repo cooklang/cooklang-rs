@@ -27,7 +27,8 @@ unicase = "2.7.0"
 indexmap = { version = "2", features = ["serde"] }
 yansi = "1.0.1"
 serde_yaml = "0.9.34"
-toml = { version = "0.8", optional = true }
+toml = { version = "0.8", optional = true, features = ["preserve_order"] }
+toml_edit = { version = "0.22", optional = true }
 tsify = { version = "0.5", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
@@ -50,7 +51,7 @@ default = ["aisle", "bundled_units", "shopping_list"]
 bundled_units = ["toml", "prettyplease", "quote", "syn", "proc-macro2"]
 aisle = []
 shopping_list = []
-pantry = ["toml"]
+pantry = ["toml", "toml_edit"]
 ts = ["wasm-bindgen", "tsify"]
 
 [[bench]]
