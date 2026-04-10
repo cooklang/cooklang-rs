@@ -92,7 +92,9 @@ impl RichError for ShoppingListError {
 
 /// Parse a [`ShoppingList`] from the shopping list format
 pub fn parse(input: &str) -> Result<ShoppingList, ShoppingListError> {
-    let lines = collect_lines(input);
+    // Strip block comments [- ... -] before line-level parsing
+    let stripped = strip_block_comments(input);
+    let lines = collect_lines(&stripped);
     let items = parse_items(&lines, 0, 0, lines.len())?;
     Ok(ShoppingList { items })
 }
@@ -111,7 +113,8 @@ fn collect_lines(input: &str) -> Vec<ParsedLine<'_>> {
         let line_len = line.len();
         let line = line.trim_end_matches('\r');
 
-        let content = match line.split_once("//") {
+        // Strip inline/line comments starting with --
+        let content = match line.split_once("--") {
             Some((before, _)) => before,
             None => line,
         };
@@ -131,6 +134,36 @@ fn collect_lines(input: &str) -> Vec<ParsedLine<'_>> {
     }
 
     lines
+}
+
+/// Strip block comments `[- ... -]` from the input, replacing their content
+/// with spaces (to preserve offsets) or newlines (to preserve line structure).
+fn strip_block_comments(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.char_indices().peekable();
+
+    while let Some((i, c)) = chars.next() {
+        if c == '[' && input[i..].starts_with("[-") {
+            // Skip the opening [-
+            chars.next(); // skip '-'
+            // Find matching -]
+            loop {
+                match chars.next() {
+                    Some((_, '\n')) => result.push('\n'),
+                    Some((j, '-')) if input[j..].starts_with("-]") => {
+                        chars.next(); // skip ']'
+                        break;
+                    }
+                    Some(_) => {} // drop character
+                    None => break, // unterminated block comment
+                }
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 fn parse_items(
@@ -278,6 +311,118 @@ fn write_items(
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Checked file (.shopping-checked) — append-only log of checked/unchecked items
+// ---------------------------------------------------------------------------
+
+/// An entry in the checked log
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckEntry {
+    /// Ingredient was checked (acquired): `+ name`
+    Checked(String),
+    /// Ingredient was unchecked: `- name`
+    Unchecked(String),
+}
+
+/// Parse a `.shopping-checked` file and return the list of log entries.
+pub fn parse_checked(input: &str) -> Vec<CheckEntry> {
+    let mut entries = Vec::new();
+    for line in input.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(name) = line.strip_prefix("+ ") {
+            let name = name.trim();
+            if !name.is_empty() {
+                entries.push(CheckEntry::Checked(name.to_string()));
+            }
+        } else if let Some(name) = line.strip_prefix("- ") {
+            let name = name.trim();
+            if !name.is_empty() {
+                entries.push(CheckEntry::Unchecked(name.to_string()));
+            }
+        }
+    }
+    entries
+}
+
+/// Replay a checked log and return the set of ingredient names that are
+/// currently checked. Matching is case-insensitive per the spec.
+pub fn checked_set(entries: &[CheckEntry]) -> std::collections::HashSet<String> {
+    use std::collections::HashMap;
+    // Track last state per lowercased name, keeping original casing
+    let mut state: HashMap<String, bool> = HashMap::new();
+    for entry in entries {
+        match entry {
+            CheckEntry::Checked(name) => {
+                state.insert(name.to_lowercase(), true);
+            }
+            CheckEntry::Unchecked(name) => {
+                state.insert(name.to_lowercase(), false);
+            }
+        }
+    }
+    state
+        .into_iter()
+        .filter_map(|(name, checked)| if checked { Some(name) } else { None })
+        .collect()
+}
+
+/// Write a single check entry to the log.
+pub fn write_check_entry(entry: &CheckEntry, mut w: impl std::io::Write) -> std::io::Result<()> {
+    match entry {
+        CheckEntry::Checked(name) => writeln!(w, "+ {name}"),
+        CheckEntry::Unchecked(name) => writeln!(w, "- {name}"),
+    }
+}
+
+/// Compact a checked log against a shopping list: keep only `+ name` entries
+/// for ingredients that are checked AND still present in the shopping list.
+pub fn compact_checked(
+    entries: &[CheckEntry],
+    list: &ShoppingList,
+) -> Vec<CheckEntry> {
+    let current = checked_set(entries);
+    let list_ingredients = collect_ingredient_names(list);
+
+    let mut compacted = Vec::new();
+    for name in &current {
+        // Keep only if the ingredient still exists in the shopping list
+        if list_ingredients.iter().any(|n| n.to_lowercase() == *name) {
+            compacted.push(CheckEntry::Checked(name.clone()));
+        }
+    }
+    compacted.sort_by(|a, b| {
+        let a_name = match a {
+            CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n,
+        };
+        let b_name = match b {
+            CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n,
+        };
+        a_name.cmp(b_name)
+    });
+    compacted
+}
+
+/// Collect all ingredient names from a shopping list (recursively).
+fn collect_ingredient_names(list: &ShoppingList) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_ingredient_names_from_items(&list.items, &mut names);
+    names
+}
+
+fn collect_ingredient_names_from_items(items: &[ShoppingListItem], names: &mut Vec<String>) {
+    for item in items {
+        match item {
+            ShoppingListItem::Ingredient(i) => names.push(i.name.clone()),
+            ShoppingListItem::Recipe(r) => {
+                collect_ingredient_names_from_items(&r.children, names);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -342,7 +487,7 @@ mod tests {
 
     #[test]
     fn comment_lines() {
-        let input = "// this is a comment\nsalt\n// another comment";
+        let input = "-- this is a comment\nsalt\n-- another comment";
         let list = parse(input).unwrap();
         assert_eq!(list.items.len(), 1);
         match &list.items[0] {
@@ -353,12 +498,38 @@ mod tests {
 
     #[test]
     fn inline_comment() {
-        let list = parse("salt // for seasoning").unwrap();
+        let list = parse("salt -- for seasoning").unwrap();
         match &list.items[0] {
             ShoppingListItem::Ingredient(i) => {
                 assert_eq!(i.name, "salt");
                 assert_eq!(i.quantity, None);
             }
+            _ => panic!("expected ingredient"),
+        }
+    }
+
+    #[test]
+    fn block_comment() {
+        let input = "salt\n[- this is a\nblock comment -]\npepper";
+        let list = parse(input).unwrap();
+        assert_eq!(list.items.len(), 2);
+        match &list.items[0] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "salt"),
+            _ => panic!("expected ingredient"),
+        }
+        match &list.items[1] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "pepper"),
+            _ => panic!("expected ingredient"),
+        }
+    }
+
+    #[test]
+    fn inline_block_comment() {
+        let list = parse("salt [- seasoning -] pepper").unwrap();
+        // After stripping block comment, we get "salt  pepper"
+        assert_eq!(list.items.len(), 1);
+        match &list.items[0] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "salt  pepper"),
             _ => panic!("expected ingredient"),
         }
     }
@@ -540,5 +711,75 @@ salt
         let input = "./Recipe{1}\n   ./Bad{2}"; // 3 spaces instead of 2
         let err = parse(input).unwrap_err();
         assert!(matches!(err, ShoppingListError::InvalidIndentation { .. }));
+    }
+
+    // -- Checked file tests --
+
+    #[test]
+    fn parse_checked_empty() {
+        let entries = parse_checked("");
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn parse_checked_basic() {
+        let input = "+ salt\n+ avocados\n+ olive oil\n- avocados\n+ avocados\n";
+        let entries = parse_checked(input);
+        assert_eq!(entries.len(), 5);
+        assert_eq!(entries[0], CheckEntry::Checked("salt".into()));
+        assert_eq!(entries[3], CheckEntry::Unchecked("avocados".into()));
+    }
+
+    #[test]
+    fn checked_set_last_wins() {
+        let input = "+ salt\n+ avocados\n+ olive oil\n- avocados\n+ avocados\n";
+        let entries = parse_checked(input);
+        let set = checked_set(&entries);
+        assert!(set.contains("salt"));
+        assert!(set.contains("avocados"));
+        assert!(set.contains("olive oil"));
+        assert_eq!(set.len(), 3);
+    }
+
+    #[test]
+    fn checked_set_uncheck_wins() {
+        let input = "+ salt\n- salt\n";
+        let entries = parse_checked(input);
+        let set = checked_set(&entries);
+        assert!(!set.contains("salt"));
+    }
+
+    #[test]
+    fn checked_set_case_insensitive() {
+        let input = "+ Salt\n";
+        let entries = parse_checked(input);
+        let set = checked_set(&entries);
+        assert!(set.contains("salt"));
+    }
+
+    #[test]
+    fn compact_removes_stale() {
+        let list = parse("salt\npepper\n").unwrap();
+        let entries = parse_checked("+ salt\n+ garlic\n");
+        let compacted = compact_checked(&entries, &list);
+        // garlic is not in list, should be dropped
+        assert_eq!(compacted.len(), 1);
+        assert!(matches!(&compacted[0], CheckEntry::Checked(n) if n == "salt"));
+    }
+
+    #[test]
+    fn write_check_entry_roundtrip() {
+        let entries = vec![
+            CheckEntry::Checked("salt".into()),
+            CheckEntry::Unchecked("pepper".into()),
+        ];
+        let mut buf = Vec::new();
+        for e in &entries {
+            write_check_entry(e, &mut buf).unwrap();
+        }
+        let output = String::from_utf8(buf).unwrap();
+        assert_eq!(output, "+ salt\n- pepper\n");
+        let parsed = parse_checked(&output);
+        assert_eq!(parsed, entries);
     }
 }
