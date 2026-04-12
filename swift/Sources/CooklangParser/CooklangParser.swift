@@ -2139,8 +2139,8 @@ extension Servings: Equatable, Hashable {}
  * boundary, so we wrap string messages in a typed error enum.
  */
 public enum ShoppingListError {
-    case Parse(message: String)
-    case Serialize(message: String)
+    case Parse(reason: String)
+    case Serialize(reason: String)
 }
 
 #if swift(>=5.8)
@@ -2153,11 +2153,11 @@ public struct FfiConverterTypeShoppingListError: FfiConverterRustBuffer {
         let variant: Int32 = try readInt(&buf)
         switch variant {
         case 1: return try .Parse(
-                message: FfiConverterString.read(from: &buf)
+                reason: FfiConverterString.read(from: &buf)
             )
 
         case 2: return try .Serialize(
-                message: FfiConverterString.read(from: &buf)
+                reason: FfiConverterString.read(from: &buf)
             )
 
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -2166,13 +2166,13 @@ public struct FfiConverterTypeShoppingListError: FfiConverterRustBuffer {
 
     public static func write(_ value: ShoppingListError, into buf: inout [UInt8]) {
         switch value {
-        case let .Parse(message):
+        case let .Parse(reason):
             writeInt(&buf, Int32(1))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(reason, into: &buf)
 
-        case let .Serialize(message):
+        case let .Serialize(reason):
             writeInt(&buf, Int32(2))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(reason, into: &buf)
         }
     }
 }
