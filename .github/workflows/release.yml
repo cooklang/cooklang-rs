@@ -779,6 +779,10 @@ jobs:
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked || true
 
+      - name: Sync package.json version
+        working-directory: typescript
+        run: npm version "${{ needs.prepare-release.outputs.version }}" --no-git-tag-version --allow-same-version
+
       - name: Build TypeScript package
         working-directory: typescript
         run: |
