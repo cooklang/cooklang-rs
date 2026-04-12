@@ -11,10 +11,10 @@ use std::collections::HashSet;
 /// boundary, so we wrap string messages in a typed error enum.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum ShoppingListError {
-    #[error("failed to parse shopping list: {message}")]
-    Parse { message: String },
-    #[error("failed to serialize shopping list: {message}")]
-    Serialize { message: String },
+    #[error("failed to parse shopping list: {reason}")]
+    Parse { reason: String },
+    #[error("failed to serialize shopping list: {reason}")]
+    Serialize { reason: String },
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +142,7 @@ pub fn parse_shopping_list_impl(input: &str) -> Result<ShoppingList, ShoppingLis
     sl::parse(input)
         .map(|list| ShoppingList::from(&list))
         .map_err(|e| ShoppingListError::Parse {
-            message: e.to_string(),
+            reason: e.to_string(),
         })
 }
 
@@ -151,10 +151,10 @@ pub fn write_shopping_list_impl(list: &ShoppingList) -> Result<String, ShoppingL
     let original = OriginalShoppingList::from(list);
     let mut buf = Vec::new();
     sl::write(&original, &mut buf).map_err(|e| ShoppingListError::Serialize {
-        message: e.to_string(),
+        reason: e.to_string(),
     })?;
     String::from_utf8(buf).map_err(|e| ShoppingListError::Serialize {
-        message: e.to_string(),
+        reason: e.to_string(),
     })
 }
 
@@ -178,10 +178,10 @@ pub fn write_check_entry_impl(entry: &CheckEntry) -> Result<String, ShoppingList
     let original = OriginalCheckEntry::from(entry);
     let mut buf = Vec::new();
     sl::write_check_entry(&original, &mut buf).map_err(|e| ShoppingListError::Serialize {
-        message: e.to_string(),
+        reason: e.to_string(),
     })?;
     String::from_utf8(buf).map_err(|e| ShoppingListError::Serialize {
-        message: e.to_string(),
+        reason: e.to_string(),
     })
 }
 
