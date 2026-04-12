@@ -406,22 +406,34 @@ pub fn write_check_entry(entry: &CheckEntry, mut w: impl std::io::Write) -> std:
     }
 }
 
-/// Compact a checked log against a shopping list: keep only `+ name` entries
-/// for ingredients that are checked AND still present in the shopping list.
-pub fn compact_checked(
-    entries: &[CheckEntry],
-    list: &ShoppingList,
-) -> Vec<CheckEntry> {
+/// Compact a checked log against the set of ingredient names currently in
+/// the shopping list: keep only `+ name` entries for ingredients that are
+/// still present.
+///
+/// `current_ingredients` must be the actual ingredient names as they would
+/// be rendered to the user — after aggregating referenced recipes, applying
+/// any pantry/aisle filtering, etc. A raw on-disk `ShoppingList` usually
+/// contains only recipe *references* (not `Ingredient` items), so callers
+/// that persist lists that way must expand them first. Passing an iterator
+/// rather than a `ShoppingList` makes this contract explicit.
+///
+/// Matching is case-insensitive; returned `+ name` entries preserve the
+/// lowercased form stored in `checked_set`.
+pub fn compact_checked<'a, I>(entries: &[CheckEntry], current_ingredients: I) -> Vec<CheckEntry>
+where
+    I: IntoIterator<Item = &'a str>,
+{
     let current = checked_set(entries);
-    let list_ingredients = collect_ingredient_names(list);
+    let list_ingredients: std::collections::HashSet<String> = current_ingredients
+        .into_iter()
+        .map(|n| n.to_lowercase())
+        .collect();
 
-    let mut compacted = Vec::new();
-    for name in &current {
-        // Keep only if the ingredient still exists in the shopping list
-        if list_ingredients.iter().any(|n| n.to_lowercase() == *name) {
-            compacted.push(CheckEntry::Checked(name.clone()));
-        }
-    }
+    let mut compacted: Vec<CheckEntry> = current
+        .into_iter()
+        .filter(|name| list_ingredients.contains(name))
+        .map(CheckEntry::Checked)
+        .collect();
     compacted.sort_by(|a, b| {
         // Only `Checked` entries are ever pushed above, but match both arms
         // so this stays correct if the collection logic ever changes.
@@ -434,7 +446,12 @@ pub fn compact_checked(
 }
 
 /// Collect all ingredient names from a shopping list (recursively).
-fn collect_ingredient_names(list: &ShoppingList) -> Vec<String> {
+///
+/// This only finds `Ingredient` items. Lists that only store recipe
+/// *references* will produce an empty result — in that case, caller must
+/// expand the references via their own recipe parser before feeding names
+/// into [`compact_checked`].
+pub fn collect_ingredient_names(list: &ShoppingList) -> Vec<String> {
     let mut names = Vec::new();
     collect_ingredient_names_from_items(&list.items, &mut names);
     names
@@ -806,11 +823,38 @@ salt
     #[test]
     fn compact_removes_stale() {
         let list = parse("salt\npepper\n").unwrap();
+        let names = collect_ingredient_names(&list);
         let entries = parse_checked("+ salt\n+ garlic\n");
-        let compacted = compact_checked(&entries, &list);
+        let compacted = compact_checked(&entries, names.iter().map(String::as_str));
         // garlic is not in list, should be dropped
         assert_eq!(compacted.len(), 1);
         assert!(matches!(&compacted[0], CheckEntry::Checked(n) if n == "salt"));
+    }
+
+    #[test]
+    fn compact_accepts_arbitrary_name_iter() {
+        // Typical use: caller has already aggregated ingredient names from
+        // recipe references and passes them in directly.
+        let entries = parse_checked("+ salt\n+ pepper\n+ garlic\n");
+        let names = ["salt", "pepper"];
+        let compacted = compact_checked(&entries, names.iter().copied());
+        assert_eq!(compacted.len(), 2);
+        let kept: Vec<&str> = compacted
+            .iter()
+            .map(|e| match e {
+                CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n.as_str(),
+            })
+            .collect();
+        assert!(kept.contains(&"salt"));
+        assert!(kept.contains(&"pepper"));
+        assert!(!kept.contains(&"garlic"));
+    }
+
+    #[test]
+    fn compact_is_case_insensitive_against_names() {
+        let entries = parse_checked("+ Salt\n");
+        let compacted = compact_checked(&entries, ["SALT"].iter().copied());
+        assert_eq!(compacted.len(), 1);
     }
 
     #[test]

@@ -668,23 +668,27 @@ pub fn write_shopping_check_entry(
     shopping_list::write_check_entry_impl(entry)
 }
 
-/// Compacts a checked log against a shopping list
+/// Compacts a checked log against the set of currently-visible ingredient
+/// names.
 ///
 /// Removes entries for ingredients that are no longer in the shopping list,
 /// and collapses the log so each ingredient appears at most once.
 ///
 /// # Arguments
 /// * `entries` - The current check log entries
-/// * `list` - The current shopping list to compact against
+/// * `current_ingredients` - The fully-aggregated ingredient names as shown
+///   to the user. A raw on-disk `ShoppingList` only stores recipe
+///   references, so callers must expand recipes first and pass the
+///   resulting ingredient names here.
 ///
 /// # Returns
 /// A compacted list of check entries
 #[uniffi::export]
 pub fn compact_shopping_checked(
     entries: &[shopping_list::CheckEntry],
-    list: &shopping_list::ShoppingList,
+    current_ingredients: &[String],
 ) -> Vec<shopping_list::CheckEntry> {
-    shopping_list::compact_checked_impl(entries, list)
+    shopping_list::compact_checked_impl(entries, current_ingredients)
 }
 
 uniffi::setup_scaffolding!();

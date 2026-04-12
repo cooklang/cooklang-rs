@@ -163,16 +163,23 @@ pub fn write_check_entry_impl(entry: &CheckEntry) -> Result<String, String> {
     String::from_utf8(buf).map_err(|e| e.to_string())
 }
 
-/// Compact a checked log against a shopping list.
+/// Compact a checked log against the ingredient names currently in the
+/// shopping list.
+///
+/// Callers should pass the fully-aggregated ingredient names the user
+/// actually sees. A raw on-disk [`ShoppingList`] usually contains only
+/// recipe references, not ingredients, so it cannot be used directly.
 pub fn compact_checked_impl(
     entries: &[CheckEntry],
-    list: &ShoppingList,
+    current_ingredients: &[String],
 ) -> Vec<CheckEntry> {
     let original_entries: Vec<OriginalCheckEntry> =
         entries.iter().map(OriginalCheckEntry::from).collect();
-    let original_list = OriginalShoppingList::from(list);
-    sl::compact_checked(&original_entries, &original_list)
-        .iter()
-        .map(CheckEntry::from)
-        .collect()
+    sl::compact_checked(
+        &original_entries,
+        current_ingredients.iter().map(String::as_str),
+    )
+    .iter()
+    .map(CheckEntry::from)
+    .collect()
 }
