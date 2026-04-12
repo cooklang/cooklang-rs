@@ -776,6 +776,9 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Upgrade npm for OIDC trusted publishing support
+        run: npm install -g npm@latest
+
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked || true
 
