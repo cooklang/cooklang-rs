@@ -123,7 +123,7 @@ impl IngredientList {
     ///
     /// For each ingredient in the list, if it exists in the pantry with a valid quantity,
     /// subtract that quantity from the required amount. Only subtracts when units match.
-    /// Returns a new IngredientList with the remaining quantities needed.
+    /// Returns a new `IngredientList` with the remaining quantities needed.
     ///
     /// # Arguments
     ///
