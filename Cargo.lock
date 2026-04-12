@@ -282,6 +282,7 @@ version = "0.18.5"
 dependencies = [
  "anyhow",
  "cooklang",
+ "thiserror 2.0.11",
  "uniffi",
 ]
 

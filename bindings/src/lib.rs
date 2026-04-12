@@ -598,7 +598,7 @@ fn parse_fraction(s: &str) -> Option<f64> {
 #[uniffi::export]
 pub fn parse_shopping_list(
     input: String,
-) -> Result<shopping_list::ShoppingList, String> {
+) -> Result<shopping_list::ShoppingList, shopping_list::ShoppingListError> {
     shopping_list::parse_shopping_list_impl(&input)
 }
 
@@ -612,7 +612,7 @@ pub fn parse_shopping_list(
 #[uniffi::export]
 pub fn write_shopping_list(
     list: &shopping_list::ShoppingList,
-) -> Result<String, String> {
+) -> Result<String, shopping_list::ShoppingListError> {
     shopping_list::write_shopping_list_impl(list)
 }
 
@@ -664,7 +664,7 @@ pub fn shopping_checked_set(
 #[uniffi::export]
 pub fn write_shopping_check_entry(
     entry: &shopping_list::CheckEntry,
-) -> Result<String, String> {
+) -> Result<String, shopping_list::ShoppingListError> {
     shopping_list::write_check_entry_impl(entry)
 }
 

@@ -12,6 +12,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0"
 cooklang = { path = "..", default-features = false, features = ["aisle", "shopping_list"] }
+thiserror = "2"
 uniffi = "0.28.1"
 
 [lib]

@@ -5,6 +5,18 @@ use cooklang::shopping_list::{
 };
 use std::collections::HashSet;
 
+/// Errors returned by shopping list binding functions.
+///
+/// UniFFI does not support returning plain `String` as an error across the FFI
+/// boundary, so we wrap string messages in a typed error enum.
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum ShoppingListError {
+    #[error("failed to parse shopping list: {message}")]
+    Parse { message: String },
+    #[error("failed to serialize shopping list: {message}")]
+    Serialize { message: String },
+}
+
 // ---------------------------------------------------------------------------
 // UniFFI wrapper types
 // ---------------------------------------------------------------------------
@@ -126,18 +138,24 @@ impl From<&CheckEntry> for OriginalCheckEntry {
 // ---------------------------------------------------------------------------
 
 /// Parse a `.shopping-list` file into a ShoppingList.
-pub fn parse_shopping_list_impl(input: &str) -> Result<ShoppingList, String> {
+pub fn parse_shopping_list_impl(input: &str) -> Result<ShoppingList, ShoppingListError> {
     sl::parse(input)
         .map(|list| ShoppingList::from(&list))
-        .map_err(|e| e.to_string())
+        .map_err(|e| ShoppingListError::Parse {
+            message: e.to_string(),
+        })
 }
 
 /// Serialize a ShoppingList back to the `.shopping-list` format.
-pub fn write_shopping_list_impl(list: &ShoppingList) -> Result<String, String> {
+pub fn write_shopping_list_impl(list: &ShoppingList) -> Result<String, ShoppingListError> {
     let original = OriginalShoppingList::from(list);
     let mut buf = Vec::new();
-    sl::write(&original, &mut buf).map_err(|e| e.to_string())?;
-    String::from_utf8(buf).map_err(|e| e.to_string())
+    sl::write(&original, &mut buf).map_err(|e| ShoppingListError::Serialize {
+        message: e.to_string(),
+    })?;
+    String::from_utf8(buf).map_err(|e| ShoppingListError::Serialize {
+        message: e.to_string(),
+    })
 }
 
 /// Parse a `.shopping-checked` log file.
@@ -156,11 +174,15 @@ pub fn checked_set_impl(entries: &[CheckEntry]) -> HashSet<String> {
 }
 
 /// Serialize a single check entry to string.
-pub fn write_check_entry_impl(entry: &CheckEntry) -> Result<String, String> {
+pub fn write_check_entry_impl(entry: &CheckEntry) -> Result<String, ShoppingListError> {
     let original = OriginalCheckEntry::from(entry);
     let mut buf = Vec::new();
-    sl::write_check_entry(&original, &mut buf).map_err(|e| e.to_string())?;
-    String::from_utf8(buf).map_err(|e| e.to_string())
+    sl::write_check_entry(&original, &mut buf).map_err(|e| ShoppingListError::Serialize {
+        message: e.to_string(),
+    })?;
+    String::from_utf8(buf).map_err(|e| ShoppingListError::Serialize {
+        message: e.to_string(),
+    })
 }
 
 /// Compact a checked log against the ingredient names currently in the
