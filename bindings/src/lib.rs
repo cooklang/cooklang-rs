@@ -1596,7 +1596,7 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
 
     #[test]
     fn test_compact_shopping_checked() {
-        use crate::shopping_list::{CheckEntry, ShoppingList, ShoppingListItem};
+        use crate::shopping_list::CheckEntry;
 
         let entries = vec![
             CheckEntry::Checked {
@@ -1610,14 +1610,12 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
             },
         ];
 
-        let list = ShoppingList {
-            items: vec![ShoppingListItem::Ingredient {
-                name: "salt".to_string(),
-                quantity: None,
-            }],
-        };
+        // Caller has already aggregated the user-visible ingredient names
+        // (e.g. by expanding recipe references and categorizing against an
+        // aisle config). Only "salt" is currently in the list.
+        let current_ingredients = vec!["salt".to_string()];
 
-        let compacted = crate::compact_shopping_checked(&entries, &list);
+        let compacted = crate::compact_shopping_checked(&entries, &current_ingredients);
         // Only "salt" should remain — it's checked and still in the list.
         // "pepper" and "removed ingredient" are not in the list.
         assert_eq!(compacted.len(), 1);
