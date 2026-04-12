@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Cooklang Uniffi bindings"
 license = "MIT"
-keywords = ["cooklang", "unuffi"]
+keywords = ["cooklang", "uniffi"]
 repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 

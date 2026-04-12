@@ -93,7 +93,7 @@ impl RichError for ShoppingListError {
 /// Parse a [`ShoppingList`] from the shopping list format
 pub fn parse(input: &str) -> Result<ShoppingList, ShoppingListError> {
     // Strip block comments [- ... -] before line-level parsing
-    let stripped = strip_block_comments(input);
+    let stripped = strip_block_comments(input)?;
     let lines = collect_lines(&stripped);
     let items = parse_items(&lines, 0, 0, lines.len())?;
     Ok(ShoppingList { items })
@@ -136,9 +136,12 @@ fn collect_lines(input: &str) -> Vec<ParsedLine<'_>> {
     lines
 }
 
-/// Strip block comments `[- ... -]` from the input, replacing their content
-/// with spaces (to preserve offsets) or newlines (to preserve line structure).
-fn strip_block_comments(input: &str) -> String {
+/// Strip block comments `[- ... -]` from the input, preserving newlines so
+/// line numbers stay stable. Each block comment is replaced with a single
+/// space so adjacent tokens don't get glued together.
+///
+/// Returns `ShoppingListError::Parse` if a `[-` is opened but never closed.
+fn strip_block_comments(input: &str) -> Result<String, ShoppingListError> {
     let mut result = String::with_capacity(input.len());
     let mut chars = input.char_indices().peekable();
 
@@ -146,24 +149,36 @@ fn strip_block_comments(input: &str) -> String {
         if c == '[' && input[i..].starts_with("[-") {
             // Skip the opening [-
             chars.next(); // skip '-'
+            let open_offset = i;
+            let mut terminated = false;
             // Find matching -]
             loop {
                 match chars.next() {
                     Some((_, '\n')) => result.push('\n'),
                     Some((j, '-')) if input[j..].starts_with("-]") => {
                         chars.next(); // skip ']'
+                        terminated = true;
                         break;
                     }
                     Some(_) => {} // drop character
-                    None => break, // unterminated block comment
+                    None => break,
                 }
             }
+            if !terminated {
+                return Err(ShoppingListError::Parse {
+                    span: Span::new(open_offset, input.len()),
+                    message: "unterminated block comment (missing `-]`)".to_string(),
+                });
+            }
+            // Replace the block with a single space so surrounding tokens
+            // don't get glued together (e.g. "a[-x-]b" -> "a b").
+            result.push(' ');
         } else {
             result.push(c);
         }
     }
 
-    result
+    Ok(result)
 }
 
 fn parse_items(
@@ -224,12 +239,18 @@ fn parse_items(
     Ok(items)
 }
 
+/// Collapse runs of whitespace (left over from block comment stripping) into
+/// single spaces, and trim ends.
+fn normalize_whitespace(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 fn parse_recipe_line(line: &ParsedLine<'_>) -> Result<(String, Option<f64>), ShoppingListError> {
     let content = &line.content[2..];
 
     if let Some(brace_start) = content.rfind('{') {
         if content.ends_with('}') {
-            let path = content[..brace_start].trim().to_string();
+            let path = normalize_whitespace(&content[..brace_start]);
             let multiplier_str = &content[brace_start + 1..content.len() - 1];
             let multiplier: f64 =
                 multiplier_str
@@ -243,10 +264,10 @@ fn parse_recipe_line(line: &ParsedLine<'_>) -> Result<(String, Option<f64>), Sho
                     })?;
             Ok((path, Some(multiplier)))
         } else {
-            Ok((content.trim().to_string(), None))
+            Ok((normalize_whitespace(content), None))
         }
     } else {
-        Ok((content.trim().to_string(), None))
+        Ok((normalize_whitespace(content), None))
     }
 }
 
@@ -257,7 +278,7 @@ fn parse_ingredient_line(
 
     if let Some(brace_start) = content.rfind('{') {
         if content.ends_with('}') {
-            let name = content[..brace_start].trim().to_string();
+            let name = normalize_whitespace(&content[..brace_start]);
             let quantity = content[brace_start + 1..content.len() - 1].to_string();
             if name.is_empty() {
                 return Err(ShoppingListError::Parse {
@@ -267,10 +288,10 @@ fn parse_ingredient_line(
             }
             Ok((name, Some(quantity)))
         } else {
-            Ok((content.trim().to_string(), None))
+            Ok((normalize_whitespace(content), None))
         }
     } else {
-        Ok((content.trim().to_string(), None))
+        Ok((normalize_whitespace(content), None))
     }
 }
 
@@ -316,7 +337,7 @@ fn write_items(
 // ---------------------------------------------------------------------------
 
 /// An entry in the checked log
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CheckEntry {
     /// Ingredient was checked (acquired): `+ name`
     Checked(String),
@@ -325,6 +346,11 @@ pub enum CheckEntry {
 }
 
 /// Parse a `.shopping-checked` file and return the list of log entries.
+///
+/// This is an append-only log format: lines that don't match `+ <name>` or
+/// `- <name>` (including malformed entries like `+salt` with no space) are
+/// silently skipped so a corrupted suffix can't prevent the rest of the log
+/// from replaying.
 pub fn parse_checked(input: &str) -> Vec<CheckEntry> {
     let mut entries = Vec::new();
     for line in input.lines() {
@@ -348,10 +374,13 @@ pub fn parse_checked(input: &str) -> Vec<CheckEntry> {
 }
 
 /// Replay a checked log and return the set of ingredient names that are
-/// currently checked. Matching is case-insensitive per the spec.
+/// currently checked.
+///
+/// Matching is case-insensitive, so the returned set contains **lowercased
+/// names only** — compare against your shopping list with
+/// `name.to_lowercase()`.
 pub fn checked_set(entries: &[CheckEntry]) -> std::collections::HashSet<String> {
     use std::collections::HashMap;
-    // Track last state per lowercased name, keeping original casing
     let mut state: HashMap<String, bool> = HashMap::new();
     for entry in entries {
         match entry {
@@ -394,13 +423,12 @@ pub fn compact_checked(
         }
     }
     compacted.sort_by(|a, b| {
-        let a_name = match a {
-            CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n,
+        // Only `Checked` entries are ever pushed above, but match both arms
+        // so this stays correct if the collection logic ever changes.
+        let name_of = |e: &CheckEntry| match e {
+            CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n.clone(),
         };
-        let b_name = match b {
-            CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n,
-        };
-        a_name.cmp(b_name)
+        name_of(a).cmp(&name_of(b))
     });
     compacted
 }
@@ -525,11 +553,29 @@ mod tests {
 
     #[test]
     fn inline_block_comment() {
+        // The stripped block leaves surrounding whitespace; we normalize it
+        // so consumers see a clean name.
         let list = parse("salt [- seasoning -] pepper").unwrap();
-        // After stripping block comment, we get "salt  pepper"
         assert_eq!(list.items.len(), 1);
         match &list.items[0] {
-            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "salt  pepper"),
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "salt pepper"),
+            _ => panic!("expected ingredient"),
+        }
+    }
+
+    #[test]
+    fn unterminated_block_comment_errors() {
+        let err = parse("salt [- seasoning\npepper").unwrap_err();
+        assert!(matches!(err, ShoppingListError::Parse { .. }));
+    }
+
+    #[test]
+    fn adjacent_block_comment_does_not_glue_tokens() {
+        // Without the space replacement, "foo[-x-]bar" would become "foobar".
+        let list = parse("foo[- note -]bar").unwrap();
+        assert_eq!(list.items.len(), 1);
+        match &list.items[0] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "foo bar"),
             _ => panic!("expected ingredient"),
         }
     }

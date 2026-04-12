@@ -645,9 +645,13 @@ pub fn parse_shopping_checked(input: String) -> Vec<shopping_list::CheckEntry> {
 pub fn shopping_checked_set(
     entries: &[shopping_list::CheckEntry],
 ) -> Vec<String> {
-    shopping_list::checked_set_impl(entries)
+    // UniFFI doesn't expose HashSet, so we return a Vec. Sort for
+    // deterministic ordering across the FFI boundary.
+    let mut names: Vec<String> = shopping_list::checked_set_impl(entries)
         .into_iter()
-        .collect()
+        .collect();
+    names.sort();
+    names
 }
 
 /// Serializes a single check entry to string format
