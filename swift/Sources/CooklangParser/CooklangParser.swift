@@ -1489,6 +1489,62 @@ public func FfiConverterTypeSection_lower(_ value: Section) -> RustBuffer {
 }
 
 /**
+ * A shopping list containing recipe references and free-hand ingredients
+ */
+public struct ShoppingList {
+    public let items: [ShoppingListItem]
+
+    /// Default memberwise initializers are never public by default, so we
+    /// declare one manually.
+    public init(items: [ShoppingListItem]) {
+        self.items = items
+    }
+}
+
+extension ShoppingList: Equatable, Hashable {
+    public static func == (lhs: ShoppingList, rhs: ShoppingList) -> Bool {
+        if lhs.items != rhs.items {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(items)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeShoppingList: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShoppingList {
+        return
+            try ShoppingList(
+                items: FfiConverterSequenceTypeShoppingListItem.read(from: &buf)
+            )
+    }
+
+    public static func write(_ value: ShoppingList, into buf: inout [UInt8]) {
+        FfiConverterSequenceTypeShoppingListItem.write(value.items, into: &buf)
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShoppingList_lift(_ buf: RustBuffer) throws -> ShoppingList {
+    return try FfiConverterTypeShoppingList.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShoppingList_lower(_ value: ShoppingList) -> RustBuffer {
+    return FfiConverterTypeShoppingList.lower(value)
+}
+
+/**
  * Represents a single cooking instruction step
  */
 public struct Step {
@@ -1688,6 +1744,69 @@ public func FfiConverterTypeBlock_lower(_ value: Block) -> RustBuffer {
 }
 
 extension Block: Equatable, Hashable {}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * An entry in the checked log
+ */
+
+public enum CheckEntry {
+    /**
+     * Ingredient was checked (acquired)
+     */
+    case checked(name: String)
+    /**
+     * Ingredient was unchecked
+     */
+    case unchecked(name: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeCheckEntry: FfiConverterRustBuffer {
+    typealias SwiftType = CheckEntry
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CheckEntry {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .checked(name: FfiConverterString.read(from: &buf))
+
+        case 2: return try .unchecked(name: FfiConverterString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: CheckEntry, into buf: inout [UInt8]) {
+        switch value {
+        case let .checked(name):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(name, into: &buf)
+
+        case let .unchecked(name):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(name, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCheckEntry_lift(_ buf: RustBuffer) throws -> CheckEntry {
+    return try FfiConverterTypeCheckEntry.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeCheckEntry_lower(_ value: CheckEntry) -> RustBuffer {
+    return FfiConverterTypeCheckEntry.lower(value)
+}
+
+extension CheckEntry: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
@@ -2013,6 +2132,125 @@ public func FfiConverterTypeServings_lower(_ value: Servings) -> RustBuffer {
 
 extension Servings: Equatable, Hashable {}
 
+/**
+ * Errors returned by shopping list binding functions.
+ *
+ * UniFFI does not support returning plain `String` as an error across the FFI
+ * boundary, so we wrap string messages in a typed error enum.
+ */
+public enum ShoppingListError {
+    case Parse(message: String)
+    case Serialize(message: String)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeShoppingListError: FfiConverterRustBuffer {
+    typealias SwiftType = ShoppingListError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShoppingListError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .Parse(
+                message: FfiConverterString.read(from: &buf)
+            )
+
+        case 2: return try .Serialize(
+                message: FfiConverterString.read(from: &buf)
+            )
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ShoppingListError, into buf: inout [UInt8]) {
+        switch value {
+        case let .Parse(message):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(message, into: &buf)
+
+        case let .Serialize(message):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(message, into: &buf)
+        }
+    }
+}
+
+extension ShoppingListError: Equatable, Hashable {}
+
+extension ShoppingListError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/* 
+ * An item in the shopping list
+ */
+
+public enum ShoppingListItem {
+    /**
+     * A recipe reference with a path, optional multiplier, and children
+     */
+    case recipe(path: String, multiplier: Double?, children: [ShoppingListItem])
+    /**
+     * A free-hand ingredient with a name and optional quantity
+     */
+    case ingredient(name: String, quantity: String?)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeShoppingListItem: FfiConverterRustBuffer {
+    typealias SwiftType = ShoppingListItem
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShoppingListItem {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        case 1: return try .recipe(path: FfiConverterString.read(from: &buf), multiplier: FfiConverterOptionDouble.read(from: &buf), children: FfiConverterSequenceTypeShoppingListItem.read(from: &buf))
+
+        case 2: return try .ingredient(name: FfiConverterString.read(from: &buf), quantity: FfiConverterOptionString.read(from: &buf))
+
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ShoppingListItem, into buf: inout [UInt8]) {
+        switch value {
+        case let .recipe(path, multiplier, children):
+            writeInt(&buf, Int32(1))
+            FfiConverterString.write(path, into: &buf)
+            FfiConverterOptionDouble.write(multiplier, into: &buf)
+            FfiConverterSequenceTypeShoppingListItem.write(children, into: &buf)
+
+        case let .ingredient(name, quantity):
+            writeInt(&buf, Int32(2))
+            FfiConverterString.write(name, into: &buf)
+            FfiConverterOptionString.write(quantity, into: &buf)
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShoppingListItem_lift(_ buf: RustBuffer) throws -> ShoppingListItem {
+    return try FfiConverterTypeShoppingListItem.lift(buf)
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+public func FfiConverterTypeShoppingListItem_lower(_ value: ShoppingListItem) -> RustBuffer {
+    return FfiConverterTypeShoppingListItem.lower(value)
+}
+
+extension ShoppingListItem: Equatable, Hashable {}
+
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /* 
@@ -2236,6 +2474,30 @@ private struct FfiConverterOptionUInt32: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterUInt32.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterOptionDouble: FfiConverterRustBuffer {
+    typealias SwiftType = Double?
+
+    static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterDouble.write(value, into: &buf)
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterDouble.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -2637,6 +2899,31 @@ private struct FfiConverterSequenceTypeBlock: FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterSequenceTypeCheckEntry: FfiConverterRustBuffer {
+    typealias SwiftType = [CheckEntry]
+
+    static func write(_ value: [CheckEntry], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeCheckEntry.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [CheckEntry] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [CheckEntry]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeCheckEntry.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterSequenceTypeItem: FfiConverterRustBuffer {
     typealias SwiftType = [Item]
 
@@ -2654,6 +2941,31 @@ private struct FfiConverterSequenceTypeItem: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             try seq.append(FfiConverterTypeItem.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+private struct FfiConverterSequenceTypeShoppingListItem: FfiConverterRustBuffer {
+    typealias SwiftType = [ShoppingListItem]
+
+    static func write(_ value: [ShoppingListItem], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeShoppingListItem.write(item, into: &buf)
+        }
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ShoppingListItem] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ShoppingListItem]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            try seq.append(FfiConverterTypeShoppingListItem.read(from: &buf))
         }
         return seq
     }
@@ -2743,6 +3055,32 @@ public func combineIngredientsSelected(ingredients: [Ingredient], indices: [UInt
         uniffi_cooklang_bindings_fn_func_combine_ingredients_selected(
             FfiConverterSequenceTypeIngredient.lower(ingredients),
             FfiConverterSequenceUInt32.lower(indices), $0
+        )
+    })
+}
+
+/**
+ * Compacts a checked log against the set of currently-visible ingredient
+ * names.
+ *
+ * Removes entries for ingredients that are no longer in the shopping list,
+ * and collapses the log so each ingredient appears at most once.
+ *
+ * # Arguments
+ * * `entries` - The current check log entries
+ * * `current_ingredients` - The fully-aggregated ingredient names as shown
+ * to the user. A raw on-disk `ShoppingList` only stores recipe
+ * references, so callers must expand recipes first and pass the
+ * resulting ingredient names here.
+ *
+ * # Returns
+ * A compacted list of check entries
+ */
+public func compactShoppingChecked(entries: [CheckEntry], currentIngredients: [String]) -> [CheckEntry] {
+    return try! FfiConverterSequenceTypeCheckEntry.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_compact_shopping_checked(
+            FfiConverterSequenceTypeCheckEntry.lower(entries),
+            FfiConverterSequenceString.lower(currentIngredients), $0
         )
     })
 }
@@ -3073,6 +3411,46 @@ public func parseRecipe(input: String, scalingFactor: Double) -> CooklangRecipe 
 }
 
 /**
+ * Parses a `.shopping-checked` log file into a list of check entries
+ *
+ * The format is an append-only log with `+ name` (checked) and `- name`
+ * (unchecked) entries.
+ *
+ * # Arguments
+ * * `input` - The raw checked log text
+ *
+ * # Returns
+ * A list of check/uncheck entries in order
+ */
+public func parseShoppingChecked(input: String) -> [CheckEntry] {
+    return try! FfiConverterSequenceTypeCheckEntry.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_parse_shopping_checked(
+            FfiConverterString.lower(input), $0
+        )
+    })
+}
+
+/**
+ * Parses a `.shopping-list` file into a ShoppingList structure
+ *
+ * The format supports recipe references (lines starting with `./`) and
+ * free-hand ingredients, with indentation-based nesting for sub-recipes.
+ *
+ * # Arguments
+ * * `input` - The raw shopping list text
+ *
+ * # Returns
+ * A parsed ShoppingList, or an error string if parsing fails
+ */
+public func parseShoppingList(input: String) throws -> ShoppingList {
+    return try FfiConverterTypeShoppingList.lift(rustCallWithError(FfiConverterTypeShoppingListError.lift) {
+        uniffi_cooklang_bindings_fn_func_parse_shopping_list(
+            FfiConverterString.lower(input), $0
+        )
+    })
+}
+
+/**
  * Parses a string into a Value
  *
  * Supports fractions (e.g., "1/2" -> 0.5), mixed numbers (e.g., "1 1/2" -> 1.5),
@@ -3093,6 +3471,26 @@ public func parseValue(s: String) -> Value {
 }
 
 /**
+ * Replays a checked log and returns the set of currently checked ingredient
+ * names (lowercased)
+ *
+ * Later entries override earlier ones for the same ingredient.
+ *
+ * # Arguments
+ * * `entries` - The check log entries to replay
+ *
+ * # Returns
+ * Set of ingredient names that are currently checked
+ */
+public func shoppingCheckedSet(entries: [CheckEntry]) -> [String] {
+    return try! FfiConverterSequenceString.lift(try! rustCall {
+        uniffi_cooklang_bindings_fn_func_shopping_checked_set(
+            FfiConverterSequenceTypeCheckEntry.lower(entries), $0
+        )
+    })
+}
+
+/**
  * Replaces ingredient names with their common names from aisle configuration
  *
  * # Arguments
@@ -3107,6 +3505,40 @@ public func useCommonNames(list: [String: [GroupedQuantityKey: Value]], aisle: A
         uniffi_cooklang_bindings_fn_func_use_common_names(
             FfiConverterDictionaryStringDictionaryTypeGroupedQuantityKeyTypeValue.lower(list),
             FfiConverterTypeAisleConf.lower(aisle), $0
+        )
+    })
+}
+
+/**
+ * Serializes a single check entry to string format
+ *
+ * # Arguments
+ * * `entry` - The check entry to serialize
+ *
+ * # Returns
+ * The formatted string (e.g., `"+ salt\n"` or `"- pepper\n"`)
+ */
+public func writeShoppingCheckEntry(entry: CheckEntry) throws -> String {
+    return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeShoppingListError.lift) {
+        uniffi_cooklang_bindings_fn_func_write_shopping_check_entry(
+            FfiConverterTypeCheckEntry.lower(entry), $0
+        )
+    })
+}
+
+/**
+ * Serializes a ShoppingList back to the `.shopping-list` text format
+ *
+ * # Arguments
+ * * `list` - The shopping list to serialize
+ *
+ * # Returns
+ * The formatted text, or an error string if serialization fails
+ */
+public func writeShoppingList(list: ShoppingList) throws -> String {
+    return try FfiConverterString.lift(rustCallWithError(FfiConverterTypeShoppingListError.lift) {
+        uniffi_cooklang_bindings_fn_func_write_shopping_list(
+            FfiConverterTypeShoppingList.lower(list), $0
         )
     })
 }
@@ -3131,6 +3563,9 @@ private var initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_func_combine_ingredients_selected() != 40919 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_compact_shopping_checked() != 50927 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_func_deref_component() != 34036 {
@@ -3187,10 +3622,25 @@ private var initializationResult: InitializationResult = {
     if uniffi_cooklang_bindings_checksum_func_parse_recipe() != 26150 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_cooklang_bindings_checksum_func_parse_shopping_checked() != 32077 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_parse_shopping_list() != 54095 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_cooklang_bindings_checksum_func_parse_value() != 41886 {
         return InitializationResult.apiChecksumMismatch
     }
+    if uniffi_cooklang_bindings_checksum_func_shopping_checked_set() != 24625 {
+        return InitializationResult.apiChecksumMismatch
+    }
     if uniffi_cooklang_bindings_checksum_func_use_common_names() != 42613 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_write_shopping_check_entry() != 52989 {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if uniffi_cooklang_bindings_checksum_func_write_shopping_list() != 59857 {
         return InitializationResult.apiChecksumMismatch
     }
     if uniffi_cooklang_bindings_checksum_method_aisleconf_categories() != 45384 {
