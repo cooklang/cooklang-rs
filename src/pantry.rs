@@ -42,12 +42,12 @@ use crate::{
 /// format.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PantryConf {
-    /// Map of sections to their items (IndexMap to preserve file order)
+    /// Map of sections to their items (`IndexMap` to preserve file order)
     #[serde(flatten)]
     pub sections: IndexMap<String, Vec<PantryItem>>,
 
     /// Index for fast ingredient lookups (lowercase name -> (section, index))
-    /// Using BTreeMap for better cache locality and predictable iteration
+    /// Using `BTreeMap` for better cache locality and predictable iteration
     #[serde(skip)]
     ingredient_index: BTreeMap<String, Vec<(String, usize)>>,
 }
@@ -187,7 +187,7 @@ impl PantryConf {
                 let lowercase_name = item.name().to_lowercase();
                 self.ingredient_index
                     .entry(lowercase_name)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push((section_name.clone(), idx));
             }
         }
@@ -508,6 +508,22 @@ fn parse_core(
     // Add top-level items to "general" section if any exist
     if !general_items.is_empty() {
         sections.insert("general".to_string(), general_items);
+    }
+
+    // Normalize WithAttributes-with-no-attributes back to Simple, so
+    // `write` → `parse` round-trips preserve the item variant.
+    for items in sections.values_mut() {
+        for item in items.iter_mut() {
+            if let PantryItem::WithAttributes(attrs) = item {
+                if attrs.bought.is_none()
+                    && attrs.expire.is_none()
+                    && attrs.quantity.is_none()
+                    && attrs.low.is_none()
+                {
+                    *item = PantryItem::Simple(attrs.name.clone());
+                }
+            }
+        }
     }
 
     // Build the index for fast lookups

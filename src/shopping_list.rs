@@ -92,7 +92,9 @@ impl RichError for ShoppingListError {
 
 /// Parse a [`ShoppingList`] from the shopping list format
 pub fn parse(input: &str) -> Result<ShoppingList, ShoppingListError> {
-    let lines = collect_lines(input);
+    // Strip block comments [- ... -] before line-level parsing
+    let stripped = strip_block_comments(input)?;
+    let lines = collect_lines(&stripped);
     let items = parse_items(&lines, 0, 0, lines.len())?;
     Ok(ShoppingList { items })
 }
@@ -111,7 +113,8 @@ fn collect_lines(input: &str) -> Vec<ParsedLine<'_>> {
         let line_len = line.len();
         let line = line.trim_end_matches('\r');
 
-        let content = match line.split_once("//") {
+        // Strip inline/line comments starting with --
+        let content = match line.split_once("--") {
             Some((before, _)) => before,
             None => line,
         };
@@ -131,6 +134,51 @@ fn collect_lines(input: &str) -> Vec<ParsedLine<'_>> {
     }
 
     lines
+}
+
+/// Strip block comments `[- ... -]` from the input, preserving newlines so
+/// line numbers stay stable. Each block comment is replaced with a single
+/// space so adjacent tokens don't get glued together.
+///
+/// Returns `ShoppingListError::Parse` if a `[-` is opened but never closed.
+fn strip_block_comments(input: &str) -> Result<String, ShoppingListError> {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.char_indices().peekable();
+
+    while let Some((i, c)) = chars.next() {
+        if c == '[' && input[i..].starts_with("[-") {
+            // Skip the opening [-
+            chars.next(); // skip '-'
+            let open_offset = i;
+            let mut terminated = false;
+            // Find matching -]
+            loop {
+                match chars.next() {
+                    Some((_, '\n')) => result.push('\n'),
+                    Some((j, '-')) if input[j..].starts_with("-]") => {
+                        chars.next(); // skip ']'
+                        terminated = true;
+                        break;
+                    }
+                    Some(_) => {} // drop character
+                    None => break,
+                }
+            }
+            if !terminated {
+                return Err(ShoppingListError::Parse {
+                    span: Span::new(open_offset, input.len()),
+                    message: "unterminated block comment (missing `-]`)".to_string(),
+                });
+            }
+            // Replace the block with a single space so surrounding tokens
+            // don't get glued together (e.g. "a[-x-]b" -> "a b").
+            result.push(' ');
+        } else {
+            result.push(c);
+        }
+    }
+
+    Ok(result)
 }
 
 fn parse_items(
@@ -191,12 +239,18 @@ fn parse_items(
     Ok(items)
 }
 
+/// Collapse runs of whitespace (left over from block comment stripping) into
+/// single spaces, and trim ends.
+fn normalize_whitespace(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 fn parse_recipe_line(line: &ParsedLine<'_>) -> Result<(String, Option<f64>), ShoppingListError> {
     let content = &line.content[2..];
 
     if let Some(brace_start) = content.rfind('{') {
         if content.ends_with('}') {
-            let path = content[..brace_start].trim().to_string();
+            let path = normalize_whitespace(&content[..brace_start]);
             let multiplier_str = &content[brace_start + 1..content.len() - 1];
             let multiplier: f64 =
                 multiplier_str
@@ -210,10 +264,10 @@ fn parse_recipe_line(line: &ParsedLine<'_>) -> Result<(String, Option<f64>), Sho
                     })?;
             Ok((path, Some(multiplier)))
         } else {
-            Ok((content.trim().to_string(), None))
+            Ok((normalize_whitespace(content), None))
         }
     } else {
-        Ok((content.trim().to_string(), None))
+        Ok((normalize_whitespace(content), None))
     }
 }
 
@@ -224,7 +278,7 @@ fn parse_ingredient_line(
 
     if let Some(brace_start) = content.rfind('{') {
         if content.ends_with('}') {
-            let name = content[..brace_start].trim().to_string();
+            let name = normalize_whitespace(&content[..brace_start]);
             let quantity = content[brace_start + 1..content.len() - 1].to_string();
             if name.is_empty() {
                 return Err(ShoppingListError::Parse {
@@ -234,10 +288,10 @@ fn parse_ingredient_line(
             }
             Ok((name, Some(quantity)))
         } else {
-            Ok((content.trim().to_string(), None))
+            Ok((normalize_whitespace(content), None))
         }
     } else {
-        Ok((content.trim().to_string(), None))
+        Ok((normalize_whitespace(content), None))
     }
 }
 
@@ -276,6 +330,142 @@ fn write_items(
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Checked file (.shopping-checked) — append-only log of checked/unchecked items
+// ---------------------------------------------------------------------------
+
+/// An entry in the checked log
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CheckEntry {
+    /// Ingredient was checked (acquired): `+ name`
+    Checked(String),
+    /// Ingredient was unchecked: `- name`
+    Unchecked(String),
+}
+
+/// Parse a `.shopping-checked` file and return the list of log entries.
+///
+/// This is an append-only log format: lines that don't match `+ <name>` or
+/// `- <name>` (including malformed entries like `+salt` with no space) are
+/// silently skipped so a corrupted suffix can't prevent the rest of the log
+/// from replaying.
+pub fn parse_checked(input: &str) -> Vec<CheckEntry> {
+    let mut entries = Vec::new();
+    for line in input.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if let Some(name) = line.strip_prefix("+ ") {
+            let name = name.trim();
+            if !name.is_empty() {
+                entries.push(CheckEntry::Checked(name.to_string()));
+            }
+        } else if let Some(name) = line.strip_prefix("- ") {
+            let name = name.trim();
+            if !name.is_empty() {
+                entries.push(CheckEntry::Unchecked(name.to_string()));
+            }
+        }
+    }
+    entries
+}
+
+/// Replay a checked log and return the set of ingredient names that are
+/// currently checked.
+///
+/// Matching is case-insensitive, so the returned set contains **lowercased
+/// names only** — compare against your shopping list with
+/// `name.to_lowercase()`.
+pub fn checked_set(entries: &[CheckEntry]) -> std::collections::HashSet<String> {
+    use std::collections::HashMap;
+    let mut state: HashMap<String, bool> = HashMap::new();
+    for entry in entries {
+        match entry {
+            CheckEntry::Checked(name) => {
+                state.insert(name.to_lowercase(), true);
+            }
+            CheckEntry::Unchecked(name) => {
+                state.insert(name.to_lowercase(), false);
+            }
+        }
+    }
+    state
+        .into_iter()
+        .filter_map(|(name, checked)| if checked { Some(name) } else { None })
+        .collect()
+}
+
+/// Write a single check entry to the log.
+pub fn write_check_entry(entry: &CheckEntry, mut w: impl std::io::Write) -> std::io::Result<()> {
+    match entry {
+        CheckEntry::Checked(name) => writeln!(w, "+ {name}"),
+        CheckEntry::Unchecked(name) => writeln!(w, "- {name}"),
+    }
+}
+
+/// Compact a checked log against the set of ingredient names currently in
+/// the shopping list: keep only `+ name` entries for ingredients that are
+/// still present.
+///
+/// `current_ingredients` must be the actual ingredient names as they would
+/// be rendered to the user — after aggregating referenced recipes, applying
+/// any pantry/aisle filtering, etc. A raw on-disk `ShoppingList` usually
+/// contains only recipe *references* (not `Ingredient` items), so callers
+/// that persist lists that way must expand them first. Passing an iterator
+/// rather than a `ShoppingList` makes this contract explicit.
+///
+/// Matching is case-insensitive; returned `+ name` entries preserve the
+/// lowercased form stored in `checked_set`.
+pub fn compact_checked<'a, I>(entries: &[CheckEntry], current_ingredients: I) -> Vec<CheckEntry>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    let current = checked_set(entries);
+    let list_ingredients: std::collections::HashSet<String> = current_ingredients
+        .into_iter()
+        .map(|n| n.to_lowercase())
+        .collect();
+
+    let mut compacted: Vec<CheckEntry> = current
+        .into_iter()
+        .filter(|name| list_ingredients.contains(name))
+        .map(CheckEntry::Checked)
+        .collect();
+    compacted.sort_by(|a, b| {
+        // Only `Checked` entries are ever pushed above, but match both arms
+        // so this stays correct if the collection logic ever changes.
+        let name_of = |e: &CheckEntry| match e {
+            CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n.clone(),
+        };
+        name_of(a).cmp(&name_of(b))
+    });
+    compacted
+}
+
+/// Collect all ingredient names from a shopping list (recursively).
+///
+/// This only finds `Ingredient` items. Lists that only store recipe
+/// *references* will produce an empty result — in that case, caller must
+/// expand the references via their own recipe parser before feeding names
+/// into [`compact_checked`].
+pub fn collect_ingredient_names(list: &ShoppingList) -> Vec<String> {
+    let mut names = Vec::new();
+    collect_ingredient_names_from_items(&list.items, &mut names);
+    names
+}
+
+fn collect_ingredient_names_from_items(items: &[ShoppingListItem], names: &mut Vec<String>) {
+    for item in items {
+        match item {
+            ShoppingListItem::Ingredient(i) => names.push(i.name.clone()),
+            ShoppingListItem::Recipe(r) => {
+                collect_ingredient_names_from_items(&r.children, names);
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -342,7 +532,7 @@ mod tests {
 
     #[test]
     fn comment_lines() {
-        let input = "// this is a comment\nsalt\n// another comment";
+        let input = "-- this is a comment\nsalt\n-- another comment";
         let list = parse(input).unwrap();
         assert_eq!(list.items.len(), 1);
         match &list.items[0] {
@@ -353,12 +543,56 @@ mod tests {
 
     #[test]
     fn inline_comment() {
-        let list = parse("salt // for seasoning").unwrap();
+        let list = parse("salt -- for seasoning").unwrap();
         match &list.items[0] {
             ShoppingListItem::Ingredient(i) => {
                 assert_eq!(i.name, "salt");
                 assert_eq!(i.quantity, None);
             }
+            _ => panic!("expected ingredient"),
+        }
+    }
+
+    #[test]
+    fn block_comment() {
+        let input = "salt\n[- this is a\nblock comment -]\npepper";
+        let list = parse(input).unwrap();
+        assert_eq!(list.items.len(), 2);
+        match &list.items[0] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "salt"),
+            _ => panic!("expected ingredient"),
+        }
+        match &list.items[1] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "pepper"),
+            _ => panic!("expected ingredient"),
+        }
+    }
+
+    #[test]
+    fn inline_block_comment() {
+        // The stripped block leaves surrounding whitespace; we normalize it
+        // so consumers see a clean name.
+        let list = parse("salt [- seasoning -] pepper").unwrap();
+        assert_eq!(list.items.len(), 1);
+        match &list.items[0] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "salt pepper"),
+            _ => panic!("expected ingredient"),
+        }
+    }
+
+    #[test]
+    fn unterminated_block_comment_errors() {
+        let err = parse("salt [- seasoning\npepper").unwrap_err();
+        assert!(matches!(err, ShoppingListError::Parse { .. }));
+    }
+
+    #[test]
+    fn adjacent_block_comment_does_not_glue_tokens() {
+        // Without the space replacement, "foo[-x-]bar" would become "foobar".
+        let list = parse("foo[- note -]bar").unwrap();
+        assert_eq!(list.items.len(), 1);
+        match &list.items[0] {
+            ShoppingListItem::Ingredient(i) => assert_eq!(i.name, "foo bar"),
             _ => panic!("expected ingredient"),
         }
     }
@@ -540,5 +774,102 @@ salt
         let input = "./Recipe{1}\n   ./Bad{2}"; // 3 spaces instead of 2
         let err = parse(input).unwrap_err();
         assert!(matches!(err, ShoppingListError::InvalidIndentation { .. }));
+    }
+
+    // -- Checked file tests --
+
+    #[test]
+    fn parse_checked_empty() {
+        let entries = parse_checked("");
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn parse_checked_basic() {
+        let input = "+ salt\n+ avocados\n+ olive oil\n- avocados\n+ avocados\n";
+        let entries = parse_checked(input);
+        assert_eq!(entries.len(), 5);
+        assert_eq!(entries[0], CheckEntry::Checked("salt".into()));
+        assert_eq!(entries[3], CheckEntry::Unchecked("avocados".into()));
+    }
+
+    #[test]
+    fn checked_set_last_wins() {
+        let input = "+ salt\n+ avocados\n+ olive oil\n- avocados\n+ avocados\n";
+        let entries = parse_checked(input);
+        let set = checked_set(&entries);
+        assert!(set.contains("salt"));
+        assert!(set.contains("avocados"));
+        assert!(set.contains("olive oil"));
+        assert_eq!(set.len(), 3);
+    }
+
+    #[test]
+    fn checked_set_uncheck_wins() {
+        let input = "+ salt\n- salt\n";
+        let entries = parse_checked(input);
+        let set = checked_set(&entries);
+        assert!(!set.contains("salt"));
+    }
+
+    #[test]
+    fn checked_set_case_insensitive() {
+        let input = "+ Salt\n";
+        let entries = parse_checked(input);
+        let set = checked_set(&entries);
+        assert!(set.contains("salt"));
+    }
+
+    #[test]
+    fn compact_removes_stale() {
+        let list = parse("salt\npepper\n").unwrap();
+        let names = collect_ingredient_names(&list);
+        let entries = parse_checked("+ salt\n+ garlic\n");
+        let compacted = compact_checked(&entries, names.iter().map(String::as_str));
+        // garlic is not in list, should be dropped
+        assert_eq!(compacted.len(), 1);
+        assert!(matches!(&compacted[0], CheckEntry::Checked(n) if n == "salt"));
+    }
+
+    #[test]
+    fn compact_accepts_arbitrary_name_iter() {
+        // Typical use: caller has already aggregated ingredient names from
+        // recipe references and passes them in directly.
+        let entries = parse_checked("+ salt\n+ pepper\n+ garlic\n");
+        let names = ["salt", "pepper"];
+        let compacted = compact_checked(&entries, names.iter().copied());
+        assert_eq!(compacted.len(), 2);
+        let kept: Vec<&str> = compacted
+            .iter()
+            .map(|e| match e {
+                CheckEntry::Checked(n) | CheckEntry::Unchecked(n) => n.as_str(),
+            })
+            .collect();
+        assert!(kept.contains(&"salt"));
+        assert!(kept.contains(&"pepper"));
+        assert!(!kept.contains(&"garlic"));
+    }
+
+    #[test]
+    fn compact_is_case_insensitive_against_names() {
+        let entries = parse_checked("+ Salt\n");
+        let compacted = compact_checked(&entries, ["SALT"].iter().copied());
+        assert_eq!(compacted.len(), 1);
+    }
+
+    #[test]
+    fn write_check_entry_roundtrip() {
+        let entries = vec![
+            CheckEntry::Checked("salt".into()),
+            CheckEntry::Unchecked("pepper".into()),
+        ];
+        let mut buf = Vec::new();
+        for e in &entries {
+            write_check_entry(e, &mut buf).unwrap();
+        }
+        let output = String::from_utf8(buf).unwrap();
+        assert_eq!(output, "+ salt\n- pepper\n");
+        let parsed = parse_checked(&output);
+        assert_eq!(parsed, entries);
     }
 }

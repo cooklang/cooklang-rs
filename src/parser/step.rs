@@ -568,7 +568,7 @@ mod tests {
     use crate::{error::SourceReport, parser::token_stream::TokenStream};
     use test_case::test_case;
 
-    fn t(input: &str) -> (Vec<Event>, SourceReport) {
+    fn t(input: &str) -> (Vec<Event<'_>>, SourceReport) {
         let mut tokens = TokenStream::new(input).collect::<Vec<_>>();
         // trim trailing newlines, block splitting should make sure this never
         // reaches the step function

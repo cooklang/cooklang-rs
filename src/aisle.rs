@@ -522,9 +522,9 @@ chili flakes
         let a = parse(input).unwrap();
         let p = a.ingredients_info();
         // All case variants should find the same ingredient
-        assert!(p.get("chili flakes").is_some());
-        assert!(p.get(&"Chili flakes".to_lowercase()).is_some());
-        assert!(p.get(&"CHILI FLAKES".to_lowercase()).is_some());
+        assert!(p.contains_key("chili flakes"));
+        assert!(p.contains_key(&"Chili flakes".to_lowercase()));
+        assert!(p.contains_key(&"CHILI FLAKES".to_lowercase()));
         assert_eq!(
             p.get("chili flakes").unwrap().common_name,
             p.get(&"Chili Flakes".to_lowercase()).unwrap().common_name
