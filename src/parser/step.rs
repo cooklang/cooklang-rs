@@ -13,6 +13,8 @@ use super::{
 pub(crate) fn parse_step(bp: &mut BlockParser<'_, '_>) {
     bp.event(Event::Start(BlockKind::Step));
 
+    let mut after_newline = true; // Track if we're after a newline
+
     while !bp.rest().is_empty() {
         let component = match bp.peek() {
             T![@] => bp.with_recover(ingredient),
@@ -21,16 +23,67 @@ pub(crate) fn parse_step(bp: &mut BlockParser<'_, '_>) {
             _ => None,
         };
         if let Some(ev) = component {
-            bp.event(ev)
+            bp.event(ev);
+            after_newline = false;
         } else {
-            let start = bp.current_offset();
-            let tokens = bp.capture_slice(|bp| {
-                bp.bump_any(); // consume the first token, this avoids entering an infinite loop
-                bp.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
-            });
-            let text = bp.text(start, tokens);
-            if !text.fragments().is_empty() {
+            // Check if we're after a newline with "- " pattern
+            let is_bullet = after_newline && bp.peek() == T![-] && {
+                // Check if next token is whitespace
+                let next_tokens = bp.rest();
+                next_tokens.len() > 1 && matches!(next_tokens[1].kind, T![ws])
+            };
+
+            if is_bullet {
+                // Emit the dash as an isolated text item
+                let start = bp.current_offset();
+                bp.bump_any(); // consume the dash
+                let text = bp.text(start, &bp.tokens()[bp.current - 1..bp.current]);
                 bp.event(Event::Text(text));
+
+                // Skip the whitespace after the dash
+                if bp.at(T![ws]) {
+                    bp.bump_any();
+                }
+                after_newline = false;
+            } else {
+                // Process text until next component or newline+dash pattern
+                let start = bp.current_offset();
+                let mut collected_tokens = Vec::new();
+                let mut just_saw_newline = false;
+
+                loop {
+                    if bp.rest().is_empty() {
+                        break;
+                    }
+
+                    // Check for components
+                    if matches!(bp.peek(), T![@] | T![#] | T![~]) {
+                        break;
+                    }
+
+                    // Check for newline followed by "- " pattern
+                    if just_saw_newline && bp.peek() == T![-] {
+                        let next_tokens = bp.rest();
+                        if next_tokens.len() > 1 && matches!(next_tokens[1].kind, T![ws]) {
+                            // Stop here, the dash will be handled in next iteration
+                            after_newline = true;
+                            break;
+                        }
+                    }
+
+                    let token = bp.tokens()[bp.current];
+                    collected_tokens.push(token);
+                    bp.bump_any();
+
+                    just_saw_newline = token.kind == T![newline];
+                }
+
+                if !collected_tokens.is_empty() {
+                    let text = bp.text(start, &collected_tokens);
+                    if !text.fragments().is_empty() {
+                        bp.event(Event::Text(text));
+                    }
+                }
             }
         }
     }
