@@ -20,7 +20,7 @@ WRAPPER_PATH="../swift/Sources/CooklangParser"
 AARCH64_APPLE_IOS_PATH="../target/aarch64-apple-ios/release"
 AARCH64_APPLE_IOS_SIM_PATH="../target/aarch64-apple-ios-sim/release"
 
-targets=("aarch64-apple-ios" "aarch64-apple-ios-sim")
+targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "aarch64-apple-darwin" "x86_64-apple-darwin")
 
 # Build for all targets
 for target in "${targets[@]}"; do
@@ -94,12 +94,32 @@ cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/ios/
 cp $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
 cp $AARCH64_APPLE_IOS_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
 
+# --- macOS (added for Quick Look / desktop consumers) ---
+# Note: the aarch64/x86_64-apple-darwin targets are built in the main
+# `targets` loop above (before bindgen, which needs the host-arch library).
+AARCH64_APPLE_DARWIN_PATH="../target/aarch64-apple-darwin/release"
+X86_64_APPLE_DARWIN_PATH="../target/x86_64-apple-darwin/release"
+
+mkdir -p $OUT_PATH/frameworks/macos
+cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/macos/
+# Fat macOS binary: arm64 + x86_64
+lipo -create \
+  $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
+  $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
+  -output $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+# The Info.plist is copied from the iOS template; its iOS-only MinimumOSVersion
+# key is meaningless on a macOS slice (macOS uses LSMinimumSystemVersion). Drop
+# it so the published macOS framework carries no bogus iOS metadata.
+/usr/libexec/PlistBuddy -c "Delete :MinimumOSVersion" \
+  $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/Info.plist 2>/dev/null || true
+
 # Create xcframework
 echo "Creating xcframework..."
 rm -rf $OUT_PATH/$XC_FRAMEWORK_NAME
 xcodebuild -create-xcframework \
     -framework $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME \
     -framework $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME \
+    -framework $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME \
     -output $OUT_PATH/$XC_FRAMEWORK_NAME
 
 # Copy swift wrapper

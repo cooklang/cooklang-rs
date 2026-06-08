@@ -6,6 +6,7 @@ var package = Package(
     name: "CooklangParser",
     platforms: [
         .iOS(.v15),
+        .macOS(.v12),
     ],
     products: [
         .library(
