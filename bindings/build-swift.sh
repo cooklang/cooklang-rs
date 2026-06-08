@@ -107,6 +107,11 @@ lipo -create \
   $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
   $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
   -output $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+# The Info.plist is copied from the iOS template; its iOS-only MinimumOSVersion
+# key is meaningless on a macOS slice (macOS uses LSMinimumSystemVersion). Drop
+# it so the published macOS framework carries no bogus iOS metadata.
+/usr/libexec/PlistBuddy -c "Delete :MinimumOSVersion" \
+  $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/Info.plist 2>/dev/null || true
 
 # Create xcframework
 echo "Creating xcframework..."
