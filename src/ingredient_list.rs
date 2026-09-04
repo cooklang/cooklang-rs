@@ -98,6 +98,30 @@ impl Recipe {
     }
 }
 
+/// How much of `to` the pantry holds, or `None` when the two units do not measure
+/// the same thing (`g` against `ml`) or are not units the converter knows.
+///
+/// A pantry is written by hand in whatever unit the jar is labelled with, while a
+/// recipe quantity arrives fitted to its own magnitude. Neither side can be asked
+/// to guess what the other will use, so the comparison has to be a conversion.
+#[cfg(feature = "pantry")]
+fn convert_pantry_quantity(converter: &Converter, value: f64, from: &str, to: &str) -> Option<f64> {
+    use crate::convert::{ConvertTo, ConvertUnit, ConvertValue};
+
+    // A quantity with no unit is a count, and a count converts to nothing else.
+    if from.is_empty() || to.is_empty() {
+        return None;
+    }
+    match converter.convert(
+        ConvertValue::Number(value),
+        ConvertUnit::Key(from),
+        ConvertTo::Unit(ConvertUnit::Key(to)),
+    ) {
+        Ok((ConvertValue::Number(converted), _)) => Some(converted),
+        _ => None,
+    }
+}
+
 /// List of ingredients with quantities.
 ///
 /// This will only store the ingredient name and quantity. This is used to
@@ -178,8 +202,26 @@ impl IngredientList {
                             let req_unit =
                                 req_qty.unit().map(|u| u.to_lowercase()).unwrap_or_default();
 
-                            if req_unit == pantry_unit {
-                                // Units match, we can subtract
+                            // The unit a recipe is parsed with is not the one it was
+                            // written with: quantities are fitted to their magnitude, so
+                            // `1500%g` reaches this list as `kg`. Comparing unit strings
+                            // alone therefore drops the pantry for every ingredient whose
+                            // recipe quantity crosses 1000 g/ml, and writing the pantry in
+                            // the bigger unit does not help — a small quantity is fitted
+                            // back down. So convert first, and only fall through to the
+                            // mismatch when the two units measure different things.
+                            let available = if req_unit == pantry_unit {
+                                Some(pantry_value)
+                            } else {
+                                convert_pantry_quantity(
+                                    converter,
+                                    pantry_value,
+                                    &pantry_unit,
+                                    &req_unit,
+                                )
+                            };
+
+                            if let Some(pantry_value) = available {
                                 if let crate::quantity::Value::Number(req_num) = req_qty.value() {
                                     let req_value: f64 = req_num.value();
                                     let remaining_value = req_value - pantry_value;
@@ -222,7 +264,7 @@ impl IngredientList {
                                     remaining_quantities.add(req_qty, converter);
                                 }
                             } else {
-                                // Units don't match
+                                // The units are not convertible into one another
                                 remaining_quantities.add(req_qty, converter);
                                 unit_mismatch = true;
                                 tracing::warn!(
@@ -759,6 +801,61 @@ oil = "1%l"
         assert!(oil_qty.is_some());
         let (_, qty) = oil_qty.unwrap();
         assert_eq!(qty.to_string(), "500 g");
+    }
+
+    #[test]
+    fn test_subtract_pantry_converts_compatible_units() {
+        // A recipe quantity is fitted to its own magnitude before it ever reaches
+        // the pantry: `1500%g` arrives here as `1.5 kg`. Nothing the recipe author
+        // can write avoids it, because `0.25%kg` is fitted back down to `250 g`.
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        let recipe = parser
+            .parse("@semolina{1500%g} @milk{200%ml}")
+            .into_output()
+            .unwrap();
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        let pantry_toml = r#"
+[pantry]
+semolina = "1%kg"
+milk = "1%l"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        // 1.5 kg needed against 1 kg on the shelf.
+        let (_, semolina) = result
+            .iter()
+            .find(|(name, _)| name.as_str() == "semolina")
+            .unwrap();
+        assert_eq!(semolina.to_string(), "0.5 kg");
+
+        // 200 ml against a litre: nothing to buy.
+        assert!(!result.iter().any(|(name, _)| name.as_str() == "milk"));
+    }
+
+    #[test]
+    fn test_subtract_pantry_when_the_pantry_holds_the_smaller_unit() {
+        // The direction a household actually writes: grams on the shelf, and a
+        // recipe big enough that its quantity is reported in kilograms.
+        let converter = Converter::bundled();
+        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+
+        let recipe = parser.parse("@semolina{1500%g}").into_output().unwrap();
+        let mut list = IngredientList::new();
+        list.add_recipe(&recipe, &converter, false);
+
+        let pantry_toml = r#"
+[pantry]
+semolina = "2000%g"
+"#;
+        let pantry = crate::pantry::parse(pantry_toml).unwrap();
+        let result = list.subtract_pantry(&pantry, &converter);
+
+        assert!(!result.iter().any(|(name, _)| name.as_str() == "semolina"));
     }
 
     #[test]
