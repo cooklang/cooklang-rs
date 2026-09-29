@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- (breaking) `parser::Block` gains a `FrontMatter(Text)` variant; `build_ast` no longer panics (`todo!()`) on recipes with YAML front matter
+- Playground redesign (#106)
 
 ## 0.17.3
 - Fixes references components by @mawo66 in https://github.com/cooklang/cooklang-rs/pull/81
