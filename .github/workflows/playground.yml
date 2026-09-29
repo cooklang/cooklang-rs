@@ -22,6 +22,11 @@ jobs:
         uses: proudust/gh-describe@v1
 
       - run: npm ci
+      # The lockfile was generated on macOS and lacks rollup's Linux binary
+      # (npm/cli#4828), so vite build fails with "Cannot find module
+      # @rollup/rollup-linux-x64-gnu". Install the one matching the locked rollup.
+      - name: Install rollup Linux binary
+        run: npm install --no-save "@rollup/rollup-linux-x64-gnu@$(node -p "require('./package-lock.json').packages['node_modules/rollup'].version")"
       - name: Build
         run: |
           cd playground
