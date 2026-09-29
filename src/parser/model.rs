@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 /// multiple lines.
 #[derive(Debug, Serialize, PartialEq, Clone)]
 pub enum Block<'a> {
+    /// YAML front matter: the text between the opening and closing `---` lines
+    FrontMatter(Text<'a>),
     /// Metadata entry
     Metadata { key: Text<'a>, value: Text<'a> },
     /// Section divider

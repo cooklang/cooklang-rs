@@ -164,10 +164,7 @@ async function run(): Promise<void> {
             render(input);
         } catch (err) {
             // A Rust panic surfaces as a wasm RuntimeError. Say so instead of going blank.
-            const hint = mode === "ast" && /^\s*---/.test(input)
-                ? "The AST view doesn't support YAML front matter yet. Remove the <code>---</code> block to see the AST."
-                : "Other tabs may still work.";
-            output.innerHTML = `<div class="crash"><strong>The parser crashed on this recipe.</strong><p>${hint}</p><pre>${esc(String(err))}</pre></div>`;
+            output.innerHTML = `<div class="crash"><strong>The parser crashed on this recipe.</strong><p>Other tabs may still work. Please <a href="https://github.com/cooklang/cooklang-rs/issues">report it</a> with a Share link.</p><pre>${esc(String(err))}</pre></div>`;
             setStatus("");
             statusSummary.textContent = "✕ Parser crashed";
             status.classList.remove("ok");
