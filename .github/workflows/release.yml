@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      npm_only:
+        description: 'Only publish the npm package (retry for an existing release)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   CARGO_TERM_COLOR: always
@@ -43,6 +48,7 @@ jobs:
   build-ios:
     name: Build iOS
     needs: prepare-release
+    if: ${{ github.event.inputs.npm_only != 'true' }}
     runs-on: macos-latest
     steps:
       - name: Checkout sources
@@ -197,6 +203,7 @@ jobs:
   build-android:
     name: Build Android
     needs: prepare-release
+    if: ${{ github.event.inputs.npm_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -776,7 +783,10 @@ jobs:
     name: Publish to npm
     needs: [prepare-release, build-ios, build-android]
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.dry_run != 'true' }}
+    if: >-
+      ${{ !cancelled() && github.event.inputs.dry_run != 'true' &&
+      (github.event.inputs.npm_only == 'true' ||
+      (needs.build-ios.result == 'success' && needs.build-android.result == 'success')) }}
     permissions:
       contents: read
       id-token: write
@@ -792,7 +802,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # npm@latest (needed for OIDC trusted publishing) requires node >= 22
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Upgrade npm for OIDC trusted publishing support
