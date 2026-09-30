@@ -26,7 +26,7 @@ var package = Package(
         .binaryTarget(
             name: "CooklangParserFFI",
             url: "https://github.com/cooklang/cooklang-rs/releases/download/v0.19.0/CooklangParserFFI.xcframework.zip",
-            checksum: "3118f664c6ab9447d9444be07a2c97238671924dfcafb427dd8ba811860244e5"),
+            checksum: "dcd657ea6793f878737f06c41df754d4c7b92fe06d856f62da8002393a14e60a"),
     ]
 )
 
