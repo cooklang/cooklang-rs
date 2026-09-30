@@ -430,6 +430,30 @@ private struct FfiConverterDouble: FfiConverterPrimitive {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
+private struct FfiConverterBool: FfiConverter {
+    typealias FfiType = Int8
+    typealias SwiftType = Bool
+
+    static func lift(_ value: Int8) throws -> Bool {
+        return value != 0
+    }
+
+    static func lower(_ value: Bool) -> Int8 {
+        return value ? 1 : 0
+    }
+
+    static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Bool {
+        return try lift(readInt(&buf))
+    }
+
+    static func write(_ value: Bool, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
 private struct FfiConverterString: FfiConverter {
     typealias SwiftType = String
     typealias FfiType = RustBuffer
@@ -1050,12 +1074,21 @@ public func FfiConverterTypeBlockNote_lower(_ value: BlockNote) -> RustBuffer {
 public struct Cookware {
     public let name: String
     public let amount: Amount?
+    /**
+     * Marked optional with `#?name`
+     */
+    public let optional: Bool
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
-    public init(name: String, amount: Amount?) {
+    public init(name: String, amount: Amount?,
+                /* 
+                    * Marked optional with `#?name`
+                    */ optional: Bool)
+    {
         self.name = name
         self.amount = amount
+        self.optional = optional
     }
 }
 
@@ -1067,12 +1100,16 @@ extension Cookware: Equatable, Hashable {
         if lhs.amount != rhs.amount {
             return false
         }
+        if lhs.optional != rhs.optional {
+            return false
+        }
         return true
     }
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(name)
         hasher.combine(amount)
+        hasher.combine(optional)
     }
 }
 
@@ -1084,13 +1121,15 @@ public struct FfiConverterTypeCookware: FfiConverterRustBuffer {
         return
             try Cookware(
                 name: FfiConverterString.read(from: &buf),
-                amount: FfiConverterOptionTypeAmount.read(from: &buf)
+                amount: FfiConverterOptionTypeAmount.read(from: &buf),
+                optional: FfiConverterBool.read(from: &buf)
             )
     }
 
     public static func write(_ value: Cookware, into buf: inout [UInt8]) {
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterOptionTypeAmount.write(value.amount, into: &buf)
+        FfiConverterBool.write(value.optional, into: &buf)
     }
 }
 
@@ -1183,18 +1222,26 @@ public struct Ingredient {
      * Reference to another recipe file, if this ingredient is a recipe reference
      */
     public let reference: RecipeReference?
+    /**
+     * Marked optional with `@?name`
+     */
+    public let optional: Bool
 
     /// Default memberwise initializers are never public by default, so we
     /// declare one manually.
     public init(name: String, amount: Amount?, descriptor: String?,
                 /* 
                     * Reference to another recipe file, if this ingredient is a recipe reference
-                    */ reference: RecipeReference?)
+                    */ reference: RecipeReference?,
+                /* 
+                    * Marked optional with `@?name`
+                    */ optional: Bool)
     {
         self.name = name
         self.amount = amount
         self.descriptor = descriptor
         self.reference = reference
+        self.optional = optional
     }
 }
 
@@ -1212,6 +1259,9 @@ extension Ingredient: Equatable, Hashable {
         if lhs.reference != rhs.reference {
             return false
         }
+        if lhs.optional != rhs.optional {
+            return false
+        }
         return true
     }
 
@@ -1220,6 +1270,7 @@ extension Ingredient: Equatable, Hashable {
         hasher.combine(amount)
         hasher.combine(descriptor)
         hasher.combine(reference)
+        hasher.combine(optional)
     }
 }
 
@@ -1233,7 +1284,8 @@ public struct FfiConverterTypeIngredient: FfiConverterRustBuffer {
                 name: FfiConverterString.read(from: &buf),
                 amount: FfiConverterOptionTypeAmount.read(from: &buf),
                 descriptor: FfiConverterOptionString.read(from: &buf),
-                reference: FfiConverterOptionTypeRecipeReference.read(from: &buf)
+                reference: FfiConverterOptionTypeRecipeReference.read(from: &buf),
+                optional: FfiConverterBool.read(from: &buf)
             )
     }
 
@@ -1242,6 +1294,7 @@ public struct FfiConverterTypeIngredient: FfiConverterRustBuffer {
         FfiConverterOptionTypeAmount.write(value.amount, into: &buf)
         FfiConverterOptionString.write(value.descriptor, into: &buf)
         FfiConverterOptionTypeRecipeReference.write(value.reference, into: &buf)
+        FfiConverterBool.write(value.optional, into: &buf)
     }
 }
 
@@ -2193,13 +2246,16 @@ extension ShoppingListError: Foundation.LocalizedError {
 
 public enum ShoppingListItem {
     /**
-     * A recipe reference with a path, optional multiplier, and children
+     * A recipe reference with a path, optional multiplier, and children.
+     * `optional` marks an accepted optional recipe reference (`? ./path`).
      */
-    case recipe(path: String, multiplier: Double?, children: [ShoppingListItem])
+    case recipe(path: String, multiplier: Double?, children: [ShoppingListItem], optional: Bool)
     /**
-     * A free-hand ingredient with a name and optional quantity
+     * A free-hand ingredient with a name and optional quantity.
+     * `optional` marks an accepted optional ingredient of the parent recipe
+     * (`? name{quantity}`); its quantity is the final amount to buy.
      */
-    case ingredient(name: String, quantity: String?)
+    case ingredient(name: String, quantity: String?, optional: Bool)
 }
 
 #if swift(>=5.8)
@@ -2211,9 +2267,9 @@ public struct FfiConverterTypeShoppingListItem: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ShoppingListItem {
         let variant: Int32 = try readInt(&buf)
         switch variant {
-        case 1: return try .recipe(path: FfiConverterString.read(from: &buf), multiplier: FfiConverterOptionDouble.read(from: &buf), children: FfiConverterSequenceTypeShoppingListItem.read(from: &buf))
+        case 1: return try .recipe(path: FfiConverterString.read(from: &buf), multiplier: FfiConverterOptionDouble.read(from: &buf), children: FfiConverterSequenceTypeShoppingListItem.read(from: &buf), optional: FfiConverterBool.read(from: &buf))
 
-        case 2: return try .ingredient(name: FfiConverterString.read(from: &buf), quantity: FfiConverterOptionString.read(from: &buf))
+        case 2: return try .ingredient(name: FfiConverterString.read(from: &buf), quantity: FfiConverterOptionString.read(from: &buf), optional: FfiConverterBool.read(from: &buf))
 
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -2221,16 +2277,18 @@ public struct FfiConverterTypeShoppingListItem: FfiConverterRustBuffer {
 
     public static func write(_ value: ShoppingListItem, into buf: inout [UInt8]) {
         switch value {
-        case let .recipe(path, multiplier, children):
+        case let .recipe(path, multiplier, children, optional):
             writeInt(&buf, Int32(1))
             FfiConverterString.write(path, into: &buf)
             FfiConverterOptionDouble.write(multiplier, into: &buf)
             FfiConverterSequenceTypeShoppingListItem.write(children, into: &buf)
+            FfiConverterBool.write(optional, into: &buf)
 
-        case let .ingredient(name, quantity):
+        case let .ingredient(name, quantity, optional):
             writeInt(&buf, Int32(2))
             FfiConverterString.write(name, into: &buf)
             FfiConverterOptionString.write(quantity, into: &buf)
+            FfiConverterBool.write(optional, into: &buf)
         }
     }
 }
