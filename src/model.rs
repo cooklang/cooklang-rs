@@ -187,7 +187,8 @@ pub struct Ingredient {
     pub reference: Option<RecipeReference>,
     /// How the cookware is related to others
     pub relation: IngredientRelation,
-    #[cfg_attr(feature = "ts", serde(skip))]
+    /// Serialized as the flag names, e.g. `"OPT"` or `"HIDDEN | OPT"`
+    #[cfg_attr(feature = "ts", serde(default), tsify(type = "string"))]
     pub(crate) modifiers: Modifiers,
 }
 
@@ -289,7 +290,8 @@ pub struct Cookware {
     pub note: Option<String>,
     /// How the cookware is related to others
     pub relation: ComponentRelation,
-    #[cfg_attr(feature = "ts", serde(skip))]
+    /// Serialized as the flag names, e.g. `"OPT"` or `"HIDDEN | OPT"`
+    #[cfg_attr(feature = "ts", serde(default), tsify(type = "string"))]
     pub(crate) modifiers: Modifiers,
 }
 

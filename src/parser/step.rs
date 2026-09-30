@@ -87,15 +87,31 @@ fn comp_body<'t>(bp: &mut BlockParser<'t, '_>) -> Option<Body<'t>> {
     })
 }
 
-fn modifiers<'t>(bp: &mut BlockParser<'t, '_>) -> &'t [Token] {
+/// Consumes the modifier tokens after a component sigil.
+///
+/// The optional marker `?` is part of the core syntax for ingredients and
+/// cookware (`allow_optional`), so it is recognised even without the
+/// [`Extensions::COMPONENT_MODIFIERS`] extension. At most one `?` is taken:
+/// in `@??thyme{}` the name is `?thyme`.
+fn modifiers<'t>(bp: &mut BlockParser<'t, '_>, allow_optional: bool) -> &'t [Token] {
+    let start = bp.current;
+
     if !bp.extension(Extensions::COMPONENT_MODIFIERS) {
-        return &[];
+        if allow_optional && bp.at(T![?]) {
+            bp.bump_any();
+        }
+        return &bp.tokens()[start..bp.current];
     }
 
-    let start = bp.current;
+    let mut seen_optional = false;
     loop {
         match bp.peek() {
-            T![@] | T![?] | T![+] | T![-] => {
+            T![?] if seen_optional => break,
+            T![?] => {
+                seen_optional = true;
+                bp.bump_any();
+            }
+            T![@] | T![+] | T![-] => {
                 bp.bump_any();
             }
             T![&] => {
@@ -329,7 +345,7 @@ fn ingredient<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     let start = bp.current_offset();
     bp.consume(T![@])?;
     let modifiers_pos = bp.current_offset();
-    let modifiers_tokens = modifiers(bp);
+    let modifiers_tokens = modifiers(bp, true);
     let name_offset = bp.current_offset();
     let body = comp_body(bp)?;
     let note = note(bp);
@@ -366,7 +382,7 @@ fn cookware<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     let start = bp.current_offset();
     bp.consume(T![#])?;
     let modifiers_pos = bp.current_offset();
-    let modifiers_tokens = modifiers(bp);
+    let modifiers_tokens = modifiers(bp, true);
     let name_offset = bp.current_offset();
     let body = comp_body(bp)?;
     let note = note(bp);
@@ -413,7 +429,7 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
     // Parse
     let start = bp.current_offset();
     bp.consume(T![~])?;
-    let modifiers_tokens = modifiers(bp);
+    let modifiers_tokens = modifiers(bp, false);
     let name_offset = bp.current_offset();
     let body = comp_body(bp)?;
     let end = bp.current_offset();

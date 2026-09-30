@@ -1,6 +1,11 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- (breaking) Optional ingredients and cookware (`@?name`, `#?name`) are core syntax (spec proposal 0018): the `?` marker is parsed without `Extensions::COMPONENT_MODIFIERS`. The other modifiers still need the extension
+- In `duplicate: ref` mode, optional and required components with the same name are no longer implicitly linked, instead of reporting a modifier conflict
+- (breaking) Shopping lists: `RecipeItem` and `IngredientItem` gain an `optional` field for selection lines (`? name{quantity}`, `? ./path{n}`), parsed under a recipe reference and written before nested references. A selection line at the top level is a `TopLevelSelection` error
+- (breaking) bindings: `Ingredient`, `Cookware` and shopping list items gain an `optional` field
+- typescript: `ingredient_is_optional` and `cookware_is_optional` helpers; the HTML renderer marks optional items. Component `modifiers` are now kept when serializing to JS, so the `*_should_be_listed` helpers also work
 - (breaking) `parser::Block` gains a `FrontMatter(Text)` variant; `build_ast` no longer panics (`todo!()`) on recipes with YAML front matter
 - Playground redesign (#106)
 
