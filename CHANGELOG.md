@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+## 0.19.0 - 2026-09-30
 - (breaking) Optional ingredients and cookware (`@?name`, `#?name`) are core syntax (spec proposal 0018): the `?` marker is parsed without `Extensions::COMPONENT_MODIFIERS`. The other modifiers still need the extension
 - In `duplicate: ref` mode, optional and required components with the same name are no longer implicitly linked, instead of reporting a modifier conflict
 - (breaking) Shopping lists: `RecipeItem` and `IngredientItem` gain an `optional` field for selection lines (`? name{quantity}`, `? ./path{n}`), parsed under a recipe reference and written before nested references. A selection line at the top level is a `TopLevelSelection` error
