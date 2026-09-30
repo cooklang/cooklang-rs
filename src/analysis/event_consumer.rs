@@ -1064,12 +1064,19 @@ impl<'i> RecipeCollector<'i, '_> {
         let new_name = unicase::UniCase::new(new.name());
 
         let all = C::all(&self.content);
+        // Optionality belongs to each occurrence, so an implicit reference
+        // only links components that are both optional or both required.
+        // An explicit reference (&) keeps inheriting from any definition.
+        let explicit_ref = new.modifiers().contains(Modifiers::REF);
+        let new_optional = new.modifiers().contains(Modifiers::OPT);
         // find the LAST component with the same name, lazy
         let same_name_cell = std::cell::OnceCell::new();
         let same_name = || {
             *same_name_cell.get_or_init(|| {
                 C::all(&self.content).iter().rposition(|other: &C| {
                     !other.modifiers().contains(Modifiers::REF)
+                        && (explicit_ref
+                            || other.modifiers().contains(Modifiers::OPT) == new_optional)
                         && new_name == unicase::UniCase::new(other.name())
                 })
             })

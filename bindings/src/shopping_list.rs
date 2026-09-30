@@ -30,14 +30,22 @@ pub struct ShoppingList {
 /// An item in the shopping list
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum ShoppingListItem {
-    /// A recipe reference with a path, optional multiplier, and children
+    /// A recipe reference with a path, optional multiplier, and children.
+    /// `optional` marks an accepted optional recipe reference (`? ./path`).
     Recipe {
         path: String,
         multiplier: Option<f64>,
         children: Vec<ShoppingListItem>,
+        optional: bool,
     },
-    /// A free-hand ingredient with a name and optional quantity
-    Ingredient { name: String, quantity: Option<String> },
+    /// A free-hand ingredient with a name and optional quantity.
+    /// `optional` marks an accepted optional ingredient of the parent recipe
+    /// (`? name{quantity}`); its quantity is the final amount to buy.
+    Ingredient {
+        name: String,
+        quantity: Option<String>,
+        optional: bool,
+    },
 }
 
 /// An entry in the checked log
@@ -68,10 +76,12 @@ impl From<&OriginalShoppingListItem> for ShoppingListItem {
                 path: r.path.clone(),
                 multiplier: r.multiplier,
                 children: r.children.iter().map(ShoppingListItem::from).collect(),
+                optional: r.optional,
             },
             OriginalShoppingListItem::Ingredient(i) => ShoppingListItem::Ingredient {
                 name: i.name.clone(),
                 quantity: i.quantity.clone(),
+                optional: i.optional,
             },
         }
     }
@@ -80,12 +90,8 @@ impl From<&OriginalShoppingListItem> for ShoppingListItem {
 impl From<&OriginalCheckEntry> for CheckEntry {
     fn from(entry: &OriginalCheckEntry) -> Self {
         match entry {
-            OriginalCheckEntry::Checked(name) => CheckEntry::Checked {
-                name: name.clone(),
-            },
-            OriginalCheckEntry::Unchecked(name) => CheckEntry::Unchecked {
-                name: name.clone(),
-            },
+            OriginalCheckEntry::Checked(name) => CheckEntry::Checked { name: name.clone() },
+            OriginalCheckEntry::Unchecked(name) => CheckEntry::Unchecked { name: name.clone() },
         }
     }
 }
@@ -97,7 +103,11 @@ impl From<&OriginalCheckEntry> for CheckEntry {
 impl From<&ShoppingList> for OriginalShoppingList {
     fn from(list: &ShoppingList) -> Self {
         OriginalShoppingList {
-            items: list.items.iter().map(OriginalShoppingListItem::from).collect(),
+            items: list
+                .items
+                .iter()
+                .map(OriginalShoppingListItem::from)
+                .collect(),
         }
     }
 }
@@ -109,17 +119,25 @@ impl From<&ShoppingListItem> for OriginalShoppingListItem {
                 path,
                 multiplier,
                 children,
+                optional,
             } => OriginalShoppingListItem::Recipe(OriginalRecipeItem {
                 path: path.clone(),
                 multiplier: *multiplier,
-                children: children.iter().map(OriginalShoppingListItem::from).collect(),
+                children: children
+                    .iter()
+                    .map(OriginalShoppingListItem::from)
+                    .collect(),
+                optional: *optional,
             }),
-            ShoppingListItem::Ingredient { name, quantity } => {
-                OriginalShoppingListItem::Ingredient(OriginalIngredientItem {
-                    name: name.clone(),
-                    quantity: quantity.clone(),
-                })
-            }
+            ShoppingListItem::Ingredient {
+                name,
+                quantity,
+                optional,
+            } => OriginalShoppingListItem::Ingredient(OriginalIngredientItem {
+                name: name.clone(),
+                quantity: quantity.clone(),
+                optional: *optional,
+            }),
         }
     }
 }

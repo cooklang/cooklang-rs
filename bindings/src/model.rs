@@ -117,6 +117,8 @@ pub struct Ingredient {
     pub descriptor: Option<String>,
     /// Reference to another recipe file, if this ingredient is a recipe reference
     pub reference: Option<RecipeReference>,
+    /// Marked optional with `@?name`
+    pub optional: bool,
 }
 
 /// Represents a piece of cookware used in the recipe
@@ -124,6 +126,8 @@ pub struct Ingredient {
 pub struct Cookware {
     pub name: String,
     pub amount: Option<Amount>,
+    /// Marked optional with `#?name`
+    pub optional: bool,
 }
 
 /// Represents a timer in the recipe
@@ -584,6 +588,7 @@ impl From<&cooklang::Ingredient> for Ingredient {
             amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
             descriptor: ingredient.note.clone(),
             reference: ingredient.reference.as_ref().map(|r| r.into()),
+            optional: ingredient.modifiers().is_optional(),
         }
     }
 }
@@ -593,6 +598,7 @@ impl From<&cooklang::Cookware> for Cookware {
         Cookware {
             name: cookware.name.clone(),
             amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
+            optional: cookware.modifiers().is_optional(),
         }
     }
 }

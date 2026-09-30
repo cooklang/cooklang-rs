@@ -74,3 +74,14 @@ it("renders sections and steps", async () => {
     const renderer = new HTMLRenderer();
     expect(renderer.render(recipe)).toEqual(output);
 });
+it("marks optional ingredients and cookware", async () => {
+    const input = `
+    @?chives #?splatter guard{}
+    `;
+    const parser = new CooklangParser();
+    const recipe = parser.parse(input)[0];
+    const renderer = new HTMLRenderer();
+    const html = renderer.render(recipe);
+    expect(html).toContain("<li><b>chives</b> <i>(optional)</i></li>");
+    expect(html).toContain("<li><b>splatter guard</b> <i>(optional)</i></li>");
+});

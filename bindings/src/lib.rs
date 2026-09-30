@@ -642,9 +642,7 @@ pub fn parse_shopping_checked(input: String) -> Vec<shopping_list::CheckEntry> {
 /// # Returns
 /// Set of ingredient names that are currently checked
 #[uniffi::export]
-pub fn shopping_checked_set(
-    entries: &[shopping_list::CheckEntry],
-) -> Vec<String> {
+pub fn shopping_checked_set(entries: &[shopping_list::CheckEntry]) -> Vec<String> {
     // UniFFI doesn't expose HashSet, so we return a Vec. Sort for
     // deterministic ordering across the FFI boundary.
     let mut names: Vec<String> = shopping_list::checked_set_impl(entries)
@@ -719,7 +717,8 @@ a test @step @salt{1%mg} more text
                     units: Some("mg".to_string())
                 }),
                 descriptor: None,
-                reference: None
+                reference: None,
+                optional: false
             })
         );
 
@@ -758,7 +757,8 @@ a test @step @salt{1%mg} more text
                     name: "step".to_string(),
                     amount: None,
                     descriptor: None,
-                    reference: None
+                    reference: None,
+                    optional: false
                 },
                 Ingredient {
                     name: "salt".to_string(),
@@ -767,7 +767,8 @@ a test @step @salt{1%mg} more text
                         units: Some("mg".to_string())
                     }),
                     descriptor: None,
-                    reference: None
+                    reference: None,
+                    optional: false
                 },
             ]
         );
@@ -950,6 +951,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "pepper".to_string(),
@@ -959,6 +961,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "salt".to_string(),
@@ -968,6 +971,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "pepper".to_string(),
@@ -977,6 +981,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
         ];
 
@@ -1038,6 +1043,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "eggs".to_string(),
@@ -1047,6 +1053,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "salt".to_string(),
@@ -1056,6 +1063,7 @@ dried oregano
                 }),
                 descriptor: None,
                 reference: None,
+                optional: false,
             },
         ];
 
@@ -1466,6 +1474,7 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
                 path,
                 multiplier,
                 children,
+                ..
             } => {
                 assert_eq!(path, "Breakfast/Easy Pancakes");
                 assert_eq!(*multiplier, Some(2.0));
@@ -1489,6 +1498,7 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
                 path,
                 multiplier,
                 children,
+                ..
             } => {
                 assert_eq!(path, "Thai Green Curry");
                 assert_eq!(*multiplier, None);
@@ -1511,11 +1521,14 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
                         path: "Shared/Syrup".to_string(),
                         multiplier: None,
                         children: vec![],
+                        optional: false,
                     }],
+                    optional: false,
                 },
                 ShoppingListItem::Ingredient {
                     name: "salt".to_string(),
                     quantity: Some("2%tsp".to_string()),
+                    optional: false,
                 },
             ],
         };
@@ -1540,9 +1553,8 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
     fn test_parse_shopping_checked() {
         use crate::shopping_list::CheckEntry;
 
-        let entries = crate::parse_shopping_checked(
-            "+ salt\n+ pepper\n- salt\n+ garlic\n".to_string(),
-        );
+        let entries =
+            crate::parse_shopping_checked("+ salt\n+ pepper\n- salt\n+ garlic\n".to_string());
 
         assert_eq!(entries.len(), 4);
         assert!(matches!(&entries[0], CheckEntry::Checked { name } if name == "salt"));
@@ -1620,5 +1632,35 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
         // "pepper" and "removed ingredient" are not in the list.
         assert_eq!(compacted.len(), 1);
         assert!(matches!(&compacted[0], CheckEntry::Checked { name } if name == "salt"));
+    }
+
+    #[test]
+    fn test_optional_components() {
+        use crate::{parse_recipe, parse_shopping_list, shopping_list::ShoppingListItem};
+
+        let recipe = parse_recipe(
+            "Top with @?chives and @salt, use a #?splatter guard{}.".to_string(),
+            1.0,
+        );
+        let optional: Vec<_> = recipe
+            .ingredients
+            .iter()
+            .map(|i| (i.name.as_str(), i.optional))
+            .collect();
+        assert_eq!(optional, vec![("chives", true), ("salt", false)]);
+        assert!(recipe.cookware[0].optional);
+
+        let input = "./Breakfast/Eggs on toast{2}\n  ? chives\n".to_string();
+        let list = parse_shopping_list(input.clone()).unwrap();
+        match &list.items[0] {
+            ShoppingListItem::Recipe { children, .. } => {
+                assert!(matches!(
+                    &children[0],
+                    ShoppingListItem::Ingredient { name, optional: true, .. } if name == "chives"
+                ));
+            }
+            _ => panic!("Expected recipe item"),
+        }
+        assert_eq!(crate::write_shopping_list(&list).unwrap(), input);
     }
 }
