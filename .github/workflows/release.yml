@@ -223,6 +223,9 @@ jobs:
 
       - name: Setup Android NDK
         uses: android-actions/setup-android@v3
+        with:
+          # the default also installs `tools`, which cmdline-tools 16 no longer has
+          packages: 'platform-tools'
 
       - name: Install NDK
         run: |
@@ -581,6 +584,9 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # the default also installs `tools`, which cmdline-tools 16 no longer has
+          packages: 'platform-tools'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
