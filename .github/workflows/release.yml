@@ -33,7 +33,7 @@ jobs:
       version_tag: ${{ steps.set-version.outputs.version_tag }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -52,7 +52,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
@@ -62,7 +62,7 @@ jobs:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -188,13 +188,13 @@ jobs:
           zip -r ../../CooklangParserFFI.xcframework.zip CooklangParserFFI.xcframework
 
       - name: Upload iOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-artifacts
           path: CooklangParserFFI.xcframework.zip
 
       - name: Upload Swift wrapper
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: swift-wrapper
           path: bindings/out/CooklangParser.swift
@@ -207,7 +207,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
@@ -217,7 +217,7 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -229,7 +229,7 @@ jobs:
           restore-keys: ${{ runner.os }}-android-cargo-
 
       - name: Setup Android NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           # the default also installs `tools`, which cmdline-tools 16 no longer has
           packages: 'platform-tools'
@@ -379,7 +379,7 @@ jobs:
           zip -r ../../cooklang-parser-android.zip parser jniLibs
 
       - name: Upload Android artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-artifacts
           path: cooklang-parser-android.zip
@@ -393,18 +393,18 @@ jobs:
       contents: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download iOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ios-artifacts
 
       - name: Download Swift wrapper
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: swift-wrapper
 
@@ -449,18 +449,18 @@ jobs:
       contents: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download iOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ios-artifacts
 
       - name: Download Android artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: android-artifacts
 
@@ -476,7 +476,7 @@ jobs:
           git push origin "${VERSION_TAG}"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare-release.outputs.version_tag }}
           name: Release ${{ needs.prepare-release.outputs.version_tag }}
@@ -559,12 +559,12 @@ jobs:
       packages: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
       - name: Download Android artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: android-artifacts
 
@@ -584,19 +584,19 @@ jobs:
           echo "Found $KT_COUNT Kotlin source file(s)"
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           # the default also installs `tools`, which cmdline-tools 16 no longer has
           packages: 'platform-tools'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Configure Android library for publishing
         run: |
@@ -762,7 +762,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
@@ -792,7 +792,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: main
 
@@ -800,7 +800,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # npm@latest (needed for OIDC trusted publishing) requires node >= 22
           node-version: '24'
