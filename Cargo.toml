@@ -41,9 +41,9 @@ indoc = "2.0.3"
 
 [build-dependencies]
 toml = { version = "0.8", optional = true }
-prettyplease = { version = "0.2", optional = true }
+prettyplease = { version = "0.3", optional = true }
 quote = { version = "1", optional = true }
-syn = { version = "2", optional = true }
+syn = { version = "3", optional = true }
 proc-macro2 = { version = "1", optional = true }
 
 [features]
