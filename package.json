@@ -9,7 +9,7 @@
     "playground": "wireit"
   },
   "devDependencies": {
-    "wireit": "^0.14.12"
+    "wireit": "^0.14.13"
   },
   "wireit": {
     "playground": {
