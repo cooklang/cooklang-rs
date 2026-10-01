@@ -266,7 +266,7 @@ dependencies = [
  "serde_yaml",
  "smallvec",
  "strum",
- "syn 2.0.101",
+ "syn 3.0.6",
  "test-case",
  "thiserror",
  "toml 0.8.19",
