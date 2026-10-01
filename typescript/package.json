@@ -47,9 +47,9 @@
     "test": "vitest"
   },
   "devDependencies": {
-    "typescript": "^5.7.2",
+    "typescript": "^7.0.2",
     "vite-plugin-wasm": "^3.6.0",
-    "vitest": "^3.2.3",
+    "vitest": "^5.0.2",
     "wasm-pack": "^0.15.0"
   }
 }
