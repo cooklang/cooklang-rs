@@ -19,3 +19,8 @@ The parser also includes:
 - Unit conversion.
 - Recipe scaling.
 - A parser for cooklang aisle configuration file.
+
+This parser powers [CookCLI](https://github.com/cooklang/cookcli), the
+[Cooklang playground](https://cooklang.github.io/cooklang-rs/), and the Cook
+mobile apps and desktop editor, which share recipes through
+[Cook Cloud sync](https://cook.md/).
