@@ -3,6 +3,8 @@ target/
 out/
 .idea
 .build
+.direnv/
+.envrc
 
 # Node
 node_modules

@@ -1,14 +1,23 @@
 //! Recipe representation
 
-use std::borrow::Cow;
-
+use relative_path::RelativePathBuf;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::str::FromStr;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum RecipeReferenceParseError {
+    #[error("reference is missing name {0}")]
+    MissingName(String),
+}
 
 #[cfg(feature = "ts")]
 use tsify::Tsify;
 
 use crate::{
-    convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity, GroupedQuantity,
+    convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity,
+    semantic_eq::SemanticEq, GroupedQuantity,
 };
 
 /// A complete recipe
@@ -41,6 +50,27 @@ pub struct Recipe {
     pub timers: Vec<Timer>,
     /// All the inline quantities
     pub inline_quantities: Vec<Quantity>,
+    /// The path of the recipe file this was parsed from
+    pub path: Option<RecipeReference>,
+}
+
+/// Compares two recipes using unit-aware quantity comparison.
+///
+/// Unlike [`PartialEq`], quantities are compared with their [`SemanticEq`]
+/// impl, so `5 dl` equals `0.5 l` and `5 min` equals `300 s`.
+impl SemanticEq for Recipe {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        // Specifically does not compare recipe.path as it is
+        // runtime dependent and does not have an "equivalent".
+        self.metadata.equals(&other.metadata, converter)
+            && self.sections == other.sections
+            && self.ingredients.equals(&other.ingredients, converter)
+            && self.cookware.equals(&other.cookware, converter)
+            && self.timers.equals(&other.timers, converter)
+            && self
+                .inline_quantities
+                .equals(&other.inline_quantities, converter)
+    }
 }
 
 /// A section holding steps
@@ -155,16 +185,74 @@ pub enum Item {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+/// A reference to another recipe, held as a normalized relative path
+///
+/// The path always has a file name. That is what lets [`Self::name`] be
+/// infallible, so every way of building one -- [`FromStr`], [`Deserialize`] and
+/// [`Self::resolved_from`] -- has to keep it true.
+#[derive(Debug, Serialize, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-pub struct RecipeReference {
-    pub name: String,
-    pub components: Vec<String>,
+pub struct RecipeReference(RelativePathBuf);
+
+impl<'de> Deserialize<'de> for RecipeReference {
+    /// Deserializes through [`FromStr`], so a reference read back is normalized
+    /// and has a name, like one that came from a parsed recipe.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let path = String::deserialize(deserializer)?;
+        path.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+impl PartialEq for RecipeReference {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.normalize() == other.0.normalize()
+    }
 }
 
 impl RecipeReference {
-    pub fn path(&self, separator: &str) -> String {
-        self.components.join(separator) + separator + &self.name
+    fn prefix(path: RelativePathBuf) -> RelativePathBuf {
+        if path.starts_with("./") || path.starts_with("../") {
+            path
+        } else {
+            RelativePathBuf::from("./").join(&path)
+        }
+    }
+    fn normalize(path: RelativePathBuf) -> RelativePathBuf {
+        Self::prefix(path.normalize())
+    }
+    pub fn name(&self) -> &str {
+        self.0
+            .file_name()
+            .expect("Reference must have a name! This should not be possible")
+    }
+
+    pub fn resolved_from(&self, other: &RecipeReference) -> RecipeReference {
+        let base = other
+            .0
+            .parent()
+            .unwrap_or_else(|| relative_path::RelativePath::new(""));
+        RecipeReference(Self::normalize(base.join(&self.0)))
+    }
+}
+
+impl FromStr for RecipeReference {
+    type Err = RecipeReferenceParseError;
+
+    /// A reference has to name a file, so `..` and `./a/..` are errors
+    fn from_str(path: &str) -> Result<Self, Self::Err> {
+        match RelativePathBuf::from(path) {
+            rp if rp.file_name().is_some() => Ok(RecipeReference(Self::normalize(rp))),
+            _ => Err(RecipeReferenceParseError::MissingName(path.to_string())),
+        }
+    }
+}
+
+impl std::fmt::Display for RecipeReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0.as_str())
     }
 }
 
@@ -185,14 +273,34 @@ pub struct Ingredient {
     pub note: Option<String>,
     /// Recipe reference
     pub reference: Option<RecipeReference>,
-    /// How the cookware is related to others
+    /// How the ingredient is related to others
     pub relation: IngredientRelation,
     /// Serialized as the flag names, e.g. `"OPT"` or `"HIDDEN | OPT"`
     #[cfg_attr(feature = "ts", serde(default), tsify(type = "string"))]
     pub(crate) modifiers: Modifiers,
+
+    /// The path of the recipe file this ingredient was parsed from
+    pub recipe_path: Option<RecipeReference>,
 }
 
 impl Ingredient {
+    /// The recipe reference resolved against the file this ingredient was
+    /// parsed from
+    ///
+    /// A reference is written relative to its own recipe, so the same target
+    /// reads differently from two directories. Resolving it against
+    /// [`recipe_path`](Self::recipe_path) gives the one path both agree on.
+    ///
+    /// Without a recipe path there is nothing to resolve against, so the
+    /// reference is returned as written.
+    pub fn resolved_reference(&self) -> Option<RecipeReference> {
+        let reference = self.reference.as_ref()?;
+        Some(match &self.recipe_path {
+            Some(path) => reference.resolved_from(path),
+            None => reference.clone(),
+        })
+    }
+
     /// Gets the name the ingredient should be displayed with
     pub fn display_name(&self) -> Cow<'_, str> {
         let mut name = Cow::from(&self.name);
@@ -273,6 +381,27 @@ impl Ingredient {
     }
 }
 
+/// Compares two ingredients using unit-aware quantity comparison.
+///
+/// Unlike [`PartialEq`], the quantity is compared with its [`SemanticEq`]
+/// impl, so `500 g` equals `0.5 kg`.
+///
+/// A recipe reference is compared resolved against
+/// [`recipe_path`](Ingredient::recipe_path), so the same target referenced
+/// from two different directories compares equal. The recipe path itself is not
+/// compared: it records which file the ingredient came from, not what it is.
+impl SemanticEq for Ingredient {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        self.name == other.name
+            && self.alias == other.alias
+            && self.note == other.note
+            && self.relation == other.relation
+            && self.resolved_reference() == other.resolved_reference()
+            && self.modifiers == other.modifiers
+            && self.quantity.equals(&other.quantity, converter)
+    }
+}
+
 /// A recipe cookware item
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[cfg_attr(feature = "ts", derive(Tsify))]
@@ -334,6 +463,20 @@ impl Cookware {
                     .map(|i| all_cookware[i].quantity.as_ref()),
             )
             .flatten()
+    }
+}
+
+/// Compares two cookware items using unit-aware quantity comparison.
+///
+/// Unlike [`PartialEq`], the quantity is compared with its [`SemanticEq`] impl.
+impl SemanticEq for Cookware {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        self.name == other.name
+            && self.alias == other.alias
+            && self.note == other.note
+            && self.relation == other.relation
+            && self.modifiers == other.modifiers
+            && self.quantity.equals(&other.quantity, converter)
     }
 }
 
@@ -533,4 +676,385 @@ pub struct Timer {
     /// - If the [`TIMER_REQUIRES_TIME`](crate::Extensions::TIMER_REQUIRES_TIME)
     ///   extension is enabled, this is guaranteed to be [`Some`].
     pub quantity: Option<Quantity>,
+}
+
+/// Compares two timers using unit-aware quantity comparison.
+///
+/// Unlike [`PartialEq`], the quantity is compared with its [`SemanticEq`] impl,
+/// so `1 h` equals `60 min`.
+impl SemanticEq for Timer {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        self.name == other.name && self.quantity.equals(&other.quantity, converter)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Recipe, RecipeReference};
+    use crate::{Converter, CooklangParser, Extensions, SemanticEq};
+
+    use indoc::indoc;
+    use std::sync::LazyLock;
+
+    pub static PARSER: LazyLock<CooklangParser> =
+        LazyLock::new(|| CooklangParser::new(Extensions::all(), Converter::default()));
+
+    #[track_caller]
+    fn recipe(s: &str) -> Recipe {
+        let (recipe, _report) = PARSER.parse(s).into_result().unwrap();
+        recipe
+    }
+
+    static CONVERTER: LazyLock<Converter> = LazyLock::new(Converter::default);
+
+    fn eq(a: &str, b: &str) -> bool {
+        recipe(a).equals(&recipe(b), &CONVERTER)
+    }
+
+    fn ne(a: &str, b: &str) -> bool {
+        !eq(a, b)
+    }
+
+    #[track_caller]
+    fn referenced(path: &str, s: &str) -> Recipe {
+        let path = path
+            .parse::<RecipeReference>()
+            .expect("the path has a name");
+        let (recipe, _report) = PARSER.parse_with_path(s, Some(path)).into_result().unwrap();
+        recipe
+    }
+
+    #[track_caller]
+    fn rel(reference: &str, other: &str) -> String {
+        rref(reference).resolved_from(&rref(other)).to_string()
+    }
+
+    #[track_caller]
+    fn rref(p: &str) -> RecipeReference {
+        p.parse::<RecipeReference>().unwrap()
+    }
+
+    #[test]
+    fn deserializing_a_reference_goes_through_the_constructor() {
+        let parse = |json: &str| serde_json::from_str::<RecipeReference>(json);
+
+        // a reference with no file name has no `name()` to return
+        assert!(parse("\"..\"").is_err());
+        assert!(parse("\"\"").is_err());
+
+        // and the path is normalized, so `Display` keeps its `./` promise
+        assert_eq!(parse("\"a/b\"").unwrap().to_string(), "./a/b");
+        assert_eq!(parse("\"./a/../b\"").unwrap().to_string(), "./b");
+
+        // round trips through serde
+        let reference = "./sauces/pesto".parse::<RecipeReference>().unwrap();
+        let json = serde_json::to_string(&reference).unwrap();
+        assert_eq!(json, "\"./sauces/pesto\"");
+        assert_eq!(parse(&json).unwrap(), reference);
+    }
+
+    #[test]
+    fn comparing_ingredients_cookware_and_units() {
+        // identical recipes are equal
+        assert!(eq(
+            "@flour{200%g} and @butter{100%g}",
+            "@flour{200%g} and @butter{100%g}",
+        ));
+
+        // different ingredient name is not equal
+        assert!(ne("@flour{200%g}", "@sugar{200%g}"));
+
+        // different quantity value is not equal
+        assert!(ne("@flour{200%g}", "@flour{100%g}"));
+
+        // different number of ingredients is not equal
+        assert!(ne("@flour{200%g} and @butter{100%g}", "@flour{200%g}"));
+
+        // --- ingredient modifiers, aliases, notes and references ---
+
+        // an optional ingredient is not the same as a required one
+        assert!(ne("@?salt{}", "@salt{}"));
+        assert!(eq("@?salt{}", "@?salt{}"));
+
+        // an alias changes how the ingredient reads, so it is part of the recipe
+        assert!(ne("@flour|plain flour{200%g}", "@flour{200%g}"));
+        assert!(ne("@flour|a{200%g}", "@flour|b{200%g}"));
+
+        // same for a note
+        assert!(ne("@onion{1}(diced)", "@onion{1}"));
+        assert!(ne("@onion{1}(diced)", "@onion{1}(sliced)"));
+
+        // a recipe reference is not a plain ingredient of the same name
+        assert!(ne("@./Guacamole{}", "@Guacamole{}"));
+        // but reference paths are normalized before comparing
+        assert!(eq("@./a/Guac.cook{}", "@./a/../a/Guac.cook{}"));
+
+        // --- quantity values ---
+
+        // fractions and decimals are the same number
+        assert!(eq("@flour{1/2%dl}", "@flour{0.5%dl}"));
+        assert!(eq("@flour{1/2}", "@flour{0.5}"));
+
+        // text quantities are compared as text
+        assert!(eq("@salt{pinch}", "@salt{pinch}"));
+        assert!(ne("@salt{pinch}", "@salt{handful}"));
+        assert!(ne("@salt{1}", "@salt{pinch}"));
+
+        // no quantity at all is not a quantity
+        assert!(ne("@salt{}", "@salt{1%g}"));
+
+        // --- cookware ---
+
+        // cookware without quantity is equal
+        assert!(eq("Use #pan{}", "Use #pan{}"));
+
+        // a cookware amount is compared too, and a text amount as written
+        assert!(ne("Use #pan{small}", "Use #pan{big}"));
+        assert!(eq("Use #pan{2}", "Use #pan{2}"));
+        assert!(ne("Use #pan{2}", "Use #pan{3}"));
+        assert!(ne("Use #pan{2}", "Use #pan{}"));
+
+        // --- units ---
+
+        // unit conversion: 5 dl == 0.5 l, 5 min == 300 s
+        assert!(eq(
+            "Cook @water{5%dl} for ~{5%min}",
+            "Cook @water{0.5%l} for ~{300%sec}",
+        ));
+
+        // unit names are matched regardless of case
+        assert!(eq("@milk{5%dL}", "@milk{5%dl}"));
+        // and through their aliases
+        assert!(eq("Cook for ~{10%min}", "Cook for ~{10%minutes}"));
+        assert!(eq("@milk{1%l}", "@milk{1%liter}"));
+        assert!(eq("@oil{3%tbsp}", "@oil{3%tablespoons}"));
+        // different units of the same physical quantity convert
+        assert!(eq("@oil{3%tsp}", "@oil{1%tbsp}"));
+        // units the converter doesn't know are compared as written
+        assert!(eq("@garlic{2%cloves}", "@garlic{2%cloves}"));
+        assert!(ne("@garlic{2%cloves}", "@garlic{2%pieces}"));
+    }
+
+    #[test]
+    fn a_reference_is_compared_resolved_against_its_recipe_path() {
+        // the same target reached from two directories: `../spices/x.cook` from
+        // `./pickles/`, and `./spices/x.cook` from the root
+        let a = referenced("./pickles/sour.cook", "@../spices/x.cook{}");
+        let b = referenced("./root.cook", "@./spices/x.cook{}");
+        assert!(a.equals(&b, &CONVERTER));
+
+        // a reference that resolves elsewhere still differs
+        let c = referenced("./root.cook", "@./jams/x.cook{}");
+        assert!(!a.equals(&c, &CONVERTER));
+
+        // with no path there is nothing to resolve against, so the reference
+        // is compared as written
+        assert!(ne("@../spices/x.cook{}", "@./spices/x.cook{}"));
+    }
+
+    #[test]
+    fn comparing_timers_and_inline_quantities() {
+        // timer unit conversion: 1 h == 60 min
+        assert!(eq("Cook for ~{1%h}", "Cook for ~{60%min}"));
+
+        // a named timer is not an anonymous one
+        assert!(ne("~resting{10%min}", "~{10%min}"));
+        assert!(ne("~resting{10%min}", "~proving{10%min}"));
+        // a named timer still converts units
+        assert!(eq("~resting{1%h}", "~resting{60%min}"));
+
+        // ranges convert unit by unit
+        assert!(eq("Cook for ~{1-2%min}", "Cook for ~{60-120%sec}"));
+        // a range is not the single value at its start
+        assert!(ne("Cook for ~{10-15%min}", "Cook for ~{10%min}"));
+
+        // inline quantities are compared by value
+        assert!(eq("Bake at 200ºC", "Bake at 200ºC"));
+        assert!(ne("Bake at 200ºC", "Bake at 180ºC"));
+    }
+
+    #[test]
+    fn comparing_metadata() {
+        // different metadata is not equal
+        assert!(ne(">> title: Pasta", ">> title: Pizza"));
+
+        // serves is an alias for servings
+        assert!(eq(">> serves: 4", ">> servings: 4"));
+
+        // different servings count is not equal
+        assert!(ne(">> servings: 4", ">> servings: 8"));
+
+        // yield is a quantity: 500%g == 0.5%kg (unit conversion)
+        assert!(eq(">> yield: 500%g", ">> yield: 0.5%kg"));
+
+        // yield with different amounts is not equal
+        assert!(ne(">> yield: 500%g", ">> yield: 1000%g"));
+
+        // yield and servings are distinct concepts
+        assert!(ne(">> yield: 500%g", ">> servings: 4"));
+
+        // tags are compared as a list, so their order matters
+        assert!(eq(">> tags: a, b", ">> tags: a, b"));
+        assert!(ne(">> tags: a, b", ">> tags: b, a"));
+
+        // the remaining standard keys are compared as written
+        assert!(ne(">> description: x", ">> description: y"));
+        assert!(ne(">> difficulty: easy", ">> difficulty: hard"));
+        assert!(ne(">> source: a", ">> source: b"));
+        assert!(ne(">> author: a", ">> author: b"));
+
+        // key aliases resolve to the same standard key
+        assert!(eq(">> time: 10 min", ">> duration: 10 min"));
+        assert!(eq(">> course: main", ">> category: main"));
+
+        // a second entry under another alias is still part of the recipe, so it
+        // cannot be silently dropped from the comparison
+        assert!(ne(">> servings: 4\n>> serves: 99", ">> servings: 4"));
+        assert!(ne(
+            ">> servings: 4\n>> serves: 99",
+            ">> servings: 4\n>> serves: 8"
+        ));
+        assert!(eq(
+            ">> servings: 4\n>> serves: 99",
+            ">> servings: 4\n>> serves: 99"
+        ));
+
+        // custom keys are compared as written, and must be present in both
+        assert!(ne(">> mykey: a", ">> mykey: b"));
+        assert!(ne(">> mykey: a", ">> otherkey: a"));
+        assert!(ne(">> a: 1\n>> b: 2", ">> a: 1"));
+
+        // the order custom keys are written in carries no meaning
+        assert!(eq(">> a: 1\n>> b: 2", ">> b: 2\n>> a: 1"));
+        assert!(ne(">> a: 1\n>> b: 2", ">> a: 2\n>> b: 1"));
+
+        // a yield written without a unit is still compared as a quantity, so
+        // the tolerance absorbs scaling error but not a written difference
+        assert!(eq(">> yield: 2.5", ">> yield: 2.500001"));
+        assert!(ne(">> yield: 2.5", ">> yield: 2.6"));
+
+        // yield and yields compare to the same
+        assert!(eq(">> yield: 12", ">> yields: 12"));
+
+        // time values are compared as durations, so the same duration
+        // spelled two ways is equal
+        assert!(eq(">> time: 10 min", ">> time: 10 minutes"));
+        assert!(eq(">> time: 1h30m", ">> time: 90 min"));
+        assert!(ne(">> time: 10 min", ">> time: 15 min"));
+
+        // same for prep and cook time
+        assert!(eq(">> prep time: 1 hour", ">> prep time: 60 min"));
+        assert!(ne(">> cook time: 1 hour", ">> cook time: 2 hours"));
+
+        // time values that don't parse are still compared as written
+        assert!(eq(">> time: a while", ">> time: a while"));
+        assert!(ne(">> time: a while", ">> time: forever"));
+    }
+
+    #[test]
+    fn comparing_recipe_structure() {
+        // the section name is part of the recipe
+        assert!(ne(
+            indoc! {"
+                = Dough =
+                @flour{1}
+            "},
+            indoc! {"
+                = Base =
+                @flour{1}
+            "},
+        ));
+        assert!(ne(
+            indoc! {"
+                = Dough =
+                @flour{1}
+            "},
+            "@flour{1}",
+        ));
+
+        // so is a text block
+        assert!(ne(
+            indoc! {"
+                > note a
+                @flour{1}
+            "},
+            indoc! {"
+                > note b
+                @flour{1}
+            "},
+        ));
+    }
+
+    #[test]
+    fn sibling_in_same_directory() {
+        assert_eq!(
+            rel("./tomato", "recipes/pasta/spaghetti"),
+            "./recipes/pasta/tomato"
+        );
+    }
+
+    #[test]
+    fn parent_directory_reference() {
+        assert_eq!(
+            rel("../sauces/tomato", "recipes/pasta/spaghetti"),
+            "./recipes/sauces/tomato"
+        );
+    }
+
+    #[test]
+    fn multiple_parent_directory_references() {
+        assert_eq!(
+            rel("../../sauces/tomato", "recipes/italian/pasta/spaghetti"),
+            "./recipes/sauces/tomato"
+        );
+    }
+
+    #[test]
+    fn other_at_root_has_no_parent() {
+        // "spaghetti" has no directory component, so the base is the root.
+        assert_eq!(rel("./sauce", "spaghetti"), "./sauce");
+    }
+
+    #[test]
+    fn reference_without_dot_prefix_is_treated_as_relative() {
+        // A bare relative path behaves the same as one with a "./" prefix.
+        assert_eq!(
+            rel("sauces/tomato", "recipes/pasta/spaghetti"),
+            "./recipes/pasta/sauces/tomato"
+        );
+    }
+
+    #[test]
+    fn resolving_from_self_gives_own_path() {
+        assert_eq!(rel("./spaghetti", "spaghetti"), "./spaghetti");
+    }
+
+    #[test]
+    fn can_escape_above_the_other_reference_root() {
+        // Going up more levels than "other" has just walks above the root;
+        // resolved_from does not clamp this.
+        assert_eq!(rel("../tomato", "spaghetti"), "../tomato");
+    }
+
+    #[test]
+    fn preserves_name_of_the_resolved_reference() {
+        assert_eq!(
+            rref("../sauces/tomato")
+                .resolved_from(&rref("./recipes/pasta/spaghetti"))
+                .name(),
+            "tomato"
+        );
+    }
+
+    #[test]
+    fn bare_path_is_prefixed_with_dot_slash() {
+        assert_eq!(rref("spaghetti").to_string(), "./spaghetti");
+        assert_eq!(rref("pasta/spaghetti").to_string(), "./pasta/spaghetti");
+    }
+
+    #[test]
+    fn already_prefixed_path_is_left_unchanged() {
+        assert_eq!(rref("./spaghetti").to_string(), "./spaghetti");
+        assert_eq!(rref("../spaghetti").to_string(), "../spaghetti");
+    }
 }

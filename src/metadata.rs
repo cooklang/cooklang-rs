@@ -1,5 +1,6 @@
 //! Metadata of a recipe
 
+use crate::float::round_f64;
 use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 
 use serde::{Deserialize, Serialize};
@@ -10,7 +11,9 @@ use tsify::Tsify;
 
 use crate::{
     convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
-    Converter,
+    quantity::Value,
+    semantic_eq::{unordered_equals, SemanticEq},
+    Converter, Quantity,
 };
 
 /// Metadata of a recipe
@@ -52,7 +55,12 @@ pub enum StdKey {
     Time,
     PrepTime,
     CookTime,
+    /// A plain count of servings, e.g. `servings: 4`. See [`Metadata::servings`].
     Servings,
+    /// How much the recipe makes as a `value%unit` string, e.g. `yield: 500%g`.
+    ///
+    /// See [`Metadata::yield_quantity`]. Also matches the `yields` key.
+    Yield,
     Difficulty,
     Cuisine,
     Diet,
@@ -81,7 +89,8 @@ impl FromStr for StdKey {
             "tags" | "tag" => Self::Tags,
             "author" => Self::Author,
             "source" => Self::Source,
-            "servings" | "serves" | "yield" => Self::Servings,
+            "servings" | "serves" => Self::Servings,
+            "yield" | "yields" => Self::Yield,
             "course" | "category" => Self::Course,
             "locale" => Self::Locale,
             "time" | "duration" | "time required" => Self::Time,
@@ -106,6 +115,7 @@ impl AsRef<str> for StdKey {
             StdKey::Author => "author",
             StdKey::Source => "source",
             StdKey::Servings => "servings",
+            StdKey::Yield => "yield",
             StdKey::Course => "course",
             StdKey::Locale => "locale",
             StdKey::Time => "time",
@@ -205,9 +215,25 @@ impl Metadata {
         }
     }
 
-    /// Servings the recipe is made for
+    /// Servings the recipe is made for (a plain count, e.g. `servings: 4`)
+    ///
+    /// Recognises the `servings` and `serves` key aliases.
     pub fn servings(&self) -> Option<Servings> {
-        self.get(StdKey::Servings).and_then(|v| v.as_servings())
+        first_std_key_value(&self.map, StdKey::Servings).and_then(|v| v.as_servings())
+    }
+
+    /// Yield of the recipe as a [`Quantity`]: how much it makes, as opposed
+    /// to how many portions it divides into ([`Self::servings`])
+    ///
+    /// Recognises the `yield` and `yields` keys. The value is a single
+    /// positive, finite number with an optional `%unit`, the same separator
+    /// quantities use: `500%g`, `500 % g`, `2.5` and `"500"` all parse.
+    /// `2.5 dl` (no separator), `1/2%l`, `1-2%l`, `-3%g` and `0` do not.
+    ///
+    /// Returns `None` if the key is absent or the value does not parse; such a
+    /// value stays a regular metadata entry and is reported as a warning.
+    pub fn yield_quantity(&self) -> Option<Quantity> {
+        first_std_key_value(&self.map, StdKey::Yield).and_then(|v| v.as_yield())
     }
 
     /// Recipe locale
@@ -215,6 +241,150 @@ impl Metadata {
     pub fn locale(&self) -> Option<(&str, Option<&str>)> {
         self.get(StdKey::Locale)
             .and_then(CooklangValueExt::as_locale)
+    }
+}
+
+/// Compares two metadata structs with semantic equality for standard keys.
+///
+/// Unlike [`PartialEq`], key aliases (e.g. `serves`/`servings`) resolve to
+/// the same key, numeric servings are compared with tolerance, and yield is
+/// compared as a unit-aware [`Quantity`].
+impl SemanticEq for Metadata {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        // a value neither side can read is still part of what the recipe says,
+        // so it falls back to comparing it raw rather than merging every value
+        // that fails to parse
+        let servings_eq =
+            std_key_values_eq(&self.map, &other.map, StdKey::Servings, |a, b| {
+                match (a.as_servings(), b.as_servings()) {
+                    (Some(x), Some(y)) => x.equals(&y, converter),
+                    _ => a == b,
+                }
+            });
+
+        let yield_eq = std_key_values_eq(&self.map, &other.map, StdKey::Yield, |a, b| {
+            match (a.as_yield(), b.as_yield()) {
+                (Some(x), Some(y)) => x.equals(&y, converter),
+                _ => a == b,
+            }
+        });
+
+        let simple_std_eq = [
+            StdKey::Title,
+            StdKey::Description,
+            StdKey::Tags,
+            StdKey::Author,
+            StdKey::Source,
+            StdKey::Course,
+            StdKey::Difficulty,
+            StdKey::Cuisine,
+            StdKey::Diet,
+            StdKey::Images,
+            StdKey::Locale,
+        ]
+        .iter()
+        .all(|k| std_key_values_eq(&self.map, &other.map, *k, |a, b| a == b));
+
+        let time_eq = std_key_values_eq(&self.map, &other.map, StdKey::Time, |a, b| {
+            parsed_eq(a, b, |v| value_as_time(v, converter).ok())
+        }) && [StdKey::PrepTime, StdKey::CookTime].iter().all(|k| {
+            std_key_values_eq(&self.map, &other.map, *k, |a, b| {
+                parsed_eq(a, b, |v| value_as_minutes(v, converter).ok())
+            })
+        });
+
+        let a_custom: Vec<_> = self.map_filtered().collect();
+        let b_custom: Vec<_> = other.map_filtered().collect();
+        let custom_eq = unordered_equals(&a_custom, &b_custom, converter);
+
+        servings_eq && yield_eq && simple_std_eq && time_eq && custom_eq
+    }
+}
+
+/// Compares two values by their parsed form, falling back to comparing them raw
+/// when either side fails to parse.
+fn parsed_eq<T: PartialEq>(
+    a: &serde_yaml::Value,
+    b: &serde_yaml::Value,
+    parse: impl Fn(&serde_yaml::Value) -> Option<T>,
+) -> bool {
+    match (parse(a), parse(b)) {
+        (Some(pa), Some(pb)) => pa == pb,
+        _ => a == b,
+    }
+}
+
+/// Compares the value of every entry written under any alias of `sk`, in any
+/// order.
+///
+/// A recipe can spell the same standard key more than once (`servings` and
+/// `serves`), and all of them are part of what it says, so comparing only the
+/// first would let the rest differ unnoticed.
+fn std_key_values_eq(
+    a: &serde_yaml::Mapping,
+    b: &serde_yaml::Mapping,
+    sk: StdKey,
+    mut value_eq: impl FnMut(&serde_yaml::Value, &serde_yaml::Value) -> bool,
+) -> bool {
+    let a: Vec<_> = std_key_entries(a, sk).map(|(_, v)| v).collect();
+    let mut b: Vec<_> = std_key_entries(b, sk).map(|(_, v)| v).collect();
+    a.len() == b.len()
+        && a.iter()
+            .all(|x| match b.iter().position(|y| value_eq(x, y)) {
+                Some(i) => {
+                    b.swap_remove(i);
+                    true
+                }
+                None => false,
+            })
+}
+
+/// Look up a value in a mapping by any alias of the given [`StdKey`].
+fn first_std_key_value(m: &serde_yaml::Mapping, sk: StdKey) -> Option<&serde_yaml::Value> {
+    std_key_entries(m, sk).next().map(|(_, v)| v)
+}
+
+/// The key of the first entry written with any alias of the given [`StdKey`].
+fn find_std_key(m: &serde_yaml::Mapping, sk: StdKey) -> Option<&serde_yaml::Value> {
+    std_key_entries(m, sk).next().map(|(k, _)| k)
+}
+
+/// Every entry written with any alias of the given [`StdKey`].
+fn std_key_entries(
+    m: &serde_yaml::Mapping,
+    sk: StdKey,
+) -> impl Iterator<Item = (&serde_yaml::Value, &serde_yaml::Value)> {
+    m.iter().filter(move |(k, _)| {
+        k.as_str()
+            .and_then(|s| StdKey::from_str(s).ok())
+            .is_some_and(|found| found == sk)
+    })
+}
+
+/// A servings count and a yield are both amounts a recipe makes, and scaling
+/// only ever multiplies them, so nothing at or below zero could become one.
+///
+/// The warning report is not the only reader of these keys, so this has to hold
+/// wherever a value is handed to a caller, not only in [`check_std_entry`].
+pub(crate) fn is_scalable_amount(n: f64) -> bool {
+    n.is_finite() && n > 0.0
+}
+
+/// Split a YAML value stored as a yield into its amount and unit, without
+/// judging the amount.
+///
+/// Accepts `"500%g"` (value + unit) or a plain YAML number/string like `"4"` (no unit).
+fn split_yield_value(v: &serde_yaml::Value) -> Option<(f64, Option<String>)> {
+    match v {
+        serde_yaml::Value::Number(n) => Some((n.as_f64()?, None)),
+        serde_yaml::Value::String(s) => {
+            if let Some((val_str, unit)) = s.split_once('%') {
+                Some((val_str.trim().parse().ok()?, Some(unit.trim().to_string())))
+            } else {
+                Some((s.trim().parse().ok()?, None))
+            }
+        }
+        _ => None,
     }
 }
 
@@ -235,7 +405,7 @@ mod private {
 impl MetaIndex for StdKey {
     #[inline]
     fn index_into<'a>(&self, m: &'a serde_yaml::Mapping) -> Option<&'a serde_yaml::Value> {
-        m.get(self.as_ref())
+        first_std_key_value(m, *self)
     }
 
     #[inline]
@@ -243,7 +413,10 @@ impl MetaIndex for StdKey {
         &self,
         m: &'a mut serde_yaml::Mapping,
     ) -> Option<&'a mut serde_yaml::Value> {
-        m.get_mut(self.as_ref())
+        // the entry is looked up by alias, so it has to be written back through
+        // the key as the recipe spelled it
+        let key = find_std_key(m, *self)?.clone();
+        m.get_mut(&key)
     }
 }
 
@@ -323,6 +496,12 @@ pub trait CooklangValueExt: private::Sealed {
     ///
     /// Can be a number or a string that parses to [`Servings`]
     fn as_servings(&self) -> Option<Servings>;
+
+    /// Get the yield as a [`Quantity`]
+    ///
+    /// Can be a number or a `value%unit` string (unit is optional). `None`
+    /// unless the amount is positive and finite.
+    fn as_yield(&self) -> Option<Quantity>;
 }
 
 impl CooklangValueExt for serde_yaml::Value {
@@ -391,22 +570,23 @@ impl CooklangValueExt for serde_yaml::Value {
     }
 
     fn as_servings(&self) -> Option<Servings> {
-        // Try as number first
-        if let Some(n) = self.as_u32() {
-            return Some(Servings::Number(n));
+        if let Some(n) = self.as_f64() {
+            return is_scalable_amount(n).then_some(Servings::Number(n));
         }
 
-        // Return as text if it's a string
-        if let Some(s) = self.as_str() {
-            // Try to parse as number
-            if let Ok(n) = s.parse::<u32>() {
-                Some(Servings::Number(n))
-            } else {
-                Some(Servings::Text(s.to_string()))
-            }
-        } else {
-            None
+        let s = self.as_str()?;
+        match s.parse::<f64>() {
+            // a count written as a string is still a count, and still has to be one
+            Ok(n) => is_scalable_amount(n).then_some(Servings::Number(n)),
+            Err(_) => Some(Servings::Text(s.to_string())),
         }
+    }
+
+    fn as_yield(&self) -> Option<Quantity> {
+        let (amount, unit) = split_yield_value(self)?;
+        // a caller must never scale by an amount `check_std_entry` already
+        // reported as invalid
+        is_scalable_amount(amount).then(|| Quantity::new(Value::from(amount), unit))
     }
 }
 
@@ -499,9 +679,22 @@ pub(crate) fn check_std_entry(
 ) -> Result<(), MetadataError> {
     match key {
         StdKey::Servings => {
-            value
-                .as_u32()
+            let servings = value
+                .as_f64()
                 .ok_or(MetadataError::expect_type(MetaType::Number, value))?;
+            if !is_scalable_amount(servings) {
+                return Err(MetadataError::expect_type(MetaType::Number, value));
+            }
+        }
+        StdKey::Yield => {
+            // reported apart from the amount check, so a value that is no
+            // quantity at all does not report the wrong reason
+            let Some((amount, _)) = split_yield_value(value) else {
+                return Err(MetadataError::expect_type(MetaType::String, value));
+            };
+            if !is_scalable_amount(amount) {
+                return Err(MetadataError::expect_type(MetaType::Number, value));
+            }
         }
         StdKey::Tags => {
             value_as_tags(value)?;
@@ -537,19 +730,70 @@ pub(crate) fn check_std_entry(
 }
 
 /// Servings information that can be numeric or a string
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
+///
+/// [`PartialEq`] compares the value as written, so `4.0` and `4.00001` differ.
+/// Use [`SemanticEq::equals`] to compare them the way a cook would.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 #[serde(untagged)]
 pub enum Servings {
     /// Numeric servings count
-    Number(u32),
+    Number(f64),
     /// String servings (when it can't be parsed as a number)
     Text(String),
 }
 
+/// A custom metadata value carries no unit information, so it means what it
+/// says: this compares as written, like [`PartialEq`].
+impl SemanticEq for serde_yaml::Value {
+    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+        self == other
+    }
+}
+
+/// Compares two servings counts, allowing the rounding error scaling
+/// introduces.
+///
+/// Unlike [`PartialEq`], numeric servings are compared rounded one digit finer
+/// than [`Recipe::scale`](crate::Recipe::scale) writes them, so a count scaled
+/// to `2.5` equals one written as `2.50001` while `4.05` and `4.1` stay apart.
+/// Text servings are compared as written.
+impl SemanticEq for Servings {
+    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+        match (self, other) {
+            (Servings::Number(a), Servings::Number(b)) => {
+                round_f64(*a, Servings::COMPARE_PRECISION)
+                    == round_f64(*b, Servings::COMPARE_PRECISION)
+            }
+            (Servings::Text(a), Servings::Text(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
 impl Servings {
+    /// A count is a number of people, so a scaled count is written to one
+    /// decimal: more would claim a precision the recipe never had
+    pub(crate) const WRITE_PRECISION: u32 = 1;
+
+    /// Comparing one digit finer than the writer keeps every count the writer
+    /// could produce distinguishable, while absorbing the float error it leaves
+    /// behind
+    const COMPARE_PRECISION: u32 = Self::WRITE_PRECISION + 1;
+
+    /// The servings scaled by `factor`, with the count rounded to the precision
+    /// a servings count is written with
+    ///
+    /// Text servings carry no count to scale, so they are returned unchanged.
+    pub(crate) fn scaled(&self, factor: f64) -> Self {
+        match self {
+            Servings::Number(n) => Servings::Number(round_f64(n * factor, Self::WRITE_PRECISION)),
+            Servings::Text(_) => self.clone(),
+        }
+    }
+
     /// Get the numeric value if available
-    pub fn as_number(&self) -> Option<u32> {
+    pub fn as_number(&self) -> Option<f64> {
         match self {
             Servings::Number(n) => Some(*n),
             Servings::Text(_) => None,
@@ -882,6 +1126,158 @@ impl From<&serde_yaml::Value> for MetaType {
 mod tests {
     use super::*;
 
+    #[test]
+    fn servings_must_be_a_positive_finite_number() {
+        let converter = Converter::empty();
+        let check = |yaml: &str| {
+            let value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+            check_std_entry(StdKey::Servings, &value, &converter).is_ok()
+        };
+
+        assert!(check("4"));
+        assert!(check("4.5"));
+
+        // a count of servings has to be something you can divide a recipe into
+        assert!(!check("-4"));
+        assert!(!check("0"));
+        assert!(!check(".nan"));
+        assert!(!check(".inf"));
+        assert!(!check("-.inf"));
+    }
+
+    #[test]
+    fn a_yield_must_be_a_positive_finite_amount() {
+        let converter = Converter::empty();
+        let check = |yaml: &str| {
+            let value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
+            check_std_entry(StdKey::Yield, &value, &converter).is_ok()
+        };
+
+        assert!(check("500"));
+        assert!(check("2.5"));
+        assert!(check(r#""500%g""#));
+        assert!(check(r#""0.5 % kg""#));
+
+        // a yield is an amount the recipe makes, and scaling only multiplies
+        // it, so nothing at or below zero can ever become one
+        assert!(!check(r#""-3%g""#));
+        assert!(!check("-3"));
+        assert!(!check("0"));
+        assert!(!check(r#""0%g""#));
+        assert!(!check(".nan"));
+        assert!(!check(".inf"));
+        assert!(!check("-.inf"));
+
+        // and it still has to be a quantity at all
+        assert!(!check(r#""2.5 dl""#));
+        assert!(!check(r#""a lot""#));
+    }
+
+    #[test]
+    fn a_value_that_is_not_a_count_is_not_read_as_servings() {
+        let servings = |yaml: &str| {
+            serde_yaml::from_str::<serde_yaml::Value>(yaml)
+                .unwrap()
+                .as_servings()
+        };
+
+        assert_eq!(servings("4"), Some(Servings::Number(4.0)));
+        assert_eq!(servings("4.5"), Some(Servings::Number(4.5)));
+        assert_eq!(servings(r#""4""#), Some(Servings::Number(4.0)));
+        assert_eq!(
+            servings(r#""serves 4 people""#),
+            Some(Servings::Text("serves 4 people".into()))
+        );
+
+        // the warning report is not the only reader, so a value handed to a
+        // caller carries the same rule check_std_entry applies
+        assert_eq!(servings("-4"), None);
+        assert_eq!(servings("0"), None);
+        assert_eq!(servings(".nan"), None);
+        assert_eq!(servings(".inf"), None);
+        assert_eq!(servings(r#""-4""#), None);
+    }
+
+    #[test]
+    fn an_amount_that_cannot_be_made_is_not_read_as_a_yield() {
+        let qty = |yaml: &str| {
+            serde_yaml::from_str::<serde_yaml::Value>(yaml)
+                .unwrap()
+                .as_yield()
+                .map(|q| q.to_string())
+        };
+
+        assert_eq!(qty(r#""500%g""#), Some("500 g".to_string()));
+        assert_eq!(qty("2.5"), Some("2.5".to_string()));
+
+        assert_eq!(qty(r#""-3%g""#), None);
+        assert_eq!(qty("0"), None);
+        assert_eq!(qty(".nan"), None);
+        assert_eq!(qty(".inf"), None);
+    }
+
+    #[test]
+    fn metadata_equals_compares_a_value_it_cannot_read_as_written() {
+        let converter = Converter::empty();
+        let meta = |yaml: &str| Metadata {
+            map: serde_yaml::from_str(yaml).unwrap(),
+        };
+
+        // two values that are not counts are still two different values, so
+        // failing to read them must not merge them
+        assert!(!meta("servings: -4").equals(&meta("servings: -5"), &converter));
+        assert!(meta("servings: -4").equals(&meta("servings: -4"), &converter));
+        assert!(!meta("yield: -3%g").equals(&meta("yield: -5%g"), &converter));
+    }
+
+    #[test]
+    fn metadata_equals_compares_the_spellings_of_a_key_in_any_order() {
+        let converter = Converter::empty();
+        let meta = |yaml: &str| Metadata {
+            map: serde_yaml::from_str(yaml).unwrap(),
+        };
+
+        assert!(meta("servings: 4\nserves: 8").equals(&meta("serves: 8\nservings: 4"), &converter));
+        assert!(!meta("servings: 4\nserves: 8").equals(&meta("servings: 4\nserves: 9"), &converter));
+    }
+
+    #[test]
+    fn servings_partial_eq_is_exact_and_semantic_eq_rounds_to_two_decimals() {
+        // a count has no unit, so the converter has nothing to say about it and
+        // an empty one gives the same answer as the bundled one
+        let converter = Converter::empty();
+        let n = Servings::Number;
+
+        // PartialEq compares as written
+        assert_ne!(n(4.0), n(4.000_1));
+        assert_eq!(n(4.0), n(4.0));
+
+        // equals absorbs the rounding error scaling introduces, because both
+        // counts round to the same two decimals
+        assert!(n(4.0).equals(&n(4.000_1), &converter));
+        assert!(n(4.0).equals(&n(4.004), &converter));
+        // a difference a recipe could write down survives the rounding
+        assert!(!n(4.0).equals(&n(4.05), &converter));
+        assert!(!n(2.5).equals(&n(2.0), &converter));
+
+        // comparing is one digit finer than writing, so two counts the writer
+        // could tell apart are never merged: at WRITE_PRECISION both of these
+        // round to 4.1
+        assert!(!n(4.05).equals(&n(4.1), &converter));
+        assert_eq!(Servings::COMPARE_PRECISION, Servings::WRITE_PRECISION + 1);
+
+        // scaling rounds to the precision a count is written with
+        assert_eq!(n(4.0).scaled(1.0 / 3.0), n(1.3));
+        assert_eq!(
+            Servings::Text("two".into()).scaled(2.0),
+            Servings::Text("two".into())
+        );
+
+        // text servings compare as written either way
+        assert!(Servings::Text("two".into()).equals(&Servings::Text("two".into()), &converter));
+        assert!(!Servings::Text("two".into()).equals(&n(2.0), &converter));
+    }
+
     #[cfg(feature = "bundled_units")]
     #[test]
     fn test_parse_time_with_units() {
@@ -927,6 +1323,7 @@ mod tests {
         t(StdKey::Author);
         t(StdKey::Source);
         t(StdKey::Servings);
+        t(StdKey::Yield);
         t(StdKey::Course);
         t(StdKey::Locale);
         t(StdKey::Time);

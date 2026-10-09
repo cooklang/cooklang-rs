@@ -83,11 +83,13 @@ pub mod pantry;
 pub mod parser;
 pub mod quantity;
 pub mod scale;
+pub mod semantic_eq;
 #[cfg(feature = "shopping_list")]
 pub mod shopping_list;
 pub mod span;
 pub mod text;
 
+mod float;
 mod lexer;
 
 use bitflags::bitflags;
@@ -102,6 +104,7 @@ pub use metadata::Metadata;
 pub use model::*;
 pub use parser::Modifiers;
 pub use quantity::{GroupedQuantity, Quantity, Value};
+pub use semantic_eq::SemanticEq;
 pub use span::Span;
 pub use text::Text;
 
@@ -217,16 +220,29 @@ impl CooklangParser {
 
     /// Parse a recipe
     pub fn parse(&self, input: &str) -> RecipeResult {
-        self.parse_with_options(input, ParseOptions::default())
+        self.parse_with_options(input, ParseOptions::default(), None)
+    }
+
+    /// Same as [`Self::parse`] but for the recipe file at `path`
+    ///
+    /// Recipe references in the recipe are resolved against `path`.
+    pub fn parse_with_path(&self, input: &str, path: Option<RecipeReference>) -> RecipeResult {
+        self.parse_with_options(input, ParseOptions::default(), path)
     }
 
     /// Same as [`Self::parse`] but with aditional options
     #[tracing::instrument(level = "debug", name = "parse", skip_all, fields(len = input.len()))]
-    pub fn parse_with_options(&self, input: &str, options: ParseOptions) -> RecipeResult {
+    pub fn parse_with_options(
+        &self,
+        input: &str,
+        options: ParseOptions,
+        path: Option<RecipeReference>,
+    ) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
         analysis::parse_events(
             &mut parser,
             input,
+            path,
             self.extensions,
             &self.converter,
             options,
@@ -252,6 +268,7 @@ impl CooklangParser {
         analysis::parse_events(
             meta_events,
             input,
+            None,
             self.extensions,
             &self.converter,
             options,

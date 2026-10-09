@@ -5,7 +5,7 @@
 
 use crate::{
     error::{CowStr, PassResult, SourceDiag},
-    Recipe,
+    Recipe, RecipeReference,
 };
 
 mod event_consumer;
@@ -32,6 +32,11 @@ pub(crate) enum DuplicateMode {
 #[derive(Default)]
 pub struct ParseOptions<'a> {
     /// Check recipe references for existence
+    ///
+    /// The function receives a [`RecipeRefTarget`], which says whether the
+    /// reference could be resolved against the recipe being parsed. A
+    /// [`RecipeReference`] is a relative path and nothing more: locating it is
+    /// the caller's concern, because the crate holds no filesystem of its own.
     pub recipe_ref_check: Option<RecipeRefCheck<'a>>,
     /// Check metadata entries for validity
     ///
@@ -112,6 +117,43 @@ impl CheckOptions {
     }
 }
 
-pub type RecipeRefCheck<'a> = Box<dyn FnMut(&str) -> CheckResult + 'a>;
+/// What a [`RecipeRefCheck`] is asked about
+///
+/// A reference is written relative to the recipe holding it, so resolving it
+/// needs that recipe's [`path`](crate::Recipe::path). These variants keep
+/// "there is no such recipe" apart from "there was nothing to resolve against",
+/// which is the caller's own gap and not a fault in the recipe.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RecipeRefTarget<'a> {
+    /// A path, resolved against the recipe that referenced it
+    ///
+    /// This is the one form a caller can go looking for directly.
+    Resolved(&'a RecipeReference),
+
+    /// A path that could not be resolved, because the recipe was parsed with no
+    /// `path`
+    ///
+    /// It is relative to a directory this crate was never told, so answering
+    /// [`CheckResult::Error`] here would report a missing recipe when the
+    /// reference may well be fine. Pass a path to `parse_with_path` to get
+    /// [`Self::Resolved`] instead.
+    Unresolved(&'a RecipeReference),
+}
+
+impl<'a> RecipeRefTarget<'a> {
+    /// The name of the referenced recipe
+    pub fn name(&self) -> &'a str {
+        self.reference().name()
+    }
+
+    /// The reference, resolved or not
+    pub fn reference(&self) -> &'a RecipeReference {
+        match self {
+            Self::Resolved(reference) | Self::Unresolved(reference) => reference,
+        }
+    }
+}
+
+pub type RecipeRefCheck<'a> = Box<dyn FnMut(RecipeRefTarget) -> CheckResult + 'a>;
 pub type MetadataValidator<'a> =
     Box<dyn FnMut(&serde_yaml::Value, &serde_yaml::Value, &mut CheckOptions) -> CheckResult + 'a>;

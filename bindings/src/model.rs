@@ -87,24 +87,21 @@ pub struct BlockNote {
 /// Represents a reference to another recipe file
 #[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct RecipeReference {
-    /// The recipe file name (without directory path)
+    /// The reference as a normalized relative path, always `/`-separated and
+    /// prefixed with `./` or `../`, e.g. `./pasta/spaghetti`
+    ///
+    /// It is relative to the recipe holding it, and resolving it against a
+    /// directory is the caller's concern.
+    pub path: String,
+    /// The referenced recipe's file name, which is the last segment of `path`
     pub name: String,
-    /// Directory path components (e.g., [".", "pasta"] for "./pasta/recipe")
-    pub components: Vec<String>,
-}
-
-impl RecipeReference {
-    /// Returns the full path as a string with the given separator
-    pub fn path(&self, separator: &str) -> String {
-        self.components.join(separator) + separator + &self.name
-    }
 }
 
 impl From<&OriginalRecipeReference> for RecipeReference {
     fn from(reference: &OriginalRecipeReference) -> Self {
         RecipeReference {
-            name: reference.name.clone(),
-            components: reference.components.clone(),
+            path: reference.to_string(),
+            name: reference.name().to_string(),
         }
     }
 }
@@ -252,6 +249,7 @@ pub enum StdKey {
     PrepTime,
     CookTime,
     Servings,
+    Yield,
     Difficulty,
     Cuisine,
     Diet,
@@ -272,6 +270,7 @@ impl From<&OriginalStdKey> for StdKey {
             OriginalStdKey::PrepTime => StdKey::PrepTime,
             OriginalStdKey::CookTime => StdKey::CookTime,
             OriginalStdKey::Servings => StdKey::Servings,
+            OriginalStdKey::Yield => StdKey::Yield,
             OriginalStdKey::Difficulty => StdKey::Difficulty,
             OriginalStdKey::Cuisine => StdKey::Cuisine,
             OriginalStdKey::Diet => StdKey::Diet,
@@ -284,7 +283,7 @@ impl From<&OriginalStdKey> for StdKey {
 /// Recipe servings as either a number or text description
 #[derive(uniffi::Enum, Debug, Clone)]
 pub enum Servings {
-    Number { value: u32 },
+    Number { value: f64 },
     Text { value: String },
 }
 
