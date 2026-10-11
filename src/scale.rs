@@ -2,6 +2,7 @@
 
 use crate::{
     convert::Converter,
+    convert_legacy::LegacyConverter,
     float::round_f64,
     metadata::{is_scalable_amount, Servings},
     quantity::Value,
@@ -29,32 +30,38 @@ pub enum ScaleError {
 impl Recipe {
     /// Scale a recipe
     ///
-    pub fn scale(&mut self, factor: f64, converter: &Converter) {
-        let scale_quantity = |q: &mut Quantity| {
-            if q.scalable {
-                q.value.scale(factor);
-                let _ = q.fit(converter);
-            }
-        };
+    pub fn scale_legacy(&mut self, factor: f64, converter: &LegacyConverter) {
+        self.scale_with(factor, &mut |q| {
+            let _ = q.fit_legacy(converter);
+        });
+    }
 
+    /// [`scale_legacy`](Self::scale_legacy) through the new converter, which is what stays (ADR 0009): units are fitted
+    /// for the recipe's own naming, the legacy locale when it has no
+    /// `locale`, else the audience its tag determines. A naming the new
+    /// converter cannot serve leaves every unit as written. Takes the old
+    /// name once the old converter goes (ADR 0009).
+    pub fn scale(&mut self, factor: f64) {
+        match Converter::for_recipe(self) {
+            Ok(converter) => self.scale_with(factor, &mut |q| {
+                if let Ok(fitted) = converter.fit(q) {
+                    *q = fitted;
+                }
+            }),
+            Err(_) => self.scale_with(factor, &mut |_| {}),
+        }
+    }
+
+    /// Scales every scalable amount, the servings and the yield, fitting
+    /// each scaled quantity with `fit`.
+    fn scale_with(&mut self, factor: f64, fit: &mut dyn FnMut(&mut Quantity)) {
         // text servings carry no count, so there is nothing to scale
         if let Some(new_servings) = self
             .metadata
             .servings()
             .and_then(|s| s.scaled(factor).as_number())
         {
-            if let Some(servings_value) = self.metadata.get_mut(crate::metadata::StdKey::Servings) {
-                // Preserve the original type (string or number)
-                match servings_value {
-                    serde_yaml::Value::String(_) => {
-                        *servings_value = serde_yaml::Value::String(new_servings.to_string());
-                    }
-                    _ => {
-                        *servings_value =
-                            serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
-                    }
-                }
-            }
+            self.write_servings(new_servings);
         }
 
         // the yield is an amount the recipe makes, so it cannot stay behind the
@@ -62,37 +69,49 @@ impl Recipe {
         if let Some(mut qty) = self.metadata.yield_quantity() {
             if let Value::Number(_) = qty.value() {
                 qty.value.scale(factor);
-                let _ = qty.fit(converter);
+                fit(&mut qty);
                 if let Some(entry) = self.metadata.get_mut(crate::metadata::StdKey::Yield) {
                     *entry = yield_metadata_value(&qty);
                 }
             }
         }
 
+        let mut scale_quantity = |q: &mut Quantity| {
+            if q.scalable {
+                q.value.scale(factor);
+                fit(q);
+            }
+        };
         self.ingredients
             .iter_mut()
             .filter_map(|i| i.quantity.as_mut())
-            .for_each(scale_quantity);
+            .for_each(&mut scale_quantity);
         self.cookware
             .iter_mut()
             .filter_map(|i| i.quantity.as_mut())
-            .for_each(scale_quantity);
+            .for_each(&mut scale_quantity);
         self.timers
             .iter_mut()
             .filter_map(|i| i.quantity.as_mut())
-            .for_each(scale_quantity);
+            .for_each(&mut scale_quantity);
     }
 
-    /// Scale to a specific number of servings
-    ///
-    /// - `target` is the wanted number of servings.
-    ///
-    /// Returns an error if the recipe doesn't have a valid numeric servings value.
-    pub fn scale_to_servings(
-        &mut self,
-        target: f64,
-        converter: &Converter,
-    ) -> Result<(), ScaleError> {
+    /// Writes a servings count back, preserving the original type (string or number)
+    fn write_servings(&mut self, count: f64) {
+        if let Some(servings_value) = self.metadata.get_mut(crate::metadata::StdKey::Servings) {
+            match servings_value {
+                serde_yaml::Value::String(_) => {
+                    *servings_value = serde_yaml::Value::String(count.to_string());
+                }
+                _ => {
+                    *servings_value = serde_yaml::Value::Number(serde_yaml::Number::from(count));
+                }
+            }
+        }
+    }
+
+    /// The factor that takes the recipe's servings to `target`
+    fn servings_factor(&self, target: f64) -> Result<f64, ScaleError> {
         // the target is written back as the recipe's own count, so it has to be
         // a count the recipe could have been written with
         if !is_scalable_amount(target) {
@@ -108,22 +127,32 @@ impl Recipe {
             .as_number()
             .ok_or(ScaleError::InvalidServings)?;
 
-        let factor = target / base;
-        self.scale(factor, converter);
+        Ok(target / base)
+    }
 
+    /// Scale to a specific number of servings
+    ///
+    /// - `target` is the wanted number of servings.
+    ///
+    /// Returns an error if the recipe doesn't have a valid numeric servings value.
+    pub fn scale_to_servings_legacy(
+        &mut self,
+        target: f64,
+        converter: &LegacyConverter,
+    ) -> Result<(), ScaleError> {
+        let factor = self.servings_factor(target)?;
+        self.scale_legacy(factor, converter);
         // written to the precision a count is written with, as `scale` does
-        let written = round_f64(target, Servings::WRITE_PRECISION);
-        if let Some(servings_value) = self.metadata.get_mut(crate::metadata::StdKey::Servings) {
-            // Preserve the original type (string or number)
-            match servings_value {
-                serde_yaml::Value::String(_) => {
-                    *servings_value = serde_yaml::Value::String(written.to_string());
-                }
-                _ => {
-                    *servings_value = serde_yaml::Value::Number(serde_yaml::Number::from(written));
-                }
-            }
-        }
+        self.write_servings(round_f64(target, Servings::WRITE_PRECISION));
+        Ok(())
+    }
+
+    /// [`scale_to_servings_legacy`](Self::scale_to_servings_legacy) through the new
+    /// converter, which is what stays (ADR 0009).
+    pub fn scale_to_servings(&mut self, target: f64) -> Result<(), ScaleError> {
+        let factor = self.servings_factor(target)?;
+        self.scale(factor);
+        self.write_servings(round_f64(target, Servings::WRITE_PRECISION));
         Ok(())
     }
 
@@ -142,24 +171,91 @@ impl Recipe {
     /// # Returns
     /// - `Ok(())` on successful scaling
     /// - `Err(ScaleError)` if scaling cannot be performed
+    pub fn scale_to_target_legacy(
+        &mut self,
+        target_value: f64,
+        target_unit: Option<&str>,
+        converter: &LegacyConverter,
+    ) -> Result<(), ScaleError> {
+        match target_unit {
+            Some("servings") | Some("serving") => {
+                self.scale_to_servings_legacy(target_value, converter)
+            }
+            Some(unit) => {
+                // Scale by yield with the specified unit
+                self.scale_to_yield_legacy(target_value, unit, converter)
+            }
+            None => {
+                // Direct scaling factor
+                self.scale_legacy(target_value, converter);
+                Ok(())
+            }
+        }
+    }
+
+    /// [`scale_to_target_legacy`](Self::scale_to_target_legacy) through the new converter, which is what stays (ADR 0009).
     pub fn scale_to_target(
         &mut self,
         target_value: f64,
         target_unit: Option<&str>,
-        converter: &Converter,
     ) -> Result<(), ScaleError> {
         match target_unit {
-            Some("servings") | Some("serving") => self.scale_to_servings(target_value, converter),
-            Some(unit) => {
-                // Scale by yield with the specified unit
-                self.scale_to_yield(target_value, unit, converter)
-            }
+            Some("servings") | Some("serving") => self.scale_to_servings(target_value),
+            Some(unit) => self.scale_to_yield(target_value, unit),
             None => {
-                // Direct scaling factor
-                self.scale(target_value, converter);
+                self.scale(target_value);
                 Ok(())
             }
         }
+    }
+
+    /// The factor that takes the recipe's yield to `target`, whose unit may
+    /// be any the yield's converts to; `convert` does that conversion, or
+    /// fails when it cannot.
+    fn yield_factor(
+        &self,
+        target: &Quantity,
+        convert: impl FnOnce(&Quantity, &str) -> Option<Quantity>,
+    ) -> Result<f64, ScaleError> {
+        let current_qty = self
+            .metadata
+            .yield_quantity()
+            .ok_or(ScaleError::InvalidYield)?;
+
+        let current_value = match current_qty.value() {
+            Value::Number(n) => n.value(),
+            _ => return Err(ScaleError::InvalidYield),
+        };
+
+        // the factor is taken between like amounts, so a target in another
+        // unit is converted into the yield's first
+        let mismatch = || ScaleError::UnitMismatch {
+            expected: target.unit().unwrap_or("").to_string(),
+            got: current_qty.unit().unwrap_or("").to_string(),
+        };
+        let in_yield_unit = match (current_qty.unit(), target.unit()) {
+            (Some(current), Some(wanted)) if current != wanted => {
+                convert(target, current).ok_or_else(mismatch)?
+            }
+            (Some(_), Some(_)) | (None, None) => target.clone(),
+            _ => return Err(mismatch()),
+        };
+        let target_in_yield_unit = match in_yield_unit.value() {
+            Value::Number(n) => n.value(),
+            _ => return Err(ScaleError::InvalidYield),
+        };
+
+        Ok(target_in_yield_unit / current_value)
+    }
+
+    /// The yield target as a quantity, once it is an amount a yield can be
+    fn yield_target(target_value: f64, target_unit: &str) -> Result<Quantity, ScaleError> {
+        // likewise written back as the recipe's own yield
+        if !is_scalable_amount(target_value) {
+            return Err(ScaleError::InvalidYield);
+        }
+        let unit = (!target_unit.is_empty()).then(|| target_unit.to_string());
+        Ok(Quantity::new(Value::from(target_value), unit))
     }
 
     /// Scale to a specific yield amount with unit
@@ -173,51 +269,18 @@ impl Recipe {
     /// - The recipe doesn't have yield metadata
     /// - The yield metadata is not in the correct format
     /// - The target's unit cannot be converted to the yield's
-    pub fn scale_to_yield(
+    pub fn scale_to_yield_legacy(
         &mut self,
         target_value: f64,
         target_unit: &str,
-        converter: &Converter,
+        converter: &LegacyConverter,
     ) -> Result<(), ScaleError> {
-        // likewise written back as the recipe's own yield
-        if !is_scalable_amount(target_value) {
-            return Err(ScaleError::InvalidYield);
-        }
-
-        let current_qty = self
-            .metadata
-            .yield_quantity()
-            .ok_or(ScaleError::InvalidYield)?;
-
-        let current_value = match current_qty.value() {
-            Value::Number(n) => n.value(),
-            _ => return Err(ScaleError::InvalidYield),
-        };
-
-        let unit = (!target_unit.is_empty()).then(|| target_unit.to_string());
-        let target = Quantity::new(Value::from(target_value), unit);
-
-        // the factor is taken between like amounts, so a target in another
-        // unit is converted into the yield's first
-        let mismatch = || ScaleError::UnitMismatch {
-            expected: target_unit.to_string(),
-            got: current_qty.unit().unwrap_or("").to_string(),
-        };
-        let mut in_yield_unit = target.clone();
-        match (current_qty.unit(), target.unit()) {
-            (Some(current), Some(wanted)) if current != wanted => in_yield_unit
-                .convert(current, converter)
-                .map_err(|_| mismatch())?,
-            (Some(_), Some(_)) | (None, None) => {}
-            _ => return Err(mismatch()),
-        }
-        let target_in_yield_unit = match in_yield_unit.value() {
-            Value::Number(n) => n.value(),
-            _ => return Err(ScaleError::InvalidYield),
-        };
-
-        let factor = target_in_yield_unit / current_value;
-        self.scale(factor, converter);
+        let target = Self::yield_target(target_value, target_unit)?;
+        let factor = self.yield_factor(&target, |target, unit| {
+            let mut converted = target.clone();
+            converted.convert(unit, converter).ok().map(|_| converted)
+        })?;
+        self.scale_legacy(factor, converter);
 
         // the caller asked for this amount in this unit, so it is written back
         // as asked rather than refitted -- but through the one yield writer, so
@@ -226,6 +289,26 @@ impl Recipe {
             *yield_meta = yield_metadata_value(&target);
         }
 
+        Ok(())
+    }
+
+    /// [`scale_to_yield_legacy`](Self::scale_to_yield_legacy) through the new converter, which is what stays (ADR 0009).
+    pub fn scale_to_yield(
+        &mut self,
+        target_value: f64,
+        target_unit: &str,
+    ) -> Result<(), ScaleError> {
+        let target = Self::yield_target(target_value, target_unit)?;
+        let converter = Converter::for_recipe(self).ok();
+        let factor = self.yield_factor(&target, |target, unit| {
+            let converter = converter.as_ref()?;
+            let to = converter.resolve_text(unit)?;
+            converter.convert(target, to).ok()
+        })?;
+        self.scale(factor);
+        if let Some(yield_meta) = self.metadata.get_mut(crate::metadata::StdKey::Yield) {
+            *yield_meta = yield_metadata_value(&target);
+        }
         Ok(())
     }
 }

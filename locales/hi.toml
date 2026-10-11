@@ -1,0 +1,149 @@
+# Unit names for `hi`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `hi`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "i = 0 or n = 1" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "ली॰"
+aliases = ["लीटर"]
+long = { one = "{0} लीटर", other = "{0} लीटर" }
+
+[[unit]]
+id = "deciliter"
+symbol = "डे॰ली॰"
+aliases = ["डेसीलीटर"]
+long = { one = "{0} डेसीलीटर", other = "{0} डेसीलीटर" }
+
+[[unit]]
+id = "centiliter"
+symbol = "सें॰ली॰"
+aliases = ["सेंटीलीटर"]
+long = { one = "{0} सेंटीलीटर", other = "{0} सेंटीलीटर" }
+
+[[unit]]
+id = "milliliter"
+symbol = "मि॰ ली॰"
+aliases = ["मिलीलीटर"]
+long = { one = "{0} मिलीलीटर", other = "{0} मिलीलीटर" }
+
+[[unit]]
+id = "kilogram"
+symbol = "कि॰ग्रा॰"
+aliases = ["किलोग्राम"]
+long = { one = "{0} किलोग्राम", other = "{0} किलोग्राम" }
+
+[[unit]]
+id = "gram"
+symbol = "ग्रा॰"
+aliases = ["ग्राम"]
+long = { one = "{0} ग्राम", other = "{0} ग्राम" }
+
+[[unit]]
+id = "meter"
+symbol = "मी"
+aliases = ["मीटर"]
+long = { one = "{0} मीटर", other = "{0} मीटर" }
+
+[[unit]]
+id = "centimeter"
+symbol = "सें॰मी॰"
+aliases = ["सेंटीमीटर"]
+long = { one = "{0} सेंटीमीटर", other = "{0} सेंटीमीटर" }
+
+[[unit]]
+id = "millimeter"
+symbol = "मि॰मी॰"
+aliases = ["मिलीमीटर"]
+long = { one = "{0} मिलीमीटर", other = "{0} मिलीमीटर" }
+
+[[unit]]
+id = "foot"
+symbol = "फ़ीट"
+aliases = ["फ़ुट"]
+long = { one = "{0} फ़ुट", other = "{0} फ़ीट" }
+
+[[unit]]
+id = "inch"
+symbol = "इंच"
+long = { one = "{0} इंच", other = "{0} इंच" }
+
+[[unit]]
+id = "second"
+symbol = "से॰"
+aliases = ["सेकंड"]
+long = { one = "{0} सेकंड", other = "{0} सेकंड" }
+
+[[unit]]
+id = "minute"
+symbol = "मि॰"
+aliases = ["मिनट"]
+long = { one = "{0} मिनट", other = "{0} मिनट" }
+
+[[unit]]
+id = "hour"
+symbol = "घं॰"
+aliases = ["घंटा", "घंटे"]
+long = { one = "{0} घंटा", other = "{0} घंटे" }
+
+[[unit]]
+id = "day"
+symbol = "दिन"
+long = { one = "{0} दिन", other = "{0} दिन" }
+
+[[unit]]
+id = "celsius"
+symbol = "°से॰"
+aliases = ["डिग्री सेल्सियस"]
+long = { one = "{0} डिग्री सेल्सियस", other = "{0} डिग्री सेल्सियस" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°फ़ेरन"
+aliases = ["डिग्री फ़ेरनहाइट"]
+long = { one = "{0} डिग्री फ़ेरनहाइट", other = "{0} डिग्री फ़ेरनहाइट" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- टी स्पून
+#   us tablespoon -- टेबलस्पून, टे॰ स्पून
+#   us fluid ounce -- फ़्लूइड आउंस
+#   us cup -- कप
+#   us pint -- पाइंट
+#   us quart -- क्वार्ट
+#   us gallon -- गैलन
+#   imperial fluid ounce -- fl oz Imp., इम्पी॰ फ़्लुइड आउंस
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- क. इम्पी., क्वार्ट इम्पीरियल
+#   imperial gallon -- इम्पीरियल गैलन, इम्पी॰ गैलन
+#   metric dessert spoon -- डे. स्पून, डेज़र्ट स्पून
+#   metric cup -- मीट्रिक कप
+#   ounce -- औंस
+#   pound -- पौंड

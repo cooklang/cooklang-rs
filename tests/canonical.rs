@@ -1,7 +1,7 @@
 //! Cooklang canonical tests https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 
 use cooklang::{
-    quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Modifiers, Recipe,
+    quantity::Value, Content, CooklangParser, Extensions, Item, LegacyConverter, Modifiers, Recipe,
 };
 use serde::Deserialize;
 
@@ -57,7 +57,7 @@ enum TestValue {
 mod canonical_cases;
 
 fn runner(input: TestCase) {
-    let parser = CooklangParser::new(Extensions::empty(), Converter::empty());
+    let parser = CooklangParser::new_legacy(Extensions::empty(), LegacyConverter::empty());
     let got = parser
         .parse(&input.source)
         .into_output()

@@ -1,0 +1,173 @@
+# Unit names for `sv`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `sv`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+reviewed = { date = 2026-10-06, by = "swedish speaker", sources = ["Norrbottens Matbok", "Stora Boken om Fermentering"] }
+
+plural_rules = [
+    { category = "one", condition = "i = 1 and v = 0" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["liter"]
+long = { one = "{0} liter", other = "{0} liter" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["deciliter"]
+long = { one = "{0} deciliter", other = "{0} deciliter" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centiliter"]
+long = { one = "{0} centiliter", other = "{0} centiliter" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["milliliter"]
+long = { one = "{0} milliliter", other = "{0} milliliter" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "tsk"
+aliases = ["tesked", "teskedar"]
+long = { one = "{0} tesked", other = "{0} teskedar" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "msk"
+aliases = ["matsked", "matskedar"]
+long = { one = "{0} matsked", other = "{0} matskedar" }
+
+[[unit]]
+id = "nordic spice measure"
+symbol = "krm"
+aliases = ["kryddmått"]
+long = { one = "{0} kryddmått", other = "{0} kryddmått" }
+reason = "common unit in recipes"
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogram"]
+long = { one = "{0} kilogram", other = "{0} kilogram" }
+
+[[unit]]
+id = "hectogram"
+symbol = "hg"
+aliases = ["hekto", "hektogram"]
+reason = "Everyday Swedish retail unit (`2 hg skinka`), per the reviewer"
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gram"]
+long = { one = "{0} gram", other = "{0} gram" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["meter"]
+long = { one = "{0} meter", other = "{0} meter" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centimeter"]
+long = { one = "{0} centimeter", other = "{0} centimeter" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["millimeter"]
+long = { one = "{0} millimeter", other = "{0} millimeter" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["sekund", "sekunder"]
+long = { one = "{0} sekund", other = "{0} sekunder" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["minut", "minuter"]
+long = { one = "{0} minut", other = "{0} minuter" }
+
+[[unit]]
+id = "hour"
+symbol = "h"
+aliases = [ "tim", "timmar", "timme"]
+long = { one = "{0} timme", other = "{0} timmar" }
+
+[[unit]]
+id = "day"
+symbol = "d"
+aliases = ["dygn"]
+long = { one = "{0} dygn", other = "{0} dygn" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["grad Celsius", "grader Celsius"]
+long = { one = "{0} grad Celsius", other = "{0} grader Celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["grad Fahrenheit", "grader Fahrenheit"]
+long = { one = "{0} grad Fahrenheit", other = "{0} grader Fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   us fluid ounce -- fluid ounce, fluid ounces, flytande uns, fl oz
+#     Unmarked US name (ADR 0003): CLDR marks only `Imp. fluid ounces`.
+#   us cup -- kopp, koppar
+#     A Swedish kopp is a coffee cup of 150 ml (line 558), and recipes measure
+#     in dl; it is not the 236.588 ml US cup.
+#   us pint -- pint, pt
+#     Unmarked US name (ADR 0003): CLDR marks only `pt Imp.`; 473 against 568
+#     ml.
+#   us quart -- quart
+#     Unmarked US name (ADR 0003): Swedish marks the imperial one `brittiska
+#     quarts` and leaves this bare, so the bare word is the generic quart, 20%
+#     ambiguous.
+#   us gallon -- gallon, gal
+#     Unmarked US name (ADR 0003): CLDR marks only `br. gallon`; 3.785 against
+#     4.546 l.
+#   imperial fluid ounce -- Imp. fluid ounce, Imp. fluid ounces, fl oz Imp.
+#     English, not Swedish, and a unit no Swedish kitchen uses (ADR 0003).
+#   imperial pint -- pt Imp., pint Imp.
+#     Root's English strings, not a Swedish name.
+#   imperial quart -- br. qt, br. quart, brittisk quart, brittiska quarts
+#     A unit no Swedish kitchen uses (ADR 0003); written by identifier.
+#   imperial gallon -- Br. gallon, br. gal, br. gallon
+#     As the quart.
+#   metric dessert spoon -- dessertsked, dessertskedar, dsk
+#     No Swedish value in docs/research/cooking-units.md. Refused until
+#     researched.
+#   metric cup -- mcup, metrisk kopp, metriska koppar
+#     `metrisk kopp` is marked, but it is a CLDR coinage rather than Swedish:
+#     a Swedish recipe measures in decilitres and never writes a cup of any
+#     kind (line 558, and the bare `kopp` is rejected above for being the 150
+#     ml coffee cup). So the metric cup is left unnamed in sv and written
+#     `metric cup`.
+#   ounce -- uns
+#     Not in docs/research/cooking-units.md. Refused until researched.
+#   pound -- pund
+#     The Swedish skålpund was 425 g (line 572) and a modern informal pund is
+#     500 g; neither is the 453.592 g avoirdupois pound. CLDR offers no `lb`
+#     here.

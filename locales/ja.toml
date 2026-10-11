@@ -1,0 +1,191 @@
+# Unit names for `ja`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `ja`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["L", "リットル"]
+long = { other = "{0} リットル" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dL"
+aliases = ["デシリットル"]
+long = { other = "{0} デシリットル" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cL"
+aliases = ["センチリットル"]
+long = { other = "{0} センチリットル" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["ミリリットル"]
+long = { other = "{0} ミリリットル" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "tsp"
+aliases = ["ティースプーン"]
+long = { other = "{0} ティースプーン" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "tbsp"
+aliases = ["テーブルスプーン"]
+long = { other = "{0} テーブルスプーン" }
+
+[[unit]]
+id = "metric cup"
+symbol = "mc"
+aliases = ["メトリックカップ"]
+long = { other = "{0} メトリックカップ" }
+
+[[unit]]
+id = "japanese cup"
+symbol = "カップ"
+reason = """
+The 200 ml measuring cup (docs/research/cooking-units.md line 211; NHK \
+writes `カップ3/4`). CLDR's ja cup string is the US one with a dash \
+disambiguator, rejected; its cup-jp unit is 100 ml and not vendored."""
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["キログラム"]
+long = { other = "{0} キログラム" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["グラム"]
+long = { other = "{0} グラム" }
+
+[[unit]]
+id = "ounce"
+symbol = "oz"
+aliases = ["オンス"]
+long = { other = "{0} オンス" }
+
+[[unit]]
+id = "pound"
+symbol = "lb"
+aliases = ["ポンド"]
+long = { other = "{0} ポンド" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["メートル"]
+long = { other = "{0} メートル" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["センチメートル"]
+long = { other = "{0} センチメートル" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["ミリメートル"]
+long = { other = "{0} ミリメートル" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["フィート"]
+long = { other = "{0} フィート" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["インチ"]
+long = { other = "{0} インチ" }
+
+[[unit]]
+id = "second"
+symbol = "秒"
+long = { other = "{0} 秒" }
+
+[[unit]]
+id = "minute"
+symbol = "分"
+long = { other = "{0} 分" }
+
+[[unit]]
+id = "hour"
+symbol = "時間"
+long = { other = "{0} 時間" }
+
+[[unit]]
+id = "day"
+symbol = "日"
+long = { other = "{0} 日" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["摂氏"]
+long = { other = "摂氏 {0} 度" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["華氏"]
+long = { other = "華氏 {0} 度" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   us fluid ounce -- 液量オンス, fl oz
+#     Unmarked US name (ADR 0003): CLDR marks only 英液量オンス.
+#   us cup -- カップ - 米国
+#     A Japanese カップ is 200 ml (line 619), not the US 236.588 ml, and the
+#     string itself is CLDR's dash disambiguator ("cup - USA") rather than a
+#     name anyone writes. CLDR has a separate cup-jp unit, but its factor is
+#     100 ml, which is wrong; see docs/outstanding.md.
+#   us pint -- パイント, pt
+#     Unmarked US name (ADR 0003): CLDR marks only the imperial twin (`pt
+#     Imp.`).
+#   us quart -- クォート, qt
+#     Unmarked US name (ADR 0003): CLDR marks only 英クォート.
+#   us gallon -- ガロン, gal
+#     Unmarked US name (ADR 0003): CLDR marks only 英ガロン.
+#   imperial fluid ounce -- fl oz Imp, 英液量オンス
+#     A unit no Japanese kitchen uses (ADR 0003); written by identifier.
+#   imperial pint -- pt Imp., pint Imp.
+#     As es: root's English strings, not a Japanese name.
+#   imperial quart -- qt Imp., 英クォート
+#     As the fluid ounce.
+#   imperial gallon -- gal Imp., 英ガロン
+#     As the fluid ounce.
+#   metric dessert spoon -- 中さじ
+#     No Japanese value in docs/research/cooking-units.md. Refused until
+#     researched.

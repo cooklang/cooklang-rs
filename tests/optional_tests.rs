@@ -1,11 +1,11 @@
 //! Optional ingredients and cookware (`@?name`, `#?name`), spec proposal 0018.
 
-use cooklang::{Converter, CooklangParser, Extensions, Modifiers};
+use cooklang::{CooklangParser, Extensions, LegacyConverter, Modifiers};
 use indoc::indoc;
 use test_case::test_case;
 
 fn names_and_optional(extensions: Extensions, input: &str) -> Vec<(String, bool)> {
-    let parser = CooklangParser::new(extensions, Converter::empty());
+    let parser = CooklangParser::new_legacy(extensions, LegacyConverter::empty());
     let r = parser.parse(input).unwrap_output();
     r.ingredients
         .iter()
@@ -33,7 +33,7 @@ fn optional_marker_is_core_syntax(extensions: Extensions) {
 #[test_case(Extensions::empty(); "no extensions")]
 #[test_case(Extensions::all(); "all extensions")]
 fn optional_cookware(extensions: Extensions) {
-    let parser = CooklangParser::new(extensions, Converter::empty());
+    let parser = CooklangParser::new_legacy(extensions, LegacyConverter::empty());
     let r = parser
         .parse("Use a #?splatter guard{} and a #pan.")
         .unwrap_output();
@@ -47,7 +47,7 @@ fn optional_cookware(extensions: Extensions) {
 
 #[test]
 fn optional_recipe_reference() {
-    let parser = CooklangParser::new(Extensions::empty(), Converter::empty());
+    let parser = CooklangParser::new_legacy(Extensions::empty(), LegacyConverter::empty());
     let r = parser
         .parse("Serve with @?./sauces/chimichurri{}.")
         .unwrap_output();
@@ -71,7 +71,7 @@ fn only_question_mark_without_extension() {
 
 #[test]
 fn only_one_optional_marker_with_extension() {
-    let parser = CooklangParser::new(Extensions::all(), Converter::empty());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::empty());
     let r = parser.parse("Add @??thyme{}").unwrap_output();
     assert_eq!(r.ingredients[0].name, "?thyme");
     assert_eq!(r.ingredients[0].modifiers(), Modifiers::OPT);
@@ -79,7 +79,7 @@ fn only_one_optional_marker_with_extension() {
 
 #[test]
 fn timers_are_unaffected() {
-    let parser = CooklangParser::new(Extensions::empty(), Converter::empty());
+    let parser = CooklangParser::new_legacy(Extensions::empty(), LegacyConverter::empty());
     let r = parser.parse("Wait ~?{5%minutes}").unwrap_output();
     assert_eq!(r.timers.len(), 1);
     assert_eq!(r.timers[0].name.as_deref(), Some("?"));
@@ -87,7 +87,7 @@ fn timers_are_unaffected() {
 
 #[test]
 fn optional_and_required_are_listed_separately() {
-    let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::bundled());
     let r = parser
         .parse(indoc! {r#"
             Stir @parmesan{100%g} into the sauce.
@@ -95,7 +95,7 @@ fn optional_and_required_are_listed_separately() {
             Top with extra @?parmesan{50%g} before serving.
         "#})
         .unwrap_output();
-    let grouped = r.group_ingredients(parser.converter());
+    let grouped = r.group_ingredients_legacy(parser.converter_legacy());
     let got: Vec<_> = grouped
         .iter()
         .map(|g| {
@@ -117,7 +117,7 @@ fn optional_and_required_are_listed_separately() {
 
 #[test]
 fn duplicate_reference_mode_groups_by_optionality() {
-    let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::bundled());
     let r = parser
         .parse(indoc! {r#"
             >> [duplicate]: ref
@@ -129,7 +129,7 @@ fn duplicate_reference_mode_groups_by_optionality() {
         .expect("mixing optional and required occurrences is not an error");
     let (recipe, warnings) = r;
     assert!(!warnings.has_warnings(), "{warnings:?}");
-    let grouped = recipe.group_ingredients(parser.converter());
+    let grouped = recipe.group_ingredients_legacy(parser.converter_legacy());
     let got: Vec<_> = grouped
         .iter()
         .map(|g| {
@@ -147,12 +147,12 @@ fn duplicate_reference_mode_groups_by_optionality() {
 
 #[test]
 fn explicit_reference_inherits_optional() {
-    let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::bundled());
     let r = parser
         .parse("Top with @?parmesan{50%g}, then @&parmesan{10%g}.")
         .unwrap_output();
     assert!(r.ingredients.iter().all(|i| i.modifiers().is_optional()));
-    let grouped = r.group_ingredients(parser.converter());
+    let grouped = r.group_ingredients_legacy(parser.converter_legacy());
     assert_eq!(grouped.len(), 1);
     assert_eq!(grouped[0].quantity.to_string(), "60 g");
 }

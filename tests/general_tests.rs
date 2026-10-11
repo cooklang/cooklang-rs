@@ -1,6 +1,7 @@
 use cooklang::analysis::{CheckResult, RecipeRefTarget};
 use cooklang::{
-    Content, Converter, CooklangParser, Extensions, Item, ParseOptions, RecipeReference, Value,
+    Content, CooklangParser, Extensions, Item, LegacyConverter, ParseOptions, RecipeReference,
+    Value,
 };
 use indoc::indoc;
 use std::cell::RefCell;
@@ -8,7 +9,7 @@ use std::sync::LazyLock;
 use test_case::test_case;
 
 static PARSER: LazyLock<CooklangParser> =
-    LazyLock::new(|| CooklangParser::new(Extensions::all(), Converter::default()));
+    LazyLock::new(|| CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default()));
 
 #[test_case(
     indoc! {r#"
@@ -256,11 +257,16 @@ fn timer_missing_unit_warning() {
     // Check that we get a warning, not an error
     let report = result.report();
 
-    // Verify we have exactly one warning
-    assert_eq!(report.iter().count(), 1);
+    // Verify we have exactly one warning, besides the one every recipe
+    // without a `locale` gets
+    let diags: Vec<_> = report
+        .iter()
+        .filter(|d| d.message != cooklang::analysis::UNTAGGED_WARNING)
+        .collect();
+    assert_eq!(diags.len(), 1);
 
     // Check that it's a warning, not an error
-    let diag = report.iter().next().unwrap();
+    let diag = diags[0];
     assert_eq!(diag.severity, cooklang::error::Severity::Warning);
 
     // Verify the warning message

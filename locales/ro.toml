@@ -1,0 +1,156 @@
+# Unit names for `ro`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `ro`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "few", condition = "v != 0 or n = 0 or n != 1 and n % 100 = 1..19" },
+    { category = "one", condition = "i = 1 and v = 0" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["de litri", "litri", "litru"]
+long = { few = "{0} litri", one = "{0} litru", other = "{0} de litri" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["de decilitri", "decilitri", "decilitru"]
+long = { few = "{0} decilitri", one = "{0} decilitru", other = "{0} de decilitri" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centilitri", "centilitru", "de centilitri"]
+long = { few = "{0} centilitri", one = "{0} centilitru", other = "{0} de centilitri" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["de mililitri", "mililitri", "mililitru"]
+long = { few = "{0} mililitri", one = "{0} mililitru", other = "{0} de mililitri" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["de kilograme", "kilogram", "kilograme"]
+long = { few = "{0} kilograme", one = "{0} kilogram", other = "{0} de kilograme" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["de grame", "gram", "grame"]
+long = { few = "{0} grame", one = "{0} gram", other = "{0} de grame" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["de metri", "metri", "metru"]
+long = { few = "{0} metri", one = "{0} metru", other = "{0} de metri" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centimetri", "centimetru", "de centimetri"]
+long = { few = "{0} centimetri", one = "{0} centimetru", other = "{0} de centimetri" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["de milimetri", "milimetri", "milimetru"]
+long = { few = "{0} milimetri", one = "{0} milimetru", other = "{0} de milimetri" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["de picioare", "picioare", "picior"]
+long = { few = "{0} picioare", one = "{0} picior", other = "{0} de picioare" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["de inchi", "inch", "inchi"]
+long = { few = "{0} inchi", one = "{0} inch", other = "{0} de inchi" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["de secunde", "secunde", "secundă"]
+long = { few = "{0} secunde", one = "{0} secundă", other = "{0} de secunde" }
+
+[[unit]]
+id = "minute"
+symbol = "min."
+aliases = ["de minute", "minut", "minute"]
+long = { few = "{0} minute", one = "{0} minut", other = "{0} de minute" }
+
+[[unit]]
+id = "hour"
+symbol = "ore"
+aliases = ["de ore", "oră"]
+long = { few = "{0} ore", one = "{0} oră", other = "{0} de ore" }
+
+[[unit]]
+id = "day"
+symbol = "zile"
+aliases = ["de zile", "zi"]
+long = { few = "{0} zile", one = "{0} zi", other = "{0} de zile" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["de grade Celsius", "grad Celsius", "grade Celsius"]
+long = { few = "{0} grade Celsius", one = "{0} grad Celsius", other = "{0} de grade Celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["de grade Fahrenheit", "grad Fahrenheit", "grade Fahrenheit"]
+long = { few = "{0} grade Fahrenheit", one = "{0} grad Fahrenheit", other = "{0} de grade Fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- de lingurițe, lingurițe, linguriță, tsp
+#   us tablespoon -- de linguri, linguri, lingură, tbsp
+#   us fluid ounce -- de uncii lichide, fl oz, uncie lichidă, uncii lichide
+#   us cup -- c, cană, căni, de căni
+#   us pint -- de pinte, pinte, pintă, pt
+#   us quart -- de quarte, qt, quart, quarte
+#   us gallon -- de galoane, gal, galoane, galon
+#   imperial fluid ounce -- de uncii lichide imperiale, fl oz imp., uncie
+#     lichidă imperială, uncii lichide imperiale
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- de quarte imperiale, qt imp., quart imperial, quarte
+#     imperiale
+#   imperial gallon -- de galoane imperiale, gal imp., galoane imperiale,
+#     galon imperial
+#   metric dessert spoon -- de linguri de desert, dstspn, linguri de desert,
+#     lingură de desert
+#   metric cup -- cană metrică, căni metrice, de căni metrice, mc
+#   ounce -- de uncii, oz, uncie, uncii
+#   pound -- de livre, lb, livre, livră

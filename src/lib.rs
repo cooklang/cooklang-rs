@@ -17,14 +17,14 @@
 //!
 //! To construct a parser use [`CooklangParser::new`] or
 //! [`CooklangParser::default`] if you want to configure the parser. You can
-//! configure which [`Extensions`] are enabled and the [`Converter`] used to
-//! convert and check units.
+//! configure which [`Extensions`] are enabled and the [`Converter`] the
+//! parser holds for the lists built from its recipes.
 //!
 //! ```rust
 //! # use cooklang::{CooklangParser, Converter, Extensions};
 //! // Create a parser
 //! // (this is the default configuration)
-//! let parser = CooklangParser::new(Extensions::all(), Converter::default());
+//! let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
 //! # assert_eq!(parser, CooklangParser::default());
 //! ```
 //!
@@ -36,7 +36,8 @@
 //! let (recipe, _warnings) = parser.parse("This is an @example").into_result()?;
 //! assert_eq!(recipe.ingredients.len(), 1);
 //! assert_eq!(recipe.ingredients[0].name, "example");
-//! # assert!(_warnings.is_empty());
+//! # // the one warning says the recipe has no `locale`
+//! # assert_eq!(_warnings.warnings().count(), 1);
 //! # Ok::<(), cooklang::error::SourceReport>(())
 //! ```
 //!
@@ -60,7 +61,7 @@ pub mod _features {
     //! - `bundled_units`. Includes a units file with the most common units for
     //!   recipes in English. These units are available to load when you want
     //!   without the need to read a file. The default
-    //!   [`Converter`](crate::convert::Converter) use them if this feature is
+    //!   [`LegacyConverter`](crate::convert_legacy::LegacyConverter) use them if this feature is
     //!   enabled. [This is the bundled file](https://github.com/cooklang/cooklang-rs/blob/main/units.toml)
     //!
     //! - `aisle`. Enables the [`aisle`](crate::aisle) module.
@@ -72,7 +73,7 @@ pub mod _features {
 pub mod aisle;
 pub mod analysis;
 pub mod ast;
-pub mod convert;
+pub mod convert_legacy;
 pub mod error;
 pub mod ingredient_list;
 pub mod located;
@@ -90,6 +91,10 @@ pub mod span;
 pub mod text;
 
 mod float;
+// Parts of it have no consumer until the swap reaches them; remove the allow
+// with the old converter (ADR 0009).
+#[allow(dead_code)]
+pub mod convert;
 mod lexer;
 
 use bitflags::bitflags;
@@ -99,12 +104,13 @@ use error::PassResult;
 
 pub use analysis::ParseOptions;
 pub use convert::Converter;
+pub use convert_legacy::LegacyConverter;
 pub use located::Located;
 pub use metadata::Metadata;
 pub use model::*;
 pub use parser::Modifiers;
 pub use quantity::{GroupedQuantity, Quantity, Value};
-pub use semantic_eq::SemanticEq;
+pub use semantic_eq::{LegacySemanticEq, SemanticEq};
 pub use span::Span;
 pub use text::Text;
 
@@ -170,33 +176,63 @@ impl Default for Extensions {
 /// The 2 main methods are [`CooklangParser::parse`] and [`CooklangParser::parse_metadata`].
 ///
 /// You can also skip using this struct and use [`parser::PullParser`] and [`analysis::parse_events`].
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CooklangParser {
     extensions: Extensions,
-    converter: Converter,
+    converter: LegacyConverter,
+    /// The converter, when the parser reads units through it rather than
+    /// through the old `converter`; takes its place with the swap (ADR 0009).
+    v2: Option<Converter>,
+}
+
+impl Default for CooklangParser {
+    /// All extensions, and the legacy locale for untagged recipes
+    fn default() -> Self {
+        Self::new(Extensions::default(), Converter::legacy())
+    }
 }
 
 pub type RecipeResult = PassResult<Recipe>;
 pub type MetadataResult = PassResult<Metadata>;
 
 impl CooklangParser {
+    /// [`new`](Self::new) through the old converter; goes with it (ADR 0009).
+    pub fn new_legacy(extensions: Extensions, converter: LegacyConverter) -> Self {
+        Self {
+            extensions,
+            converter,
+            v2: None,
+        }
+    }
+
     /// Creates a new parser.
+    ///
+    /// An untagged recipe is read through the legacy locale, a tagged one
+    /// through its own; parsing never reads `converter`. It is held for the
+    /// caller, as the target of the lists built from what this parser parses,
+    /// and [`converter`](Self::converter) hands it back.
     ///
     /// It is encouraged to reuse the parser and not rebuild it every time.
     pub fn new(extensions: Extensions, converter: Converter) -> Self {
         Self {
             extensions,
-            converter,
+            converter: LegacyConverter::empty(),
+            v2: Some(converter),
         }
+    }
+
+    /// The converter this parser holds: `None` only for a parser made with
+    /// [`new_legacy`](Self::new_legacy).
+    pub fn converter(&self) -> Option<&Converter> {
+        self.v2.as_ref()
     }
 
     /// Creates a new extended parser
     ///
     /// This enables all extensions and uses the bundled units.
     /// It is encouraged to reuse the parser and not rebuild it every time.
-    #[cfg(feature = "bundled_units")]
     pub fn extended() -> Self {
-        Self::new(Extensions::all(), Converter::bundled())
+        Self::new(Extensions::all(), Converter::legacy())
     }
 
     /// Creates a new canonical parser
@@ -205,11 +241,11 @@ impl CooklangParser {
     ///
     /// It is encouraged to reuse the parser and not rebuild it every time.
     pub fn canonical() -> Self {
-        Self::new(Extensions::empty(), Converter::empty())
+        Self::new(Extensions::empty(), Converter::legacy())
     }
 
     /// Get the parser inner converter
-    pub fn converter(&self) -> &Converter {
+    pub fn converter_legacy(&self) -> &LegacyConverter {
         &self.converter
     }
 
@@ -239,7 +275,10 @@ impl CooklangParser {
         path: Option<RecipeReference>,
     ) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
-        analysis::parse_events(
+        if self.v2.is_some() {
+            return analysis::parse_events(&mut parser, input, path, self.extensions, options);
+        }
+        analysis::parse_events_legacy(
             &mut parser,
             input,
             path,
@@ -265,7 +304,11 @@ impl CooklangParser {
     ) -> MetadataResult {
         let parser = parser::PullParser::new(input, self.extensions);
         let meta_events = parser.into_meta_iter();
-        analysis::parse_events(
+        if self.v2.is_some() {
+            return analysis::parse_events(meta_events, input, None, self.extensions, options)
+                .map(|c| c.metadata);
+        }
+        analysis::parse_events_legacy(
             meta_events,
             input,
             None,
@@ -288,4 +331,26 @@ impl CooklangParser {
 /// longer than later calls to [`CooklangParser::parse`].
 pub fn parse(input: &str) -> RecipeResult {
     CooklangParser::default().parse(input)
+}
+
+/// Renders one locale of the in-progress `convert` as Markdown: every
+/// unit with its spaced identifier, symbol, aliases and long forms, the
+/// plural rules, and a plural evaluation table. `tag` is a BCP 47 tag.
+///
+/// Not part of the public API. It exists for `examples/show-locale-as-md.rs`
+/// and may change or disappear without notice.
+#[doc(hidden)]
+pub fn locale_markdown(tag: &str) -> Result<String, String> {
+    convert::locales::reference::render_locale(tag)
+}
+
+/// Every unit identifier of the in-progress `convert`, such as `us cup`,
+/// in its canonical order.
+///
+/// Not part of the public API. It exists for `cargo xtask new-locale`, which
+/// keeps its own CLDR mapping keyed by these, and may change or disappear
+/// without notice.
+#[doc(hidden)]
+pub fn unit_ids() -> impl Iterator<Item = &'static str> {
+    convert::units::Unit::all().map(convert::units::Unit::id)
 }

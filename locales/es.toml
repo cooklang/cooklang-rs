@@ -1,0 +1,199 @@
+# Unit names for `es`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `es`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "many", condition = "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5" },
+    { category = "one", condition = "n = 1" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["litro", "litros"]
+long = { one = "{0} litro", other = "{0} litros" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["decilitro", "decilitros"]
+long = { one = "{0} decilitro", other = "{0} decilitros" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centilitro", "centilitros"]
+long = { one = "{0} centilitro", other = "{0} centilitros" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["mililitro", "mililitros"]
+long = { one = "{0} mililitro", other = "{0} mililitros" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "cdta"
+aliases = ["cucharadita", "cucharaditas"]
+long = { one = "{0} cucharadita", other = "{0} cucharaditas" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "cda"
+aliases = ["cucharada", "cucharadas"]
+long = { one = "{0} cucharada", other = "{0} cucharadas" }
+
+[[unit]]
+id = "metric cup"
+symbol = "tza m"
+aliases = ["taza métrica", "tazas métricas"]
+long = { one = "{0} taza métrica", other = "{0} tazas métricas" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogramo", "kilogramos"]
+long = { one = "{0} kilogramo", other = "{0} kilogramos" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gramo", "gramos"]
+long = { one = "{0} gramo", other = "{0} gramos" }
+
+[[unit]]
+id = "ounce"
+symbol = "oz"
+aliases = ["onza", "onzas"]
+long = { one = "{0} onza", other = "{0} onzas" }
+
+[[unit]]
+id = "pound"
+symbol = "lb"
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["metro", "metros"]
+long = { one = "{0} metro", other = "{0} metros" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centímetro", "centímetros"]
+long = { one = "{0} centímetro", other = "{0} centímetros" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["milímetro", "milímetros"]
+long = { one = "{0} milímetro", other = "{0} milímetros" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["pie", "pies"]
+long = { one = "{0} pie", other = "{0} pies" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["pulgada", "pulgadas"]
+long = { one = "{0} pulgada", other = "{0} pulgadas" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["segundo", "segundos"]
+long = { one = "{0} segundo", other = "{0} segundos" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["minuto", "minutos"]
+long = { one = "{0} minuto", other = "{0} minutos" }
+
+[[unit]]
+id = "hour"
+symbol = "h"
+aliases = ["hora", "horas"]
+long = { one = "{0} hora", other = "{0} horas" }
+
+[[unit]]
+id = "day"
+symbol = "d"
+aliases = ["día", "días"]
+long = { one = "{0} día", other = "{0} días" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["grado Celsius", "grados Celsius"]
+long = { one = "{0} grado Celsius", other = "{0} grados Celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["grado Fahrenheit", "grados Fahrenheit"]
+long = { one = "{0} grado Fahrenheit", other = "{0} grados Fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   us fluid ounce -- onza líquida, onzas líquidas, fl oz
+#     Unmarked US name (ADR 0003): CLDR marks only `onza líquida imperial`;
+#     29.57 against 28.41 ml.
+#   us cup -- tza, taza, tazas
+#     A Spanish taza is the 250 ml breakfast cup and a Mexican one 240 ml
+#     (lines 507, 610, 619); neither is the 236.588 ml US cup, and language-
+#     level `es` cannot pick between the two metric readings either.
+#   us pint -- pinta, pintas, p
+#     Unmarked US name outside a US customary locale (ADR 0003): CLDR marks
+#     only the imperial pint, and the two differ by 20%. Refused; the US pint
+#     is written and read by its identifier.
+#   us quart -- cuarto, cuartos, qt
+#     `cuarto` is one string for two volumes a factor of four apart — the US
+#     quart and the quarter-litre or quarter-kilo of Spanish recipes — and
+#     `qt` is the same symbol for the US and imperial quart (ADR 0003). es-US,
+#     where US quarts are real, accepts them.
+#   us gallon -- galón, galones, gal
+#     Unmarked US name (ADR 0003): CLDR marks only `galón imperial`; 3.785
+#     against 4.546 l.
+#   imperial fluid ounce -- fl oz imp., onza líquida imperial, onzas líquidas imperiales
+#     A unit no Spanish kitchen uses (ADR 0003); written by identifier. es-US
+#     keeps these names.
+#   imperial pint -- pt Imp., pint Imp.
+#     CLDR has no Spanish name for the imperial pint; these are root's English
+#     strings inherited unchanged (docs/research/cldr-unit-data.md §5). Not a
+#     Spanish name, so the unit is written by its identifier.
+#   imperial quart -- cuarto imperial, cuartos imperiales, qt imp.
+#     As the fluid ounce.
+#   imperial gallon -- gal imp., galones imperiales, galón imperial
+#     As the fluid ounce.
+#   metric dessert spoon -- cucharada de postre, cucharadas de postre, c/p
+#     No Spanish value in docs/research/cooking-units.md; the Portuguese
+#     colher de sobremesa is 10 or 7.5 ml (line 508). Refused until
+#     researched.
+#   pound -- libra, libras
+#     A Colombian libra is 500 g and Mexican and Spanish ones about 460 g
+#     (line 627), not the 453.592 g avoirdupois pound.

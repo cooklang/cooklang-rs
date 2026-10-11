@@ -4,6 +4,13 @@ fn main() {
         println!("cargo::rerun-if-changed=units.toml");
         generate_bundled();
     }
+    // `locales/` is the only data the build reads: one file per locale, plus
+    // the preference rows and the parent chain. Each file registers itself,
+    // because a directory alone does not make cargo notice an edited file.
+    println!("cargo::rerun-if-changed=locales");
+    generate_locales();
+    generate_parent_locales();
+    generate_preferences();
 }
 
 #[cfg(feature = "bundled_units")]
@@ -366,4 +373,298 @@ fn generate_bundled() {
     let generated = prettyplease::unparse(&synfile);
     let outpath = format!("{}/bundled_units.rs", std::env::var("OUT_DIR").unwrap());
     std::fs::write(outpath, generated).unwrap();
+}
+
+/// Emits the locale name tables from `locales/<tag>.toml`.
+///
+/// One hand-editable file per locale, started by `xtask/new-locale.sh` and
+/// edited since. There is no merge: the file states what the locale names, so
+/// adding a name means adding a line and refusing one means not having it.
+/// Names a locale must *not* resolve are a comment at the foot of its file --
+/// prose, because that is all they ever were.
+///
+/// Returns the tags, which `generate_preferences` does not need but the
+/// caller does.
+fn generate_locales() -> Vec<String> {
+    use std::collections::BTreeMap;
+
+    #[derive(serde::Deserialize)]
+    struct SeededLocale {
+        /// Which CLDR release the names were seeded from. Provenance, not a
+        /// live dependency: nothing re-reads CLDR.
+        cldr_version: String,
+        #[serde(default)]
+        plural_rules: Vec<PluralRule>,
+        #[serde(default)]
+        unit: Vec<SeededUnit>,
+        /// Present once a speaker has confirmed the locale. Absent means
+        /// unreviewed, which `reviewed_for_tag` refuses to serve.
+        reviewed: Option<Reviewed>,
+    }
+    #[derive(serde::Deserialize)]
+    struct PluralRule {
+        category: String,
+        condition: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct SeededUnit {
+        id: String,
+        symbol: Option<String>,
+        #[serde(default)]
+        aliases: Vec<String>,
+        #[serde(default)]
+        long: BTreeMap<String, String>,
+        /// Present when the name is hand-authored rather than seeded from
+        /// CLDR. Required nowhere: the review gate is what asks about an
+        /// uncited name.
+        #[serde(default)]
+        #[allow(dead_code)]
+        reason: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Reviewed {
+        #[allow(dead_code)]
+        date: toml::value::Datetime,
+        by: String,
+        sources: Vec<String>,
+    }
+
+    // every locales/*.toml except the two that are not locales
+    let mut files: Vec<String> = std::fs::read_dir("locales")
+        .expect("locales/ exists")
+        .filter_map(|entry| {
+            let name = entry.unwrap().file_name().to_string_lossy().to_string();
+            let stem = name.strip_suffix(".toml")?.to_string();
+            (!matches!(stem.as_str(), "preferences" | "parent-locales")).then_some(stem)
+        })
+        .collect();
+    files.sort();
+    assert!(files.len() >= 6, "only {} locales found", files.len());
+
+    let mut out = String::from("pub(crate) static GENERATED_LOCALES: &[GeneratedLocale] = &[\n");
+
+    for tag in &files {
+        let path = format!("locales/{tag}.toml");
+        println!("cargo::rerun-if-changed={path}");
+        let text = std::fs::read_to_string(&path).unwrap();
+        let locale: SeededLocale = toml::from_str(&text).unwrap_or_else(|e| panic!("{path}: {e}"));
+
+        let reviewed = match &locale.reviewed {
+            Some(r) => {
+                assert!(
+                    !r.by.trim().is_empty(),
+                    "{path}: `reviewed` has an empty `by`"
+                );
+                assert!(!r.sources.is_empty(), "{path}: `reviewed` cites no sources");
+                true
+            }
+            None => false,
+        };
+
+        // sorted by identifier, so the generated table reads the same way
+        // whatever order a file happens to list its units in
+        let mut table: BTreeMap<&str, &SeededUnit> = BTreeMap::new();
+        for unit in &locale.unit {
+            assert!(
+                table.insert(unit.id.as_str(), unit).is_none(),
+                "{path}: '{}' is named twice",
+                unit.id
+            );
+            assert!(
+                unit.symbol.is_some() || !unit.aliases.is_empty(),
+                "{path}: '{}' has neither a symbol nor an alias",
+                unit.id
+            );
+        }
+
+        let rules = locale
+            .plural_rules
+            .iter()
+            .map(|r| format!("({:?}, {:?})", r.category, r.condition))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!(
+            "    GeneratedLocale {{\n        tag: {tag:?},\n        cldr_version: {:?},\n        \
+             reviewed: {reviewed},\n        plural_rules: &[{rules}],\n        units: &[\n",
+            locale.cldr_version
+        ));
+        for (id, unit) in table {
+            let symbol = match &unit.symbol {
+                Some(s) => format!("Some({s:?})"),
+                None => "None".to_string(),
+            };
+            let mut aliases: Vec<&str> = unit.aliases.iter().map(String::as_str).collect();
+            aliases.sort_unstable();
+            aliases.dedup();
+            let aliases = aliases
+                .iter()
+                .map(|a| format!("{a:?}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let longs = unit
+                .long
+                .iter()
+                .map(|(c, p)| format!("({c:?}, {p:?})"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            out.push_str(&format!(
+                "            GeneratedUnit {{ id: {id:?}, symbol: {symbol}, \
+                 aliases: &[{aliases}], long: &[{longs}] }},\n"
+            ));
+        }
+        out.push_str("        ],\n    },\n");
+    }
+    out.push_str("];\n");
+
+    let dest = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("cldr_locales.rs");
+    std::fs::write(dest, out).unwrap();
+
+    files
+}
+
+/// Emits CLDR's explicit parent chain, so that `en-NZ` reaches `en-001` and
+/// Commonwealth English rather than truncating to US English.
+fn generate_parent_locales() {
+    use std::collections::BTreeMap;
+
+    #[derive(serde::Deserialize)]
+    struct ParentLocales {
+        parent: BTreeMap<String, String>,
+    }
+    let text = std::fs::read_to_string("locales/parent-locales.toml").unwrap();
+    let parents = toml::from_str::<ParentLocales>(&text)
+        .unwrap_or_else(|e| panic!("locales/parent-locales.toml: {e}"))
+        .parent;
+
+    let mut out = String::from("pub(crate) static PARENT_LOCALES: &[(&str, &str)] = &[\n");
+    for (child, parent) in &parents {
+        out.push_str(&format!("    ({child:?}, {parent:?}),\n"));
+    }
+    out.push_str("];\n");
+
+    let dest = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("cldr_parents.rs");
+    std::fs::write(dest, out).unwrap();
+}
+
+/// Emits the preference tables from `locales/preferences.toml` as enum
+/// paths, so a unit that is not in `definitions.rs` fails to compile rather
+/// than at the first lookup.
+fn generate_preferences() {
+    #[derive(serde::Deserialize)]
+    struct Preferences {
+        system: Vec<SystemRows>,
+        region: Vec<RegionRows>,
+        /// The frozen rows of the legacy locale, keyed by system like `system`
+        legacy: Vec<SystemRows>,
+    }
+    #[derive(serde::Deserialize)]
+    struct SystemRows {
+        system: String,
+        quantity: String,
+        rows: Vec<Threshold>,
+        #[allow(dead_code)]
+        reason: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct RegionRows {
+        region: String,
+        quantity: String,
+        rows: Vec<Threshold>,
+        #[allow(dead_code)]
+        reason: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct Threshold {
+        unit: String,
+        at_least: f64,
+        /// Largest denominator the amount may be written with in this unit;
+        /// absent, it is written as a decimal.
+        #[serde(default)]
+        fractions: Option<u8>,
+        /// When no fraction fits, write a decimal here instead of trying the
+        /// next row.
+        #[serde(default)]
+        or_decimal: bool,
+    }
+
+    // `metric tablespoon` -> `MetricTablespoon`: every identifier is the
+    // variant name as lowercase words (ADR 0007)
+    fn variant(id: &str) -> String {
+        id.split(' ')
+            .map(|word| {
+                let mut chars = word.chars();
+                match chars.next() {
+                    Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+                    None => String::new(),
+                }
+            })
+            .collect()
+    }
+    fn quantity(name: &str) -> (&'static str, &'static str) {
+        match name {
+            "volume" => ("Volume", "VolumeUnit"),
+            "mass" => ("Mass", "MassUnit"),
+            "length" => ("Length", "LengthUnit"),
+            "time" => ("Time", "TimeUnit"),
+            "temperature" => ("Temperature", "TemperatureUnit"),
+            other => panic!("locales/preferences.toml: unknown quantity '{other}'"),
+        }
+    }
+    fn rows(quantity_name: &str, rows: &[Threshold]) -> String {
+        let (q, enum_name) = quantity(quantity_name);
+        rows.iter()
+            .map(|t| {
+                format!(
+                    "Row {{ unit: Unit::{q}({enum_name}::{}), at_least: {:?}, fractions: {:?}, or_decimal: {} }}",
+                    variant(&t.unit),
+                    t.at_least,
+                    t.fractions,
+                    t.or_decimal
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    let text = std::fs::read_to_string("locales/preferences.toml").unwrap();
+    let prefs: Preferences =
+        toml::from_str(&text).unwrap_or_else(|e| panic!("locales/preferences.toml: {e}"));
+
+    fn system_table(name: &str, entries: &[SystemRows]) -> String {
+        let mut out =
+            format!("pub(crate) static {name}: &[(System, PhysicalQuantity, &[Row])] = &[\n");
+        for s in entries {
+            let system = match s.system.as_str() {
+                "metric" => "Metric",
+                "us-customary" => "UsCustomary",
+                "imperial" => "Imperial",
+                other => panic!("locales/preferences.toml: unknown system '{other}'"),
+            };
+            let (q, _) = quantity(&s.quantity);
+            out.push_str(&format!(
+                "    (System::{system}, PhysicalQuantity::{q}, &[{}]),\n",
+                rows(&s.quantity, &s.rows)
+            ));
+        }
+        out.push_str("];\n");
+        out
+    }
+
+    let mut out = system_table("PREFERENCES", &prefs.system);
+    out.push_str(&system_table("LEGACY_PREFERENCES", &prefs.legacy));
+    out.push_str(
+        "pub(crate) static REGION_PREFERENCES: &[(Region, PhysicalQuantity, &[Row])] = &[\n",
+    );
+    for r in &prefs.region {
+        let (q, _) = quantity(&r.quantity);
+        out.push_str(&format!(
+            "    (region!({:?}), PhysicalQuantity::{q}, &[{}]),\n",
+            r.region,
+            rows(&r.quantity, &r.rows)
+        ));
+    }
+    out.push_str("];\n");
+
+    let dest = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("preferences.rs");
+    std::fs::write(dest, out).unwrap();
 }

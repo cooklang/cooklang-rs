@@ -1,0 +1,153 @@
+# Unit names for `fr`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `fr`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "many", condition = "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5" },
+    { category = "one", condition = "i = 0,1" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["litre", "litres"]
+long = { one = "{0} litre", other = "{0} litres" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["décilitre", "décilitres"]
+long = { one = "{0} décilitre", other = "{0} décilitres" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centilitre", "centilitres"]
+long = { one = "{0} centilitre", other = "{0} centilitres" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["millilitre", "millilitres"]
+long = { one = "{0} millilitre", other = "{0} millilitres" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogramme", "kilogrammes"]
+long = { one = "{0} kilogramme", other = "{0} kilogrammes" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gramme", "grammes"]
+long = { one = "{0} gramme", other = "{0} grammes" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["mètre", "mètres"]
+long = { one = "{0} mètre", other = "{0} mètres" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centimètre", "centimètres"]
+long = { one = "{0} centimètre", other = "{0} centimètres" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["millimètre", "millimètres"]
+long = { one = "{0} millimètre", other = "{0} millimètres" }
+
+[[unit]]
+id = "foot"
+symbol = "pi"
+aliases = ["pied", "pieds"]
+long = { one = "{0} pied", other = "{0} pieds" }
+
+[[unit]]
+id = "inch"
+symbol = "po"
+aliases = ["pouce", "pouces"]
+long = { one = "{0} pouce", other = "{0} pouces" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["seconde", "secondes"]
+long = { one = "{0} seconde", other = "{0} secondes" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["minute", "minutes"]
+long = { one = "{0} minute", other = "{0} minutes" }
+
+[[unit]]
+id = "hour"
+symbol = "h"
+aliases = ["heure", "heures"]
+long = { one = "{0} heure", other = "{0} heures" }
+
+[[unit]]
+id = "day"
+symbol = "j"
+aliases = ["jour", "jours"]
+long = { one = "{0} jour", other = "{0} jours" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["degré Celsius", "degrés Celsius"]
+long = { one = "{0} degré Celsius", other = "{0} degrés Celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["degré Fahrenheit", "degrés Fahrenheit"]
+long = { one = "{0} degré Fahrenheit", other = "{0} degrés Fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- c. à c., cuillère à café, cuillères à café
+#   us tablespoon -- c. à s., cuillère à soupe, cuillères à soupe
+#   us fluid ounce -- fl oz, once liquide, onces liquides
+#   us cup -- tasse, tasses
+#   us pint -- pinte, pintes, pte
+#   us quart -- qt, quart, quarts
+#   us gallon -- gal, gallon, gallons
+#   imperial fluid ounce -- fl oz imp., once liquide impériale, onces liquides
+#     impériales
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- qt imp., quart impérial, quarts impériaux
+#   imperial gallon -- gal imp., gallon impérial, gallons impériaux
+#   metric dessert spoon -- c. à d., cuillère à dessert, cuillères à dessert
+#   metric cup -- tasse métrique, tasses métriques, tm
+#   ounce -- once, onces, oz
+#   pound -- lb, livre, livres

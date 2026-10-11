@@ -1,0 +1,134 @@
+# Unit names for `pl`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `pl`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+reviewed = { date = 2026-10-06, by = "a polish speaker", sources = ["https://ania-gotuje.pl/przepis/szklanka-maki-cukru-cukru-pudru-ile-to-gram/", "https://aniagotuje.pl/przepis/golabki-tradycyjne"]}
+
+plural_rules = [
+    { category = "few", condition = "v = 0 and i % 10 = 2..4 and i % 100 != 12..14" },
+    { category = "many", condition = "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 12..14" },
+    { category = "one", condition = "i = 1 and v = 0" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["litr", "litra", "litry", "litrów"]
+long = { few = "{0} litry", many = "{0} litrów", one = "{0} litr", other = "{0} litra" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["decylitr", "decylitra", "decylitry", "decylitrów"]
+long = { few = "{0} decylitry", many = "{0} decylitrów", one = "{0} decylitr", other = "{0} decylitra" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centylitr", "centylitra", "centylitry", "centylitrów"]
+long = { few = "{0} centylitry", many = "{0} centylitrów", one = "{0} centylitr", other = "{0} centylitra" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["mililitr", "mililitra", "mililitry", "mililitrów"]
+long = { few = "{0} mililitry", many = "{0} mililitrów", one = "{0} mililitr", other = "{0} mililitra" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "ł. cz."
+aliases = ["łyżeczek", "łyżeczka", "łyżeczki"]
+long = { few = "{0} łyżeczki", many = "{0} łyżeczek", one = "{0} łyżeczka", other = "{0} łyżeczki" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "ł. st."
+aliases = ["łyżek stołowych", "łyżka stołowa", "łyżki stołowe", "łyżki stołowej"]
+long = { few = "{0} łyżki stołowe", many = "{0} łyżek stołowych", one = "{0} łyżka stołowa", other = "{0} łyżki stołowej" }
+
+[[unit]]
+id = "metric cup"
+aliases = ["szklanek", "szklanka", "szklanki"]
+long = { few = "{0} szklanki", many = "{0} szklanek", one = "{0} szklanka", other = "{0} szklanki" }
+reason = "A polish drinking glass. Usually meaning the metric cup."
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogram", "kilograma", "kilogramy", "kilogramów"]
+long = { few = "{0} kilogramy", many = "{0} kilogramów", one = "{0} kilogram", other = "{0} kilograma" }
+
+[[unit]]
+id = "decagram"
+symbol = "dag"
+aliases = ["deka", "deko", "dkg"]
+long = { few = "{0} dekagramy", many = "{0} dekagramów", one = "{0} dekagram", other = "{0} dekagrama" }
+reason = "Everyday polish retail unit per reviewer"
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gram", "grama", "gramy", "gramów"]
+long = { few = "{0} gramy", many = "{0} gramów", one = "{0} gram", other = "{0} grama" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["metr", "metra", "metry", "metrów"]
+long = { few = "{0} metry", many = "{0} metrów", one = "{0} metr", other = "{0} metra" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centymetr", "centymetra", "centymetry", "centymetrów"]
+long = { few = "{0} centymetry", many = "{0} centymetrów", one = "{0} centymetr", other = "{0} centymetra" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["milimetr", "milimetra", "milimetry", "milimetrów"]
+long = { few = "{0} milimetry", many = "{0} milimetrów", one = "{0} milimetr", other = "{0} milimetra" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["sek.", "sekund", "sekunda", "sekundy"]
+long = { few = "{0} sekundy", many = "{0} sekund", one = "{0} sekunda", other = "{0} sekundy" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["minut", "minuta", "minuty"]
+long = { few = "{0} minuty", many = "{0} minut", one = "{0} minuta", other = "{0} minuty" }
+
+[[unit]]
+id = "hour"
+symbol = "h"
+aliases = ["godz.", "godzin", "godzina", "godziny"]
+long = { few = "{0} godziny", many = "{0} godzin", one = "{0} godzina", other = "{0} godziny" }
+
+[[unit]]
+id = "day"
+symbol = "d"
+aliases = ["dni", "dzień", "dnia"]
+long = { few = "{0} dni", many = "{0} dni", one = "{0} dzień", other = "{0} dnia" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["st. C", "stopień Celsjusza", "stopni Celsjusza", "stopnia Celsjusza", "stopnie Celsjusza"]
+long = { few = "{0} stopnie Celsjusza", many = "{0} stopni Celsjusza", one = "{0} stopień Celsjusza", other = "{0} stopnia Celsjusza" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["stopień Fahrenheita", "stopni Fahrenheita", "stopnia Fahrenheita", "stopnie Fahrenheita"]
+long = { few = "{0} stopnie Fahrenheita", many = "{0} stopni Fahrenheita", one = "{0} stopień Fahrenheita", other = "{0} stopnia Fahrenheita" }

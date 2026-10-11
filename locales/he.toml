@@ -1,0 +1,152 @@
+# Unit names for `he`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `he`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "i = 1 and v = 0 or i = 0 and v != 0" },
+    { category = "other", condition = "" },
+    { category = "two", condition = "i = 2 and v = 0" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "ל׳"
+aliases = ["ליטר"]
+long = { many = "{0} ליטר", one = "{0} ליטר", other = "{0} ליטר", two = "{0} ליטר" }
+
+[[unit]]
+id = "deciliter"
+symbol = "דצ״ל"
+aliases = ["דציליטר"]
+long = { many = "{0} דציליטר", one = "{0} דציליטר", other = "{0} דציליטר", two = "{0} דציליטר" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cL"
+aliases = ["סנטיליטר"]
+long = { many = "{0} סנטיליטר", one = "{0} סנטיליטר", other = "{0} סנטיליטר", two = "{0} סנטיליטר" }
+
+[[unit]]
+id = "milliliter"
+symbol = "מ״ל"
+aliases = ["מיליליטר"]
+long = { many = "{0} מיליליטר", one = "{0} מיליליטר", other = "{0} מיליליטר", two = "{0} מיליליטר" }
+
+[[unit]]
+id = "kilogram"
+symbol = "ק״ג"
+aliases = ["קילוגרם"]
+long = { many = "{0} קילוגרם", one = "{0} קילוגרם", other = "{0} קילוגרם", two = "{0} קילוגרם" }
+
+[[unit]]
+id = "gram"
+symbol = "גר׳"
+aliases = ["גרם"]
+long = { many = "{0} גרם", one = "{0} גרם", other = "{0} גרם", two = "{0} גרם" }
+
+[[unit]]
+id = "meter"
+symbol = "מ׳"
+aliases = ["מטר", "מטרים"]
+long = { many = "{0} מטרים", one = "{0} מטר", other = "{0} מטרים", two = "{0} מטרים" }
+
+[[unit]]
+id = "centimeter"
+symbol = "ס״מ"
+aliases = ["סנטימטר", "סנטימטרים"]
+long = { many = "{0} סנטימטרים", one = "{0} סנטימטר", other = "{0} סנטימטרים", two = "{0} סנטימטרים" }
+
+[[unit]]
+id = "millimeter"
+symbol = "מ״מ"
+aliases = ["מילימטר", "מילימטרים"]
+long = { many = "{0} מילימטרים", one = "{0} מילימטר", other = "{0} מילימטרים", two = "{0} מילימטרים" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["רגל"]
+long = { many = "{0} רגל", one = "{0} רגל", other = "{0} רגל", two = "{0} רגל" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["אינץ׳"]
+long = { many = "{0} אינץ׳", one = "{0} אינץ׳", other = "{0} אינץ׳", two = "{0} אינץ׳" }
+
+[[unit]]
+id = "second"
+symbol = "שנ׳"
+aliases = ["שניה", "שניות"]
+long = { many = "{0} שניות", one = "{0} שניה", other = "{0} שניות", two = "שתי שניות" }
+
+[[unit]]
+id = "minute"
+symbol = "דק׳"
+aliases = ["דקה", "דקות"]
+long = { many = "{0} דקות", one = "{0} דקה", other = "{0} דקות", two = "שתי דקות" }
+
+[[unit]]
+id = "hour"
+symbol = "שע׳"
+aliases = ["שעה", "שעות"]
+long = { many = "{0} שעות", one = "{0} שעה", other = "{0} שעות", two = "שעתיים" }
+
+[[unit]]
+id = "day"
+symbol = "ימ׳"
+aliases = ["יום", "ימים"]
+long = { many = "{0} יום", one = "{0} יום", other = "{0} ימים", two = "יומיים" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["מעלות צלזיוס", "מעלת צלזיוס"]
+long = { many = "{0} מעלות צלזיוס", one = "{0} מעלת צלזיוס", other = "{0} מעלות צלזיוס", two = "{0} מעלות צלזיוס" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["מעלות פרנהייט", "מעלת פרנהייט"]
+long = { many = "{0} מעלות פרנהייט", one = "{0} מעלת פרנהייט", other = "{0} מעלות פרנהייט", two = "{0} מעלות פרנהייט" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- כפיות, כפית, כפי׳
+#   us tablespoon -- כפות, כפ׳
+#   us fluid ounce -- fl oz, אונקיות נוזלים, אונקיית נוזלים
+#   us cup -- כוס, כוסות, כ׳
+#   us pint -- pt, פינט
+#   us quart -- qt, קווארטה, קווארטות
+#   us gallon -- גלון, גלונים, גל׳
+#   imperial fluid ounce -- fl oz Imp., אונקיית נוזלים אימפריאלית
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- qt Imp., קווארט אימפריאלי, קווארטות אימפריאליות
+#   imperial gallon -- גלון אימפריאלי, גלון בריטי
+#   metric dessert spoon -- dstspn, כפיות קינוחים, כפית קינוחים
+#   metric cup -- mc, כוס מידה מטרית, כ׳ מידה מטרית
+#   ounce -- oz, אונקיה, אונקיות
+#   pound -- lbs, פאונד

@@ -1,0 +1,202 @@
+# Unit names for `de`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `de`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "i = 1 and v = 0" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["Liter"]
+long = { one = "{0} Liter", other = "{0} Liter" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["Deziliter"]
+long = { one = "{0} Deziliter", other = "{0} Deziliter" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["Zentiliter"]
+long = { one = "{0} Zentiliter", other = "{0} Zentiliter" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["Milliliter"]
+long = { one = "{0} Milliliter", other = "{0} Milliliter" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "TL"
+aliases = ["Teelöffel"]
+long = { one = "{0} Teelöffel", other = "{0} Teelöffel" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "EL"
+aliases = ["Esslöffel"]
+long = { one = "{0} Esslöffel", other = "{0} Esslöffel" }
+
+[[unit]]
+id = "metric cup"
+symbol = "Ta"
+aliases = ["metrische Tasse", "metrische Tassen"]
+long = { one = "{0} metrische Tasse", other = "{0} metrische Tassen" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["Kilogramm"]
+long = { one = "{0} Kilogramm", other = "{0} Kilogramm" }
+
+[[unit]]
+id = "decagram"
+symbol = "dag"
+aliases = ["Deka", "Dekagramm", "dkg"]
+reason = """
+The everyday Austrian unit for buying cold cuts and cheese: 10 g, listed \
+as "Deka" in the Austrian Maß- und Eichgesetz §3(4) \
+(docs/research/cooking-units.md line 446, source [88]). CLDR carries no \
+decagram, and ADR 0004 declines to derive SI symbols, so it is authored \
+where it is actually used."""
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["Gramm"]
+long = { one = "{0} Gramm", other = "{0} Gramm" }
+
+[[unit]]
+id = "ounce"
+symbol = "oz"
+aliases = ["Unze", "Unzen"]
+long = { one = "{0} Unze", other = "{0} Unzen" }
+
+[[unit]]
+id = "pound"
+symbol = "lb"
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["Meter"]
+long = { one = "{0} Meter", other = "{0} Meter" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["Zentimeter"]
+long = { one = "{0} Zentimeter", other = "{0} Zentimeter" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["Millimeter"]
+long = { one = "{0} Millimeter", other = "{0} Millimeter" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["Fuß"]
+long = { one = "{0} Fuß", other = "{0} Fuß" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["Zoll"]
+long = { one = "{0} Zoll", other = "{0} Zoll" }
+
+[[unit]]
+id = "second"
+symbol = "Sek."
+aliases = ["Sekunde", "Sekunden"]
+long = { one = "{0} Sekunde", other = "{0} Sekunden" }
+
+[[unit]]
+id = "minute"
+symbol = "Min."
+aliases = ["Minute", "Minuten"]
+long = { one = "{0} Minute", other = "{0} Minuten" }
+
+[[unit]]
+id = "hour"
+symbol = "Std."
+aliases = ["Stunde", "Stunden"]
+long = { one = "{0} Stunde", other = "{0} Stunden" }
+
+[[unit]]
+id = "day"
+symbol = "Tg."
+aliases = ["Tag", "Tage"]
+long = { one = "{0} Tag", other = "{0} Tage" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["Grad Celsius"]
+long = { one = "{0} Grad Celsius", other = "{0} Grad Celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["Grad Fahrenheit"]
+long = { one = "{0} Grad Fahrenheit", other = "{0} Grad Fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   us fluid ounce -- Flüssigunze, Flüssigunzen, fl oz
+#     Unmarked US name (ADR 0003): CLDR marks only `Imp. Flüssigunze`; 29.57
+#     against 28.41 ml.
+#   us cup -- Cups, Tasse, Tassen
+#     A German Tasse is 150 ml, or 125 ml by some sources (lines 449, 619) —
+#     far from the 236.588 ml US cup, and not the 250 ml metric cup either.
+#   us pint -- Pint, Pints, pt
+#     Unmarked US name (ADR 0003): CLDR marks only `pt Imp.`; 473 against 568
+#     ml.
+#   us quart -- Quart, Quarts, qt
+#     Unmarked US name (ADR 0003): CLDR marks only `Imp. Quart`; 0.946 against
+#     1.137 l.
+#   us gallon -- Gallone, Gallonen, gal
+#     Unmarked US name (ADR 0003): CLDR marks only `Imp. Gallone`; 3.785
+#     against 4.546 l.
+#   imperial fluid ounce -- Imp. Flüssigunze, Imp. Flüssigunzen, Imp.fl.oz.
+#     A unit no German kitchen uses (ADR 0003); written by identifier.
+#   imperial pint -- pt Imp., pint Imp.
+#     As es: root's English strings, not a German name.
+#   imperial quart -- Imp. Quart, Imp.qt.
+#     As the fluid ounce.
+#   imperial gallon -- Imp. Gallone, Imp. Gallonen, Imp. gal
+#     As the fluid ounce.
+#   metric dessert spoon -- Dessertlöffel, DL
+#     No German value in docs/research/cooking-units.md. Refused until
+#     researched.
+#   pound -- Pfund
+#     A German and Swiss Pfund is 500 g (line 445), still in informal use,
+#     against the 453.592 g avoirdupois pound CLDR maps it to. Seeding this
+#     would make a German recipe resolve 10% light, silently.

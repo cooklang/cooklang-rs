@@ -1,0 +1,148 @@
+# Unit names for `hu`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `hu`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "n = 1" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["liter"]
+long = { one = "{0} liter", other = "{0} liter" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["deciliter"]
+long = { one = "{0} deciliter", other = "{0} deciliter" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centiliter"]
+long = { one = "{0} centiliter", other = "{0} centiliter" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["milliliter"]
+long = { one = "{0} milliliter", other = "{0} milliliter" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogramm"]
+long = { one = "{0} kilogramm", other = "{0} kilogramm" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gramm"]
+long = { one = "{0} gramm", other = "{0} gramm" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["méter"]
+long = { one = "{0} méter", other = "{0} méter" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centiméter"]
+long = { one = "{0} centiméter", other = "{0} centiméter" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["milliméter"]
+long = { one = "{0} milliméter", other = "{0} milliméter" }
+
+[[unit]]
+id = "foot"
+symbol = "láb"
+long = { one = "{0} láb", other = "{0} láb" }
+
+[[unit]]
+id = "inch"
+symbol = "hüvelyk"
+long = { one = "{0} hüvelyk", other = "{0} hüvelyk" }
+
+[[unit]]
+id = "second"
+symbol = "mp"
+aliases = ["másodperc"]
+long = { one = "{0} másodperc", other = "{0} másodperc" }
+
+[[unit]]
+id = "minute"
+symbol = "p"
+aliases = ["perc"]
+long = { one = "{0} perc", other = "{0} perc" }
+
+[[unit]]
+id = "hour"
+symbol = "ó"
+aliases = ["óra"]
+long = { one = "{0} óra", other = "{0} óra" }
+
+[[unit]]
+id = "day"
+symbol = "nap"
+long = { one = "{0} nap", other = "{0} nap" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["Celsius-fok"]
+long = { one = "{0} Celsius-fok", other = "{0} Celsius-fok" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["Fahrenheit-fok"]
+long = { one = "{0} Fahrenheit-fok", other = "{0} Fahrenheit-fok" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- kk., kávéskanál
+#   us tablespoon -- ek., evőkanál
+#   us fluid ounce -- fl oz, folyadékuncia
+#   us cup -- cs., csésze
+#   us pint -- pint, pt
+#   us quart -- qt, quart
+#   us gallon -- gal, gallon
+#   imperial fluid ounce -- bir. f. uncia, bir. folyadék uncia
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- bir. qt, birodalmi kvart
+#   imperial gallon -- bir. gal, birodalmi gallon
+#   metric dessert spoon -- desszertkanál
+#   metric cup -- bg, bögre
+#   ounce -- oz, uncia
+#   pound -- font, lb

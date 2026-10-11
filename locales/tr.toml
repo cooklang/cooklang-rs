@@ -1,0 +1,148 @@
+# Unit names for `tr`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `tr`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "n = 1" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["litre"]
+long = { one = "{0} litre", other = "{0} litre" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["desilitre"]
+long = { one = "{0} desilitre", other = "{0} desilitre" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["santilitre"]
+long = { one = "{0} santilitre", other = "{0} santilitre" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["mililitre"]
+long = { one = "{0} mililitre", other = "{0} mililitre" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogram"]
+long = { one = "{0} kilogram", other = "{0} kilogram" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gram"]
+long = { one = "{0} gram", other = "{0} gram" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["metre"]
+long = { one = "{0} metre", other = "{0} metre" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["santimetre"]
+long = { one = "{0} santimetre", other = "{0} santimetre" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["milimetre"]
+long = { one = "{0} milimetre", other = "{0} milimetre" }
+
+[[unit]]
+id = "foot"
+symbol = "fit"
+long = { one = "{0} fit", other = "{0} fit" }
+
+[[unit]]
+id = "inch"
+symbol = "inç"
+long = { one = "{0} inç", other = "{0} inç" }
+
+[[unit]]
+id = "second"
+symbol = "sn."
+aliases = ["saniye"]
+long = { one = "{0} saniye", other = "{0} saniye" }
+
+[[unit]]
+id = "minute"
+symbol = "dk."
+aliases = ["dakika"]
+long = { one = "{0} dakika", other = "{0} dakika" }
+
+[[unit]]
+id = "hour"
+symbol = "sa."
+aliases = ["saat"]
+long = { one = "{0} saat", other = "{0} saat" }
+
+[[unit]]
+id = "day"
+symbol = "gün"
+long = { one = "{0} gün", other = "{0} gün" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["santigrat derece"]
+long = { one = "{0} santigrat derece", other = "{0} santigrat derece" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["fahrenhayt derece"]
+long = { one = "{0} fahrenhayt derece", other = "{0} fahrenhayt derece" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- çay kaşığı, çk
+#   us tablespoon -- yemek kaşığı, yk
+#   us fluid ounce -- sıvı ons
+#   us cup -- sb, su bardağı
+#   us pint -- pint
+#   us quart -- qt, quart
+#   us gallon -- gal, galon
+#   imperial fluid ounce -- İng. sıvı ons
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- İng. quart
+#   imperial gallon -- İng. gal, İng. galonu
+#   metric dessert spoon -- tat. kaşığı, tatlı kaşığı
+#   metric cup -- metrik su bardağı, msb
+#   ounce -- ons, oz
+#   pound -- lb, libre

@@ -1,0 +1,249 @@
+# Unit names for `en-001`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `en-001`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "i = 1 and v = 0" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["litre", "litres"]
+long = { one = "{0} litre", other = "{0} litres" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["decilitre", "decilitres"]
+long = { one = "{0} decilitre", other = "{0} decilitres" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centilitre", "centilitres"]
+long = { one = "{0} centilitre", other = "{0} centilitres" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["millilitre", "millilitres"]
+long = { one = "{0} millilitre", other = "{0} millilitres" }
+
+[[unit]]
+id = "us teaspoon"
+symbol = "US tsp"
+reason = """
+A Commonwealth teaspoon is 5 ml, so the bare `tsp` is the metric \
+teaspoon; the 4.929 ml US spoon gets a marked symbol, like `US c` and \
+`US pt`."""
+
+[[unit]]
+id = "us tablespoon"
+symbol = "US tbsp"
+reason = """
+As the teaspoon: a Commonwealth tablespoon is 15 ml, the US one 14.787 \
+ml."""
+
+[[unit]]
+id = "us fluid ounce"
+symbol = "US fl oz"
+aliases = ["US fluid ounce", "US fluid ounces"]
+long = { one = "{0} US fluid ounce", other = "{0} US fluid ounces" }
+
+[[unit]]
+id = "us cup"
+symbol = "US c"
+reason = """
+Outside the US a recipe's cup is the 250 ml metric cup, so adjudication \
+rejects CLDR's bare `c` and `cup` for the US cup. Marked like CLDR's own \
+en-001 `US qt`, `US gal` and `US fl oz`."""
+
+[[unit]]
+id = "us pint"
+symbol = "US pt"
+reason = """
+A Commonwealth pint is the 568.26125 ml imperial pint, so adjudication \
+rejects the bare `pt` and `pint` for the US pint. Marked like CLDR's own \
+en-001 `US qt` and `US gal`."""
+
+[[unit]]
+id = "us quart"
+symbol = "US qt"
+aliases = ["US quart", "US quarts"]
+long = { one = "{0} US quart", other = "{0} US quarts" }
+
+[[unit]]
+id = "us gallon"
+symbol = "US gal"
+aliases = ["US gallon", "US gallons"]
+long = { one = "{0} US gallon", other = "{0} US gallons" }
+
+[[unit]]
+id = "imperial fluid ounce"
+symbol = "fl oz"
+aliases = ["fluid ounce", "fluid ounces"]
+long = { one = "{0} fluid ounce", other = "{0} fluid ounces" }
+
+[[unit]]
+id = "imperial pint"
+symbol = "pt"
+aliases = ["pint", "pint Imperial", "pints", "pints Imperial", "pt Imp."]
+long = { one = "{0} pint", other = "{0} pints" }
+
+[[unit]]
+id = "imperial quart"
+symbol = "qt"
+aliases = ["quart", "quarts"]
+long = { one = "{0} quart", other = "{0} quarts" }
+
+[[unit]]
+id = "imperial gallon"
+symbol = "gal"
+aliases = ["gallon", "gallons"]
+long = { one = "{0} gallon", other = "{0} gallons" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "tsp"
+aliases = ["teaspoon", "teaspoons"]
+long = { one = "{0} teaspoon", other = "{0} teaspoons" }
+
+[[unit]]
+id = "metric dessert spoon"
+symbol = "dsp"
+aliases = ["dessert spoon", "dessert spoons", "dessertspoon", "dessertspoons"]
+reason = """
+The 10 ml dessertspoon (docs/research/cooking-units.md lines 154, 622). \
+CLDR's en-001 strings for its dessert spoon are the US one and are \
+rejected."""
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "tbsp"
+aliases = ["tablespoon", "tablespoons"]
+long = { one = "{0} tablespoon", other = "{0} tablespoons" }
+
+[[unit]]
+id = "metric cup"
+symbol = "c"
+aliases = ["cup", "cups", "mc", "metric cup", "metric cups"]
+long = { one = "{0} cup", other = "{0} cups" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogram", "kilograms"]
+long = { one = "{0} kilogram", other = "{0} kilograms" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gram", "grams"]
+long = { one = "{0} gram", other = "{0} grams" }
+
+[[unit]]
+id = "ounce"
+symbol = "oz"
+aliases = ["ounce", "ounces"]
+long = { one = "{0} ounce", other = "{0} ounces" }
+
+[[unit]]
+id = "pound"
+symbol = "lb"
+aliases = ["pound", "pounds"]
+long = { one = "{0} pound", other = "{0} pounds" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["metre", "metres"]
+long = { one = "{0} metre", other = "{0} metres" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centimetre", "centimetres"]
+long = { one = "{0} centimetre", other = "{0} centimetres" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["millimetre", "millimetres"]
+long = { one = "{0} millimetre", other = "{0} millimetres" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["feet", "foot"]
+long = { one = "{0} foot", other = "{0} feet" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["inch", "inches"]
+long = { one = "{0} inch", other = "{0} inches" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["second", "seconds", "secs"]
+long = { one = "{0} second", other = "{0} seconds" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["mins", "minute", "minutes"]
+long = { one = "{0} minute", other = "{0} minutes" }
+
+[[unit]]
+id = "hour"
+symbol = "h"
+aliases = ["hour", "hours", "hrs"]
+long = { one = "{0} hour", other = "{0} hours" }
+
+[[unit]]
+id = "day"
+symbol = "d"
+aliases = ["day", "days"]
+long = { one = "{0} day", other = "{0} days" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["degree Celsius", "degrees Celsius"]
+long = { one = "{0} degree Celsius", other = "{0} degrees Celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["degree Fahrenheit", "degrees Fahrenheit"]
+long = { one = "{0} degree Fahrenheit", other = "{0} degrees Fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   metric dessert spoon -- US dessertspoon, US dessertspoons, US dstspn
+#     CLDR marks the Commonwealth dessert spoon as the US one, and a US
+#     dessertspoon is not what a British recipe means. The 10 ml `dsp` (line
+#     154) is hand-authored in locales/en-001.toml.

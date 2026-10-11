@@ -1,0 +1,17 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Deliberately not a dependency of the library. Its job is to run rarely --
+# seeding a locale, which happens once per language -- so nothing here should
+# reach `cargo build`, `cargo test` or the published crate.
+[dependencies]
+# Only for the unit identifiers the CLDR mapping in `src/seed.rs` is keyed by.
+# Default features, because the crate does not currently build with a narrower
+# set (see docs/outstanding.md).
+cooklang = { path = ".." }
+# `new-locale` reads CLDR's own JSON once when a language is first seeded;
+# nothing in the library parses JSON.
+serde_json = "1"

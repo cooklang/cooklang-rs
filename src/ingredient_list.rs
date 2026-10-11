@@ -4,8 +4,8 @@ use indexmap::IndexMap;
 use serde::Serialize;
 
 use crate::{
-    aisle::AisleConf, convert::Converter, model::Ingredient, quantity::GroupedQuantity, Cookware,
-    Recipe,
+    aisle::AisleConf, convert::Converter, convert_legacy::LegacyConverter, model::Ingredient,
+    quantity::GroupedQuantity, Cookware, Recipe,
 };
 
 /// Ingredient with all quantities from it's references and itself grouped.
@@ -35,6 +35,49 @@ pub struct GroupedCookware<'a> {
 }
 
 impl Recipe {
+    /// [`group_ingredients`](Self::group_ingredients) through the old converter; goes with it (ADR 0009).
+    pub fn group_ingredients_legacy<'a>(
+        &'a self,
+        converter: &LegacyConverter,
+    ) -> Vec<GroupedIngredient<'a>> {
+        let mut list = Vec::new();
+        for (index, ingredient) in self.ingredients.iter().enumerate() {
+            if !ingredient.relation.is_definition() {
+                continue;
+            }
+            let grouped = ingredient.group_quantities_legacy(&self.ingredients, converter);
+            list.push(GroupedIngredient {
+                index,
+                ingredient,
+                quantity: grouped,
+            });
+        }
+        list
+    }
+
+    /// List of cookware **definitions** with amount of all of it
+    /// references grouped.
+    ///
+    /// Order is the recipe order.
+    pub fn group_cookware_legacy<'a>(
+        &'a self,
+        converter: &LegacyConverter,
+    ) -> Vec<GroupedCookware<'a>> {
+        let mut list = Vec::new();
+        for (index, cookware) in self.cookware.iter().enumerate() {
+            if !cookware.relation.is_definition() {
+                continue;
+            }
+            let amount = cookware.group_quantities_legacy(&self.cookware, converter);
+            list.push(GroupedCookware {
+                index,
+                cookware,
+                quantity: amount,
+            })
+        }
+        list
+    }
+
     /// List of ingredient **definitions** with quantities of all of it
     /// references grouped.
     ///
@@ -43,11 +86,11 @@ impl Recipe {
     ///
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
-    /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    /// let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
     /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}")
     ///                 .into_output()
     ///                 .unwrap();
-    /// let grouped = recipe.group_ingredients(parser.converter());
+    /// let grouped = recipe.group_ingredients(&Converter::for_recipe(&recipe).unwrap());
     ///
     /// // Only 2 definitions, the second flour is a reference
     /// assert_eq!(grouped.len(), 2);
@@ -77,10 +120,7 @@ impl Recipe {
         list
     }
 
-    /// List of cookware **definitions** with amount of all of it
-    /// references grouped.
-    ///
-    /// Order is the recipe order.
+    /// [`group_cookware_legacy`](Self::group_cookware_legacy) through the new converter, which is what stays (ADR 0009).
     pub fn group_cookware<'a>(&'a self, converter: &Converter) -> Vec<GroupedCookware<'a>> {
         let mut list = Vec::new();
         for (index, cookware) in self.cookware.iter().enumerate() {
@@ -113,6 +153,17 @@ impl IngredientList {
     }
 
     /// Ingredient list of a recipe
+    pub fn from_recipe_legacy(
+        recipe: &Recipe,
+        converter: &LegacyConverter,
+        list_references: bool,
+    ) -> Self {
+        let mut list = Self::new();
+        list.add_recipe_legacy(recipe, converter, list_references);
+        list
+    }
+
+    /// [`from_recipe_legacy`](Self::from_recipe_legacy) through the new converter, which is what stays (ADR 0009).
     pub fn from_recipe(recipe: &Recipe, converter: &Converter, list_references: bool) -> Self {
         let mut list = Self::new();
         list.add_recipe(recipe, converter, list_references);
@@ -136,11 +187,42 @@ impl IngredientList {
     /// let shopping_list = ingredient_list.subtract_pantry(&pantry_conf, converter);
     /// ```
     #[cfg(feature = "pantry")]
+    pub fn subtract_pantry_legacy(
+        &self,
+        pantry: &crate::pantry::PantryConf,
+        converter: &LegacyConverter,
+    ) -> Self {
+        self.subtract_pantry_with(pantry, &mut |group, q| group.add_legacy(q, converter))
+    }
+
+    /// [`subtract_pantry_legacy`](Self::subtract_pantry_legacy) through the new converter, which is what stays (ADR 0009).
+    #[cfg(feature = "pantry")]
     pub fn subtract_pantry(
         &self,
         pantry: &crate::pantry::PantryConf,
         converter: &Converter,
     ) -> Self {
+        self.subtract_pantry_with(pantry, &mut |group, q| group.add(q, converter))
+    }
+
+    /// The pantry subtraction, with `add` as the only thing that reads units
+    #[cfg(feature = "pantry")]
+    fn subtract_pantry_with(
+        &self,
+        pantry: &crate::pantry::PantryConf,
+        add: &mut dyn FnMut(&mut GroupedQuantity, &crate::quantity::Quantity),
+    ) -> Self {
+        fn keep(
+            result: &mut IngredientList,
+            name: String,
+            quantity: &GroupedQuantity,
+            add: &mut dyn FnMut(&mut GroupedQuantity, &crate::quantity::Quantity),
+        ) {
+            let entry = result.0.entry(name).or_default();
+            for q in quantity.iter() {
+                add(entry, q);
+            }
+        }
         let mut result = Self::new();
 
         for (ingredient_name, required_quantity) in self.iter() {
@@ -161,11 +243,7 @@ impl IngredientList {
                     if let Some((pantry_value, pantry_unit)) = pantry_item.parsed_quantity() {
                         // If pantry has 0, keep everything in the shopping list
                         if pantry_value <= 0.0 {
-                            result.add_ingredient(
-                                ingredient_name.clone(),
-                                required_quantity,
-                                converter,
-                            );
+                            keep(&mut result, ingredient_name.clone(), required_quantity, add);
                             continue;
                         }
 
@@ -191,7 +269,7 @@ impl IngredientList {
                                             ),
                                             req_qty.unit().map(|s| s.to_string()),
                                         );
-                                        remaining_quantities.add(&remaining_qty, converter);
+                                        add(&mut remaining_quantities, &remaining_qty);
                                         let unit_display =
                                             if req_unit.is_empty() { "" } else { &req_unit };
                                         tracing::info!(
@@ -219,11 +297,11 @@ impl IngredientList {
                                     }
                                     any_subtracted = true;
                                 } else {
-                                    remaining_quantities.add(req_qty, converter);
+                                    add(&mut remaining_quantities, req_qty);
                                 }
                             } else {
                                 // Units don't match
-                                remaining_quantities.add(req_qty, converter);
+                                add(&mut remaining_quantities, req_qty);
                                 unit_mismatch = true;
                                 tracing::warn!(
                                     "Unit mismatch for '{}': recipe needs '{}', pantry has '{}'",
@@ -236,17 +314,14 @@ impl IngredientList {
 
                         if unit_mismatch && !any_subtracted {
                             // Keep full amount due to unit mismatch
-                            result.add_ingredient(
-                                ingredient_name.clone(),
-                                required_quantity,
-                                converter,
-                            );
+                            keep(&mut result, ingredient_name.clone(), required_quantity, add);
                         } else if !remaining_quantities.is_empty() {
                             // Add the remaining quantities
-                            result.add_ingredient(
+                            keep(
+                                &mut result,
                                 ingredient_name.clone(),
                                 &remaining_quantities,
-                                converter,
+                                add,
                             );
                         }
                         // If remaining_quantities is empty and no unit mismatch, item is fully covered
@@ -257,11 +332,7 @@ impl IngredientList {
                             ingredient_name,
                             pantry_qty_str
                         );
-                        result.add_ingredient(
-                            ingredient_name.clone(),
-                            required_quantity,
-                            converter,
-                        );
+                        keep(&mut result, ingredient_name.clone(), required_quantity, add);
                     }
                 } else {
                     // No quantity specified in pantry, assume we have it (backward compatibility)
@@ -272,7 +343,7 @@ impl IngredientList {
                 }
             } else {
                 // Not in pantry, keep it in the list
-                result.add_ingredient(ingredient_name.clone(), required_quantity, converter);
+                keep(&mut result, ingredient_name.clone(), required_quantity, add);
             }
         }
 
@@ -291,15 +362,15 @@ impl IngredientList {
     /// error.
     ///
     /// Ingredients are listed based on their [`display_name`](crate::model::Ingredient::display_name).
-    pub fn add_recipe(
+    pub fn add_recipe_legacy(
         &mut self,
         recipe: &Recipe,
-        converter: &Converter,
+        converter: &LegacyConverter,
         list_references: bool,
     ) -> Vec<usize> {
         let mut references = Vec::new();
 
-        for entry in recipe.group_ingredients(converter) {
+        for entry in recipe.group_ingredients_legacy(converter) {
             let GroupedIngredient {
                 ingredient,
                 quantity,
@@ -318,7 +389,58 @@ impl IngredientList {
                 continue;
             }
 
-            self.add_ingredient(ingredient.display_name().into_owned(), &quantity, converter);
+            self.add_ingredient_legacy(
+                ingredient.display_name().into_owned(),
+                &quantity,
+                converter,
+            );
+        }
+
+        references
+    }
+
+    /// [`add_recipe_legacy`](Self::add_recipe_legacy) through the new converter, which is what stays (ADR 0009): the
+    /// recipe's quantities are read through its own naming and written in
+    /// the list's before they are added, so a Swedish `msk` and an English
+    /// `tbsp` land in one unit (ADR 0009).
+    pub fn add_recipe(
+        &mut self,
+        recipe: &Recipe,
+        converter: &Converter,
+        list_references: bool,
+    ) -> Vec<usize> {
+        let mut references = Vec::new();
+        let own = Converter::for_recipe(recipe).ok();
+
+        for entry in recipe.group_ingredients(own.as_ref().unwrap_or(converter)) {
+            let GroupedIngredient {
+                ingredient,
+                quantity,
+                index,
+            } = entry;
+
+            if ingredient.reference.is_some() {
+                references.push(index);
+
+                if !list_references {
+                    continue;
+                }
+            }
+
+            if !ingredient.modifiers().should_be_listed() {
+                continue;
+            }
+
+            let name = ingredient.display_name().into_owned();
+            match &own {
+                Some(own) => {
+                    let entry = self.0.entry(name).or_default();
+                    for q in quantity.iter() {
+                        entry.add(&converter.rewrite_from(q, own), converter);
+                    }
+                }
+                None => self.add_ingredient(name, &quantity, converter),
+            }
         }
 
         references
@@ -327,6 +449,19 @@ impl IngredientList {
     /// Add an ingredient to the list.
     ///
     /// The quantity will be merged will the ingredients with the same name.
+    pub fn add_ingredient_legacy(
+        &mut self,
+        name: String,
+        quantity: &GroupedQuantity,
+        converter: &LegacyConverter,
+    ) {
+        self.0
+            .entry(name)
+            .or_default()
+            .merge_legacy(quantity, converter)
+    }
+
+    /// [`add_ingredient_legacy`](Self::add_ingredient_legacy) through the new converter, which is what stays (ADR 0009).
     pub fn add_ingredient(
         &mut self,
         name: String,
@@ -399,11 +534,25 @@ impl IngredientList {
     /// Replace names of ingredients with common names given by aisle configuration.
     ///
     /// Matching is case-insensitive.
-    pub fn use_common_names(self, aisle: &AisleConf, converter: &Converter) -> Self {
+    pub fn use_common_names_legacy(self, aisle: &AisleConf, converter: &LegacyConverter) -> Self {
         let ingredients_info = aisle.ingredients_info();
         let mut normalized = Self::new();
         for (ingredient_name, quantity) in self.iter() {
             // Use lowercase for case-insensitive lookup
+            let common_name = ingredients_info
+                .get(&ingredient_name.to_lowercase())
+                .map(|info| info.common_name.to_string())
+                .unwrap_or(ingredient_name.to_string());
+            normalized.add_ingredient_legacy(common_name, quantity, converter);
+        }
+        normalized
+    }
+
+    /// [`use_common_names_legacy`](Self::use_common_names_legacy) through the new converter, which is what stays (ADR 0009).
+    pub fn use_common_names(self, aisle: &AisleConf, converter: &Converter) -> Self {
+        let ingredients_info = aisle.ingredients_info();
+        let mut normalized = Self::new();
+        for (ingredient_name, quantity) in self.iter() {
             let common_name = ingredients_info
                 .get(&ingredient_name.to_lowercase())
                 .map(|info| info.common_name.to_string())
@@ -512,8 +661,8 @@ mod tests {
 
     #[test]
     fn test_categorize_preserves_aisle_order() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Recipe with ingredients from different categories
         let recipe = parser
@@ -538,7 +687,7 @@ beef
         let aisle = crate::aisle::parse(aisle_conf).unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
         let categorized = list.categorize(&aisle);
 
         // Categories should be in aisle.conf order: produce, dairy, meat
@@ -548,8 +697,8 @@ beef
 
     #[test]
     fn test_categorize_case_insensitive() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Recipe with "Chili flakes" (capital C)
         let recipe = parser.parse("@Chili flakes{1%tsp}").into_output().unwrap();
@@ -562,7 +711,7 @@ chili flakes
         let aisle = crate::aisle::parse(aisle_conf).unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
         let categorized = list.categorize(&aisle);
 
         // Should find the category despite case difference
@@ -576,8 +725,8 @@ chili flakes
 
     #[test]
     fn test_use_common_names_case_insensitive() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Recipe with various case variations
         let recipe = parser
@@ -596,8 +745,8 @@ olive oil
         let aisle = crate::aisle::parse(aisle_conf).unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
-        let normalized = list.use_common_names(&aisle, &converter);
+        list.add_recipe_legacy(&recipe, &converter, false);
+        let normalized = list.use_common_names_legacy(&aisle, &converter);
 
         // Both should be normalized to lowercase common names
         let names: Vec<&String> = normalized.iter().map(|(name, _)| name).collect();
@@ -607,8 +756,8 @@ olive oil
 
     #[test]
     fn test_uncategorized_items_go_to_other() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Recipe with both categorized and uncategorized ingredients
         let recipe = parser
@@ -623,7 +772,7 @@ apple
         let aisle = crate::aisle::parse(aisle_conf).unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
         let categorized = list.categorize(&aisle);
 
         // "other" should appear at the end
@@ -633,8 +782,8 @@ apple
 
     #[test]
     fn test_ingredients_preserve_aisle_order_within_category() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Recipe with ingredients added in arbitrary order
         let recipe = parser
@@ -655,7 +804,7 @@ apple
         let aisle = crate::aisle::parse(aisle_conf).unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
         let categorized = list.categorize(&aisle);
 
         // Ingredients within produce should follow aisle.conf order, NOT alphabetical
@@ -675,8 +824,8 @@ mod pantry_tests {
 
     #[test]
     fn test_subtract_pantry_unlimited() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Create a recipe with some ingredients
         let recipe = parser
@@ -685,7 +834,7 @@ mod pantry_tests {
             .unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
 
         // Create pantry with unlimited water
         let pantry_toml = r#"
@@ -696,7 +845,7 @@ salt = "0.5%tsp"
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
 
         // Subtract pantry
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // Water should be completely removed (unlimited)
         assert!(!result.iter().any(|(name, _)| name.as_str() == "water"));
@@ -712,14 +861,14 @@ salt = "0.5%tsp"
 
     #[test]
     fn test_subtract_pantry_with_quantities() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Create a recipe needing 2 avocados
         let recipe = parser.parse("@avocados{2}").into_output().unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
 
         // Test with 1 avocado in pantry
         let pantry_toml = r#"
@@ -727,7 +876,7 @@ salt = "0.5%tsp"
 avocados = "1"
 "#;
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // Should have 1 avocado remaining
         let avocado_qty = result.iter().find(|(name, _)| name.as_str() == "avocados");
@@ -738,21 +887,21 @@ avocados = "1"
 
     #[test]
     fn test_subtract_pantry_unit_mismatch() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         // Recipe needs grams, pantry has liters
         let recipe = parser.parse("@oil{500%g}").into_output().unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
 
         let pantry_toml = r#"
 [pantry]
 oil = "1%l"
 "#;
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // Should keep full amount due to unit mismatch
         let oil_qty = result.iter().find(|(name, _)| name.as_str() == "oil");
@@ -763,13 +912,13 @@ oil = "1%l"
 
     #[test]
     fn test_subtract_pantry_zero_quantity() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         let recipe = parser.parse("@milk{1%l}").into_output().unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
 
         // Pantry has 0 milk
         let pantry_toml = r#"
@@ -777,7 +926,7 @@ oil = "1%l"
 milk = "0%l"
 "#;
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // Should keep full amount when pantry has 0
         let milk_qty = result.iter().find(|(name, _)| name.as_str() == "milk");
@@ -788,13 +937,13 @@ milk = "0%l"
 
     #[test]
     fn test_subtract_pantry_exact_match() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         let recipe = parser.parse("@rice{2%kg}").into_output().unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
 
         // Pantry has exactly what we need
         let pantry_toml = r#"
@@ -802,7 +951,7 @@ milk = "0%l"
 rice = "2%kg"
 "#;
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // Rice should be completely removed
         assert!(!result.iter().any(|(name, _)| name.as_str() == "rice"));
@@ -810,13 +959,13 @@ rice = "2%kg"
 
     #[test]
     fn test_subtract_pantry_more_than_needed() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         let recipe = parser.parse("@sugar{100%g}").into_output().unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
+        list.add_recipe_legacy(&recipe, &converter, false);
 
         // Pantry has more than we need
         let pantry_toml = r#"
@@ -824,7 +973,7 @@ rice = "2%kg"
 sugar = "500%g"
 "#;
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // Sugar should be completely removed
         assert!(!result.iter().any(|(name, _)| name.as_str() == "sugar"));
@@ -832,8 +981,8 @@ sugar = "500%g"
 
     #[test]
     fn test_use_common_names() {
-        let converter = Converter::bundled();
-        let parser = CooklangParser::new(Extensions::all(), converter.clone());
+        let converter = LegacyConverter::bundled();
+        let parser = CooklangParser::new_legacy(Extensions::all(), converter.clone());
 
         let recipe = parser
             .parse("@unsalted butter{250%g} plus @milk{100%ml} and @unsalted_butter{250%g}")
@@ -849,8 +998,8 @@ butter | unsalted butter | unsalted_butter
         let aisle = crate::aisle::parse(aisle_toml).unwrap();
 
         let mut list = IngredientList::new();
-        list.add_recipe(&recipe, &converter, false);
-        let list = list.use_common_names(&aisle, &converter);
+        list.add_recipe_legacy(&recipe, &converter, false);
+        let list = list.use_common_names_legacy(&aisle, &converter);
 
         // Pantry has some butter
         let pantry_toml = r#"
@@ -859,7 +1008,7 @@ butter = "200%g"
 milk = "500%ml"
 "#;
         let pantry = crate::pantry::parse(pantry_toml).unwrap();
-        let result = list.subtract_pantry(&pantry, &converter);
+        let result = list.subtract_pantry_legacy(&pantry, &converter);
 
         // List should contain 300g (500g - 200g) butter and no milk
         assert!(!result.iter().any(|(name, _)| name.as_str() == "milk"));

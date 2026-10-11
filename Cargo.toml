@@ -4,11 +4,21 @@ version = "0.19.0"
 edition = "2021"
 authors = ["Zheoni <zheoni@outlook.es>"]
 description = "Cooklang parser with opt-in extensions"
-license = "MIT"
+license = "MIT AND Unicode-3.0"
 keywords = ["cooklang", "cooking", "recipes"]
 categories = ["parser-implementations"]
 repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
+
+# Test fixtures and dev tooling a consumer never needs. The snapshots alone are
+# ~700 KB; `.direnv` is a Nix symlink farm.
+exclude = [
+    "src/convert/locales/tests/snapshots/**",
+    "locales/plural-samples.json",
+    ".direnv/**",
+    "playground/**",
+    "docs/**",
+]
 
 [dependencies]
 bitflags = { version = "2", features = ["serde"] }
@@ -32,6 +42,7 @@ toml_edit = { version = "0.25", optional = true }
 tsify = { version = "0.5", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 relative-path = { version = "2.0.1", features = ["serde"] }
+icu_locale_core = { version = "2.3", features = ["alloc"] }
 
 [dev-dependencies]
 toml = "0.8"
@@ -41,7 +52,8 @@ test-case = "3.2.1"
 indoc = "2.0.3"
 
 [build-dependencies]
-toml = { version = "0.8", optional = true }
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
 prettyplease = { version = "0.3", optional = true }
 quote = { version = "1", optional = true }
 syn = { version = "3", optional = true }
@@ -64,7 +76,7 @@ name = "convert"
 harness = false
 
 [workspace]
-members = [".", "typescript", "bindings", "fuzz"]
+members = [".", "typescript", "bindings", "fuzz", "xtask"]
 
 [profile.release]
 codegen-units = 1

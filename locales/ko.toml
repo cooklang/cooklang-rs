@@ -1,0 +1,150 @@
+# Unit names for `ko`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `ko`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "L"
+aliases = ["리터"]
+long = { other = "{0}리터" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dL"
+aliases = ["데시리터"]
+long = { other = "{0}데시리터" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cL"
+aliases = ["센티리터"]
+long = { other = "{0}센티리터" }
+
+[[unit]]
+id = "milliliter"
+symbol = "mL"
+aliases = ["밀리리터"]
+long = { other = "{0}밀리리터" }
+
+[[unit]]
+id = "japanese cup"
+symbol = "컵"
+long = { other = "{0}컵" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["킬로그램"]
+long = { other = "{0}킬로그램" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["그램"]
+long = { other = "{0}그램" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["미터"]
+long = { other = "{0}미터" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["센티미터"]
+long = { other = "{0}센티미터" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["밀리미터"]
+long = { other = "{0}밀리미터" }
+
+[[unit]]
+id = "foot"
+symbol = "ft"
+aliases = ["피트"]
+long = { other = "{0}피트" }
+
+[[unit]]
+id = "inch"
+symbol = "in"
+aliases = ["인치"]
+long = { other = "{0}인치" }
+
+[[unit]]
+id = "second"
+symbol = "초"
+long = { other = "{0}초" }
+
+[[unit]]
+id = "minute"
+symbol = "분"
+long = { other = "{0}분" }
+
+[[unit]]
+id = "hour"
+symbol = "시간"
+long = { other = "{0}시간" }
+
+[[unit]]
+id = "day"
+symbol = "일"
+long = { other = "{0}일" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["섭씨"]
+long = { other = "섭씨 {0}도" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["화씨"]
+long = { other = "화씨 {0}도" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- tsp, 티스푼
+#   us tablespoon -- tbsp, 테이블스푼
+#   us fluid ounce -- fl oz, 액량 온스
+#   us pint -- pt, 파인트
+#   us quart -- qt, 쿼트
+#   us gallon -- gal, 갤런
+#   imperial fluid ounce -- fl oz Imp., 영국 액량 온스
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- qt Imp., 영국 쿼트
+#   imperial gallon -- gal Imp., 영국식 갤런
+#   metric dessert spoon -- dstspn, 디저트스푼
+#   metric cup -- mc, 미터식 컵
+#   ounce -- oz, 온스
+#   pound -- lb, 파운드

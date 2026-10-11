@@ -2,7 +2,7 @@ use cooklang::ast::build_ast;
 use cooklang::error::SourceReport;
 use cooklang::metadata::{CooklangValueExt, NameAndUrl, RecipeTime, Servings, StdKey};
 use cooklang::{parser::PullParser, quantity, Cookware, Extensions, GroupedQuantity, Ingredient};
-use cooklang::{Converter, CooklangParser, IngredientReferenceTarget, Item};
+use cooklang::{CooklangParser, IngredientReferenceTarget, Item, LegacyConverter};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt::Write;
@@ -56,7 +56,7 @@ pub struct InterpretedMetadata {
     #[tsify(optional, type = "any")]
     images: Option<serde_yaml::Value>,
     #[tsify(optional)]
-    locale: Option<(String, Option<String>)>,
+    locale: Option<String>,
 
     #[tsify(type = "Record<any, any>")]
     custom: HashMap<serde_yaml::Value, serde_yaml::Value>,
@@ -75,7 +75,7 @@ impl Parser {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
-            parser: CooklangParser::new(Extensions::all(), Converter::bundled()),
+            parser: CooklangParser::new_legacy(Extensions::all(), LegacyConverter::bundled()),
             load_units: true,
             extensions: Extensions::all(),
         }
@@ -133,7 +133,7 @@ impl Parser {
         let report = display_report(report, input);
 
         if let Some(scale) = scale {
-            recipe.scale(scale, self.parser.converter());
+            recipe.scale_legacy(scale, self.parser.converter_legacy());
         }
 
         let metadata = InterpretedMetadata {
@@ -146,16 +146,13 @@ impl Parser {
             author: recipe.metadata.author(),
             source: recipe.metadata.source(),
             course: recipe.metadata.get(StdKey::Course).cloned(),
-            time: recipe.metadata.time(self.parser.converter()),
+            time: recipe.metadata.time_legacy(self.parser.converter_legacy()),
             servings: recipe.metadata.servings(),
             difficulty: recipe.metadata.get(StdKey::Difficulty).cloned(),
             cuisine: recipe.metadata.get(StdKey::Cuisine).cloned(),
             diet: recipe.metadata.get(StdKey::Diet).cloned(),
             images: recipe.metadata.get(StdKey::Images).cloned(),
-            locale: recipe
-                .metadata
-                .locale()
-                .map(|(a, b)| (a.to_string(), b.map(str::to_string))),
+            locale: recipe.metadata.locale().map(str::to_string),
             custom: recipe
                 .metadata
                 .map_filtered()
@@ -174,7 +171,7 @@ impl Parser {
     /// returns vector of indices in r.recipe.ingredients and their quantities
     pub fn group_ingredients(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
         r.recipe
-            .group_ingredients(self.parser.converter())
+            .group_ingredients_legacy(self.parser.converter_legacy())
             .into_iter()
             .map(|r| GroupedIndexAndQuantity {
                 index: r.index,
@@ -186,7 +183,7 @@ impl Parser {
     /// returns vector of indices in r.recipe.cookware and their quantities
     pub fn group_cookware(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
         r.recipe
-            .group_cookware(self.parser.converter())
+            .group_cookware_legacy(self.parser.converter_legacy())
             .into_iter()
             .map(|r| GroupedIndexAndQuantity {
                 index: r.index,
@@ -215,9 +212,9 @@ impl Parser {
         let value = match recipe {
             Some(mut r) => {
                 if let Some(scale) = scale {
-                    r.scale(scale, self.parser.converter())
+                    r.scale_legacy(scale, self.parser.converter_legacy())
                 }
-                render(r, self.parser.converter())
+                render(r, self.parser.converter_legacy())
             }
             None => "<no output>".to_string(),
         };
@@ -236,13 +233,13 @@ impl Parser {
                     source: Option<NameAndUrl>,
                     time: Option<RecipeTime>,
                     servings: Option<cooklang::metadata::Servings>,
-                    locale: Option<(&'a str, Option<&'a str>)>,
+                    locale: Option<&'a str>,
                 }
                 let val = StdMeta {
                     tags: m.tags(),
                     author: m.author(),
                     source: m.source(),
-                    time: m.time(self.parser.converter()),
+                    time: m.time_legacy(self.parser.converter_legacy()),
                     servings: m.servings(),
                     locale: m.locale(),
                 };
@@ -258,11 +255,11 @@ impl Parser {
     fn build_parser(&self) -> CooklangParser {
         let ext = self.extensions;
         let converter = if self.load_units {
-            Converter::bundled()
+            LegacyConverter::bundled()
         } else {
-            Converter::empty()
+            LegacyConverter::empty()
         };
-        CooklangParser::new(ext, converter)
+        CooklangParser::new_legacy(ext, converter)
     }
 
     fn update_parser(&mut self) {
@@ -337,8 +334,8 @@ pub fn quantity_display(this: &quantity::Quantity) -> String {
     this.to_string()
 }
 
-fn render(r: cooklang::Recipe, converter: &Converter) -> String {
-    let ingredient_list = r.group_ingredients(converter);
+fn render(r: cooklang::Recipe, converter: &LegacyConverter) -> String {
+    let ingredient_list = r.group_ingredients_legacy(converter);
     let cookware_list = r.group_cookware(converter);
     maud::html! {
         @if !r.metadata.map.is_empty() {

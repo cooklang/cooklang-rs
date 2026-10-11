@@ -24,7 +24,7 @@ pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
 
     let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    parsed.scale(scaling_factor, parser.converter());
+    parsed.scale_legacy(scaling_factor, parser.converter_legacy());
 
     Arc::new(into_simple_recipe(&parsed))
 }
@@ -290,8 +290,11 @@ pub fn metadata_source(recipe: &Arc<CooklangRecipe>) -> Option<NameAndUrl> {
 /// Total time or separate prep/cook times in minutes
 #[uniffi::export]
 pub fn metadata_time(recipe: &Arc<CooklangRecipe>) -> Option<RecipeTime> {
-    let converter = cooklang::Converter::empty();
-    recipe.metadata.time(&converter).map(|t| t.clone().into())
+    let converter = cooklang::LegacyConverter::empty();
+    recipe
+        .metadata
+        .time_legacy(&converter)
+        .map(|t| t.clone().into())
 }
 
 /// Gets a custom metadata value by key

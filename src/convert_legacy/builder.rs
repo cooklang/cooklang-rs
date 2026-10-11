@@ -6,11 +6,11 @@ use thiserror::Error;
 use super::{
     convert_f64,
     units_file::{self, BestUnits, Extend, Precedence, SIPrefix, UnitEntry, Units, UnitsFile, SI},
-    BestConversions, BestConversionsStore, Converter, Fractions, PhysicalQuantity, System, Unit,
-    UnitIndex, UnknownUnit,
+    BestConversions, BestConversionsStore, Fractions, LegacyConverter, PhysicalQuantity, System,
+    Unit, UnitIndex, UnknownUnit,
 };
 
-/// Builder to create a custom [`Converter`]
+/// Builder to create a custom [`LegacyConverter`]
 ///
 /// The builder uses [`UnitsFile`] to configure the converter. More than one
 /// file can be layered. Order matters, as one file can extend the units of
@@ -162,8 +162,8 @@ impl ConverterBuilder {
         Ok(self)
     }
 
-    /// Consume the builder and return the new [`Converter`]
-    pub fn finish(mut self) -> Result<Converter, ConverterBuilderError> {
+    /// Consume the builder and return the new [`LegacyConverter`]
+    pub fn finish(mut self) -> Result<LegacyConverter, ConverterBuilderError> {
         // expand the stored units
         for id in 0..self.all_units.len() {
             let unit = &self.all_units[id];
@@ -204,7 +204,7 @@ impl ConverterBuilder {
 
         let fractions = build_fractions_config(&self.fractions, &self.unit_index, &self.all_units)?;
 
-        Ok(Converter {
+        Ok(LegacyConverter {
             all_units: self
                 .all_units
                 .into_iter()

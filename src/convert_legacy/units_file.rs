@@ -78,7 +78,7 @@ impl SIPrefix {
     /// Get the ratio of the prefix
     ///
     /// ```
-    /// # use cooklang::convert::units_file::SIPrefix;
+    /// # use cooklang::convert_legacy::units_file::SIPrefix;
     /// assert_eq!(SIPrefix::Kilo.ratio(), 1000.0);
     /// ```
     pub fn ratio(&self) -> f64 {

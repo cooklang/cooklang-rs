@@ -1,12 +1,12 @@
 use cooklang::{
-    convert::{ConvertTo, System, UnitsFile},
-    Converter, Quantity, Value,
+    convert_legacy::{ConvertTo, System, UnitsFile},
+    LegacyConverter, Quantity, Value,
 };
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn conversions(c: &mut Criterion) {
     let mut group = c.benchmark_group("conversions");
-    let converter = Converter::default();
+    let converter = LegacyConverter::default();
 
     let input = vec![
         (1.5, "tsp"),
@@ -28,7 +28,7 @@ fn conversions(c: &mut Criterion) {
             let mut input = input.clone();
             for q in &mut input {
                 let _ = q.convert(ConvertTo::Best(System::Imperial), &converter);
-                let _ = q.fit(&converter);
+                let _ = q.fit_legacy(&converter);
             }
         })
     });
@@ -37,7 +37,7 @@ fn conversions(c: &mut Criterion) {
             let mut input = input.clone();
             for q in &mut input {
                 let _ = q.convert(ConvertTo::Best(System::Metric), &converter);
-                let _ = q.fit(&converter);
+                let _ = q.fit_legacy(&converter);
             }
         })
     });

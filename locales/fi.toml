@@ -1,0 +1,140 @@
+# Unit names for `fi`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `fi`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+reviewed = { date = 2026-10-06, by = "Meänkieli speaker", sources = ["https://www.sverigesradio.se/artikel/leivo-sieki-eeva-fammun-vappumunkkia", "https://www.isof.se/nationella-minoritetssprak/meankieli/sprakframjande/ungdomssidan-meankieli/recept/recept/kangoskakor-kangosenkakot"] }
+
+plural_rules = [
+    { category = "one", condition = "i = 1 and v = 0" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["litra", "litraa", "litrat"]
+long = { one = "{0} litra", other = "{0} litraa" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["desilitra", "desilitraa", "desilitrat"]
+long = { one = "{0} desilitra", other = "{0} desilitraa" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["senttilitra", "senttilitraa", "senttilitrat"]
+long = { one = "{0} senttilitra", other = "{0} senttilitraa" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["millilitra", "millilitraa", "millilitrat"]
+long = { one = "{0} millilitra", other = "{0} millilitraa" }
+
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "tl"
+aliases = ["teelusikat", "teelusikka", "teelusikkaa"]
+long = { one = "{0} teelusikka", other = "{0} teelusikkaa" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "rkl"
+aliases = ["ruokalusikat", "ruokalusikka", "ruokalusikkaa"]
+long = { one = "{0} ruokalusikka", other = "{0} ruokalusikkaa" }
+
+[[unit]]
+id = "nordic spice measure"
+symbol = "mm"
+aliases = ["maustemitta", "maustemittaa"]
+long = { one = "{0} maustemitta", other = "{0} maustemittaa" }
+reason = "mm is used for both millimeter and "
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogramma", "kilogrammaa", "kilogrammat"]
+long = { one = "{0} kilogramma", other = "{0} kilogrammaa" }
+
+[[unit]]
+id = "hectogram"
+symbol = "hg"
+aliases = ["hehtogramma", "hehtogrammaa"]
+long = { one = "{0} hehtogramma", other = "{0} hehtogrammaa" }
+reason = "Common in older recipes"
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gramma", "grammaa", "grammat"]
+long = { one = "{0} gramma", other = "{0} grammaa" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["metri", "metrit", "metriä"]
+long = { one = "{0} metri", other = "{0} metriä" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["senttimetri", "senttimetrit", "senttimetriä"]
+long = { one = "{0} senttimetri", other = "{0} senttimetriä" }
+
+[[unit]]
+id = "millimeter"
+aliases = ["millimetri", "millimetrit", "millimetriä"]
+long = { one = "{0} millimetri", other = "{0} millimetriä" }
+
+[[unit]]
+id = "second"
+symbol = "s"
+aliases = ["sekunnit", "sekunti", "sekuntia"]
+long = { one = "{0} sekunti", other = "{0} sekuntia" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["minuutit", "minuutti", "minuuttia"]
+long = { one = "{0} minuutti", other = "{0} minuuttia" }
+
+[[unit]]
+id = "hour"
+symbol = "t"
+aliases = ["h", "tunnit", "tunti", "tuntia"]
+long = { one = "{0} tunti", other = "{0} tuntia" }
+
+[[unit]]
+id = "day"
+symbol = "pv"
+aliases = ["d", "päivä", "päivät", "päivää"]
+long = { one = "{0} päivä", other = "{0} päivää" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["celsiusaste", "celsiusasteet", "celsiusastetta"]
+long = { one = "{0} celsiusaste", other = "{0} celsiusastetta" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["fahrenheitaste", "fahrenheitasteet", "fahrenheitastetta"]
+long = { one = "{0} fahrenheitaste", other = "{0} fahrenheitastetta" }
+
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   metric cup -- tkp, teekuppi, teekuppia
+#     CLDR's metric cup, but a teekuppi is a teacup, not the 250 ml measure.

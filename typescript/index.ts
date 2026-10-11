@@ -234,7 +234,7 @@ export class CooklangRecipe {
     cuisine: any;
     diet: any;
     images: any;
-    locale?: [string, string | null];
+    locale?: string;
     custom_metadata: Map<any, any>;
 
     // Data

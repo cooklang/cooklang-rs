@@ -1,0 +1,138 @@
+# Unit names for `zh`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `zh`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "升"
+long = { other = "{0}升" }
+
+[[unit]]
+id = "deciliter"
+symbol = "分升"
+long = { other = "{0}分升" }
+
+[[unit]]
+id = "centiliter"
+symbol = "厘升"
+long = { other = "{0}厘升" }
+
+[[unit]]
+id = "milliliter"
+symbol = "毫升"
+long = { other = "{0}毫升" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["千克"]
+long = { other = "{0}千克" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["克"]
+long = { other = "{0}克" }
+
+[[unit]]
+id = "meter"
+symbol = "米"
+long = { other = "{0}米" }
+
+[[unit]]
+id = "centimeter"
+symbol = "厘米"
+long = { other = "{0}厘米" }
+
+[[unit]]
+id = "millimeter"
+symbol = "毫米"
+long = { other = "{0}毫米" }
+
+[[unit]]
+id = "foot"
+symbol = "英尺"
+long = { other = "{0}英尺" }
+
+[[unit]]
+id = "inch"
+symbol = "英寸"
+long = { other = "{0}英寸" }
+
+[[unit]]
+id = "second"
+symbol = "秒"
+aliases = ["秒钟"]
+long = { other = "{0}秒钟" }
+
+[[unit]]
+id = "minute"
+symbol = "分钟"
+long = { other = "{0}分钟" }
+
+[[unit]]
+id = "hour"
+symbol = "小时"
+long = { other = "{0}小时" }
+
+[[unit]]
+id = "day"
+symbol = "天"
+long = { other = "{0}天" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["摄氏度"]
+long = { other = "{0}摄氏度" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["华氏度"]
+long = { other = "{0}华氏度" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- 茶匙
+#   us tablespoon -- 汤匙
+#   us fluid ounce -- 液盎司
+#   us cup -- 杯
+#   us pint -- 品脱
+#   us quart -- 夸脱
+#   us gallon -- 加仑
+#   imperial fluid ounce -- 英制液盎司
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- qt Imp., 英制夸脱
+#   imperial gallon -- 英制加仑
+#   metric dessert spoon -- 甜点匙
+#   metric cup -- 公制杯
+#   ounce -- oz, 盎司
+#   pound -- lb, 磅

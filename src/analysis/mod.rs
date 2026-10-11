@@ -10,7 +10,7 @@ use crate::{
 
 mod event_consumer;
 
-pub use event_consumer::parse_events;
+pub use event_consumer::{parse_events, parse_events_legacy, UNTAGGED_WARNING};
 
 pub type AnalysisResult = PassResult<Recipe>;
 

@@ -9,11 +9,17 @@ use thiserror::Error;
 #[cfg(feature = "ts")]
 use tsify::Tsify;
 
+use crate::convert::locales::locale::Locale;
+use crate::convert::locales::tag::LocaleTag;
+use crate::convert::units::{TimeUnit, Unit};
+use crate::convert::Converter;
 use crate::{
-    convert::{ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit},
+    convert_legacy::{
+        ConvertError, ConvertTo, ConvertUnit, ConvertValue, PhysicalQuantity, UnknownUnit,
+    },
     quantity::Value,
-    semantic_eq::{unordered_equals, SemanticEq},
-    Converter, Quantity,
+    semantic_eq::{unordered_equals, unordered_equals_legacy, LegacySemanticEq},
+    LegacyConverter, Quantity,
 };
 
 /// Metadata of a recipe
@@ -194,16 +200,25 @@ impl Metadata {
     /// The `time` key [`as_time`](CooklangValueExt::as_time). Or, if missing,
     /// the combination of the `prep time` and `cook time` keys
     /// [`as_minutes`](CooklangValueExt::as_minutes).
+    pub fn time_legacy(&self, converter: &LegacyConverter) -> Option<RecipeTime> {
+        self.time_with(TimeUnits::Legacy(converter))
+    }
+
+    /// [`time_legacy`](Self::time_legacy) through the new converter, which is what stays (ADR 0009).
     pub fn time(&self, converter: &Converter) -> Option<RecipeTime> {
+        self.time_with(TimeUnits::Locale(converter.locale()))
+    }
+
+    fn time_with(&self, units: TimeUnits) -> Option<RecipeTime> {
         if let Some(time_val) = self.get(StdKey::Time) {
-            time_val.as_time(converter)
+            value_as_time(time_val, units).ok()
         } else {
             let prep_time = self
                 .get(StdKey::PrepTime)
-                .and_then(|v| v.as_minutes(converter));
+                .and_then(|v| value_as_minutes(v, units).ok());
             let cook_time = self
                 .get(StdKey::CookTime)
-                .and_then(|v| v.as_minutes(converter));
+                .and_then(|v| value_as_minutes(v, units).ok());
             if prep_time.is_some() || cook_time.is_some() {
                 Some(RecipeTime::Composed {
                     prep_time,
@@ -236,9 +251,9 @@ impl Metadata {
         first_std_key_value(&self.map, StdKey::Yield).and_then(|v| v.as_yield())
     }
 
-    /// Recipe locale
-    /// See [`CooklangValueExt`] for the expected format.
-    pub fn locale(&self) -> Option<(&str, Option<&str>)> {
+    /// Recipe locale, a BCP 47 tag such as `sv-SE`.
+    /// See [`CooklangValueExt::as_locale`].
+    pub fn locale(&self) -> Option<&str> {
         self.get(StdKey::Locale)
             .and_then(CooklangValueExt::as_locale)
     }
@@ -249,22 +264,22 @@ impl Metadata {
 /// Unlike [`PartialEq`], key aliases (e.g. `serves`/`servings`) resolve to
 /// the same key, numeric servings are compared with tolerance, and yield is
 /// compared as a unit-aware [`Quantity`].
-impl SemanticEq for Metadata {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+impl LegacySemanticEq for Metadata {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
         // a value neither side can read is still part of what the recipe says,
         // so it falls back to comparing it raw rather than merging every value
         // that fails to parse
         let servings_eq =
             std_key_values_eq(&self.map, &other.map, StdKey::Servings, |a, b| {
                 match (a.as_servings(), b.as_servings()) {
-                    (Some(x), Some(y)) => x.equals(&y, converter),
+                    (Some(x), Some(y)) => x.equals_legacy(&y, converter),
                     _ => a == b,
                 }
             });
 
         let yield_eq = std_key_values_eq(&self.map, &other.map, StdKey::Yield, |a, b| {
             match (a.as_yield(), b.as_yield()) {
-                (Some(x), Some(y)) => x.equals(&y, converter),
+                (Some(x), Some(y)) => x.equals_legacy(&y, converter),
                 _ => a == b,
             }
         });
@@ -286,10 +301,64 @@ impl SemanticEq for Metadata {
         .all(|k| std_key_values_eq(&self.map, &other.map, *k, |a, b| a == b));
 
         let time_eq = std_key_values_eq(&self.map, &other.map, StdKey::Time, |a, b| {
-            parsed_eq(a, b, |v| value_as_time(v, converter).ok())
+            parsed_eq(a, b, |v| {
+                value_as_time(v, TimeUnits::Legacy(converter)).ok()
+            })
         }) && [StdKey::PrepTime, StdKey::CookTime].iter().all(|k| {
             std_key_values_eq(&self.map, &other.map, *k, |a, b| {
-                parsed_eq(a, b, |v| value_as_minutes(v, converter).ok())
+                parsed_eq(a, b, |v| {
+                    value_as_minutes(v, TimeUnits::Legacy(converter)).ok()
+                })
+            })
+        });
+
+        let a_custom: Vec<_> = self.map_filtered().collect();
+        let b_custom: Vec<_> = other.map_filtered().collect();
+        let custom_eq = unordered_equals_legacy(&a_custom, &b_custom, converter);
+
+        servings_eq && yield_eq && simple_std_eq && time_eq && custom_eq
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for Metadata {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        let servings_eq =
+            std_key_values_eq(&self.map, &other.map, StdKey::Servings, |a, b| {
+                match (a.as_servings(), b.as_servings()) {
+                    (Some(x), Some(y)) => crate::semantic_eq::SemanticEq::equals(&x, &y, converter),
+                    _ => a == b,
+                }
+            });
+
+        let yield_eq = std_key_values_eq(&self.map, &other.map, StdKey::Yield, |a, b| {
+            match (a.as_yield(), b.as_yield()) {
+                (Some(x), Some(y)) => crate::semantic_eq::SemanticEq::equals(&x, &y, converter),
+                _ => a == b,
+            }
+        });
+
+        let simple_std_eq = [
+            StdKey::Title,
+            StdKey::Description,
+            StdKey::Tags,
+            StdKey::Author,
+            StdKey::Source,
+            StdKey::Course,
+            StdKey::Difficulty,
+            StdKey::Cuisine,
+            StdKey::Diet,
+            StdKey::Images,
+            StdKey::Locale,
+        ]
+        .iter()
+        .all(|k| std_key_values_eq(&self.map, &other.map, *k, |a, b| a == b));
+
+        let units = TimeUnits::Locale(converter.locale());
+        let time_eq = std_key_values_eq(&self.map, &other.map, StdKey::Time, |a, b| {
+            parsed_eq(a, b, |v| value_as_time(v, units).ok())
+        }) && [StdKey::PrepTime, StdKey::CookTime].iter().all(|k| {
+            std_key_values_eq(&self.map, &other.map, *k, |a, b| {
+                parsed_eq(a, b, |v| value_as_minutes(v, units).ok())
             })
         });
 
@@ -466,6 +535,9 @@ pub trait CooklangValueExt: private::Sealed {
     /// - `30` 30 minutes
     /// - `1h` 60 minutes
     /// - `1h 30min` 90 minutes
+    fn as_minutes_legacy(&self, converter: &LegacyConverter) -> Option<u32>;
+
+    /// [`as_minutes_legacy`](Self::as_minutes_legacy) through the new converter, which is what stays (ADR 0009).
     fn as_minutes(&self, converter: &Converter) -> Option<u32>;
 
     /// Get a [`RecipeTime`]
@@ -473,21 +545,19 @@ pub trait CooklangValueExt: private::Sealed {
     /// This can be a single number or string like in
     /// [`as_minutes`](CooklangValueExt::as_minutes) or a mapping of `prep_time`
     /// and `cook_time` where each of them is a number or string.
+    fn as_time_legacy(&self, converter: &LegacyConverter) -> Option<RecipeTime>;
+
+    /// [`as_time_legacy`](Self::as_time_legacy) through the new converter, which is what stays (ADR 0009).
     fn as_time(&self, converter: &Converter) -> Option<RecipeTime>;
 
     /// Like [`serde_yaml::Value::as_u64`] but ensuring the value fits in a u32
     fn as_u32(&self) -> Option<u32>;
 
-    /// Locale string
+    /// Locale, as a BCP 47 language tag: `sv`, `sv-SE`, `en-GB-u-ms-uksystem`.
     ///
-    /// ISO 639 language code, then optionally an underscore and the ISO 3166
-    /// alpha2 "country code" for dialect variants.
-    ///
-    /// **This only check that the value is a string and has the correct
-    /// structure**. Therefore it can return non existent/assigned locales.
-    /// Capitalisation is not checked, so, for example, `en_gb` works even
-    /// though it _should_ be `en_GB`.
-    fn as_locale(&self) -> Option<(&str, Option<&str>)>;
+    /// **This only checks that the value is a string and a well-formed tag.**
+    /// It can return a tag no locale data exists for.
+    fn as_locale(&self) -> Option<&str>;
 
     /// String or number as a string
     fn as_str_like(&self) -> Option<Cow<'_, str>>;
@@ -543,19 +613,27 @@ impl CooklangValueExt for serde_yaml::Value {
         }
     }
 
+    fn as_minutes_legacy(&self, converter: &LegacyConverter) -> Option<u32> {
+        value_as_minutes(self, TimeUnits::Legacy(converter)).ok()
+    }
+
     fn as_minutes(&self, converter: &Converter) -> Option<u32> {
-        value_as_minutes(self, converter).ok()
+        value_as_minutes(self, TimeUnits::Locale(converter.locale())).ok()
+    }
+
+    fn as_time_legacy(&self, converter: &LegacyConverter) -> Option<RecipeTime> {
+        value_as_time(self, TimeUnits::Legacy(converter)).ok()
     }
 
     fn as_time(&self, converter: &Converter) -> Option<RecipeTime> {
-        value_as_time(self, converter).ok()
+        value_as_time(self, TimeUnits::Locale(converter.locale())).ok()
     }
 
     fn as_u32(&self) -> Option<u32> {
         self.as_u64()?.try_into().ok()
     }
 
-    fn as_locale(&self) -> Option<(&str, Option<&str>)> {
+    fn as_locale(&self) -> Option<&str> {
         value_as_locale(self).ok()
     }
 
@@ -614,9 +692,9 @@ fn value_as_tags(val: &serde_yaml::Value) -> Result<Vec<Cow<'_, str>>, MetadataE
     Ok(tags)
 }
 
-fn value_as_minutes(val: &serde_yaml::Value, converter: &Converter) -> Result<u32, MetadataError> {
+fn value_as_minutes(val: &serde_yaml::Value, units: TimeUnits) -> Result<u32, MetadataError> {
     if let Some(s) = val.as_str() {
-        let t = parse_time(s, converter)?;
+        let t = parse_time(s, units)?;
         Ok(t)
     } else if let Some(n) = val.as_u32() {
         Ok(n)
@@ -625,11 +703,8 @@ fn value_as_minutes(val: &serde_yaml::Value, converter: &Converter) -> Result<u3
     }
 }
 
-fn value_as_time(
-    val: &serde_yaml::Value,
-    converter: &Converter,
-) -> Result<RecipeTime, MetadataError> {
-    let total_res = value_as_minutes(val, converter);
+fn value_as_time(val: &serde_yaml::Value, units: TimeUnits) -> Result<RecipeTime, MetadataError> {
+    let total_res = value_as_minutes(val, units);
     match total_res {
         Ok(total) => Ok(RecipeTime::Total(total)),
         Err(MetadataError::BadType { .. }) => {
@@ -638,11 +713,11 @@ fn value_as_time(
                 .ok_or(MetadataError::expect_type(MetaType::Mapping, val))?;
             let prep_time = map
                 .get("prep")
-                .map(|v| value_as_minutes(v, converter))
+                .map(|v| value_as_minutes(v, units))
                 .transpose()?;
             let cook_time = map
                 .get("cook")
-                .map(|v| value_as_minutes(v, converter))
+                .map(|v| value_as_minutes(v, units))
                 .transpose()?;
             Ok(RecipeTime::Composed {
                 prep_time,
@@ -653,29 +728,19 @@ fn value_as_time(
     }
 }
 
-fn value_as_locale(val: &serde_yaml::Value) -> Result<(&str, Option<&str>), MetadataError> {
+fn value_as_locale(val: &serde_yaml::Value) -> Result<&str, MetadataError> {
     let s = val
         .as_str()
         .ok_or(MetadataError::expect_type(MetaType::String, val))?;
-
-    fn validate(s: &str) -> bool {
-        s.len() == 2 && s.chars().all(|c| c.is_ascii_alphabetic())
-    }
-
-    if let Some((lang, dial)) = s.split_once("_") {
-        if validate(lang) && validate(dial) {
-            return Ok((lang, Some(dial)));
-        }
-    } else if validate(s) {
-        return Ok((s, None));
-    }
-    Err(MetadataError::InvalidLocale(s.to_string()))
+    LocaleTag::parse(s)
+        .map(|_| s)
+        .map_err(|_| MetadataError::InvalidLocale(s.to_string()))
 }
 
 pub(crate) fn check_std_entry(
     key: StdKey,
     value: &serde_yaml::Value,
-    converter: &Converter,
+    units: TimeUnits,
 ) -> Result<(), MetadataError> {
     match key {
         StdKey::Servings => {
@@ -700,10 +765,10 @@ pub(crate) fn check_std_entry(
             value_as_tags(value)?;
         }
         StdKey::Time => {
-            value_as_time(value, converter)?;
+            value_as_time(value, units)?;
         }
         StdKey::PrepTime | StdKey::CookTime => {
-            value_as_minutes(value, converter)?;
+            value_as_minutes(value, units)?;
         }
         StdKey::Title | StdKey::Description => {
             value
@@ -732,7 +797,7 @@ pub(crate) fn check_std_entry(
 /// Servings information that can be numeric or a string
 ///
 /// [`PartialEq`] compares the value as written, so `4.0` and `4.00001` differ.
-/// Use [`SemanticEq::equals`] to compare them the way a cook would.
+/// Use [`SemanticEq::equals`](crate::SemanticEq::equals) to compare them the way a cook would.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 #[serde(untagged)]
@@ -745,7 +810,13 @@ pub enum Servings {
 
 /// A custom metadata value carries no unit information, so it means what it
 /// says: this compares as written, like [`PartialEq`].
-impl SemanticEq for serde_yaml::Value {
+impl LegacySemanticEq for serde_yaml::Value {
+    fn equals_legacy(&self, other: &Self, _converter: &LegacyConverter) -> bool {
+        self == other
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for serde_yaml::Value {
     fn equals(&self, other: &Self, _converter: &Converter) -> bool {
         self == other
     }
@@ -758,7 +829,20 @@ impl SemanticEq for serde_yaml::Value {
 /// than [`Recipe::scale`](crate::Recipe::scale) writes them, so a count scaled
 /// to `2.5` equals one written as `2.50001` while `4.05` and `4.1` stay apart.
 /// Text servings are compared as written.
-impl SemanticEq for Servings {
+impl LegacySemanticEq for Servings {
+    fn equals_legacy(&self, other: &Self, _converter: &LegacyConverter) -> bool {
+        match (self, other) {
+            (Servings::Number(a), Servings::Number(b)) => {
+                round_f64(*a, Servings::COMPARE_PRECISION)
+                    == round_f64(*b, Servings::COMPARE_PRECISION)
+            }
+            (Servings::Text(a), Servings::Text(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for Servings {
     fn equals(&self, other: &Self, _converter: &Converter) -> bool {
         match (self, other) {
             (Servings::Number(a), Servings::Number(b)) => {
@@ -921,7 +1005,27 @@ pub enum RecipeTime {
 }
 
 /// Returns minutes
-fn parse_time(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
+/// Where the units of a time value are read from: the old converter, or a
+/// locale of the new one. Goes with the old converter (ADR 0009).
+#[derive(Clone, Copy)]
+pub(crate) enum TimeUnits<'a> {
+    Legacy(&'a LegacyConverter),
+    Locale(&'a Locale),
+}
+
+impl TimeUnits<'_> {
+    fn to_minutes(self, value: f64, unit: &str) -> Result<f64, ParseTimeError> {
+        match self {
+            TimeUnits::Legacy(converter) if converter.unit_count() == 0 => {
+                hard_coded_time_units(value, unit)
+            }
+            TimeUnits::Legacy(converter) => dynamic_time_units(value, unit, converter),
+            TimeUnits::Locale(locale) => locale_time_units(value, unit, locale),
+        }
+    }
+}
+
+fn parse_time(s: &str, units: TimeUnits) -> Result<u32, ParseTimeError> {
     if s.is_empty() {
         return Err(ParseTimeError::Empty);
     }
@@ -931,7 +1035,7 @@ fn parse_time(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
         return Ok(minutes);
     }
 
-    let r = parse_time_with_units(s, converter);
+    let r = parse_time_with_units(s, units);
     // if any error, try to fall back to a full float parse
     if r.is_err() {
         let minutes = s.parse::<f64>().map(|m| m.round() as u32);
@@ -955,6 +1059,10 @@ pub(crate) enum ParseTimeError {
     ParseFloatError(#[from] ParseFloatError),
     #[error("An empty value is not valid")]
     Empty,
+    #[error("unknown unit: '{0}'")]
+    UnknownUnit(String),
+    #[error("'{0}' does not measure time")]
+    NotTime(String),
 }
 
 fn parse_common_time_format(s: &str) -> Option<u32> {
@@ -991,14 +1099,8 @@ fn parse_common_time_format(s: &str) -> Option<u32> {
     Some(total_minutes)
 }
 
-fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTimeError> {
-    let to_minutes = |value, unit| {
-        if converter.unit_count() == 0 {
-            hard_coded_time_units(value, unit)
-        } else {
-            dynamic_time_units(value, unit, converter)
-        }
-    };
+fn parse_time_with_units(s: &str, units: TimeUnits) -> Result<u32, ParseTimeError> {
+    let to_minutes = |value, unit| units.to_minutes(value, unit);
 
     let mut total = 0.0;
     let mut parts = s.split_whitespace();
@@ -1022,7 +1124,7 @@ fn parse_time_with_units(s: &str, converter: &Converter) -> Result<u32, ParseTim
 fn dynamic_time_units(
     value: f64,
     unit: &str,
-    converter: &Converter,
+    converter: &LegacyConverter,
 ) -> Result<f64, ParseTimeError> {
     // TODO maybe make this configurable? It will work for 99% of users...
     let minutes = converter
@@ -1043,6 +1145,16 @@ fn dynamic_time_units(
         ConvertValue::Number(n) => Ok(n),
         _ => unreachable!(),
     }
+}
+
+fn locale_time_units(value: f64, unit: &str, locale: &Locale) -> Result<f64, ParseTimeError> {
+    let from = locale
+        .resolve(unit)
+        .ok_or_else(|| ParseTimeError::UnknownUnit(unit.to_string()))?;
+    if !matches!(from, Unit::Time(_)) {
+        return Err(ParseTimeError::NotTime(unit.to_string()));
+    }
+    Ok(Unit::convert(value, from, Unit::Time(TimeUnit::Minute)).expect("both units measure time"))
 }
 
 fn hard_coded_time_units(value: f64, unit: &str) -> Result<f64, ParseTimeError> {
@@ -1082,7 +1194,7 @@ pub(crate) enum MetadataError {
     ParseIntError(#[from] std::num::ParseIntError),
     #[error(transparent)]
     ParseTimeError(#[from] ParseTimeError),
-    #[error("Invalid locale: {0}")]
+    #[error("Invalid locale: '{0}' is not a BCP 47 tag such as 'sv-SE'")]
     InvalidLocale(String),
 }
 
@@ -1128,10 +1240,10 @@ mod tests {
 
     #[test]
     fn servings_must_be_a_positive_finite_number() {
-        let converter = Converter::empty();
+        let converter = LegacyConverter::empty();
         let check = |yaml: &str| {
             let value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-            check_std_entry(StdKey::Servings, &value, &converter).is_ok()
+            check_std_entry(StdKey::Servings, &value, TimeUnits::Legacy(&converter)).is_ok()
         };
 
         assert!(check("4"));
@@ -1147,10 +1259,10 @@ mod tests {
 
     #[test]
     fn a_yield_must_be_a_positive_finite_amount() {
-        let converter = Converter::empty();
+        let converter = LegacyConverter::empty();
         let check = |yaml: &str| {
             let value: serde_yaml::Value = serde_yaml::from_str(yaml).unwrap();
-            check_std_entry(StdKey::Yield, &value, &converter).is_ok()
+            check_std_entry(StdKey::Yield, &value, TimeUnits::Legacy(&converter)).is_ok()
         };
 
         assert!(check("500"));
@@ -1218,34 +1330,36 @@ mod tests {
 
     #[test]
     fn metadata_equals_compares_a_value_it_cannot_read_as_written() {
-        let converter = Converter::empty();
+        let converter = LegacyConverter::empty();
         let meta = |yaml: &str| Metadata {
             map: serde_yaml::from_str(yaml).unwrap(),
         };
 
         // two values that are not counts are still two different values, so
         // failing to read them must not merge them
-        assert!(!meta("servings: -4").equals(&meta("servings: -5"), &converter));
-        assert!(meta("servings: -4").equals(&meta("servings: -4"), &converter));
-        assert!(!meta("yield: -3%g").equals(&meta("yield: -5%g"), &converter));
+        assert!(!meta("servings: -4").equals_legacy(&meta("servings: -5"), &converter));
+        assert!(meta("servings: -4").equals_legacy(&meta("servings: -4"), &converter));
+        assert!(!meta("yield: -3%g").equals_legacy(&meta("yield: -5%g"), &converter));
     }
 
     #[test]
     fn metadata_equals_compares_the_spellings_of_a_key_in_any_order() {
-        let converter = Converter::empty();
+        let converter = LegacyConverter::empty();
         let meta = |yaml: &str| Metadata {
             map: serde_yaml::from_str(yaml).unwrap(),
         };
 
-        assert!(meta("servings: 4\nserves: 8").equals(&meta("serves: 8\nservings: 4"), &converter));
-        assert!(!meta("servings: 4\nserves: 8").equals(&meta("servings: 4\nserves: 9"), &converter));
+        assert!(meta("servings: 4\nserves: 8")
+            .equals_legacy(&meta("serves: 8\nservings: 4"), &converter));
+        assert!(!meta("servings: 4\nserves: 8")
+            .equals_legacy(&meta("servings: 4\nserves: 9"), &converter));
     }
 
     #[test]
     fn servings_partial_eq_is_exact_and_semantic_eq_rounds_to_two_decimals() {
         // a count has no unit, so the converter has nothing to say about it and
         // an empty one gives the same answer as the bundled one
-        let converter = Converter::empty();
+        let converter = LegacyConverter::empty();
         let n = Servings::Number;
 
         // PartialEq compares as written
@@ -1254,16 +1368,16 @@ mod tests {
 
         // equals absorbs the rounding error scaling introduces, because both
         // counts round to the same two decimals
-        assert!(n(4.0).equals(&n(4.000_1), &converter));
-        assert!(n(4.0).equals(&n(4.004), &converter));
+        assert!(n(4.0).equals_legacy(&n(4.000_1), &converter));
+        assert!(n(4.0).equals_legacy(&n(4.004), &converter));
         // a difference a recipe could write down survives the rounding
-        assert!(!n(4.0).equals(&n(4.05), &converter));
-        assert!(!n(2.5).equals(&n(2.0), &converter));
+        assert!(!n(4.0).equals_legacy(&n(4.05), &converter));
+        assert!(!n(2.5).equals_legacy(&n(2.0), &converter));
 
         // comparing is one digit finer than writing, so two counts the writer
         // could tell apart are never merged: at WRITE_PRECISION both of these
         // round to 4.1
-        assert!(!n(4.05).equals(&n(4.1), &converter));
+        assert!(!n(4.05).equals_legacy(&n(4.1), &converter));
         assert_eq!(Servings::COMPARE_PRECISION, Servings::WRITE_PRECISION + 1);
 
         // scaling rounds to the precision a count is written with
@@ -1274,15 +1388,17 @@ mod tests {
         );
 
         // text servings compare as written either way
-        assert!(Servings::Text("two".into()).equals(&Servings::Text("two".into()), &converter));
-        assert!(!Servings::Text("two".into()).equals(&n(2.0), &converter));
+        assert!(
+            Servings::Text("two".into()).equals_legacy(&Servings::Text("two".into()), &converter)
+        );
+        assert!(!Servings::Text("two".into()).equals_legacy(&n(2.0), &converter));
     }
 
     #[cfg(feature = "bundled_units")]
     #[test]
     fn test_parse_time_with_units() {
-        let converter = Converter::bundled();
-        let t = |s: &str| parse_time_with_units(s, &converter).ok();
+        let converter = LegacyConverter::bundled();
+        let t = |s: &str| parse_time_with_units(s, TimeUnits::Legacy(&converter)).ok();
         assert_eq!(t(""), Some(0));
         assert_eq!(t("1"), None);
         assert_eq!(t("1 kilometer"), None);
@@ -1312,6 +1428,19 @@ mod tests {
         assert_eq!(f("1d1h1m"), None);
         assert_eq!(f("1d1h1m1s"), None);
         assert_eq!(f("1m1s"), None)
+    }
+
+    #[test]
+    fn locale_is_a_bcp47_tag() {
+        let ok = |s: &str| value_as_locale(&serde_yaml::Value::String(s.into())).is_ok();
+        assert!(ok("sv"));
+        assert!(ok("sv-SE"));
+        assert!(ok("en-GB-u-ms-uksystem"));
+        assert!(ok("en-CA-u-mu-fahrenhe"));
+        // the old `xx_YY` form is not a tag
+        assert!(!ok("sv_SE"));
+        assert!(!ok("not a tag"));
+        assert!(!ok(""));
     }
 
     #[test]

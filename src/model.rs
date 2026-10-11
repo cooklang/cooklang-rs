@@ -16,8 +16,8 @@ pub enum RecipeReferenceParseError {
 use tsify::Tsify;
 
 use crate::{
-    convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity,
-    semantic_eq::SemanticEq, GroupedQuantity,
+    convert::Converter, convert_legacy::LegacyConverter, metadata::Metadata, parser::Modifiers,
+    quantity::Quantity, semantic_eq::LegacySemanticEq, GroupedQuantity,
 };
 
 /// A complete recipe
@@ -56,20 +56,41 @@ pub struct Recipe {
 
 /// Compares two recipes using unit-aware quantity comparison.
 ///
-/// Unlike [`PartialEq`], quantities are compared with their [`SemanticEq`]
+/// Unlike [`PartialEq`], quantities are compared with their [`LegacySemanticEq`]
 /// impl, so `5 dl` equals `0.5 l` and `5 min` equals `300 s`.
-impl SemanticEq for Recipe {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+impl LegacySemanticEq for Recipe {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
         // Specifically does not compare recipe.path as it is
         // runtime dependent and does not have an "equivalent".
-        self.metadata.equals(&other.metadata, converter)
+        self.metadata.equals_legacy(&other.metadata, converter)
             && self.sections == other.sections
-            && self.ingredients.equals(&other.ingredients, converter)
-            && self.cookware.equals(&other.cookware, converter)
-            && self.timers.equals(&other.timers, converter)
+            && self
+                .ingredients
+                .equals_legacy(&other.ingredients, converter)
+            && self.cookware.equals_legacy(&other.cookware, converter)
+            && self.timers.equals_legacy(&other.timers, converter)
             && self
                 .inline_quantities
-                .equals(&other.inline_quantities, converter)
+                .equals_legacy(&other.inline_quantities, converter)
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for Recipe {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        crate::semantic_eq::SemanticEq::equals(&self.metadata, &other.metadata, converter)
+            && self.sections == other.sections
+            && crate::semantic_eq::SemanticEq::equals(
+                &self.ingredients,
+                &other.ingredients,
+                converter,
+            )
+            && crate::semantic_eq::SemanticEq::equals(&self.cookware, &other.cookware, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.timers, &other.timers, converter)
+            && crate::semantic_eq::SemanticEq::equals(
+                &self.inline_quantities,
+                &other.inline_quantities,
+                converter,
+            )
     }
 }
 
@@ -320,10 +341,24 @@ impl Ingredient {
         self.modifiers
     }
 
+    /// [`group_quantities`](Self::group_quantities) through the old converter; goes with it (ADR 0009).
+    pub fn group_quantities_legacy(
+        &self,
+        all_ingredients: &[Self],
+        converter: &LegacyConverter,
+    ) -> GroupedQuantity {
+        let mut grouped = GroupedQuantity::default();
+        for q in self.all_quantities(all_ingredients) {
+            grouped.add_legacy(q, converter);
+        }
+        let _ = grouped.fit_legacy(converter);
+        grouped
+    }
+
     /// Groups all quantities from itself and it's references (if any).
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
-    /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
+    /// let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
     /// let recipe = parser
     ///                 .parse("@flour{1000%g} @&flour{200%g} @&flour{1%bag}")
     ///                 .into_output()
@@ -334,7 +369,7 @@ impl Ingredient {
     ///
     /// let grouped_flour = flour.group_quantities(
     ///                         &recipe.ingredients,
-    ///                         parser.converter()
+    ///                         &Converter::for_recipe(&recipe).unwrap()
     ///                     );
     /// assert_eq!(grouped_flour.to_string(), "1.2 kg, 1 bag");
     /// assert_eq!(
@@ -360,7 +395,7 @@ impl Ingredient {
         for q in self.all_quantities(all_ingredients) {
             grouped.add(q, converter);
         }
-        let _ = grouped.fit(converter);
+        grouped.fit(converter);
         grouped
     }
 
@@ -383,14 +418,26 @@ impl Ingredient {
 
 /// Compares two ingredients using unit-aware quantity comparison.
 ///
-/// Unlike [`PartialEq`], the quantity is compared with its [`SemanticEq`]
+/// Unlike [`PartialEq`], the quantity is compared with its [`LegacySemanticEq`]
 /// impl, so `500 g` equals `0.5 kg`.
 ///
 /// A recipe reference is compared resolved against
 /// [`recipe_path`](Ingredient::recipe_path), so the same target referenced
 /// from two different directories compares equal. The recipe path itself is not
 /// compared: it records which file the ingredient came from, not what it is.
-impl SemanticEq for Ingredient {
+impl LegacySemanticEq for Ingredient {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
+        self.name == other.name
+            && self.alias == other.alias
+            && self.note == other.note
+            && self.relation == other.relation
+            && self.resolved_reference() == other.resolved_reference()
+            && self.modifiers == other.modifiers
+            && self.quantity.equals_legacy(&other.quantity, converter)
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for Ingredient {
     fn equals(&self, other: &Self, converter: &Converter) -> bool {
         self.name == other.name
             && self.alias == other.alias
@@ -398,7 +445,7 @@ impl SemanticEq for Ingredient {
             && self.relation == other.relation
             && self.resolved_reference() == other.resolved_reference()
             && self.modifiers == other.modifiers
-            && self.quantity.equals(&other.quantity, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity, converter)
     }
 }
 
@@ -436,6 +483,20 @@ impl Cookware {
     }
 
     /// Same as [`Ingredient::group_quantities`] but for [`Cookware`]
+    pub fn group_quantities_legacy(
+        &self,
+        all_cookware: &[Self],
+        converter: &LegacyConverter,
+    ) -> GroupedQuantity {
+        let mut g = GroupedQuantity::empty();
+        for q in self.all_quantities(all_cookware) {
+            g.add_legacy(q, converter);
+        }
+        let _ = g.fit_legacy(converter);
+        g
+    }
+
+    /// [`group_quantities_legacy`](Self::group_quantities_legacy) through the new converter, which is what stays (ADR 0009).
     pub fn group_quantities(
         &self,
         all_cookware: &[Self],
@@ -445,7 +506,7 @@ impl Cookware {
         for q in self.all_quantities(all_cookware) {
             g.add(q, converter);
         }
-        let _ = g.fit(converter);
+        g.fit(converter);
         g
     }
 
@@ -468,15 +529,26 @@ impl Cookware {
 
 /// Compares two cookware items using unit-aware quantity comparison.
 ///
-/// Unlike [`PartialEq`], the quantity is compared with its [`SemanticEq`] impl.
-impl SemanticEq for Cookware {
+/// Unlike [`PartialEq`], the quantity is compared with its [`LegacySemanticEq`] impl.
+impl LegacySemanticEq for Cookware {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
+        self.name == other.name
+            && self.alias == other.alias
+            && self.note == other.note
+            && self.relation == other.relation
+            && self.modifiers == other.modifiers
+            && self.quantity.equals_legacy(&other.quantity, converter)
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for Cookware {
     fn equals(&self, other: &Self, converter: &Converter) -> bool {
         self.name == other.name
             && self.alias == other.alias
             && self.note == other.note
             && self.relation == other.relation
             && self.modifiers == other.modifiers
-            && self.quantity.equals(&other.quantity, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity, converter)
     }
 }
 
@@ -680,24 +752,31 @@ pub struct Timer {
 
 /// Compares two timers using unit-aware quantity comparison.
 ///
-/// Unlike [`PartialEq`], the quantity is compared with its [`SemanticEq`] impl,
+/// Unlike [`PartialEq`], the quantity is compared with its [`LegacySemanticEq`] impl,
 /// so `1 h` equals `60 min`.
-impl SemanticEq for Timer {
+impl LegacySemanticEq for Timer {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
+        self.name == other.name && self.quantity.equals_legacy(&other.quantity, converter)
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for Timer {
     fn equals(&self, other: &Self, converter: &Converter) -> bool {
-        self.name == other.name && self.quantity.equals(&other.quantity, converter)
+        self.name == other.name
+            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity, converter)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{Recipe, RecipeReference};
-    use crate::{Converter, CooklangParser, Extensions, SemanticEq};
+    use crate::{CooklangParser, Extensions, LegacyConverter, LegacySemanticEq};
 
     use indoc::indoc;
     use std::sync::LazyLock;
 
     pub static PARSER: LazyLock<CooklangParser> =
-        LazyLock::new(|| CooklangParser::new(Extensions::all(), Converter::default()));
+        LazyLock::new(|| CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default()));
 
     #[track_caller]
     fn recipe(s: &str) -> Recipe {
@@ -705,10 +784,10 @@ mod tests {
         recipe
     }
 
-    static CONVERTER: LazyLock<Converter> = LazyLock::new(Converter::default);
+    static CONVERTER: LazyLock<LegacyConverter> = LazyLock::new(LegacyConverter::default);
 
     fn eq(a: &str, b: &str) -> bool {
-        recipe(a).equals(&recipe(b), &CONVERTER)
+        recipe(a).equals_legacy(&recipe(b), &CONVERTER)
     }
 
     fn ne(a: &str, b: &str) -> bool {
@@ -841,11 +920,11 @@ mod tests {
         // `./pickles/`, and `./spices/x.cook` from the root
         let a = referenced("./pickles/sour.cook", "@../spices/x.cook{}");
         let b = referenced("./root.cook", "@./spices/x.cook{}");
-        assert!(a.equals(&b, &CONVERTER));
+        assert!(a.equals_legacy(&b, &CONVERTER));
 
         // a reference that resolves elsewhere still differs
         let c = referenced("./root.cook", "@./jams/x.cook{}");
-        assert!(!a.equals(&c, &CONVERTER));
+        assert!(!a.equals_legacy(&c, &CONVERTER));
 
         // with no path there is nothing to resolve against, so the reference
         // is compared as written

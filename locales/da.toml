@@ -1,0 +1,177 @@
+# Unit names for `da`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `da`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+reviewed = { date = 2026-10-06, by = "Swedish speaker", sources = ["https://smagpaahistorien.com/blog/soup-mugs-onion-soup", "https://mummum.dk/hakkeboeffer-med-bloede-loeg/"] }
+
+plural_rules = [
+    { category = "one", condition = "n = 1 or t != 0 and i = 0,1" },
+    { category = "other", condition = "" },
+]
+
+# I was unable to verify when "pund" (500g), hektogram(100g) in any cookbooks from the late 1900s, they probably stopped being used 1970-1980 which makes them too early to find references from on the internet but still under copyright. There was no danish cookbooks at the library either, if some danish person wants to add them feel free.
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["liter"]
+long = { one = "{0} liter", other = "{0} liter" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["deciliter"]
+long = { one = "{0} deciliter", other = "{0} deciliter" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centiliter"]
+long = { one = "{0} centiliter", other = "{0} centiliter" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["milliliter"]
+long = { one = "{0} milliliter", other = "{0} milliliter" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "tsk."
+aliases = ["tsk", "teske", "teskeer"]
+long = { one = "{0} teske", other = "{0} teskeer" }
+
+[[unit]]
+id = "danish knife point"
+symbol = "knsp."
+aliases = ["knsp", "knivspids", "knivspidser"]
+long = { one = "{0} knivspids", other = "{0} knivspidser" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "spsk."
+aliases = ["spsk", "spiseske", "spiseskeer"]
+long = { one = "{0} spiseske", other = "{0} spiseskeer" }
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogram"]
+long = { one = "{0} kilogram", other = "{0} kilogram" }
+
+[[unit]]
+id = "hectogram"
+symbol = "hg"
+reason = "Used in older recipes"
+aliases = ["hektogram"]
+long = { one = "{0} hektogram", other = "{0} hektogram" }
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gram"]
+long = { one = "{0} gram", other = "{0} gram" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["meter"]
+long = { one = "{0} meter", other = "{0} meter" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centimeter"]
+long = { one = "{0} centimeter", other = "{0} centimeter" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["millimeter"]
+long = { one = "{0} millimeter", other = "{0} millimeter" }
+
+[[unit]]
+id = "second"
+symbol = "s."
+aliases = ["s", "sek.", "sek", "sekund", "sekunder"]
+long = { one = "{0} sekund", other = "{0} sekunder" }
+
+[[unit]]
+id = "minute"
+symbol = "min."
+aliases = ["min", "minut", "minutter"]
+long = { one = "{0} minut", other = "{0} minutter" }
+
+[[unit]]
+id = "hour"
+symbol = "t."
+aliases = ["h", "time", "timer"]
+long = { one = "{0} time", other = "{0} timer" }
+
+[[unit]]
+id = "day"
+symbol = "d."
+aliases = ["d", "dag", "dage"]
+long = { one = "{0} dag", other = "{0} dage" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["grad celsius", "grader celsius"]
+long = { one = "{0} grad celsius", other = "{0} grader celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["grad fahrenheit", "grader fahrenheit"]
+long = { one = "{0} grad fahrenheit", other = "{0} grader fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   us fluid ounce -- engelsk fluid ounce, engelske fluid ounces, fl oz
+#     As the quart: "engelsk" names the wrong unit, and with no Danish
+#     convention the bare `fl oz` cannot pick between 28.4 and 29.6 ml either.
+#   us cup -- cup, cups, c
+#     Unmarked US name (ADR 0003): the English loanword in a dl kitchen, 5.7%
+#     from the metric cup CLDR marks `metrisk kop`. Refused rather than
+#     guessed.
+#   us pint -- pint, pints, pt
+#     Unmarked US name (ADR 0003).
+#   us quart -- engelsk quart, engelske quarts, qt
+#     CLDR names the 946 ml US quart "engelsk" (English), which to a Danish
+#     reader is the 1137 ml imperial one; CLDR's own imperial quart here is
+#     "britiske". The words are a trap and `qt` is unmarked (ADR 0003).
+#   us gallon -- gallon, gallons, gal
+#     Unmarked US name (ADR 0003): CLDR marks the imperial one `engelske
+#     gallons`.
+#   imperial fluid ounce -- Imp. fl oz, Imp. fluid ounce, Imp. fluid ounces, fl oz Imp.
+#     English, not Danish, and a unit no Danish kitchen uses (ADR 0003).
+#   imperial pint -- pt Imp., pint Imp.
+#     Root's English strings, not a Danish name.
+#   imperial quart -- britisk quart, britiske qt, britiske quarts
+#     A unit no Danish kitchen uses (ADR 0003); written by identifier.
+#   imperial gallon -- eng. gal, engelsk gallon, engelske gallons
+#     As the quart; and `engelsk` is the word Danish CLDR also uses for the US
+#     quart.
+#   metric dessert spoon -- dessertske, dessertskeer, dsk.
+#     No Danish value in docs/research/cooking-units.md. Refused until
+#     researched.
+#   metric cup -- mcup, metrisk kop, metriske kopper
+#     Not used in Denmark.
+#   ounce -- oz, ounces
+#     Danish recipes weigh in grams. These are CLDR's English words, not
+#     something a Danish recipe writes. Per the maintainer.
+#   pound -- lb, pund
+#     A Danish pund is 500 g, set in 1839 (line 566), not the avoirdupois
+#     pound, and `lb` is not written here either. Per the maintainer.
+#
+# `ounce` and `pound` themselves still resolve: a unit's identifier resolves in
+# every locale (ADR 0004), so they cannot be refused and are not listed above.

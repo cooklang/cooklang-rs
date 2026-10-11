@@ -24,3 +24,15 @@ This parser powers [CookCLI](https://github.com/cooklang/cookcli), the
 [Cooklang playground](https://cooklang.github.io/cooklang-rs/), and the Cook
 mobile apps and desktop editor, which share recipes through
 [Cook Cloud sync](https://cook.md/).
+
+## License
+
+Unit names are seeded from [Unicode CLDR](https://cldr.unicode.org/), whose data is governed by
+the [Unicode License V3](./locales/UNICODE-LICENSE). That licence covers the CLDR-derived names in
+`locales/*.toml` and `locales/plural-samples.json`, and the code generated from them. Nothing else:
+every hand-authored name, every refusal and its reason, and all other source in this repository is
+under the [MIT license](./LICENSE). Each locale file says in its header which of its names came from
+CLDR and which were written by hand, and records the CLDR release it was seeded from. The crate is
+therefore declared `MIT AND Unicode-3.0`, meaning it *contains* material under both rather than
+being dual-licensed; a downstream distributor keeps both notices, which is the same obligation each
+licence imposes on its own.

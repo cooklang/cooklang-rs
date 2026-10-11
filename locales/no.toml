@@ -1,0 +1,196 @@
+# Unit names for `no`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `no`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "one", condition = "n = 1" },
+    { category = "other", condition = "" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "l"
+aliases = ["liter"]
+long = { one = "{0} liter", other = "{0} liter" }
+
+[[unit]]
+id = "deciliter"
+symbol = "dl"
+aliases = ["desiliter"]
+long = { one = "{0} desiliter", other = "{0} desiliter" }
+
+[[unit]]
+id = "centiliter"
+symbol = "cl"
+aliases = ["centiliter"]
+long = { one = "{0} centiliter", other = "{0} centiliter" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ml"
+aliases = ["milliliter"]
+long = { one = "{0} milliliter", other = "{0} milliliter" }
+
+[[unit]]
+id = "metric teaspoon"
+symbol = "ts"
+aliases = ["teskje", "teskjeer"]
+long = { one = "{0} teskje", other = "{0} teskjeer" }
+
+[[unit]]
+id = "metric dessert spoon"
+symbol = "bs"
+aliases = ["barneskje", "barneskjeer"]
+long = { one = "{0} barneskje", other = "{0} barneskjeer" }
+
+[[unit]]
+id = "metric tablespoon"
+symbol = "ss"
+aliases = ["spiseskje", "spiseskjeer"]
+long = { one = "{0} spiseskje", other = "{0} spiseskjeer" }
+
+[[unit]]
+id = "nordic spice measure"
+symbol = "krm"
+aliases = ["kryddermål"]
+long = { one = "{0} kryddermål", other = "{0} kryddermål" }
+reason = """
+The 1 ml kryddermål (docs/research/cooking-units.md line 563). CLDR has \
+no such unit."""
+
+[[unit]]
+id = "kilogram"
+symbol = "kg"
+aliases = ["kilogram"]
+long = { one = "{0} kilogram", other = "{0} kilogram" }
+
+[[unit]]
+id = "hectogram"
+symbol = "hg"
+aliases = ["hekto"]
+reason = """
+As sv: everyday Nordic retail unit per the maintainer; SI prefix symbol."""
+
+[[unit]]
+id = "gram"
+symbol = "g"
+aliases = ["gram"]
+long = { one = "{0} gram", other = "{0} gram" }
+
+[[unit]]
+id = "meter"
+symbol = "m"
+aliases = ["meter"]
+long = { one = "{0} meter", other = "{0} meter" }
+
+[[unit]]
+id = "centimeter"
+symbol = "cm"
+aliases = ["centimeter"]
+long = { one = "{0} centimeter", other = "{0} centimeter" }
+
+[[unit]]
+id = "millimeter"
+symbol = "mm"
+aliases = ["millimeter"]
+long = { one = "{0} millimeter", other = "{0} millimeter" }
+
+[[unit]]
+id = "foot"
+symbol = "fot"
+long = { one = "{0} fot", other = "{0} fot" }
+
+[[unit]]
+id = "inch"
+symbol = "tommer"
+aliases = ["tomme"]
+long = { one = "{0} tomme", other = "{0} tommer" }
+
+[[unit]]
+id = "second"
+symbol = "sek"
+aliases = ["sekund", "sekunder"]
+long = { one = "{0} sekund", other = "{0} sekunder" }
+
+[[unit]]
+id = "minute"
+symbol = "min"
+aliases = ["minutt", "minutter"]
+long = { one = "{0} minutt", other = "{0} minutter" }
+
+[[unit]]
+id = "hour"
+symbol = "t"
+aliases = ["time", "timer"]
+long = { one = "{0} time", other = "{0} timer" }
+
+[[unit]]
+id = "day"
+symbol = "d"
+aliases = ["døgn"]
+long = { one = "{0} døgn", other = "{0} døgn" }
+
+[[unit]]
+id = "celsius"
+symbol = "°C"
+aliases = ["grad celsius", "grader celsius"]
+long = { one = "{0} grad celsius", other = "{0} grader celsius" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°F"
+aliases = ["grad fahrenheit", "grader fahrenheit"]
+long = { one = "{0} grad fahrenheit", other = "{0} grader fahrenheit" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   metric cup -- m. kopper, metrisk kopp, metriske kopper
+#     `metrisk kopp` is marked, but it is a CLDR coinage rather than
+#     Norwegian: a Norwegian recipe measures in desilitre and writes no cup of
+#     any kind, as Swedish does not (line 563). Per the maintainer, it is not
+#     used. CLDR's symbol was also the plural `m. kopper`, which could never
+#     be an invariant symbol.
+#   us fluid ounce -- væskeunse, væskeunser, fl oz
+#     Unmarked US name (ADR 0003): CLDR marks only `britiske væskeunser`.
+#   us cup -- kopp, kopper, k
+#     A Norwegian kaffekopp is 150 ml and a tekopp 250 ml (line 565); neither
+#     is the US cup, and the bare word cannot pick between them.
+#   us pint -- pint, pt
+#     Unmarked US name (ADR 0003): CLDR marks only `pt Imp.`.
+#   us quart -- quart, qt
+#     Unmarked US name (ADR 0003): CLDR marks only `britiske quart`.
+#   us gallon -- gallon, gal
+#     Unmarked US name (ADR 0003): CLDR marks only `britiske gallon`.
+#   imperial fluid ounce -- britisk væskeunse, britiske væskeunser, imp. fl oz
+#     A unit no Norwegian kitchen uses (ADR 0003); written by identifier.
+#   imperial pint -- pt Imp., pint Imp.
+#     Root's English strings, not a Norwegian name.
+#   imperial quart -- britisk quart, britiske quart, imp. quart
+#     As the fluid ounce.
+#   imperial gallon -- brit. gal, britisk gallon, britiske gallon
+#     As the fluid ounce.
+#   ounce -- unse, unser
+#     Not in docs/research/cooking-units.md. Refused until researched.
+#   pound -- pund
+#     A Scandinavian pund is 500 g (line 566 for Denmark), not the avoirdupois
+#     pound.

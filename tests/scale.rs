@@ -1,9 +1,9 @@
-use cooklang::{Converter, CooklangParser, Extensions, Recipe};
+use cooklang::{CooklangParser, Extensions, LegacyConverter, Recipe};
 use std::sync::LazyLock;
 
 static PARSER: LazyLock<CooklangParser> =
-    LazyLock::new(|| CooklangParser::new(Extensions::all(), Converter::default()));
-static CONVERTER: LazyLock<Converter> = LazyLock::new(Converter::default);
+    LazyLock::new(|| CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default()));
+static CONVERTER: LazyLock<LegacyConverter> = LazyLock::new(LegacyConverter::default);
 
 #[track_caller]
 fn parse(src: &str) -> Recipe {
@@ -35,7 +35,7 @@ servings: 4
 @eggs{2}
 Mix and bake."#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Check original servings
@@ -52,7 +52,7 @@ Mix and bake."#;
 
     // Scale to 8 servings (2x)
     recipe
-        .scale_to_servings(8.0, &Converter::default())
+        .scale_to_servings_legacy(8.0, &LegacyConverter::default())
         .unwrap();
 
     // Check that servings in metadata were updated
@@ -70,11 +70,11 @@ fn test_scale_by_factor_updates_servings_metadata() {
 @butter{100%g}
 @sugar{50%g}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Scale by factor of 3
-    recipe.scale(3.0, &Converter::default());
+    recipe.scale_legacy(3.0, &LegacyConverter::default());
 
     // Check that servings in metadata were updated (2 * 3 = 6)
     let scaled_servings_value = recipe
@@ -95,14 +95,14 @@ fn test_scale_without_servings_metadata() {
     let input = r#"@flour{200%g}
 @eggs{2}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Should not have servings
     assert_eq!(recipe.metadata.servings(), None);
 
     // Scale by factor of 2
-    recipe.scale(2.0, &Converter::default());
+    recipe.scale_legacy(2.0, &LegacyConverter::default());
 
     // Should still not have servings in metadata
     assert!(recipe
@@ -117,11 +117,11 @@ fn test_scale_with_fractional_servings() {
 
 @milk{300%ml}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Scale by factor that results in fractional servings (3 * 1.5 = 4.5)
-    recipe.scale(1.5, &Converter::default());
+    recipe.scale_legacy(1.5, &LegacyConverter::default());
 
     let scaled_servings_value = recipe
         .metadata
@@ -142,7 +142,7 @@ fn test_scale_with_non_numeric_servings() {
 @flour{200%g}
 @butter{100%g}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Should parse "two" as text servings
@@ -152,7 +152,7 @@ fn test_scale_with_non_numeric_servings() {
     assert_eq!(servings.as_ref().and_then(|s| s.as_text()), Some("two"));
 
     // Scale by factor of 2
-    recipe.scale(2.0, &Converter::default());
+    recipe.scale_legacy(2.0, &LegacyConverter::default());
 
     // Servings should remain unchanged as a string
     let servings_value = recipe
@@ -170,7 +170,7 @@ servings: "serves 4 people"
 
 @rice{2%cups}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Should parse "serves 4 people" as Servings::Text("serves 4 people") since we don't do complex parsing
@@ -183,7 +183,7 @@ servings: "serves 4 people"
     );
 
     // scale_to_servings should fail since "serves 4 people" is not parsed as a number
-    let result = recipe.scale_to_servings(8.0, &Converter::default());
+    let result = recipe.scale_to_servings_legacy(8.0, &LegacyConverter::default());
     assert!(result.is_err());
 
     // Recipe should remain unchanged
@@ -204,7 +204,7 @@ servings: "4"
 
 @rice{2%cups}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Should parse "4" as Servings::Number(4)
@@ -213,7 +213,7 @@ servings: "4"
     assert_eq!(servings.as_ref().and_then(|s| s.as_number()), Some(4.0));
 
     // scale_to_servings should succeed
-    let result = recipe.scale_to_servings(8.0, &Converter::default());
+    let result = recipe.scale_to_servings_legacy(8.0, &LegacyConverter::default());
     assert!(result.is_ok());
 
     // Recipe should be scaled from 4 to 8 (factor of 2)
@@ -234,7 +234,7 @@ servings: "varies"
 
 @rice{2%cups}"#;
 
-    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let parser = CooklangParser::new_legacy(Extensions::all(), LegacyConverter::default());
     let mut recipe = parser.parse(input).unwrap_output();
 
     // Should parse "varies" as Servings::Text("varies")
@@ -244,7 +244,7 @@ servings: "varies"
     assert_eq!(servings.as_ref().and_then(|s| s.as_text()), Some("varies"));
 
     // scale_to_servings should fail when servings can't be parsed to number
-    let result = recipe.scale_to_servings(8.0, &Converter::default());
+    let result = recipe.scale_to_servings_legacy(8.0, &LegacyConverter::default());
 
     // Check that it returns an error
     assert!(result.is_err());
@@ -269,7 +269,7 @@ servings: "varies"
 fn scaling_updates_servings_written_as_an_alias() {
     let mut recipe = parse(">> serves: 4\n@flour{100%g}");
 
-    recipe.scale(2.0, &CONVERTER);
+    recipe.scale_legacy(2.0, &CONVERTER);
 
     // the reader resolves the alias, so the writer has to update the same entry
     assert_eq!(servings(&recipe), Some(8.0));
@@ -281,7 +281,7 @@ fn scaling_updates_yield_written_as_an_alias() {
     let mut recipe = parse(">> yields: 500%g\n@flour{100%g}");
 
     recipe
-        .scale_to_yield(1000.0, "g", &CONVERTER)
+        .scale_to_yield_legacy(1000.0, "g", &CONVERTER)
         .expect("the recipe has a yield");
 
     assert_eq!(recipe_yield(&recipe).as_deref(), Some("1000 g"));
@@ -291,7 +291,7 @@ fn scaling_updates_yield_written_as_an_alias() {
 fn scaling_by_a_factor_scales_yield_too() {
     let mut recipe = parse(">> yield: 500%g\n@flour{100%g}");
 
-    recipe.scale(2.0, &CONVERTER);
+    recipe.scale_legacy(2.0, &CONVERTER);
 
     // the yield is an amount the recipe makes, so it cannot contradict the
     // ingredients it was scaled with
@@ -303,7 +303,7 @@ fn scaling_by_a_factor_scales_yield_too() {
 fn refuses_to_scale_servings(value: &str) {
     let mut recipe = parse(&format!("---\nservings: {value}\n---\n@flour{{100%g}}"));
 
-    assert!(recipe.scale_to_servings(8.0, &CONVERTER).is_err());
+    assert!(recipe.scale_to_servings_legacy(8.0, &CONVERTER).is_err());
     assert_eq!(first_amount(&recipe).as_deref(), Some("100 g"));
     assert_eq!(servings(&recipe), None);
 }
@@ -320,7 +320,7 @@ fn scaling_refuses_servings_that_are_not_a_count() {
 fn refuses_servings_target(target: f64) {
     let mut recipe = parse("---\nservings: 4\n---\n@flour{100%g}");
 
-    assert!(recipe.scale_to_servings(target, &CONVERTER).is_err());
+    assert!(recipe.scale_to_servings_legacy(target, &CONVERTER).is_err());
     assert_eq!(first_amount(&recipe).as_deref(), Some("100 g"));
     assert_eq!(servings(&recipe), Some(4.0));
 }
@@ -337,7 +337,9 @@ fn scaling_refuses_a_target_that_is_not_a_count() {
 fn refuses_to_scale_yield(value: &str) {
     let mut recipe = parse(&format!("---\nyield: {value}\n---\n@flour{{100%g}}"));
 
-    assert!(recipe.scale_to_yield(1000.0, "g", &CONVERTER).is_err());
+    assert!(recipe
+        .scale_to_yield_legacy(1000.0, "g", &CONVERTER)
+        .is_err());
     assert_eq!(first_amount(&recipe).as_deref(), Some("100 g"));
     assert_eq!(recipe_yield(&recipe), None);
 }
@@ -353,7 +355,9 @@ fn scaling_refuses_a_yield_that_cannot_be_made() {
 fn refuses_yield_target(target: f64) {
     let mut recipe = parse("---\nyield: 500%g\n---\n@flour{100%g}");
 
-    assert!(recipe.scale_to_yield(target, "g", &CONVERTER).is_err());
+    assert!(recipe
+        .scale_to_yield_legacy(target, "g", &CONVERTER)
+        .is_err());
     assert_eq!(first_amount(&recipe).as_deref(), Some("100 g"));
     assert_eq!(recipe_yield(&recipe).as_deref(), Some("500 g"));
 }
@@ -371,7 +375,9 @@ fn scaling_refuses_a_yield_target_that_cannot_be_made() {
 #[track_caller]
 fn scaled_to_yield(yield_: &str, target: f64, unit: &str) -> (String, String) {
     let mut recipe = parse(&format!("---\nyield: {yield_}\n---\n@flour{{100%g}}"));
-    recipe.scale_to_yield(target, unit, &CONVERTER).unwrap();
+    recipe
+        .scale_to_yield_legacy(target, unit, &CONVERTER)
+        .unwrap();
     (
         recipe_yield(&recipe).unwrap(),
         first_amount(&recipe).unwrap(),
@@ -383,7 +389,7 @@ fn yield_unit_mismatch(yield_: &str, unit: &str) {
     let mut recipe = parse(&format!("---\nyield: {yield_}\n---\n@flour{{100%g}}"));
 
     assert!(matches!(
-        recipe.scale_to_yield(1.0, unit, &CONVERTER),
+        recipe.scale_to_yield_legacy(1.0, unit, &CONVERTER),
         Err(cooklang::scale::ScaleError::UnitMismatch { .. })
     ));
     assert_eq!(first_amount(&recipe).as_deref(), Some("100 g"));
@@ -400,7 +406,7 @@ fn scaling_to_a_yield_converts_the_target_into_the_yields_unit() {
 
     // across systems: 1 lb is 453.59237 g
     let mut recipe = parse("---\nyield: 500%g\n---\n@flour{100%g}");
-    recipe.scale_to_yield(1.0, "lb", &CONVERTER).unwrap();
+    recipe.scale_to_yield_legacy(1.0, "lb", &CONVERTER).unwrap();
     assert_eq!(recipe_yield(&recipe).as_deref(), Some("1 lb"));
     match recipe.ingredients[0].quantity.as_ref().unwrap().value() {
         cooklang::quantity::Value::Number(n) => assert!((n.value() - 90.718474).abs() < 1e-6),
@@ -417,8 +423,8 @@ fn scaling_to_a_yield_converts_the_target_into_the_yields_unit() {
 fn scaling_twice_scales_the_ingredients_twice() {
     let mut recipe = parse("---\nservings: 1\nyield: 500%g\n---\n@flour{100%g}");
 
-    recipe.scale(3.0, &CONVERTER);
-    recipe.scale(0.5, &CONVERTER);
+    recipe.scale_legacy(3.0, &CONVERTER);
+    recipe.scale_legacy(0.5, &CONVERTER);
 
     assert_eq!(first_amount(&recipe).as_deref(), Some("150 g"));
     assert_eq!(servings(&recipe), Some(1.5));
@@ -428,7 +434,7 @@ fn scaling_twice_scales_the_ingredients_twice() {
 #[test]
 fn scaling_to_servings_writes_the_count_rounded_as_scaling_does() {
     let mut recipe = parse("---\nservings: 4\n---\n@flour{100%g}");
-    recipe.scale_to_servings(4.567, &CONVERTER).unwrap();
+    recipe.scale_to_servings_legacy(4.567, &CONVERTER).unwrap();
 
     assert_eq!(servings(&recipe), Some(4.6));
 }

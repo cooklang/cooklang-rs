@@ -1,0 +1,150 @@
+# Unit names for `ar`.
+#
+# Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
+# truth for `ar`: what it names, what it refuses, and why.
+#
+# A name with no `reason` came from CLDR and is covered by the Unicode
+# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
+# hand-authored and MIT.
+
+cldr_version = "48.2.3"
+
+# NOT REVIEWED. Cooklang refuses to serve this locale: nobody who speaks the
+# language has confirmed the names below are what its recipes write. See
+# README.md -- it takes about twenty minutes and needs no programming.
+#
+# When someone has, record it here and the locale starts working:
+#
+#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#
+# `by` is a role and a place, not a name or a handle: enough to judge the
+# claim without putting a private individual in a public repository. `date` is
+# a bare TOML date, not a quoted string.
+
+plural_rules = [
+    { category = "few", condition = "n % 100 = 3..10" },
+    { category = "many", condition = "n % 100 = 11..99" },
+    { category = "one", condition = "n = 1" },
+    { category = "other", condition = "" },
+    { category = "two", condition = "n = 2" },
+    { category = "zero", condition = "n = 0" },
+]
+
+[[unit]]
+id = "liter"
+symbol = "لتر"
+long = { few = "{0} لتر", many = "{0} لتر", one = "لتر", other = "{0} لتر", two = "{0} لتر", zero = "{0} لتر" }
+
+[[unit]]
+id = "deciliter"
+symbol = "ديسيلتر"
+long = { few = "{0} ديسيلتر", many = "{0} ديسيلتر", one = "{0} ديسيلتر", other = "{0} ديسيلتر", two = "{0} ديسيلتر", zero = "{0} ديسيلتر" }
+
+[[unit]]
+id = "centiliter"
+symbol = "سنتيلتر"
+long = { few = "{0} سنتيلتر", many = "{0} سنتيلتر", one = "{0} سنتيلتر", other = "{0} سنتيلتر", two = "{0} سنتيلتر", zero = "{0} سنتيلتر" }
+
+[[unit]]
+id = "milliliter"
+symbol = "ملتر"
+aliases = ["مليلتر"]
+long = { few = "{0} مليلتر", many = "{0} مليلتر", one = "{0} مليلتر", other = "{0} مليلتر", two = "{0} مليلتر", zero = "{0} مليلتر" }
+
+[[unit]]
+id = "kilogram"
+symbol = "كغم"
+aliases = ["كيلوغرام"]
+long = { few = "{0} كيلوغرام", many = "{0} كيلوغرام", one = "{0} كيلوغرام", other = "{0} كيلوغرام", two = "{0} كيلوغرام", zero = "{0} كيلوغرام" }
+
+[[unit]]
+id = "gram"
+symbol = "غرام"
+aliases = ["غرامات", "غرامًا"]
+long = { few = "{0} غرامات", many = "{0} غرامًا", one = "غرام", other = "{0} غرام", two = "غرامان", zero = "{0} غرام" }
+
+[[unit]]
+id = "meter"
+symbol = "متر"
+aliases = ["أمتار", "مترًا"]
+long = { few = "{0} أمتار", many = "{0} مترًا", one = "متر", other = "{0} متر", two = "{0} متر", zero = "{0} متر" }
+
+[[unit]]
+id = "centimeter"
+symbol = "سم"
+aliases = ["سنتيمتر"]
+long = { few = "{0} سنتيمتر", many = "{0} سنتيمتر", one = "{0} سنتيمتر", other = "{0} سنتيمتر", two = "{0} سنتيمتر", zero = "{0} سنتيمتر" }
+
+[[unit]]
+id = "millimeter"
+symbol = "مم"
+aliases = ["مليمتر"]
+long = { few = "{0} مليمتر", many = "{0} مليمتر", one = "{0} مليمتر", other = "{0} مليمتر", two = "{0} مليمتر", zero = "{0} مليمتر" }
+
+[[unit]]
+id = "foot"
+symbol = "قدم"
+long = { few = "{0} قدم", many = "{0} قدم", one = "قدم", other = "{0} قدم", two = "{0} قدم", zero = "{0} قدم" }
+
+[[unit]]
+id = "inch"
+symbol = "بوصة"
+long = { few = "{0} بوصة", many = "{0} بوصة", one = "{0} بوصة", other = "{0} بوصة", two = "{0} بوصة", zero = "{0} بوصة" }
+
+[[unit]]
+id = "second"
+symbol = "ث"
+aliases = ["ثانية", "ثوان"]
+long = { few = "{0} ثوان", many = "{0} ثانية", one = "ثانية", other = "{0} ثانية", two = "ثانيتان", zero = "{0} ثانية" }
+
+[[unit]]
+id = "minute"
+symbol = "د"
+aliases = ["دقائق", "دقيقة"]
+long = { few = "{0} دقائق", many = "{0} دقيقة", one = "دقيقة", other = "{0} دقيقة", two = "دقيقتان", zero = "{0} دقيقة" }
+
+[[unit]]
+id = "hour"
+symbol = "س"
+aliases = ["ساعات", "ساعة"]
+long = { few = "{0} ساعات", many = "{0} ساعة", one = "ساعة", other = "{0} ساعة", two = "ساعتان", zero = "{0} ساعة" }
+
+[[unit]]
+id = "day"
+symbol = "يوم"
+aliases = ["أيام", "يومًا"]
+long = { few = "{0} أيام", many = "{0} يومًا", one = "يوم", other = "{0} يوم", two = "يومان", zero = "{0} يوم" }
+
+[[unit]]
+id = "celsius"
+symbol = "°م"
+aliases = ["درجة مئوية"]
+long = { few = "{0} درجة مئوية", many = "{0} درجة مئوية", one = "{0} درجة مئوية", other = "{0} درجة مئوية", two = "{0} درجة مئوية", zero = "{0} درجة مئوية" }
+
+[[unit]]
+id = "fahrenheit"
+symbol = "°ف"
+aliases = ["درجة فهرنهايت"]
+long = { few = "{0} درجة فهرنهايت", many = "{0} درجة فهرنهايت", one = "{0} درجة فهرنهايت", other = "{0} درجة فهرنهايت", two = "{0} درجة فهرنهايت", zero = "{0} درجة فهرنهايت" }
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+# No verdict yet. CLDR 48.2.3 offers these; a reviewer decides whether the
+# word means this unit here, and if so it moves into a [[unit]] entry above.
+#
+#   us teaspoon -- ملعقة ص, ملعقة صغيرة
+#   us tablespoon -- ملعقة ك., ملعقة كبيرة
+#   us fluid ounce -- أونصة سائلة
+#   us cup -- أكواب, كوب, كوبًا
+#   us pint -- باينت
+#   us quart -- ربع غالون
+#   us gallon -- غالون
+#   imperial fluid ounce -- أونصات سائلة إمبراطورية, أونصة سائلة إمبراطورية
+#   imperial pint -- pint Imp., pt Imp.
+#   imperial quart -- ربع غالون إمبراطوري
+#   imperial gallon -- غالون إمبراطوري
+#   metric dessert spoon -- ملعقة ح., ملعقة حلو
+#   metric cup -- كوب متري
+#   ounce -- أونصة
+#   pound -- رطل, رطلًا

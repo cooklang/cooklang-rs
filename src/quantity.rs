@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
+use crate::convert::{units::Unit as V2Unit, Converter};
 use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -10,9 +11,9 @@ use thiserror::Error;
 use tsify::Tsify;
 
 use crate::{
-    convert::{ConvertError, Converter, PhysicalQuantity, Unit},
+    convert_legacy::{ConvertError, LegacyConverter, PhysicalQuantity, Unit},
     float::equal_f64,
-    semantic_eq::{unordered_equals, SemanticEq},
+    semantic_eq::{unordered_equals, unordered_equals_legacy, LegacySemanticEq},
 };
 
 /// A quantity used in components
@@ -163,7 +164,7 @@ impl Quantity {
     ///
     /// This can return `None` if there is no unit or if it's not in the
     /// `converter`.
-    pub fn unit_info(&self, converter: &Converter) -> Option<Arc<Unit>> {
+    pub fn unit_info(&self, converter: &LegacyConverter) -> Option<Arc<Unit>> {
         self.unit().and_then(|u| converter.find_unit(u))
     }
 }
@@ -245,7 +246,10 @@ pub enum QuantityOpError {
     TextValue(#[from] TextValueError),
 
     #[error(transparent)]
-    Convert(#[from] ConvertError),
+    ConvertLegacy(#[from] ConvertError),
+
+    #[error(transparent)]
+    Convert(#[from] crate::convert::ConvertError),
 }
 
 #[deprecated = "renamed to `QuantityOpError`"]
@@ -286,10 +290,10 @@ pub enum IncompatibleUnits {
 impl Quantity {
     /// Checks if two quantities can be added and return the compatible unit
     /// (if any) or an error if they are not
-    pub fn compatible_unit(
+    pub fn compatible_unit_legacy(
         &self,
         rhs: &Self,
-        converter: &Converter,
+        converter: &LegacyConverter,
     ) -> Result<Option<Arc<Unit>>, IncompatibleUnits> {
         let base = match (&self.unit, &rhs.unit) {
             // No units = ok
@@ -340,8 +344,12 @@ impl Quantity {
     }
 
     /// Try adding two quantities
-    pub fn try_add(&self, rhs: &Self, converter: &Converter) -> Result<Self, QuantityOpError> {
-        self.try_op(rhs, converter, Value::try_add)
+    pub fn try_add_legacy(
+        &self,
+        rhs: &Self,
+        converter: &LegacyConverter,
+    ) -> Result<Self, QuantityOpError> {
+        self.try_op_legacy(rhs, converter, Value::try_add)
     }
 
     /// Try subtracting two quantities
@@ -351,17 +359,21 @@ impl Quantity {
     ///
     /// The result can be negative, callers that don't want that have to check
     /// it. [`GroupedQuantity::try_saturating_sub`] does.
-    pub fn try_sub(&self, rhs: &Self, converter: &Converter) -> Result<Self, QuantityOpError> {
-        self.try_op(rhs, converter, Value::try_sub)
-    }
-
-    fn try_op(
+    pub fn try_sub_legacy(
         &self,
         rhs: &Self,
-        converter: &Converter,
+        converter: &LegacyConverter,
+    ) -> Result<Self, QuantityOpError> {
+        self.try_op_legacy(rhs, converter, Value::try_sub)
+    }
+
+    fn try_op_legacy(
+        &self,
+        rhs: &Self,
+        converter: &LegacyConverter,
         op: impl FnOnce(&Value, &Value) -> Result<Value, TextValueError>,
     ) -> Result<Self, QuantityOpError> {
-        let convert_to = self.compatible_unit(rhs, converter)?;
+        let convert_to = self.compatible_unit_legacy(rhs, converter)?;
 
         let mut rhs = rhs.clone();
         if let Some(to) = convert_to {
@@ -374,6 +386,79 @@ impl Quantity {
         let qty = Quantity::new(value, self.unit.clone());
 
         Ok(qty)
+    }
+
+    /// [`try_add_legacy`](Self::try_add_legacy) through the new converter, which is what stays (ADR 0009).
+    pub fn try_add(&self, rhs: &Self, converter: &Converter) -> Result<Self, QuantityOpError> {
+        self.try_op(rhs, converter, Value::try_add)
+    }
+
+    /// [`try_sub_legacy`](Self::try_sub_legacy) through the new converter, which is what stays (ADR 0009).
+    pub fn try_sub(&self, rhs: &Self, converter: &Converter) -> Result<Self, QuantityOpError> {
+        self.try_op(rhs, converter, Value::try_sub)
+    }
+
+    fn try_op(
+        &self,
+        rhs: &Self,
+        converter: &Converter,
+        op: impl FnOnce(&Value, &Value) -> Result<Value, TextValueError>,
+    ) -> Result<Self, QuantityOpError> {
+        let convert_to = self.compatible_unit(rhs, converter)?;
+        let rhs = match convert_to {
+            Some(to) => converter.convert(rhs, to)?,
+            None => rhs.clone(),
+        };
+        let value = op(&self.value, &rhs.value)?;
+        Ok(Quantity::new(value, self.unit.clone()))
+    }
+
+    /// [`compatible_unit_legacy`](Self::compatible_unit_legacy) through the new converter, which is what stays (ADR 0009):
+    /// the unit `rhs` must be converted into to be added to `self`, if any.
+    pub(crate) fn compatible_unit(
+        &self,
+        rhs: &Self,
+        converter: &Converter,
+    ) -> Result<Option<V2Unit>, IncompatibleUnits> {
+        match (&self.unit, &rhs.unit) {
+            (None, None) => Ok(None),
+            (None, Some(u)) => Err(IncompatibleUnits::MissingUnit {
+                found: u.clone(),
+                lhs: false,
+            }),
+            (Some(u), None) => Err(IncompatibleUnits::MissingUnit {
+                found: u.clone(),
+                lhs: true,
+            }),
+            (Some(a), Some(b)) => match (converter.resolve_text(a), converter.resolve_text(b)) {
+                (Some(a_unit), Some(b_unit)) => {
+                    if a_unit.physical_quantity() != b_unit.physical_quantity() {
+                        return Err(IncompatibleUnits::DifferentPhysicalQuantities {
+                            a: a_unit.physical_quantity().into(),
+                            b: b_unit.physical_quantity().into(),
+                        });
+                    }
+                    Ok(Some(a_unit))
+                }
+                // if units are unknown, their text must be equal
+                _ if a != b => Err(IncompatibleUnits::UnknownDifferentUnits {
+                    a: a.clone(),
+                    b: b.clone(),
+                }),
+                _ => Ok(None),
+            },
+        }
+    }
+
+    /// Where [`GroupedQuantity::add`] puts this quantity.
+    fn slot<'a>(&'a self, converter: &Converter) -> Slot<'a> {
+        match self.unit() {
+            Some(text) => match converter.resolve_text(text) {
+                Some(unit) => Slot::Known(unit.physical_quantity().into()),
+                None => Slot::Unknown(text),
+            },
+            None => Slot::NoUnit,
+        }
     }
 }
 
@@ -390,8 +475,8 @@ impl Quantity {
 /// Quantities that can't be converted, like text values, quantities without
 /// a unit or with a unit unknown to the `converter`, are compared as
 /// written.
-impl SemanticEq for Quantity {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+impl LegacySemanticEq for Quantity {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
         // both go to the metric base, otherwise each one would go to the base
         // unit of its own system and the two would never be comparable
         let base = |q: &Quantity| {
@@ -405,6 +490,30 @@ impl SemanticEq for Quantity {
             // at least one of them can't be converted, compare them as written
             _ => self.unit == other.unit && value_equals(&self.value, &other.value),
         }
+    }
+}
+
+/// Both quantities go to the smallest metric unit of their family and are
+/// compared there; what cannot be converted is compared as written.
+impl crate::semantic_eq::SemanticEq for Quantity {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        let base = |q: &Quantity| {
+            let unit = converter.resolve_text(q.unit()?)?;
+            converter
+                .convert(q, V2Unit::metric_base(unit.physical_quantity()))
+                .ok()
+        };
+        match (base(self), base(other)) {
+            (Some(a), Some(b)) => a.unit == b.unit && value_equals(&a.value, &b.value),
+            _ => self.unit == other.unit && value_equals(&self.value, &other.value),
+        }
+    }
+}
+
+impl Quantity {
+    /// [`SemanticEq::equals`], for the grouped operations.
+    pub(crate) fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        crate::semantic_eq::SemanticEq::equals(self, other, converter)
     }
 }
 
@@ -557,10 +666,10 @@ impl GroupedQuantity {
     }
 
     /// Add a new quantity to the group
-    pub fn add(&mut self, q: &Quantity, converter: &Converter) {
+    pub fn add_legacy(&mut self, q: &Quantity, converter: &LegacyConverter) {
         macro_rules! add {
             ($stored:expr, $quantity:ident, $converter:expr, $other:expr) => {
-                match $stored.try_add($quantity, $converter) {
+                match $stored.try_add_legacy($quantity, $converter) {
                     Ok(q) => *$stored = q,
                     Err(_) => {
                         $other.push($quantity.clone());
@@ -603,6 +712,119 @@ impl GroupedQuantity {
         };
     }
 
+    /// [`add_legacy`](Self::add_legacy) through the new converter, which is what stays (ADR 0009).
+    pub fn add(&mut self, q: &Quantity, converter: &Converter) {
+        if q.value.is_text() {
+            self.other.push(q.clone());
+            return;
+        }
+        let slot = q.slot(converter);
+        let stored = match slot {
+            Slot::Known(physical_quantity) => &mut self.known[physical_quantity],
+            Slot::Unknown(unit_text) => {
+                if !self.unknown.contains_key(unit_text) {
+                    self.unknown.insert(unit_text.to_string(), q.clone());
+                    return;
+                }
+                match self.unknown.get(unit_text).unwrap().try_add(q, converter) {
+                    Ok(sum) => {
+                        self.unknown.insert(unit_text.to_string(), sum);
+                    }
+                    Err(_) => self.other.push(q.clone()),
+                }
+                return;
+            }
+            Slot::NoUnit => &mut self.no_unit,
+        };
+        match stored {
+            None => *stored = Some(q.clone()),
+            Some(existing) => match existing.try_add(q, converter) {
+                Ok(sum) => *existing = sum,
+                Err(_) => self.other.push(q.clone()),
+            },
+        }
+    }
+
+    /// [`try_saturating_sub_legacy`](Self::try_saturating_sub_legacy) through the new
+    /// converter, which is what stays (ADR 0009).
+    pub fn try_saturating_sub(
+        &mut self,
+        q: &Quantity,
+        converter: &Converter,
+    ) -> Result<(), GroupedQuantityOpError> {
+        if q.value.is_text() {
+            let at = self
+                .other
+                .iter()
+                .position(|stored| stored == q)
+                .ok_or(GroupedQuantityOpError::NoCompatibleQuantity)?;
+            self.other.remove(at);
+            return Ok(());
+        }
+
+        let slot = q.slot(converter);
+        let stored = match slot {
+            Slot::Known(physical_quantity) => self.known[physical_quantity].as_ref(),
+            Slot::Unknown(unit_text) => self.unknown.get(unit_text),
+            Slot::NoUnit => self.no_unit.as_ref(),
+        };
+        let stored = stored.ok_or(GroupedQuantityOpError::NoCompatibleQuantity)?;
+
+        // the same amount written another way must leave a clean zero, not
+        // the residue of converting between units, so it is compared first
+        let took_all = stored.equals(q, converter);
+        let mut remaining = stored.try_sub(q, converter)?;
+        let empty = took_all || clamp_remaining(remaining.value_mut());
+
+        match slot {
+            Slot::Known(physical_quantity) => {
+                self.known[physical_quantity] = (!empty).then_some(remaining)
+            }
+            Slot::Unknown(unit_text) => {
+                if empty {
+                    self.unknown.remove(unit_text);
+                } else {
+                    self.unknown.insert(unit_text.to_string(), remaining);
+                }
+            }
+            Slot::NoUnit => self.no_unit = (!empty).then_some(remaining),
+        }
+        Ok(())
+    }
+
+    /// [`merge_legacy`](Self::merge_legacy) through the new converter, which is what stays (ADR 0009).
+    pub fn merge(&mut self, other: &Self, converter: &Converter) {
+        for q in other.iter() {
+            self.add(q, converter)
+        }
+    }
+
+    /// [`try_saturating_sub_group_legacy`](Self::try_saturating_sub_group_legacy) through
+    /// the new converter, which is what stays (ADR 0009).
+    pub fn try_saturating_sub_group(
+        &mut self,
+        other: &Self,
+        converter: &Converter,
+    ) -> Result<(), GroupedQuantityOpError> {
+        let mut taken = self.clone();
+        for q in other.mergeable() {
+            taken.try_saturating_sub(q, converter)?;
+        }
+        *self = taken;
+        Ok(())
+    }
+
+    /// [`fit_legacy`](Self::fit_legacy) through the new converter, which is what stays (ADR 0009): every quantity with a
+    /// known unit is written as the converter's readers would write it. A
+    /// quantity that cannot be fitted is left as it is (ADR 0009).
+    pub fn fit(&mut self, converter: &Converter) {
+        for q in self.known.values_mut().filter_map(|q| q.as_mut()) {
+            if let Ok(fitted) = converter.fit(q) {
+                *q = fitted;
+            }
+        }
+    }
+
     /// Subtract a quantity from the group, saturating at zero
     ///
     /// The quantity is subtracted from the one it would have been added to by
@@ -622,13 +844,13 @@ impl GroupedQuantity {
     /// quantities that could not be added to any other are never subtracted
     /// from.
     ///
-    /// Subtracting an amount that [equals](SemanticEq::equals) what is stored leaves
+    /// Subtracting an amount that [equals](LegacySemanticEq::equals_legacy) what is stored leaves
     /// nothing, so `9 tsp` empties a group of `3 tbsp` instead of leaving the
     /// residue of converting between them.
-    pub fn try_saturating_sub(
+    pub fn try_saturating_sub_legacy(
         &mut self,
         q: &Quantity,
-        converter: &Converter,
+        converter: &LegacyConverter,
     ) -> Result<(), GroupedQuantityOpError> {
         // a text value has no amount to subtract, so the only thing it can
         // take out of the group is itself, which `add` keeps in `other`
@@ -660,8 +882,8 @@ impl GroupedQuantity {
 
         // converting between units goes through f64 ratios, so taking the same
         // amount written another way leaves residue rather than a clean zero
-        let took_all = stored.equals(q, converter);
-        let mut remaining = stored.try_sub(q, converter)?;
+        let took_all = stored.equals_legacy(q, converter);
+        let mut remaining = stored.try_sub_legacy(q, converter)?;
         let empty = took_all || clamp_remaining(remaining.value_mut());
 
         match slot {
@@ -682,9 +904,9 @@ impl GroupedQuantity {
     }
 
     /// Merge the group with another one
-    pub fn merge(&mut self, other: &Self, converter: &Converter) {
+    pub fn merge_legacy(&mut self, other: &Self, converter: &LegacyConverter) {
         for q in other.iter() {
-            self.add(q, converter)
+            self.add_legacy(q, converter)
         }
     }
 
@@ -698,14 +920,14 @@ impl GroupedQuantity {
     /// The quantities of `other` that could not be added to any other one are
     /// skipped. They are stored apart from the unit they failed to merge into,
     /// so subtracting them would subtract that amount twice.
-    pub fn try_saturating_sub_group(
+    pub fn try_saturating_sub_group_legacy(
         &mut self,
         other: &Self,
-        converter: &Converter,
+        converter: &LegacyConverter,
     ) -> Result<(), GroupedQuantityOpError> {
         let mut taken = self.clone();
         for q in other.mergeable() {
-            taken.try_saturating_sub(q, converter)?;
+            taken.try_saturating_sub_legacy(q, converter)?;
         }
         *self = taken;
         Ok(())
@@ -721,17 +943,17 @@ impl GroupedQuantity {
             .chain(self.no_unit.iter())
     }
 
-    /// Calls [`Quantity::fit`] on all possible underlying units
+    /// Calls [`Quantity::fit_legacy`] on all possible underlying units
     ///
     /// This will try to avoid fitting quantities that will produce an error
     /// like, for example, a text value. Other conver errors may
-    /// occur, for example, if the converter is [`Converter::empty`].
+    /// occur, for example, if the converter is [`LegacyConverter::empty`].
     ///
     /// However, if this errors, you probably can ignore it and use the unfit
     /// value.
-    pub fn fit(&mut self, converter: &Converter) -> Result<(), ConvertError> {
+    pub fn fit_legacy(&mut self, converter: &LegacyConverter) -> Result<(), ConvertError> {
         for q in self.known.values_mut().filter_map(|q| q.as_mut()) {
-            q.fit(converter)?;
+            q.fit_legacy(converter)?;
         }
         Ok(())
     }
@@ -775,7 +997,7 @@ impl GroupedQuantity {
     }
 }
 
-/// Compares two groups quantity by quantity with the [`SemanticEq`] impl of
+/// Compares two groups quantity by quantity with the [`LegacySemanticEq`] impl of
 /// [`Quantity`]
 ///
 /// So groups with the same quantities written with different units, like
@@ -786,24 +1008,43 @@ impl GroupedQuantity {
 /// `1 bunch` is not equal to one with `500 ml`, `500 ml` and `1 bunch`,
 /// because the two volumes are stored separately in the second one only if
 /// they could not be added.
-impl SemanticEq for GroupedQuantity {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+impl LegacySemanticEq for GroupedQuantity {
+    fn equals_legacy(&self, other: &Self, converter: &LegacyConverter) -> bool {
         // `known` is an EnumMap, both always hold the same slots
-        self.no_unit.equals(&other.no_unit, converter)
+        self.no_unit.equals_legacy(&other.no_unit, converter)
             && self
                 .known
                 .values()
                 .zip(other.known.values())
-                .all(|(a, b)| a.equals(b, converter))
+                .all(|(a, b)| a.equals_legacy(b, converter))
             && self.unknown.len() == other.unknown.len()
             && self.unknown.iter().all(|(unit, a)| {
                 other
                     .unknown
                     .get(unit)
-                    .is_some_and(|b| a.equals(b, converter))
+                    .is_some_and(|b| a.equals_legacy(b, converter))
             })
             // the order of the quantities that could not be added carries no
             // meaning, so they are compared as a set
+            && unordered_equals_legacy(&self.other, &other.other, converter)
+    }
+}
+
+impl crate::semantic_eq::SemanticEq for GroupedQuantity {
+    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+        crate::semantic_eq::SemanticEq::equals(&self.no_unit, &other.no_unit, converter)
+            && self
+                .known
+                .values()
+                .zip(other.known.values())
+                .all(|(a, b)| crate::semantic_eq::SemanticEq::equals(a, b, converter))
+            && self.unknown.len() == other.unknown.len()
+            && self.unknown.iter().all(|(unit, a)| {
+                other
+                    .unknown
+                    .get(unit)
+                    .is_some_and(|b| crate::semantic_eq::SemanticEq::equals(a, b, converter))
+            })
             && unordered_equals(&self.other, &other.other, converter)
     }
 }
@@ -999,7 +1240,7 @@ mod tests {
     use std::sync::LazyLock;
     use test_case::test_case;
 
-    static CONVERTER: LazyLock<Converter> = LazyLock::new(Converter::bundled);
+    static CONVERTER: LazyLock<LegacyConverter> = LazyLock::new(LegacyConverter::bundled);
 
     macro_rules! frac {
         ($whole:expr) => {
@@ -1059,9 +1300,140 @@ mod tests {
     fn group(quantities: &[&str]) -> GroupedQuantity {
         let mut g = GroupedQuantity::empty();
         for q in quantities {
-            g.add(&qty(q), &CONVERTER);
+            g.add_legacy(&qty(q), &CONVERTER);
         }
         g
+    }
+
+    /// The operations through the legacy locale do what the `_legacy` ones
+    /// do (ADR 0009). Results are compared with the old converter, which
+    /// only reads them.
+    mod v2 {
+        use super::*;
+        use crate::Converter;
+
+        fn group(quantities: &[&str]) -> GroupedQuantity {
+            let v2 = Converter::legacy();
+            let mut g = GroupedQuantity::empty();
+            for q in quantities {
+                g.add(&qty(q), &v2);
+            }
+            g
+        }
+
+        #[test]
+        fn add_quantities() {
+            let v2 = Converter::legacy();
+            let eq = |a: Quantity, b: &str| a.equals_legacy(&qty(b), &CONVERTER);
+            let add = |a: &str, b: &str| qty(a).try_add(&qty(b), &v2).unwrap();
+            let add_err = |a: &str, b: &str| qty(a).try_add(&qty(b), &v2).is_err();
+
+            // rhs is converted, the unit of lhs is kept
+            assert!(eq(add("1%l", "500%ml"), "1.5%l"));
+            assert_eq!(add("1%l", "500%ml").unit(), Some("l"));
+            assert!(eq(add("1%cup", "2%tbsp"), "1.125%cup"));
+            assert!(eq(add("2%bunch", "1%bunch"), "3%bunch"));
+            assert!(eq(add("2", "3"), "5"));
+            assert!(eq(add("1-2%l", "500%ml"), "1.5-2.5%l"));
+
+            assert!(add_err("1%l", "1%kg"));
+            assert!(add_err("1%l", "1%bunch"));
+            assert!(add_err("1%l", "1"));
+            assert!(add_err("some", "1"));
+        }
+
+        #[test]
+        fn subtract_quantities() {
+            let v2 = Converter::legacy();
+            let eq = |a: Quantity, b: &str| a.equals_legacy(&qty(b), &CONVERTER);
+            let sub = |a: &str, b: &str| qty(a).try_sub(&qty(b), &v2).unwrap();
+            let sub_err = |a: &str, b: &str| qty(a).try_sub(&qty(b), &v2).is_err();
+
+            assert!(eq(sub("1%l", "300%ml"), "0.7%l"));
+            assert!(eq(sub("1%kg", "500%g"), "500%g"));
+            assert!(eq(sub("2%bunch", "1%bunch"), "1%bunch"));
+            assert!(eq(sub("2", "3"), "-1"));
+            assert!(eq(sub("100%g", "1%kg"), "-900%g"));
+            assert!(eq(sub("1-2%l", "500%ml"), "0.5-1.5%l"));
+            assert!(eq(sub("2%l", "0.5-1%l"), "1-1.5%l"));
+
+            assert!(sub_err("1%l", "1%kg"));
+            assert!(sub_err("1%l", "1%bunch"));
+            assert!(sub_err("1%l", "1"));
+            assert!(sub_err("some", "1"));
+            assert!(sub_err("1", "some"));
+        }
+
+        #[test]
+        fn grouping_slots_by_what_a_unit_measures() {
+            let g = group(&[
+                "1%l", "500%ml", "1%kg", "2%bunch", "1%bunch", "3", "some", "1%cup",
+            ]);
+            let mut shown: Vec<String> = g.iter().map(|q| q.to_string()).collect();
+            shown.sort();
+            assert_eq!(shown, ["1 kg", "1.737 l", "3", "3 bunch", "some"]);
+        }
+
+        #[test]
+        fn subtracting_the_same_amount_written_differently_empties_the_group() {
+            let v2 = Converter::legacy();
+            let mut g = group(&["3%tbsp"]);
+            g.try_saturating_sub(&qty("9%tsp"), &v2).unwrap();
+            assert!(
+                g.is_empty(),
+                "left over: {:?}",
+                g.iter().collect::<Vec<_>>()
+            );
+
+            let mut g = group(&["3%tbsp"]);
+            g.try_saturating_sub(&qty("3%tsp"), &v2).unwrap();
+            assert!(!g.is_empty());
+        }
+
+        #[test]
+        fn saturating_sub_from_grouped_quantities() {
+            let v2 = Converter::legacy();
+            let sub = |mut a: GroupedQuantity, b: Quantity| {
+                a.try_saturating_sub(&b, &v2).unwrap();
+                a
+            };
+            let sub_err =
+                |mut a: GroupedQuantity, b: Quantity| a.try_saturating_sub(&b, &v2).is_err();
+            let eq = |a: GroupedQuantity, b: GroupedQuantity| a.equals_legacy(&b, &CONVERTER);
+
+            assert!(eq(
+                sub(group(&["1%l", "1%kg", "2%bunch", "3"]), qty("500%ml")),
+                group(&["0.5%l", "1%kg", "2%bunch", "3"])
+            ));
+            assert!(sub(group(&["1%l"]), qty("1000%ml")).is_empty());
+            assert!(sub(group(&["1%l"]), qty("2%l")).is_empty());
+            assert!(eq(
+                sub(group(&["1-2%l"]), qty("1.5%l")),
+                group(&["0-0.5%l"])
+            ));
+            assert!(sub_err(group(&["1%l"]), qty("1%kg")));
+            assert!(sub_err(group(&["1%l"]), qty("1")));
+
+            // a group subtracted skips its unmergeable quantities
+            let mut other = group(&["2%tbsp"]);
+            other.add(&qty("some"), &v2);
+            let mut g = group(&["3%tbsp"]);
+            g.try_saturating_sub_group(&other, &v2).unwrap();
+            assert_eq!(
+                g.iter().map(|q| q.to_string()).collect::<Vec<_>>(),
+                ["1 tbsp"]
+            );
+        }
+
+        #[test]
+        fn fitting_a_group_fits_each_known_quantity() {
+            let v2 = Converter::legacy();
+            let mut g = group(&["1000%ml", "1500%g", "2%bunch"]);
+            g.fit(&v2);
+            let mut shown: Vec<String> = g.iter().map(|q| q.to_string()).collect();
+            shown.sort();
+            assert_eq!(shown, ["1 l", "1.5 kg", "2 bunch"]);
+        }
     }
 
     #[test]
@@ -1069,7 +1441,8 @@ mod tests {
         // 3 tbsp and 9 tsp are the same amount; the conversion goes through
         // f64 ratios, so the subtraction must not leave residue behind
         let mut g = group(&["3%tbsp"]);
-        g.try_saturating_sub(&qty("9%tsp"), &CONVERTER).unwrap();
+        g.try_saturating_sub_legacy(&qty("9%tsp"), &CONVERTER)
+            .unwrap();
         assert!(
             g.is_empty(),
             "left over: {:?}",
@@ -1078,7 +1451,8 @@ mod tests {
 
         // a partial subtraction still leaves what remains
         let mut g = group(&["3%tbsp"]);
-        g.try_saturating_sub(&qty("3%tsp"), &CONVERTER).unwrap();
+        g.try_saturating_sub_legacy(&qty("3%tsp"), &CONVERTER)
+            .unwrap();
         assert!(!g.is_empty());
     }
 
@@ -1087,10 +1461,10 @@ mod tests {
         // a text quantity cannot be added to any other, so it sits in `other`;
         // subtracting the group should still subtract the quantities that can be
         let mut other = group(&["2%tbsp"]);
-        other.add(&qty("some"), &CONVERTER);
+        other.add_legacy(&qty("some"), &CONVERTER);
 
         let mut g = group(&["3%tbsp"]);
-        g.try_saturating_sub_group(&other, &CONVERTER)
+        g.try_saturating_sub_group_legacy(&other, &CONVERTER)
             .expect("the unmergeable quantity is not subtracted");
         assert_eq!(g.iter().count(), 1);
         assert_eq!(g.iter().next().unwrap().to_string(), "1 tbsp");
@@ -1098,7 +1472,7 @@ mod tests {
 
     #[test]
     fn compare_quantities() {
-        let eq = |a: &str, b: &str| qty(a).equals(&qty(b), &CONVERTER);
+        let eq = |a: &str, b: &str| qty(a).equals_legacy(&qty(b), &CONVERTER);
 
         // same unit family
         assert!(eq("3%dl", "300%ml"));
@@ -1150,7 +1524,7 @@ mod tests {
 
     #[test]
     fn compare_grouped_quantities() {
-        let eq = |a: &[&str], b: &[&str]| group(a).equals(&group(b), &CONVERTER);
+        let eq = |a: &[&str], b: &[&str]| group(a).equals_legacy(&group(b), &CONVERTER);
 
         assert!(eq(&[], &[]));
         assert!(!eq(&[], &["1%l"]));
@@ -1177,9 +1551,9 @@ mod tests {
 
     #[test]
     fn subtract_quantities() {
-        let eq = |a: Quantity, b: &str| a.equals(&qty(b), &CONVERTER);
-        let sub = |a: &str, b: &str| qty(a).try_sub(&qty(b), &CONVERTER).unwrap();
-        let sub_err = |a: &str, b: &str| qty(a).try_sub(&qty(b), &CONVERTER).is_err();
+        let eq = |a: Quantity, b: &str| a.equals_legacy(&qty(b), &CONVERTER);
+        let sub = |a: &str, b: &str| qty(a).try_sub_legacy(&qty(b), &CONVERTER).unwrap();
+        let sub_err = |a: &str, b: &str| qty(a).try_sub_legacy(&qty(b), &CONVERTER).is_err();
 
         // rhs is converted, the unit of lhs is kept
         assert!(eq(sub("1%l", "300%ml"), "0.7%l"));
@@ -1206,12 +1580,13 @@ mod tests {
     #[test]
     fn saturating_sub_from_grouped_quantities() {
         let sub = |mut a: GroupedQuantity, b: Quantity| {
-            a.try_saturating_sub(&b, &CONVERTER).unwrap();
+            a.try_saturating_sub_legacy(&b, &CONVERTER).unwrap();
             a
         };
-        let sub_err =
-            |mut a: GroupedQuantity, b: Quantity| a.try_saturating_sub(&b, &CONVERTER).is_err();
-        let eq = |a: GroupedQuantity, b: GroupedQuantity| a.equals(&b, &CONVERTER);
+        let sub_err = |mut a: GroupedQuantity, b: Quantity| {
+            a.try_saturating_sub_legacy(&b, &CONVERTER).is_err()
+        };
+        let eq = |a: GroupedQuantity, b: GroupedQuantity| a.equals_legacy(&b, &CONVERTER);
 
         // only the compatible quantity of the group changes
         assert!(eq(
@@ -1252,22 +1627,24 @@ mod tests {
         // and nothing else, which is the same error as an empty slot
         assert!(sub_err(group(&["a lot"]), qty("some")));
         assert!(matches!(
-            group(&["1%l"]).try_saturating_sub(&qty("some"), &CONVERTER),
+            group(&["1%l"]).try_saturating_sub_legacy(&qty("some"), &CONVERTER),
             Err(GroupedQuantityOpError::NoCompatibleQuantity)
         ));
 
         {
             // the group is untouched when it errors
             let mut g = group(&["1%l"]);
-            assert!(g.try_saturating_sub(&qty("1%kg"), &CONVERTER).is_err());
-            assert!(g.equals(&group(&["1%l"]), &CONVERTER));
+            assert!(g
+                .try_saturating_sub_legacy(&qty("1%kg"), &CONVERTER)
+                .is_err());
+            assert!(g.equals_legacy(&group(&["1%l"]), &CONVERTER));
         }
 
         {
             // a whole group is subtracted at once
             let mut g = group(&["1%l", "2%bunch", "3"]);
             assert!(g
-                .try_saturating_sub_group(&group(&["500%ml", "1%bunch"]), &CONVERTER)
+                .try_saturating_sub_group_legacy(&group(&["500%ml", "1%bunch"]), &CONVERTER)
                 .is_ok());
             assert!(eq(g, group(&["0.5%l", "1%bunch", "3"])));
         }
@@ -1276,7 +1653,7 @@ mod tests {
             // or not at all, even when some of its quantities could be
             let mut g = group(&["1%l", "2%bunch"]);
             assert!(g
-                .try_saturating_sub_group(&group(&["500%ml", "1%clove"]), &CONVERTER)
+                .try_saturating_sub_group_legacy(&group(&["500%ml", "1%clove"]), &CONVERTER)
                 .is_err());
             assert!(eq(g, group(&["1%l", "2%bunch"])));
         }

@@ -1,0 +1,386 @@
+# Which unit a converted value is written in, for a reader in a region or
+# asking for a measurement system outright. See ADR 0005.
+#
+# Rows are ordered largest first; `at_least` is the amount *of that unit* a
+# value must reach to be shown in it, and a value below every threshold takes
+# the last row. A row with `fractions = N` writes the amount as a fraction
+# with a denominator up to N, within 5 %; if none fits, the next row is tried,
+# which is how an odd amount falls to the smaller unit (ADR 0008). Without
+# `fractions` the amount is a decimal. A region gets its official system's rows (only US is US
+# customary; everyone else is metric) unless it has `[[region]]` rows of its
+# own for that quantity. Time has one list, under metric, which every system
+# shares. An explicit `-u-ms-` selects a system and ignores region rows.
+#
+# No source states a switching threshold; every one below is inferred from how
+# recipes are written in that place (`½ dl`, `0,25 ts`, `25 dkg`). Citations
+# are into docs/research/best-units-by-region.md unless noted. build.rs turns
+# this file into the PREFERENCES and REGION_PREFERENCES tables; a unit that is
+# not in definitions.rs fails to compile.
+
+# --- Systems --------------------------------------------------------------
+
+[[system]]
+system = "metric"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "milliliter", at_least = 50 },
+    { unit = "metric tablespoon", at_least = 1, fractions = 2 },
+    { unit = "metric teaspoon", at_least = 0.25, fractions = 4 },
+    { unit = "milliliter", at_least = 0 },
+]
+reason = """
+Spoons for 5–45 ml: every metric region's recipes print them, bar mainland \
+China and a few publishers (§7.3). Below a quarter teaspoon it is millilitres \
+again, hence the second ml row as the floor. Bundled wrote 30 ml as `30 ml`; \
+this is a recorded divergence (ADR 0001). Half tablespoons and quarter \
+teaspoons (`½ EL`, `¾ TL Salz`, §2 CH, DE); litres and millilitres stay \
+decimal, `1,5 l` being how every metric publisher writes it. A region with \
+volume rows of its own decides its own fractions there."""
+
+[[system]]
+system = "metric"
+quantity = "mass"
+rows = [{ unit = "kilogram", at_least = 1 }, { unit = "gram", at_least = 1 }, { unit = "milligram", at_least = 1 }]
+reason = "Bundled's metric best list, unchanged."
+
+[[system]]
+system = "metric"
+quantity = "length"
+rows = [{ unit = "meter", at_least = 1 }, { unit = "centimeter", at_least = 1 }, { unit = "millimeter", at_least = 1 }]
+reason = "Bundled's metric best list, unchanged."
+
+[[system]]
+system = "metric"
+quantity = "temperature"
+rows = [{ unit = "celsius", at_least = 1 }]
+reason = "Bundled's metric best list, unchanged."
+
+[[system]]
+system = "metric"
+quantity = "time"
+rows = [{ unit = "day", at_least = 1 }, { unit = "hour", at_least = 1 }, { unit = "minute", at_least = 1 }, { unit = "second", at_least = 1 }]
+reason = "Time does not vary by system; every system falls back to this row."
+
+[[system]]
+system = "us-customary"
+quantity = "volume"
+rows = [
+    { unit = "us cup", at_least = 0.25, fractions = 4 },
+    { unit = "us fluid ounce", at_least = 1, fractions = 2 },
+    { unit = "us tablespoon", at_least = 1, fractions = 3 },
+    { unit = "us teaspoon", at_least = 1, fractions = 8 },
+]
+reason = """
+Stops at the cup, as bundled did: `4 cups`, not `1 quart`. The cup starts at a \
+quarter, as the AU/NZ/CA rows do, because American recipes write ¼, ⅓ and ½ cup \
+on every page; bundled reached the same only sideways, by capping tablespoons at \
+four in its fractions config. The fluid ounce row is new; bundled wrote 4 fl oz \
+of milk as `8 tbsp` (ADR 0001, ADR 0005). Fractions: quarters and thirds of a \
+cup, half fluid ounces, thirds of a tablespoon (one teaspoon) and eighths of a \
+teaspoon, the last two as units.toml's fractions config had them."""
+
+[[system]]
+system = "us-customary"
+quantity = "mass"
+rows = [{ unit = "pound", at_least = 1, fractions = 4 }, { unit = "ounce", at_least = 1, fractions = 4 }]
+reason = """
+Bundled's imperial best list, unchanged. Quarter pounds and quarter ounces; \
+units.toml allowed eighths of a pound, but `1 1/8 lb` is a deli amount, and \
+quarters send 500 g to `18 oz` as bundled wrote it."""
+
+[[system]]
+system = "us-customary"
+quantity = "length"
+rows = [{ unit = "foot", at_least = 1 }, { unit = "inch", at_least = 1, fractions = 4 }]
+reason = "Bundled's imperial best list, unchanged. Quarter inches for tin sizes; feet are not kitchen amounts and stay decimal."
+
+[[system]]
+system = "us-customary"
+quantity = "temperature"
+rows = [{ unit = "fahrenheit", at_least = 1 }]
+reason = "Bundled's imperial best list, unchanged."
+
+[[system]]
+system = "imperial"
+quantity = "volume"
+rows = [
+    { unit = "imperial pint", at_least = 0.5, fractions = 4 },
+    { unit = "imperial fluid ounce", at_least = 1, fractions = 2 },
+    { unit = "metric tablespoon", at_least = 1, fractions = 2 },
+    { unit = "metric teaspoon", at_least = 1, fractions = 4 },
+]
+reason = """
+Stops at the pint for the same reason the US chain stops at the cup: `3 pints`, \
+not `0.4 gal`. The pint starts at a half: BBC Food writes `275ml/½ pint` and \
+`150ml/¼ pint` (best-units-by-region.md §7.4), and this system is opt-in, so \
+the cost of being wrong is small. The spoons are metric because a British \
+teaspoon is 5 ml (cooking-units.md lines 153, 155). Fractions: quarter and half \
+pints as BBC Food prints them, half fluid ounces, half tablespoons and quarter \
+teaspoons."""
+
+[[system]]
+system = "imperial"
+quantity = "mass"
+rows = [{ unit = "pound", at_least = 1, fractions = 4 }, { unit = "ounce", at_least = 1, fractions = 4 }]
+reason = "Pound and ounce are avoirdupois in the UK too (cooking-units.md line 150). Quarters, as the US rows."
+
+[[system]]
+system = "imperial"
+quantity = "length"
+rows = [{ unit = "foot", at_least = 1 }, { unit = "inch", at_least = 1, fractions = 4 }]
+reason = "Tin sizes are in inches (cooking-units.md line 152)."
+
+[[system]]
+system = "imperial"
+quantity = "temperature"
+rows = [{ unit = "celsius", at_least = 1 }]
+reason = "UK ovens have been Celsius and gas mark for decades; Fahrenheit is the US system."
+
+# --- Regions --------------------------------------------------------------
+
+[[region]]
+region = "SE"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+    { unit = "nordic spice measure", at_least = 1 },
+]
+reason = """
+§7.1 SE: Nordic kitchens measure in dl, with msk/tsk and the 1 ml krm below. \
+52 ml would become `½ dl` where Livsmedelsverket wrote `3,5 msk`; the overlap \
+zone is 3–4 spoons ≈ ½ dl and either is idiomatic. `10 dl vatten` also \
+occurs, so `liter ≥ 1` is a choice, not a rule."""
+
+[[region]]
+region = "NO"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+    { unit = "nordic spice measure", at_least = 1 },
+]
+reason = "§7.1 NO: MatPrat writes `1,5 l` and `0,25 ts`. No `½ dl` exhibit; the 0.5 is carried over from SE/DK/FI."
+
+[[region]]
+region = "FI"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+    { unit = "nordic spice measure", at_least = 1 },
+]
+reason = "§7.1 FI: `1 l maitoa` but `8 dl vettä`; `½ dl siirappia`; `4 rkl`; `½ tl`."
+
+[[region]]
+region = "DK"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 0.25 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = """
+§7.1 DK: Danish writes `½ l`, `¼ l` rather than `5 dl`, `2½ dl`; Arla DK lists \
+¼ l, ½ l, 1 l as units. No krm."""
+
+[[region]]
+region = "CH"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 1 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+]
+reason = "§7.1 CH: `3,6 dl`, `1 dl Milch`, `¾ TL Salz`. Swiss decimals (`7,25 dl`) suggest dl is kept down to 1 dl, then EL."
+
+[[region]]
+region = "HU"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+]
+reason = "§7.1 HU: `2 dl tej`, `1.25 dl tej`, `0.25 tk só`. The 0.5 dl threshold is inferred; Mindmegette writes `1 dl olaj` and `3 ek tej`."
+
+[[region]]
+region = "HU"
+quantity = "mass"
+rows = [{ unit = "kilogram", at_least = 0.5 }, { unit = "decagram", at_least = 0.5 }, { unit = "gram", at_least = 1 }]
+reason = """
+§7.1 HU: `1/2 kg liszt`; `25 dkg`; `2 dkg élesztő`; `0.9 dkg sütőpor`; `1/2 dkg \
+só`. Hungarian does not drop to grams; the gram row is a floor for sub-5 g \
+values no exhibit covers. The strongest non-Nordic case in the research."""
+
+[[region]]
+region = "FR"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "centiliter", at_least = 5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = "§7.1 FR: `60 cl`, `25 cl`, `5 cl`, `3 cuillères à soupe`; a 5 cl threshold keeps 15–45 ml as spoons, as Marmiton prints them."
+
+[[region]]
+region = "BE"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 1 },
+    { unit = "milliliter", at_least = 50 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+]
+reason = "§7.1 BE (Flemish): VRT writes `4 dl`, `1 dl room`, `80 ml room`, `50 ml melk`, `1 el`. Francophone Belgium not researched."
+
+[[region]]
+region = "NZ"
+quantity = "volume"
+rows = [{ unit = "metric cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 NZ: Edmonds' stated standard, 250/15/5. Odd amounts are printed in ml, which a threshold table cannot express (outstanding.md)."
+
+[[region]]
+region = "CA"
+quantity = "volume"
+rows = [{ unit = "metric cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 CA: Health Canada 250/15/5; both languages use the 250 ml cup, only the bracket order differs."
+
+[[region]]
+region = "AU"
+quantity = "volume"
+rows = [{ unit = "metric cup", at_least = 0.25 }, { unit = "australian tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 AU: SBS, AWW, Edmonds and Chelsea all state the 250 ml cup and the 20 ml spoon."
+
+[[region]]
+region = "JP"
+quantity = "volume"
+rows = [{ unit = "japanese cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 JP: five publishers state 200/15/5; NHK writes `カップ3/4`."
+
+[[region]]
+region = "KR"
+quantity = "volume"
+rows = [{ unit = "japanese cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 KR: 만개의레시피 and 우리의식탁 state the 200 ml cup."
+
+[[region]]
+region = "BR"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "us legal cup", at_least = 0.25 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric dessert spoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = "§7.1 BR: three publishers state 240/15/5 and the 10 ml colher de sobremesa."
+
+[[region]]
+region = "MX"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "us legal cup", at_least = 0.25 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = "§7.1 MX: Kiwilimón and Cocina Fácil write tazas; 240 ml chosen over SMAE's 250 (§8)."
+
+[[region]]
+region = "CO"
+quantity = "mass"
+rows = [{ unit = "kilogram", at_least = 1 }, { unit = "colombian libra", at_least = 0.25 }, { unit = "gram", at_least = 1 }]
+reason = "§7.1 CO: `¼ de libra de arveja (125 g)`, `½ libra`, `1 libra` at Nestlé CO, plus the SIC statement."
+
+# --- Legacy ---------------------------------------------------------------
+# What an untagged recipe is fitted with: units.toml's `best` lists, frozen,
+# so that an untagged recipe does what it always did (ADR 0009). On the
+# metric side bundled chose the largest unit the amount reached a whole one
+# of, so `at_least = 1`, and wrote decimals. On its "imperial" side, which is
+# US customary, bundled first looked for a fraction in any best unit, with
+# its per-unit denominators (tsp 8, tbsp 3, lb 8, else 4), so a unit was kept
+# below one of it when a fraction fitted: `1/2 c`, `1/3 lb`. The thresholds
+# below one reproduce that. When no fraction fitted anywhere, bundled wrote
+# a decimal in the unit its threshold chose, `1.125 c`; the rows at one cup
+# and two tablespoons are marked `or_decimal` to do the same instead of
+# falling through to the next row as ADR 0008 otherwise has it. Two, not
+# one, because up to two tablespoons bundled still found a teaspoon
+# fraction (`3 1/2 tsp`); beyond that the teaspoon's cap of five wholes
+# ruled it out. Bundled's
+# preference for a whole number in the smaller unit over a fraction in the
+# larger (`4 tsp`, not `1 1/3 tbsp`; `24 oz`, not `1 1/2 lb`) is the search
+# ADR 0008 does not port, and the scaling differential lists what it
+# changes. Never fractions for time or temperature.
+
+[[legacy]]
+system = "metric"
+quantity = "volume"
+rows = [{ unit = "liter", at_least = 1 }, { unit = "milliliter", at_least = 1 }]
+reason = "units.toml: `best.metric = [\"ml\", \"l\"]`, `fractions.metric = false`."
+
+[[legacy]]
+system = "metric"
+quantity = "mass"
+rows = [{ unit = "kilogram", at_least = 1 }, { unit = "gram", at_least = 1 }, { unit = "milligram", at_least = 1 }]
+reason = "units.toml: `best.metric = [\"mg\", \"g\", \"kg\"]`."
+
+[[legacy]]
+system = "metric"
+quantity = "length"
+rows = [{ unit = "meter", at_least = 1 }, { unit = "centimeter", at_least = 1 }, { unit = "millimeter", at_least = 1 }]
+reason = "units.toml: `best.metric = [\"cm\", \"mm\", \"m\"]`."
+
+[[legacy]]
+system = "metric"
+quantity = "temperature"
+rows = [{ unit = "celsius", at_least = 1 }]
+reason = "units.toml: `best.metric = [\"C\"]`, `fractions.quantity.temperature = false`."
+
+[[legacy]]
+system = "metric"
+quantity = "time"
+rows = [{ unit = "day", at_least = 1 }, { unit = "hour", at_least = 1 }, { unit = "minute", at_least = 1 }, { unit = "second", at_least = 1 }]
+reason = "units.toml: `best = [\"s\", \"h\", \"min\", \"d\"]`, one list for both systems, `fractions.quantity.time = false`."
+
+[[legacy]]
+system = "us-customary"
+quantity = "volume"
+rows = [
+    { unit = "us cup", at_least = 1, fractions = 4, or_decimal = true },
+    { unit = "us cup", at_least = 0.3, fractions = 4 },
+    { unit = "us tablespoon", at_least = 2, fractions = 3, or_decimal = true },
+    { unit = "us tablespoon", at_least = 0.5, fractions = 3 },
+    { unit = "us teaspoon", at_least = 0, fractions = 8 },
+]
+reason = "units.toml: `best.imperial = [\"cup\", \"tsp\", \"tbsp\"]`; `fractions.unit.tsp.max_denominator = 8`, `tbsp = 3`, cup the default 4. A third of a cup and half a tablespoon are the smallest fractions bundled kept in those units: a quarter cup was `4 tbsp` and two thirds of a tablespoon `2 tsp`, whole numbers winning its search."
+
+[[legacy]]
+system = "us-customary"
+quantity = "mass"
+rows = [{ unit = "pound", at_least = 1, fractions = 8 }, { unit = "ounce", at_least = 0, fractions = 4 }]
+reason = "units.toml: `best.imperial = [\"oz\", \"lb\"]`; `fractions.unit.lb.max_denominator = 8`, ounce the default 4. Below a pound bundled kept the pound only for thirds, which the search decided; every other fraction of a pound is a whole number of ounces."
+
+[[legacy]]
+system = "us-customary"
+quantity = "length"
+rows = [{ unit = "foot", at_least = 1, fractions = 4 }, { unit = "inch", at_least = 0, fractions = 4 }]
+reason = "units.toml: `best.imperial = [\"in\", \"ft\"]`, the default denominator 4."
+
+[[legacy]]
+system = "us-customary"
+quantity = "temperature"
+rows = [{ unit = "fahrenheit", at_least = 1 }]
+reason = "units.toml: `best.imperial = [\"F\"]`, `fractions.quantity.temperature = false`."
