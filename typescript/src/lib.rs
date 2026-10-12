@@ -336,7 +336,7 @@ pub fn quantity_display(this: &quantity::Quantity) -> String {
 
 fn render(r: cooklang::Recipe, converter: &LegacyConverter) -> String {
     let ingredient_list = r.group_ingredients_legacy(converter);
-    let cookware_list = r.group_cookware(converter);
+    let cookware_list = r.group_cookware_legacy(converter);
     maud::html! {
         @if !r.metadata.map.is_empty() {
             ul {
