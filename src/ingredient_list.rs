@@ -437,7 +437,10 @@ impl IngredientList {
                 continue;
             }
 
-            let entry = self.0.entry(ingredient.display_name().into_owned()).or_default();
+            let entry = self
+                .0
+                .entry(ingredient.display_name().into_owned())
+                .or_default();
             for q in quantity.iter() {
                 entry.add(&converter.rewrite_from(q, &own), converter);
             }

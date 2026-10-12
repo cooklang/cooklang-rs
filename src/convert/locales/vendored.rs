@@ -35,7 +35,9 @@ pub(crate) struct GeneratedUnit {
 include!(concat!(env!("OUT_DIR"), "/cldr_locales.rs"));
 
 fn generated_index(tag: &str) -> Option<usize> {
-    GENERATED_LOCALES.iter().position(|locale| locale.tag == tag)
+    GENERATED_LOCALES
+        .iter()
+        .position(|locale| locale.tag == tag)
 }
 
 fn generated(tag: &str) -> Option<&'static GeneratedLocale> {

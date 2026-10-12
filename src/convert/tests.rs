@@ -436,9 +436,14 @@ mod locale_warnings {
         let new = CooklangParser::new(Extensions::all(), Converter::legacy());
         let late = |m: &String| m.contains("after") && m.contains("locale");
 
-        let no_unit_yet = "Add @salt.\nUse #pan{1}.\nWait ~{5}.\n>> locale: sv-SE\nRör ner 2 msk socker.\n";
+        let no_unit_yet =
+            "Add @salt.\nUse #pan{1}.\nWait ~{5}.\n>> locale: sv-SE\nRör ner 2 msk socker.\n";
         let result = new.parse(no_unit_yet);
-        let w: Vec<String> = result.report().warnings().map(|w| w.message.to_string()).collect();
+        let w: Vec<String> = result
+            .report()
+            .warnings()
+            .map(|w| w.message.to_string())
+            .collect();
         assert!(!w.iter().any(late), "{w:?}");
         assert_eq!(result.into_output().unwrap().inline_quantities.len(), 1);
 
@@ -470,7 +475,11 @@ mod locale_warnings {
         // the key itself is still checked and labelled in the loop
         let bad = "---\nprep time: 30 minuter\nlocale: sv_SE\n---\n@mjöl{1%g}\n";
         let w = warnings(&new, bad);
-        assert!(w.iter().any(|m| m.contains("Unsupported value for key: 'locale'")), "{w:?}");
+        assert!(
+            w.iter()
+                .any(|m| m.contains("Unsupported value for key: 'locale'")),
+            "{w:?}"
+        );
     }
 
     #[test]
@@ -581,7 +590,8 @@ mod own_naming {
 
     #[test]
     fn grouping_adds_through_the_recipes_own_locale() {
-        let recipe = swedish("Vispa @mjölk{5%dl} med @&mjölk{2%msk}.\nUse #skål{1%dl} and #&skål{1%msk}.\n");
+        let recipe =
+            swedish("Vispa @mjölk{5%dl} med @&mjölk{2%msk}.\nUse #skål{1%dl} and #&skål{1%msk}.\n");
         let grouped: Vec<String> = recipe
             .group_ingredients()
             .iter()
