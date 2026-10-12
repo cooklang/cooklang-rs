@@ -1,7 +1,6 @@
 //! Support for recipe scaling
 
 use crate::{
-    convert::Converter,
     convert_legacy::LegacyConverter,
     float::round_f64,
     metadata::{is_scalable_amount, Servings},
@@ -36,20 +35,16 @@ impl Recipe {
         });
     }
 
-    /// [`scale_legacy`](Self::scale_legacy) through the new converter, which is what stays (ADR 0009): units are fitted
-    /// for the recipe's own naming, the legacy locale when it has no
-    /// `locale`, else the audience its tag determines. A naming the new
-    /// converter cannot serve leaves every unit as written. Takes the old
-    /// name once the old converter goes (ADR 0009).
+    /// Scale a recipe. Units are fitted through the recipe's own
+    /// [`converter`](Self::converter): within the system they were written
+    /// in when it has no `locale`, else for the audience its tag determines.
     pub fn scale(&mut self, factor: f64) {
-        match Converter::for_recipe(self) {
-            Ok(converter) => self.scale_with(factor, &mut |q| {
-                if let Ok(fitted) = converter.fit(q) {
-                    *q = fitted;
-                }
-            }),
-            Err(_) => self.scale_with(factor, &mut |_| {}),
-        }
+        let converter = self.converter();
+        self.scale_with(factor, &mut |q| {
+            if let Ok(fitted) = converter.fit(q) {
+                *q = fitted;
+            }
+        })
     }
 
     /// Scales every scalable amount, the servings and the yield, fitting
@@ -299,9 +294,8 @@ impl Recipe {
         target_unit: &str,
     ) -> Result<(), ScaleError> {
         let target = Self::yield_target(target_value, target_unit)?;
-        let converter = Converter::for_recipe(self).ok();
+        let converter = self.converter();
         let factor = self.yield_factor(&target, |target, unit| {
-            let converter = converter.as_ref()?;
             let to = converter.resolve_text(unit)?;
             converter.convert(target, to).ok()
         })?;

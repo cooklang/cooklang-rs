@@ -204,8 +204,14 @@ impl Metadata {
         self.time_with(TimeUnits::Legacy(converter))
     }
 
-    /// [`time_legacy`](Self::time_legacy) through the new converter, which is what stays (ADR 0009).
-    pub fn time(&self, converter: &Converter) -> Option<RecipeTime> {
+    /// Time it takes to prepare/cook the recipe, with the units read
+    /// through the recipe's own [`naming`](Self::naming).
+    ///
+    /// The `time` key [`as_time`](CooklangValueExt::as_time). Or, if missing,
+    /// the combination of the `prep time` and `cook time` keys
+    /// [`as_minutes`](CooklangValueExt::as_minutes).
+    pub fn time(&self) -> Option<RecipeTime> {
+        let converter = self.converter();
         self.time_with(TimeUnits::Locale(converter.locale()))
     }
 
@@ -320,8 +326,12 @@ impl LegacySemanticEq for Metadata {
     }
 }
 
+/// Units are read through the metadata's own [`naming`](Metadata::naming),
+/// not the converter passed: two recipes with different `locale` keys are
+/// already unequal on that key, so one naming serves both.
 impl crate::semantic_eq::SemanticEq for Metadata {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+        let converter = &self.converter();
         let servings_eq =
             std_key_values_eq(&self.map, &other.map, StdKey::Servings, |a, b| {
                 match (a.as_servings(), b.as_servings()) {

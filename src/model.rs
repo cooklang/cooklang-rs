@@ -75,8 +75,12 @@ impl LegacySemanticEq for Recipe {
     }
 }
 
+/// Quantities are read through the recipe's own [`converter`](Recipe::converter),
+/// not the one passed: two recipes with different `locale` keys are already
+/// unequal on their metadata, so one naming serves both.
 impl crate::semantic_eq::SemanticEq for Recipe {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+        let converter = &self.converter();
         crate::semantic_eq::SemanticEq::equals(&self.metadata, &other.metadata, converter)
             && self.sections == other.sections
             && crate::semantic_eq::SemanticEq::equals(
@@ -369,7 +373,7 @@ impl Ingredient {
     ///
     /// let grouped_flour = flour.group_quantities(
     ///                         &recipe.ingredients,
-    ///                         &Converter::for_recipe(&recipe).unwrap()
+    ///                         &recipe.converter()
     ///                     );
     /// assert_eq!(grouped_flour.to_string(), "1.2 kg, 1 bag");
     /// assert_eq!(

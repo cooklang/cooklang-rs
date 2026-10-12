@@ -553,6 +553,76 @@ mod naming {
     }
 }
 
+/// A recipe reads its units through its own naming wherever they are read,
+/// not only at parse time: a caller cannot hand it the wrong converter.
+mod own_naming {
+    use crate::metadata::RecipeTime;
+    use crate::{Converter, CooklangParser, Extensions, Quantity, SemanticEq, Value};
+
+    fn swedish(body: &str) -> crate::Recipe {
+        let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let src = format!("---\nlocale: sv-SE\nprep time: 30 minuter\n---\n{body}");
+        let result = parser.parse(&src);
+        assert!(!result.report().has_errors(), "{:?}", result.report());
+        result.into_output().unwrap()
+    }
+
+    #[test]
+    fn time_is_read_through_the_recipes_own_locale() {
+        let recipe = swedish("@mjöl{1%g}\n");
+        assert_eq!(
+            recipe.metadata.time(),
+            Some(RecipeTime::Composed {
+                prep_time: Some(30),
+                cook_time: None
+            })
+        );
+    }
+
+    #[test]
+    fn grouping_adds_through_the_recipes_own_locale() {
+        let recipe = swedish("Vispa @mjölk{5%dl} med @&mjölk{2%msk}.\nUse #skål{1%dl} and #&skål{1%msk}.\n");
+        let grouped: Vec<String> = recipe
+            .group_ingredients()
+            .iter()
+            .map(|g| g.quantity.to_string())
+            .collect();
+        assert_eq!(grouped, ["5.3 dl"]);
+        let cookware: Vec<String> = recipe
+            .group_cookware()
+            .iter()
+            .map(|g| g.quantity.to_string())
+            .collect();
+        assert_eq!(cookware, ["1.15 dl"]);
+    }
+
+    #[test]
+    fn equality_compares_through_each_recipes_own_locale() {
+        let a = swedish("@smör{1%msk}\n");
+        let b = swedish("@smör{15%ml}\n");
+        // the converter passed is not the one the recipes are read through
+        let legacy = Converter::legacy();
+        assert!(a.equals(&b, &legacy));
+        assert!(a.metadata.equals(&b.metadata, &legacy));
+        // a quantity on its own has no naming, so for it the converter is used
+        let msk = Quantity::new(Value::from(1.0), Some("msk".into()));
+        let ml = Quantity::new(Value::from(15.0), Some("ml".into()));
+        assert!(!msk.equals(&ml, &legacy));
+        assert!(msk.equals(&ml, &a.converter()));
+    }
+
+    #[test]
+    fn the_converter_a_recipe_reads_through_is_its_namings() {
+        let recipe = swedish("@mjöl{1%g}\n");
+        assert_eq!(recipe.converter(), Converter::for_recipe(&recipe).unwrap());
+        let untagged = CooklangParser::default()
+            .parse("@flour{1%g}\n")
+            .into_output()
+            .unwrap();
+        assert_eq!(untagged.converter(), Converter::legacy());
+    }
+}
+
 /// A list built from recipes in several locales adds what it recognises in
 /// one unit (ADR 0009, "Aggregation converts into the target first").
 mod lists {

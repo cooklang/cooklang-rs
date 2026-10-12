@@ -90,7 +90,7 @@ impl Recipe {
     /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}")
     ///                 .into_output()
     ///                 .unwrap();
-    /// let grouped = recipe.group_ingredients(&Converter::for_recipe(&recipe).unwrap());
+    /// let grouped = recipe.group_ingredients();
     ///
     /// // Only 2 definitions, the second flour is a reference
     /// assert_eq!(grouped.len(), 2);
@@ -104,13 +104,14 @@ impl Recipe {
     /// assert_eq!(water.ingredient.name, "water");
     /// assert!(water.quantity.is_empty());
     /// ```
-    pub fn group_ingredients<'a>(&'a self, converter: &Converter) -> Vec<GroupedIngredient<'a>> {
+    pub fn group_ingredients(&self) -> Vec<GroupedIngredient<'_>> {
+        let converter = self.converter();
         let mut list = Vec::new();
         for (index, ingredient) in self.ingredients.iter().enumerate() {
             if !ingredient.relation.is_definition() {
                 continue;
             }
-            let grouped = ingredient.group_quantities(&self.ingredients, converter);
+            let grouped = ingredient.group_quantities(&self.ingredients, &converter);
             list.push(GroupedIngredient {
                 index,
                 ingredient,
@@ -120,14 +121,19 @@ impl Recipe {
         list
     }
 
-    /// [`group_cookware_legacy`](Self::group_cookware_legacy) through the new converter, which is what stays (ADR 0009).
-    pub fn group_cookware<'a>(&'a self, converter: &Converter) -> Vec<GroupedCookware<'a>> {
+    /// List of cookware **definitions** with amount of all of it
+    /// references grouped, through the recipe's own
+    /// [`converter`](Self::converter).
+    ///
+    /// Order is the recipe order.
+    pub fn group_cookware(&self) -> Vec<GroupedCookware<'_>> {
+        let converter = self.converter();
         let mut list = Vec::new();
         for (index, cookware) in self.cookware.iter().enumerate() {
             if !cookware.relation.is_definition() {
                 continue;
             }
-            let amount = cookware.group_quantities(&self.cookware, converter);
+            let amount = cookware.group_quantities(&self.cookware, &converter);
             list.push(GroupedCookware {
                 index,
                 cookware,
@@ -410,9 +416,9 @@ impl IngredientList {
         list_references: bool,
     ) -> Vec<usize> {
         let mut references = Vec::new();
-        let own = Converter::for_recipe(recipe).ok();
+        let own = recipe.converter();
 
-        for entry in recipe.group_ingredients(own.as_ref().unwrap_or(converter)) {
+        for entry in recipe.group_ingredients() {
             let GroupedIngredient {
                 ingredient,
                 quantity,
@@ -431,15 +437,9 @@ impl IngredientList {
                 continue;
             }
 
-            let name = ingredient.display_name().into_owned();
-            match &own {
-                Some(own) => {
-                    let entry = self.0.entry(name).or_default();
-                    for q in quantity.iter() {
-                        entry.add(&converter.rewrite_from(q, own), converter);
-                    }
-                }
-                None => self.add_ingredient(name, &quantity, converter),
+            let entry = self.0.entry(ingredient.display_name().into_owned()).or_default();
+            for q in quantity.iter() {
+                entry.add(&converter.rewrite_from(q, &own), converter);
             }
         }
 

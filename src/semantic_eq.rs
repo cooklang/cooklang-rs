@@ -103,6 +103,11 @@ pub fn unordered_equals_legacy<T: LegacySemanticEq>(
 /// [`Option`], slices and [`Vec`], so a whole recipe is compared by comparing
 /// its parts. Like the old trait it is reflexive and symmetric but **not
 /// transitive**, since numbers are compared within a tolerance.
+///
+/// A [`Recipe`](crate::Recipe) and its [`Metadata`](crate::Metadata) carry
+/// their own naming and read units through it, ignoring the converter
+/// passed; it is used by the parts that carry none, such as a
+/// [`Quantity`](crate::Quantity) compared on its own.
 pub trait SemanticEq {
     /// Compares `self` with `other`, resolving units with `converter`
     fn equals(&self, other: &Self, converter: &Converter) -> bool;

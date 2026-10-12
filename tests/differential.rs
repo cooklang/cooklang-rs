@@ -519,7 +519,7 @@ fn lists_match_the_old_converter() {
                             g.quantity.iter().cloned().collect(),
                         )
                     }));
-                let new_groups = grouped(n.group_ingredients(&v2).into_iter().map(|g| {
+                let new_groups = grouped(n.group_ingredients().into_iter().map(|g| {
                     (
                         g.ingredient.name.clone(),
                         g.quantity.iter().cloned().collect(),
@@ -534,7 +534,7 @@ fn lists_match_the_old_converter() {
                             g.quantity.iter().cloned().collect(),
                         )
                     }));
-                let new_cookware = grouped(n.group_cookware(&v2).into_iter().map(|g| {
+                let new_cookware = grouped(n.group_cookware().into_iter().map(|g| {
                     (
                         g.cookware.name.clone(),
                         g.quantity.iter().cloned().collect(),
@@ -595,7 +595,6 @@ fn lists_match_the_old_converter() {
 #[test]
 fn metadata_time_matches_the_old_converter() {
     let bundled = LegacyConverter::bundled();
-    let v2 = Converter::legacy();
     let mut divergences = Vec::new();
     for (ext_name, ext) in [
         ("canonical", Extensions::empty()),
@@ -612,7 +611,7 @@ fn metadata_time_matches_the_old_converter() {
                 .into_output()
                 .expect("parses on both");
             let old_time = old_recipe.metadata.time_legacy(&bundled);
-            let new_time = new_recipe.metadata.time(&v2);
+            let new_time = new_recipe.metadata.time();
             if format!("{old_time:?}") != format!("{new_time:?}") {
                 divergences.push(format!(
                     "{ext_name}/{}: old {old_time:?}, new {new_time:?}",

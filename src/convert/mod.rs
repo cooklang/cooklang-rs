@@ -22,6 +22,7 @@ mod tests;
 
 use std::sync::Arc;
 
+use crate::metadata::Metadata;
 use crate::model::Recipe;
 use crate::quantity::{Number, Quantity, Value};
 use locales::legacy::{legacy_locale, legacy_system};
@@ -237,21 +238,48 @@ impl Converter {
     }
 }
 
-impl Recipe {
-    /// The locale the recipe's `locale` key names, if it has one.
+impl Metadata {
+    /// The locale the `locale` key names, if it has one.
     pub(crate) fn locale_tag(&self) -> Option<LocaleTag> {
-        self.metadata
-            .locale()
-            .and_then(|tag| LocaleTag::parse(tag).ok())
+        self.locale().and_then(|tag| LocaleTag::parse(tag).ok())
     }
 
-    /// Which locale this recipe reads its units through, from its metadata:
-    /// the legacy locale when it has no `locale` (ADR 0009).
+    /// Which locale the recipe reads its units through: the legacy locale
+    /// when it has no `locale` (ADR 0009).
     pub fn naming(&self) -> Naming {
         match self.locale_tag() {
             None => Naming::Legacy,
             Some(tag) => Naming::Tagged(tag),
         }
+    }
+
+    /// The converter the recipe reads its units through: the one its naming
+    /// calls for, or the legacy one when that cannot be served, which is
+    /// also what the parser read it through after reporting the refusal.
+    pub(crate) fn converter(&self) -> Converter {
+        Converter::for_naming(&self.naming()).unwrap_or_else(|_| Converter::legacy())
+    }
+}
+
+impl Recipe {
+    /// The locale the recipe's `locale` key names, if it has one.
+    pub(crate) fn locale_tag(&self) -> Option<LocaleTag> {
+        self.metadata.locale_tag()
+    }
+
+    /// Which locale this recipe reads its units through, from its metadata:
+    /// the legacy locale when it has no `locale` (ADR 0009).
+    pub fn naming(&self) -> Naming {
+        self.metadata.naming()
+    }
+
+    /// The converter this recipe reads its units through: the one its
+    /// [`naming`](Self::naming) calls for, or the legacy one when that
+    /// cannot be served, which is also what the parser read it through
+    /// after reporting the refusal. Scaling, grouping, metadata time and
+    /// semantic equality all go through it, so a caller never chooses.
+    pub fn converter(&self) -> Converter {
+        self.metadata.converter()
     }
 
     /// Writes every quantity as `audience` would write it, in place. A
