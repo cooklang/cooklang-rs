@@ -254,7 +254,9 @@ impl Metadata {
     /// Returns `None` if the key is absent or the value does not parse; such a
     /// value stays a regular metadata entry and is reported as a warning.
     pub fn yield_quantity(&self) -> Option<Quantity> {
-        first_std_key_value(&self.map, StdKey::Yield).and_then(|v| v.as_yield())
+        first_std_key_value(&self.map, StdKey::Yield)
+            .and_then(|v| v.as_yield())
+            .map(|q| q.read_with(&self.converter()))
     }
 
     /// Recipe locale, a BCP 47 tag such as `sv-SE`.
@@ -326,23 +328,26 @@ impl LegacySemanticEq for Metadata {
     }
 }
 
-/// Units are read through the metadata's own [`naming`](Metadata::naming),
-/// not the converter passed: two recipes with different `locale` keys are
-/// already unequal on that key, so one naming serves both.
+/// Units are read through the metadata's own [`naming`](Metadata::naming):
+/// two recipes with different `locale` keys are already unequal on that key,
+/// so one naming serves both.
 impl crate::semantic_eq::SemanticEq for Metadata {
-    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         let converter = &self.converter();
         let servings_eq =
             std_key_values_eq(&self.map, &other.map, StdKey::Servings, |a, b| {
                 match (a.as_servings(), b.as_servings()) {
-                    (Some(x), Some(y)) => crate::semantic_eq::SemanticEq::equals(&x, &y, converter),
+                    (Some(x), Some(y)) => crate::semantic_eq::SemanticEq::equals(&x, &y),
                     _ => a == b,
                 }
             });
 
         let yield_eq = std_key_values_eq(&self.map, &other.map, StdKey::Yield, |a, b| {
             match (a.as_yield(), b.as_yield()) {
-                (Some(x), Some(y)) => crate::semantic_eq::SemanticEq::equals(&x, &y, converter),
+                (Some(x), Some(y)) => crate::semantic_eq::SemanticEq::equals(
+                    &x.read_with(converter),
+                    &y.read_with(converter),
+                ),
                 _ => a == b,
             }
         });
@@ -374,7 +379,7 @@ impl crate::semantic_eq::SemanticEq for Metadata {
 
         let a_custom: Vec<_> = self.map_filtered().collect();
         let b_custom: Vec<_> = other.map_filtered().collect();
-        let custom_eq = unordered_equals(&a_custom, &b_custom, converter);
+        let custom_eq = unordered_equals(&a_custom, &b_custom);
 
         servings_eq && yield_eq && simple_std_eq && time_eq && custom_eq
     }
@@ -827,7 +832,7 @@ impl LegacySemanticEq for serde_yaml::Value {
 }
 
 impl crate::semantic_eq::SemanticEq for serde_yaml::Value {
-    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         self == other
     }
 }
@@ -853,7 +858,7 @@ impl LegacySemanticEq for Servings {
 }
 
 impl crate::semantic_eq::SemanticEq for Servings {
-    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         match (self, other) {
             (Servings::Number(a), Servings::Number(b)) => {
                 round_f64(*a, Servings::COMPARE_PRECISION)

@@ -600,34 +600,13 @@ impl<'i> RecipeCollector<'i, '_> {
         }
     }
 
-    /// Whether two quantities can be added, as [`Quantity::compatible_unit`]
-    /// decides it, but reading the units through the recipe's locale.
+    /// Whether two quantities can be added: on the new pipeline their units
+    /// were read when they were built (ADR 0010); the old one reads them now.
     fn compatible_units(&self, a: &Quantity, b: &Quantity) -> Result<(), IncompatibleUnits> {
-        if let (None, Some(converter)) = (&self.locale, self.converter) {
-            return a.compatible_unit_legacy(b, converter).map(|_| ());
-        }
-        match (a.unit(), b.unit()) {
-            (None, None) => Ok(()),
-            (None, Some(found)) => Err(IncompatibleUnits::MissingUnit {
-                found: found.to_string(),
-                lhs: false,
-            }),
-            (Some(found), None) => Err(IncompatibleUnits::MissingUnit {
-                found: found.to_string(),
-                lhs: true,
-            }),
-            (Some(a), Some(b)) => match (self.unit_quantity(a), self.unit_quantity(b)) {
-                (Some(qa), Some(qb)) if qa != qb => {
-                    Err(IncompatibleUnits::DifferentPhysicalQuantities { a: qa, b: qb })
-                }
-                (Some(_), Some(_)) => Ok(()),
-                // if units are unknown, their text must be equal
-                _ if a != b => Err(IncompatibleUnits::UnknownDifferentUnits {
-                    a: a.to_string(),
-                    b: b.to_string(),
-                }),
-                _ => Ok(()),
-            },
+        match (&self.locale, self.converter) {
+            (Some(_), _) => a.compatible_unit(b).map(|_| ()),
+            (None, Some(converter)) => a.compatible_unit_legacy(b, converter).map(|_| ()),
+            (None, None) => unreachable!("a collector has a locale or the old converter"),
         }
     }
 
@@ -708,6 +687,10 @@ impl<'i> RecipeCollector<'i, '_> {
                         items.push(Item::InlineQuantity {
                             index: self.content.inline_quantities.len(),
                         });
+                        let temperature = match &self.locale {
+                            Some(locale) => temperature.resolved(locale),
+                            None => temperature,
+                        };
                         self.content.inline_quantities.push(temperature);
 
                         haystack = after;
@@ -1227,9 +1210,18 @@ impl<'i> RecipeCollector<'i, '_> {
     ) -> Quantity {
         let parser::Quantity { value, unit, .. } = quantity.into_inner();
         let (value, scalable) = self.value(value, is_ingredient);
+        // read through the recipe's locale here, once (ADR 0010); the old
+        // pipeline has no locale and reads the text when it needs it
+        let unit = unit.map(|t| {
+            let text = t.text_trimmed().into_owned();
+            match &self.locale {
+                Some(locale) => WrittenUnit::read(text, locale),
+                None => WrittenUnit::unresolved(text),
+            }
+        });
         Quantity {
             value,
-            unit: unit.map(|t| WrittenUnit::unresolved(t.text_trimmed().into_owned())),
+            unit,
             scalable,
         }
     }

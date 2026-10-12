@@ -12,6 +12,7 @@ fn convert_preserves_scalable() {
     };
     let milliliter = Unit::from_id("milliliter").unwrap();
 
+    let quantity = quantity.read_with(&Converter::legacy());
     let converted = Converter::legacy().convert(&quantity, milliliter).unwrap();
     assert!(converted.scalable());
     assert_eq!(converted.unit(), Some("ml"));
@@ -24,8 +25,9 @@ mod convert_for {
     use crate::quantity::Number;
     use icu_locale_core::subtags::region;
 
+    /// Read through the legacy locale, as the parser would read it.
     fn q(value: Value, unit: &str) -> Quantity {
-        Quantity::new(value, Some(unit.to_string()))
+        Quantity::new(value, Some(unit.to_string())).read_with(&Converter::legacy())
     }
 
     fn range(start: f64, end: f64) -> Value {
@@ -98,7 +100,10 @@ mod convert_for {
         let v2 = Converter::legacy();
         let metric = Audience::system(System::Metric);
         assert!(matches!(
-            v2.convert_for(&Quantity::new(Value::from(1.0), None), metric),
+            v2.convert_for(
+                &Quantity::new(Value::from(1.0), None).read_with(&v2),
+                metric
+            ),
             Err(ConvertError::NoUnit)
         ));
         assert!(matches!(
@@ -167,7 +172,8 @@ mod convert {
                     bundled_units().filter(|to| to.physical_quantity() == from.physical_quantity())
                 {
                     for value in &values {
-                        let quantity = Quantity::new(value.clone(), Some(spelling.clone()));
+                        let quantity =
+                            Quantity::new(value.clone(), Some(spelling.clone())).read_with(&v2);
                         let theirs =
                             bundled_convert(&bundled, &quantity, locale.symbol(to).unwrap())
                                 .unwrap();
@@ -197,7 +203,7 @@ mod convert {
         let liter = Unit::from_id("liter").unwrap();
         let gram = Unit::from_id("gram").unwrap();
 
-        let no_unit = Quantity::new(Value::from(1.0), None);
+        let no_unit = Quantity::new(Value::from(1.0), None).read_with(&v2);
         assert!(matches!(
             bundled_convert(&bundled, &no_unit, "l"),
             Err(BundledError::NoUnit(_))
@@ -207,7 +213,8 @@ mod convert {
             Err(ConvertError::NoUnit)
         ));
 
-        let text = Quantity::new(Value::Text("some".to_string()), Some("l".to_string()));
+        let text =
+            Quantity::new(Value::Text("some".to_string()), Some("l".to_string())).read_with(&v2);
         assert!(matches!(
             bundled_convert(&bundled, &text, "ml"),
             Err(BundledError::TextValue(_))
@@ -217,7 +224,7 @@ mod convert {
             Err(ConvertError::TextValue(_))
         ));
 
-        let unknown = Quantity::new(Value::from(1.0), Some("bunch".to_string()));
+        let unknown = Quantity::new(Value::from(1.0), Some("bunch".to_string())).read_with(&v2);
         assert!(matches!(
             bundled_convert(&bundled, &unknown, "l"),
             Err(BundledError::UnknownUnit(_))
@@ -226,7 +233,7 @@ mod convert {
             matches!(v2.convert(&unknown, liter), Err(ConvertError::UnknownUnit(ref u)) if u == "bunch")
         );
 
-        let mixed = Quantity::new(Value::from(1.0), Some("l".to_string()));
+        let mixed = Quantity::new(Value::from(1.0), Some("l".to_string())).read_with(&v2);
         assert!(matches!(
             bundled_convert(&bundled, &mixed, "g"),
             Err(BundledError::MixedQuantities { .. })
@@ -607,18 +614,66 @@ mod own_naming {
     }
 
     #[test]
-    fn equality_compares_through_each_recipes_own_locale() {
+    fn equality_compares_the_units_the_recipes_were_read_with() {
         let a = swedish("@smör{1%msk}\n");
         let b = swedish("@smör{15%ml}\n");
-        // the converter passed is not the one the recipes are read through
-        let legacy = Converter::legacy();
-        assert!(a.equals(&b, &legacy));
-        assert!(a.metadata.equals(&b.metadata, &legacy));
-        // a quantity on its own has no naming, so for it the converter is used
+        assert!(a.equals(&b));
+        assert!(a.metadata.equals(&b.metadata));
+        // a quantity built by hand has not been read, so it compares as text
         let msk = Quantity::new(Value::from(1.0), Some("msk".into()));
         let ml = Quantity::new(Value::from(15.0), Some("ml".into()));
-        assert!(!msk.equals(&ml, &legacy));
-        assert!(msk.equals(&ml, &a.converter()));
+        assert!(!msk.equals(&ml));
+        let sv = a.converter();
+        assert!(msk.read_with(&sv).equals(&ml.read_with(&sv)));
+    }
+
+    /// ADR 0010: the parser records what each unit names, so nothing after
+    /// it needs the locale again.
+    #[test]
+    fn the_parser_records_what_each_unit_names() {
+        use crate::convert::Unit;
+        let recipe = swedish(
+            "Smält @smör{2%msk} i #kastrull{1%dl}. Rör ner 2 msk socker. Jäs i ~{1%tim}.\n",
+        );
+        let id = |q: &Quantity| q.unit_id().map(Unit::id);
+        assert_eq!(
+            id(recipe.ingredients[0].quantity.as_ref().unwrap()),
+            Some("metric tablespoon")
+        );
+        assert_eq!(
+            id(recipe.cookware[0].quantity.as_ref().unwrap()),
+            Some("deciliter")
+        );
+        assert_eq!(id(&recipe.inline_quantities[0]), Some("metric tablespoon"));
+        assert_eq!(
+            id(recipe.timers[0].quantity.as_ref().unwrap()),
+            Some("hour")
+        );
+        // an untagged recipe reads through the legacy locale
+        let untagged = CooklangParser::default()
+            .parse("@flour{1%cup} and @salt{1%pinch}\n")
+            .into_output()
+            .unwrap();
+        assert_eq!(
+            id(untagged.ingredients[0].quantity.as_ref().unwrap()),
+            Some("us cup")
+        );
+        assert_eq!(id(untagged.ingredients[1].quantity.as_ref().unwrap()), None);
+    }
+
+    #[test]
+    fn a_deserialised_recipe_is_read_again_through_its_own_locale() {
+        let recipe = swedish("@smör{2%msk}\n");
+        let json = serde_json::to_string(&recipe).unwrap();
+        let stripped = json.replace(r#""unit_id":"metric tablespoon","#, "");
+        assert_ne!(json, stripped);
+        let mut back: crate::Recipe = serde_json::from_str(&stripped).unwrap();
+        assert_eq!(
+            back.ingredients[0].quantity.as_ref().unwrap().unit_id(),
+            None
+        );
+        back.read_units();
+        assert!(back.equals(&recipe));
     }
 
     #[test]

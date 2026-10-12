@@ -568,7 +568,7 @@ fn lists_match_the_old_converter() {
                         .map(|((name, _), _)| name)
                         .collect();
                     let old_left = old_list.subtract_pantry_legacy(&pantry, &bundled);
-                    let new_left = new_list.subtract_pantry(&pantry, &v2);
+                    let new_left = new_list.subtract_pantry(&pantry);
                     let keep = |entries: Vec<(String, Vec<Quantity>)>| {
                         entries
                             .into_iter()
@@ -634,7 +634,6 @@ fn metadata_time_matches_the_old_converter() {
 #[test]
 fn semantic_equality_matches_the_old_converter() {
     let bundled = LegacyConverter::bundled();
-    let v2 = Converter::legacy();
     let old = CooklangParser::new_legacy(Extensions::all(), bundled.clone());
     let new = CooklangParser::new(Extensions::all(), Converter::legacy());
     let mut recipes: Vec<(String, Recipe, Recipe)> = Vec::new();
@@ -664,7 +663,7 @@ fn semantic_equality_matches_the_old_converter() {
     for (a_name, a_old, a_new) in &recipes {
         for (b_name, b_old, b_new) in &recipes {
             let old_verdict = LegacySemanticEq::equals_legacy(a_old, b_old, &bundled);
-            let new_verdict = SemanticEq::equals(a_new, b_new, &v2);
+            let new_verdict = SemanticEq::equals(a_new, b_new);
             if old_verdict {
                 equal_pairs += 1;
             }

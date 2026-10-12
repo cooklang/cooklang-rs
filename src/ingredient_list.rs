@@ -201,14 +201,12 @@ impl IngredientList {
         self.subtract_pantry_with(pantry, &mut |group, q| group.add_legacy(q, converter))
     }
 
-    /// [`subtract_pantry_legacy`](Self::subtract_pantry_legacy) through the new converter, which is what stays (ADR 0009).
+    /// Subtracts what the pantry has from each ingredient, matching units by
+    /// their text; an ingredient the pantry has an unlimited amount of goes,
+    /// and one whose units do not match is kept whole.
     #[cfg(feature = "pantry")]
-    pub fn subtract_pantry(
-        &self,
-        pantry: &crate::pantry::PantryConf,
-        converter: &Converter,
-    ) -> Self {
-        self.subtract_pantry_with(pantry, &mut |group, q| group.add(q, converter))
+    pub fn subtract_pantry(&self, pantry: &crate::pantry::PantryConf) -> Self {
+        self.subtract_pantry_with(pantry, &mut |group, q| group.add(q))
     }
 
     /// The pantry subtraction, with `add` as the only thing that reads units
@@ -269,12 +267,15 @@ impl IngredientList {
                                     let remaining_value = req_value - pantry_value;
 
                                     if remaining_value > 0.0 {
-                                        let remaining_qty = crate::quantity::Quantity::new(
-                                            crate::quantity::Value::Number(
+                                        // the unit as the recipe read it, so it
+                                        // lands where the requirement was
+                                        let remaining_qty = crate::quantity::Quantity {
+                                            value: crate::quantity::Value::Number(
                                                 crate::quantity::Number::Regular(remaining_value),
                                             ),
-                                            req_qty.unit().map(|s| s.to_string()),
-                                        );
+                                            unit: req_qty.unit.clone(),
+                                            scalable: false,
+                                        };
                                         add(&mut remaining_quantities, &remaining_qty);
                                         let unit_display =
                                             if req_unit.is_empty() { "" } else { &req_unit };
@@ -405,10 +406,14 @@ impl IngredientList {
         references
     }
 
-    /// [`add_recipe_legacy`](Self::add_recipe_legacy) through the new converter, which is what stays (ADR 0009): the
-    /// recipe's quantities are read through its own naming and written in
-    /// the list's before they are added, so a Swedish `msk` and an English
+    /// Adds the ingredients of a recipe to the list, written in the list's
+    /// locale: `converter` is the target, and a Swedish `msk` and an English
     /// `tbsp` land in one unit (ADR 0009).
+    ///
+    /// Returns the indices of the ingredients that are recipe references,
+    /// which are listed only when `list_references` is set.
+    ///
+    /// Ingredients are listed based on their [`display_name`](crate::model::Ingredient::display_name).
     pub fn add_recipe(
         &mut self,
         recipe: &Recipe,
@@ -416,7 +421,6 @@ impl IngredientList {
         list_references: bool,
     ) -> Vec<usize> {
         let mut references = Vec::new();
-        let own = recipe.converter();
 
         for entry in recipe.group_ingredients() {
             let GroupedIngredient {
@@ -442,7 +446,7 @@ impl IngredientList {
                 .entry(ingredient.display_name().into_owned())
                 .or_default();
             for q in quantity.iter() {
-                entry.add(&converter.rewrite_from(q, &own), converter);
+                entry.add(&converter.rewrite(q));
             }
         }
 
@@ -464,14 +468,11 @@ impl IngredientList {
             .merge_legacy(quantity, converter)
     }
 
-    /// [`add_ingredient_legacy`](Self::add_ingredient_legacy) through the new converter, which is what stays (ADR 0009).
-    pub fn add_ingredient(
-        &mut self,
-        name: String,
-        quantity: &GroupedQuantity,
-        converter: &Converter,
-    ) {
-        self.0.entry(name).or_default().merge(quantity, converter)
+    /// Add an ingredient to the list.
+    ///
+    /// The quantity will be merged with the ingredients with the same name.
+    pub fn add_ingredient(&mut self, name: String, quantity: &GroupedQuantity) {
+        self.0.entry(name).or_default().merge(quantity)
     }
 
     /// Cheks if the list is empty
@@ -551,8 +552,10 @@ impl IngredientList {
         normalized
     }
 
-    /// [`use_common_names_legacy`](Self::use_common_names_legacy) through the new converter, which is what stays (ADR 0009).
-    pub fn use_common_names(self, aisle: &AisleConf, converter: &Converter) -> Self {
+    /// Replace names of ingredients with common names given by aisle configuration.
+    ///
+    /// Matching is case-insensitive.
+    pub fn use_common_names(self, aisle: &AisleConf) -> Self {
         let ingredients_info = aisle.ingredients_info();
         let mut normalized = Self::new();
         for (ingredient_name, quantity) in self.iter() {
@@ -560,7 +563,7 @@ impl IngredientList {
                 .get(&ingredient_name.to_lowercase())
                 .map(|info| info.common_name.to_string())
                 .unwrap_or(ingredient_name.to_string());
-            normalized.add_ingredient(common_name, quantity, converter);
+            normalized.add_ingredient(common_name, quantity);
         }
         normalized
     }

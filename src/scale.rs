@@ -293,8 +293,8 @@ impl Recipe {
         target_value: f64,
         target_unit: &str,
     ) -> Result<(), ScaleError> {
-        let target = Self::yield_target(target_value, target_unit)?;
         let converter = self.converter();
+        let target = Self::yield_target(target_value, target_unit)?.read_with(&converter);
         let factor = self.yield_factor(&target, |target, unit| {
             let to = converter.resolve_text(unit)?;
             converter.convert(target, to).ok()

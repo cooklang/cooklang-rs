@@ -7,7 +7,7 @@
 //! This needs a [`LegacyConverter`] to resolve units, so it cannot be a [`PartialEq`]
 //! implementation.
 
-use crate::{Converter, LegacyConverter};
+use crate::LegacyConverter;
 
 /// Compares two values for equality in meaning, resolving units with a
 /// [`LegacyConverter`].
@@ -95,34 +95,29 @@ pub fn unordered_equals_legacy<T: LegacySemanticEq>(
     })
 }
 
-/// Compares two values for equality in meaning, resolving units with a
-/// [`Converter`]. [`LegacySemanticEq`] is the same through the old converter
-/// and goes with it (ADR 0009).
+/// Compares two values for equality in meaning. A quantity carries the unit
+/// it was read as (ADR 0010), so no converter is needed; [`LegacySemanticEq`]
+/// is the same through the old converter and goes with it (ADR 0009).
 ///
 /// The types of a parsed recipe implement this, and it composes through
 /// [`Option`], slices and [`Vec`], so a whole recipe is compared by comparing
 /// its parts. Like the old trait it is reflexive and symmetric but **not
 /// transitive**, since numbers are compared within a tolerance.
-///
-/// A [`Recipe`](crate::Recipe) and its [`Metadata`](crate::Metadata) carry
-/// their own naming and read units through it, ignoring the converter
-/// passed; it is used by the parts that carry none, such as a
-/// [`Quantity`](crate::Quantity) compared on its own.
 pub trait SemanticEq {
-    /// Compares `self` with `other`, resolving units with `converter`
-    fn equals(&self, other: &Self, converter: &Converter) -> bool;
+    /// Compares `self` with `other` by meaning
+    fn equals(&self, other: &Self) -> bool;
 }
 
 impl<T: SemanticEq + ?Sized> SemanticEq for &T {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
-        T::equals(self, other, converter)
+    fn equals(&self, other: &Self) -> bool {
+        T::equals(self, other)
     }
 }
 
 impl<T: SemanticEq> SemanticEq for Option<T> {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         match (self, other) {
-            (Some(a), Some(b)) => a.equals(b, converter),
+            (Some(a), Some(b)) => a.equals(b),
             (None, None) => true,
             _ => false,
         }
@@ -130,32 +125,32 @@ impl<T: SemanticEq> SemanticEq for Option<T> {
 }
 
 impl<T: SemanticEq> SemanticEq for [T] {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
-        self.len() == other.len() && self.iter().zip(other).all(|(a, b)| a.equals(b, converter))
+    fn equals(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().zip(other).all(|(a, b)| a.equals(b))
     }
 }
 
 impl<A: SemanticEq, B: SemanticEq> SemanticEq for (A, B) {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
-        self.0.equals(&other.0, converter) && self.1.equals(&other.1, converter)
+    fn equals(&self, other: &Self) -> bool {
+        self.0.equals(&other.0) && self.1.equals(&other.1)
     }
 }
 
 impl<T: SemanticEq> SemanticEq for Vec<T> {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
-        self.as_slice().equals(other.as_slice(), converter)
+    fn equals(&self, other: &Self) -> bool {
+        self.as_slice().equals(other.as_slice())
     }
 }
 
 /// Compares two slices as multisets, ignoring the order of their items; see
 /// [`unordered_equals_legacy`], which is the same through the old converter.
-pub fn unordered_equals<T: SemanticEq>(a: &[T], b: &[T], converter: &Converter) -> bool {
+pub fn unordered_equals<T: SemanticEq>(a: &[T], b: &[T]) -> bool {
     if a.len() != b.len() {
         return false;
     }
     let mut matched = vec![false; b.len()];
     a.iter().all(|item| {
-        let pair = (0..b.len()).find(|&i| !matched[i] && item.equals(&b[i], converter));
+        let pair = (0..b.len()).find(|&i| !matched[i] && item.equals(&b[i]));
         match pair {
             Some(i) => {
                 matched[i] = true;

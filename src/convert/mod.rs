@@ -76,7 +76,9 @@ enum Target {
 ///
 /// let tag = LocaleTag::parse("sv-SE").unwrap();
 /// let converter = Converter::for_tag(&tag).unwrap();
-/// let quantity = Quantity::new(Value::from(15.0), Some("ml".to_string()));
+/// // a quantity built by hand is read through the converter's locale first;
+/// // one the parser built already carries its unit (ADR 0010)
+/// let quantity = Quantity::new(Value::from(15.0), Some("ml".to_string())).read_with(&converter);
 /// assert_eq!(converter.fit(&quantity).unwrap().to_string(), "1 msk");
 /// ```
 #[derive(Debug, Clone)]
@@ -143,27 +145,25 @@ impl Converter {
         }
     }
 
-    /// `quantity`, written in another converter's locale, as this one's
-    /// readers spell the same unit: the amount is untouched. A unit `from`
-    /// cannot read is left as written, so a list built from recipes in
-    /// several locales can add what it recognises and keep the rest.
-    pub fn rewrite_from(&self, quantity: &Quantity, from: &Converter) -> Quantity {
+    /// `quantity` as this converter's readers spell its unit: the amount is
+    /// untouched. A unit that was not read, or not known where it was read,
+    /// is left as written, so a list built from recipes in several locales
+    /// adds what it recognises and keeps the rest (ADR 0010).
+    pub fn rewrite(&self, quantity: &Quantity) -> Quantity {
         // a text value is never operated on, so its unit stays as written too
-        if quantity.value().is_text() {
-            return quantity.clone();
-        }
-        match from.resolve(quantity) {
-            Ok(unit) => Quantity {
+        match quantity.unit_id() {
+            Some(unit) if !quantity.value().is_text() => Quantity {
                 value: quantity.value().clone(),
                 unit: Some(WrittenUnit::known(self.locale.written(unit), unit)),
                 scalable: quantity.scalable,
             },
-            Err(_) => quantity.clone(),
+            _ => quantity.clone(),
         }
     }
 
     /// `quantity` in the unit its readers would write it in, as scaling
-    /// leaves it.
+    /// leaves it. Its unit must have been read (ADR 0010); one that was not,
+    /// or is not known, is an [`UnknownUnit`](ConvertError::UnknownUnit).
     pub fn fit(&self, quantity: &Quantity) -> Result<Quantity, ConvertError> {
         let from = self.resolve(quantity)?;
         self.convert_for(quantity, self.audience_for(from))
@@ -230,11 +230,11 @@ impl Converter {
         self.locale.resolve(text)
     }
 
-    /// The unit `quantity` is written in, as this locale reads it.
+    /// The unit `quantity` was read as (ADR 0010).
     fn resolve(&self, quantity: &Quantity) -> Result<Unit, ConvertError> {
         let text = quantity.unit().ok_or(ConvertError::NoUnit)?;
-        self.locale
-            .resolve(text)
+        quantity
+            .unit_id()
             .ok_or_else(|| ConvertError::UnknownUnit(text.to_string()))
     }
 }
@@ -277,10 +277,29 @@ impl Recipe {
     /// The converter this recipe reads its units through: the one its
     /// [`naming`](Self::naming) calls for, or the legacy one when that
     /// cannot be served, which is also what the parser read it through
-    /// after reporting the refusal. Scaling, grouping, metadata time and
-    /// semantic equality all go through it, so a caller never chooses.
+    /// after reporting the refusal. Scaling, grouping and metadata time all
+    /// go through it, so a caller never chooses.
     pub fn converter(&self) -> Converter {
         self.metadata.converter()
+    }
+
+    /// Reads every quantity's unit through the recipe's own
+    /// [`converter`](Self::converter), as the parser does. For a recipe
+    /// deserialised from a document written before units were recorded
+    /// (ADR 0010); a parsed recipe needs no call.
+    pub fn read_units(&mut self) {
+        let converter = self.converter();
+        let locale = converter.locale();
+        let quantities = self
+            .ingredients
+            .iter_mut()
+            .filter_map(|i| i.quantity.as_mut())
+            .chain(self.cookware.iter_mut().filter_map(|c| c.quantity.as_mut()))
+            .chain(self.timers.iter_mut().filter_map(|t| t.quantity.as_mut()))
+            .chain(self.inline_quantities.iter_mut());
+        for quantity in quantities {
+            quantity.reread(locale);
+        }
     }
 
     /// Writes every quantity as `audience` would write it, in place. A

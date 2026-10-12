@@ -75,25 +75,16 @@ impl LegacySemanticEq for Recipe {
     }
 }
 
-/// Quantities are read through the recipe's own [`converter`](Recipe::converter),
-/// not the one passed: two recipes with different `locale` keys are already
-/// unequal on their metadata, so one naming serves both.
 impl crate::semantic_eq::SemanticEq for Recipe {
-    fn equals(&self, other: &Self, _converter: &Converter) -> bool {
-        let converter = &self.converter();
-        crate::semantic_eq::SemanticEq::equals(&self.metadata, &other.metadata, converter)
+    fn equals(&self, other: &Self) -> bool {
+        crate::semantic_eq::SemanticEq::equals(&self.metadata, &other.metadata)
             && self.sections == other.sections
-            && crate::semantic_eq::SemanticEq::equals(
-                &self.ingredients,
-                &other.ingredients,
-                converter,
-            )
-            && crate::semantic_eq::SemanticEq::equals(&self.cookware, &other.cookware, converter)
-            && crate::semantic_eq::SemanticEq::equals(&self.timers, &other.timers, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.ingredients, &other.ingredients)
+            && crate::semantic_eq::SemanticEq::equals(&self.cookware, &other.cookware)
+            && crate::semantic_eq::SemanticEq::equals(&self.timers, &other.timers)
             && crate::semantic_eq::SemanticEq::equals(
                 &self.inline_quantities,
                 &other.inline_quantities,
-                converter,
             )
     }
 }
@@ -397,7 +388,7 @@ impl Ingredient {
     ) -> GroupedQuantity {
         let mut grouped = GroupedQuantity::default();
         for q in self.all_quantities(all_ingredients) {
-            grouped.add(q, converter);
+            grouped.add(q);
         }
         grouped.fit(converter);
         grouped
@@ -442,14 +433,14 @@ impl LegacySemanticEq for Ingredient {
 }
 
 impl crate::semantic_eq::SemanticEq for Ingredient {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         self.name == other.name
             && self.alias == other.alias
             && self.note == other.note
             && self.relation == other.relation
             && self.resolved_reference() == other.resolved_reference()
             && self.modifiers == other.modifiers
-            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity)
     }
 }
 
@@ -508,7 +499,7 @@ impl Cookware {
     ) -> GroupedQuantity {
         let mut g = GroupedQuantity::empty();
         for q in self.all_quantities(all_cookware) {
-            g.add(q, converter);
+            g.add(q);
         }
         g.fit(converter);
         g
@@ -546,13 +537,13 @@ impl LegacySemanticEq for Cookware {
 }
 
 impl crate::semantic_eq::SemanticEq for Cookware {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         self.name == other.name
             && self.alias == other.alias
             && self.note == other.note
             && self.relation == other.relation
             && self.modifiers == other.modifiers
-            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity)
     }
 }
 
@@ -765,9 +756,9 @@ impl LegacySemanticEq for Timer {
 }
 
 impl crate::semantic_eq::SemanticEq for Timer {
-    fn equals(&self, other: &Self, converter: &Converter) -> bool {
+    fn equals(&self, other: &Self) -> bool {
         self.name == other.name
-            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity, converter)
+            && crate::semantic_eq::SemanticEq::equals(&self.quantity, &other.quantity)
     }
 }
 
