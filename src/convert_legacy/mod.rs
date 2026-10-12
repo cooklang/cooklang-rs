@@ -504,7 +504,7 @@ impl Quantity {
         let (new_value, new_unit) = converter.convert(value, unit, to)?;
         // a conversion changes the amount and the unit, not whether it scales
         self.value = new_value.into();
-        self.unit = Some(new_unit.symbol().to_string());
+        self.unit = Some(crate::quantity::WrittenUnit::unresolved(new_unit.symbol()));
         match to {
             ConvertTo::Unit(_) => {
                 self.try_fraction(converter);
@@ -565,7 +565,7 @@ impl Quantity {
 
         let (new_value, new_unit) = converter.convert_to_base(value, &unit)?;
         self.value = new_value.into();
-        self.unit = Some(new_unit.symbol().to_string());
+        self.unit = Some(crate::quantity::WrittenUnit::unresolved(new_unit.symbol()));
         Ok(())
     }
 
@@ -645,7 +645,7 @@ impl Quantity {
             Value::Text(_) => unreachable!(),
         };
         self.value = new_value;
-        self.unit = Some(new_unit.symbol().to_string());
+        self.unit = Some(crate::quantity::WrittenUnit::unresolved(new_unit.symbol()));
         Ok(true)
     }
 

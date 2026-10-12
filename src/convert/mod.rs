@@ -15,7 +15,7 @@
 //!   to `false`.
 
 pub(crate) mod locales;
-pub(crate) mod units;
+pub mod units;
 
 #[cfg(test)]
 mod tests;
@@ -24,15 +24,16 @@ use std::sync::Arc;
 
 use crate::metadata::Metadata;
 use crate::model::Recipe;
-use crate::quantity::{Number, Quantity, Value};
+use crate::quantity::{Number, Quantity, Value, WrittenUnit};
 use locales::legacy::{legacy_locale, legacy_system};
 use locales::locale::Locale;
 use locales::preference::{as_written, best_amount, Audience};
 use locales::vendored::reviewed_locale;
-use units::{MixedQuantities, Unit};
+use units::MixedQuantities;
 
 pub use locales::tag::{InvalidTag, LocaleTag, RegionError};
 pub use locales::vendored::Refusal;
+pub use units::{PhysicalQuantity, Unit};
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConvertError {
@@ -154,7 +155,7 @@ impl Converter {
         match from.resolve(quantity) {
             Ok(unit) => Quantity {
                 value: quantity.value().clone(),
-                unit: Some(self.locale.written(unit).to_string()),
+                unit: Some(WrittenUnit::known(self.locale.written(unit), unit)),
                 scalable: quantity.scalable,
             },
             Err(_) => quantity.clone(),
@@ -184,7 +185,7 @@ impl Converter {
         };
         Ok(Quantity {
             value,
-            unit: Some(self.locale.written(to).to_string()),
+            unit: Some(WrittenUnit::known(self.locale.written(to), to)),
             scalable: quantity.scalable,
         })
     }
@@ -214,12 +215,11 @@ impl Converter {
         };
         Ok(Quantity {
             value,
-            unit: Some(self.locale.written(to).to_string()),
+            unit: Some(WrittenUnit::known(self.locale.written(to), to)),
             scalable: quantity.scalable,
         })
     }
 
-    /// The unit `quantity` is written in, as this locale reads it.
     /// The locale this converter reads and writes units through.
     pub(crate) fn locale(&self) -> &Locale {
         &self.locale
@@ -230,6 +230,7 @@ impl Converter {
         self.locale.resolve(text)
     }
 
+    /// The unit `quantity` is written in, as this locale reads it.
     fn resolve(&self, quantity: &Quantity) -> Result<Unit, ConvertError> {
         let text = quantity.unit().ok_or(ConvertError::NoUnit)?;
         self.locale

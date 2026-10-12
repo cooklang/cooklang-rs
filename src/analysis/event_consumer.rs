@@ -13,7 +13,7 @@ use crate::parser::{
     self, BlockKind, Event, IntermediateData, IntermediateRefMode, IntermediateTargetKind,
     Modifiers,
 };
-use crate::quantity::{IncompatibleUnits, Quantity, Value};
+use crate::quantity::{IncompatibleUnits, Quantity, Value, WrittenUnit};
 use crate::span::Span;
 use crate::text::Text;
 use crate::{model::*, Extensions, ParseOptions};
@@ -1229,7 +1229,7 @@ impl<'i> RecipeCollector<'i, '_> {
         let (value, scalable) = self.value(value, is_ingredient);
         Quantity {
             value,
-            unit: unit.map(|t| t.text_trimmed().into_owned()),
+            unit: unit.map(|t| WrittenUnit::unresolved(t.text_trimmed().into_owned())),
             scalable,
         }
     }
@@ -1835,7 +1835,7 @@ mod tests {
                 "",
                 Quantity {
                     value: 1.0.into(),
-                    unit: Some("ml".into()),
+                    unit: Some(WrittenUnit::unresolved("ml")),
                     scalable: false
                 },
                 ""
@@ -1847,7 +1847,7 @@ mod tests {
                 "",
                 Quantity {
                     value: 1.0.into(),
-                    unit: Some("ml".into()),
+                    unit: Some(WrittenUnit::unresolved("ml")),
                     scalable: false
                 },
                 ""
@@ -1859,7 +1859,7 @@ mod tests {
                 "",
                 Quantity {
                     value: 1.0.into(),
-                    unit: Some("ml".into()),
+                    unit: Some(WrittenUnit::unresolved("ml")),
                     scalable: false
                 },
                 ""
@@ -1871,7 +1871,7 @@ mod tests {
                 "",
                 Quantity {
                     value: 1.0.into(),
-                    unit: Some("ml".into()),
+                    unit: Some(WrittenUnit::unresolved("ml")),
                     scalable: false
                 },
                 ""

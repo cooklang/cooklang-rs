@@ -18,7 +18,7 @@ fn linear(value: f64, from: f64, to: f64) -> f64 {
 /// A unit of volume. The reference unit is the liter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::VariantArray, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-pub(crate) enum VolumeUnit {
+pub enum VolumeUnit {
     Kiloliter,
     Hectoliter,
     Decaliter,
@@ -69,7 +69,7 @@ pub(crate) enum VolumeUnit {
 }
 
 impl VolumeUnit {
-    pub(crate) fn id(self) -> &'static str {
+    pub fn id(self) -> &'static str {
         self.into()
     }
 
@@ -123,7 +123,7 @@ impl VolumeUnit {
         }
     }
 
-    pub(crate) fn convert(value: f64, from: Self, to: Self) -> f64 {
+    pub fn convert(value: f64, from: Self, to: Self) -> f64 {
         linear(value, from.factor(), to.factor())
     }
 }
@@ -131,7 +131,7 @@ impl VolumeUnit {
 /// A unit of mass. The reference unit is the gram.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::VariantArray, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-pub(crate) enum MassUnit {
+pub enum MassUnit {
     Kilogram,
     Hectogram,
     Decagram,
@@ -146,7 +146,7 @@ pub(crate) enum MassUnit {
 }
 
 impl MassUnit {
-    pub(crate) fn id(self) -> &'static str {
+    pub fn id(self) -> &'static str {
         self.into()
     }
 
@@ -169,7 +169,7 @@ impl MassUnit {
         }
     }
 
-    pub(crate) fn convert(value: f64, from: Self, to: Self) -> f64 {
+    pub fn convert(value: f64, from: Self, to: Self) -> f64 {
         linear(value, from.factor(), to.factor())
     }
 }
@@ -177,7 +177,7 @@ impl MassUnit {
 /// A unit of length. The reference unit is the meter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::VariantArray, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-pub(crate) enum LengthUnit {
+pub enum LengthUnit {
     Kilometer,
     Hectometer,
     Decameter,
@@ -190,7 +190,7 @@ pub(crate) enum LengthUnit {
 }
 
 impl LengthUnit {
-    pub(crate) fn id(self) -> &'static str {
+    pub fn id(self) -> &'static str {
         self.into()
     }
 
@@ -208,7 +208,7 @@ impl LengthUnit {
         }
     }
 
-    pub(crate) fn convert(value: f64, from: Self, to: Self) -> f64 {
+    pub fn convert(value: f64, from: Self, to: Self) -> f64 {
         linear(value, from.factor(), to.factor())
     }
 }
@@ -216,7 +216,7 @@ impl LengthUnit {
 /// A unit of time. The reference unit is the second.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::VariantArray, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-pub(crate) enum TimeUnit {
+pub enum TimeUnit {
     Second,
     Minute,
     Hour,
@@ -224,7 +224,7 @@ pub(crate) enum TimeUnit {
 }
 
 impl TimeUnit {
-    pub(crate) fn id(self) -> &'static str {
+    pub fn id(self) -> &'static str {
         self.into()
     }
 
@@ -237,7 +237,7 @@ impl TimeUnit {
         }
     }
 
-    pub(crate) fn convert(value: f64, from: Self, to: Self) -> f64 {
+    pub fn convert(value: f64, from: Self, to: Self) -> f64 {
         linear(value, from.factor(), to.factor())
     }
 }
@@ -245,18 +245,18 @@ impl TimeUnit {
 /// A unit of temperature. The reference unit is the degree Celsius.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::VariantArray, strum::IntoStaticStr)]
 #[strum(serialize_all = "snake_case")]
-pub(crate) enum TemperatureUnit {
+pub enum TemperatureUnit {
     Celsius,
     Fahrenheit,
 }
 
 impl TemperatureUnit {
-    pub(crate) fn id(self) -> &'static str {
+    pub fn id(self) -> &'static str {
         self.into()
     }
 
     /// Converts a temperature point, such as an oven setting.
-    pub(crate) fn convert(value: f64, from: Self, to: Self) -> f64 {
+    pub fn convert(value: f64, from: Self, to: Self) -> f64 {
         match (from, to) {
             (Self::Celsius, Self::Celsius) | (Self::Fahrenheit, Self::Fahrenheit) => value,
             (Self::Celsius, Self::Fahrenheit) => value * 9.0 / 5.0 + 32.0,

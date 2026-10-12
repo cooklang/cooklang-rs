@@ -7,7 +7,7 @@ fn convert_preserves_scalable() {
     // the legacy converter resets `scalable` to false; see the module docs
     let quantity = Quantity {
         value: Value::from(1.0),
-        unit: Some("l".to_string()),
+        unit: Some(crate::quantity::WrittenUnit::unresolved("l")),
         scalable: true,
     };
     let milliliter = Unit::from_id("milliliter").unwrap();

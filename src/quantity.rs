@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, fmt::Display, sync::Arc};
 
+use crate::convert::locales::locale::Locale;
 use crate::convert::{units::Unit as V2Unit, Converter};
 use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
@@ -17,19 +18,128 @@ use crate::{
 };
 
 /// A quantity used in components
+///
+/// The unit is kept as written and, once the parser has read it through the
+/// recipe's locale, as the [`Unit`](V2Unit) it names (ADR 0010). Serialised
+/// as `value`, `unit`, `unit_id` (the unit's identifier, absent when unknown)
+/// and `scalable`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(into = "QuantityRepr", try_from = "QuantityRepr")]
 #[cfg_attr(feature = "ts", derive(Tsify))]
-#[cfg_attr(feature = "ts", tsify(into_wasm_abi, from_wasm_abi))]
+#[cfg_attr(
+    feature = "ts",
+    tsify(
+        into_wasm_abi,
+        from_wasm_abi,
+        type = "{ value: Value; unit?: string; unit_id?: string; scalable: boolean }"
+    )
+)]
 pub struct Quantity {
     pub(crate) value: Value,
-    pub(crate) unit: Option<String>,
+    pub(crate) unit: Option<WrittenUnit>,
     pub(crate) scalable: bool,
 }
 
+/// As written: the unit text, whether or not it was resolved
 impl PartialEq for Quantity {
     fn eq(&self, other: &Self) -> bool {
         // ignore scalable for equality
-        self.value == other.value && self.unit == other.unit
+        self.value == other.value && self.unit() == other.unit()
+    }
+}
+
+/// A unit as the recipe wrote it, and what it names when the recipe's locale
+/// knows that spelling (ADR 0010).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrittenUnit {
+    text: String,
+    unit: Option<V2Unit>,
+}
+
+impl WrittenUnit {
+    /// Not read through any locale: behaves as an unknown unit.
+    pub(crate) fn unresolved(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            unit: None,
+        }
+    }
+
+    pub(crate) fn known(text: impl Into<String>, unit: V2Unit) -> Self {
+        Self {
+            text: text.into(),
+            unit: Some(unit),
+        }
+    }
+
+    /// `text` as `locale` reads it.
+    pub(crate) fn read(text: impl Into<String>, locale: &Locale) -> Self {
+        let text = text.into();
+        let unit = locale.resolve(&text);
+        Self { text, unit }
+    }
+
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub fn unit(&self) -> Option<V2Unit> {
+        self.unit
+    }
+}
+
+/// The serialised form of a [`Quantity`].
+#[derive(Serialize, Deserialize)]
+struct QuantityRepr {
+    value: Value,
+    unit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    unit_id: Option<String>,
+    scalable: bool,
+}
+
+impl From<Quantity> for QuantityRepr {
+    fn from(q: Quantity) -> Self {
+        Self {
+            value: q.value,
+            unit_id: q
+                .unit
+                .as_ref()
+                .and_then(|u| u.unit)
+                .map(|u| u.id().to_string()),
+            unit: q.unit.map(|u| u.text),
+            scalable: q.scalable,
+        }
+    }
+}
+
+/// Why a serialised quantity could not be read back.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum UnitIdError {
+    #[error("unit_id '{0}' is given but there is no unit text")]
+    WithoutText(String),
+    #[error("unit_id '{0}' names no unit")]
+    Unknown(String),
+}
+
+impl TryFrom<QuantityRepr> for Quantity {
+    type Error = UnitIdError;
+
+    fn try_from(repr: QuantityRepr) -> Result<Self, Self::Error> {
+        let unit = match (repr.unit, repr.unit_id) {
+            (None, None) => None,
+            (None, Some(id)) => return Err(UnitIdError::WithoutText(id)),
+            (Some(text), None) => Some(WrittenUnit::unresolved(text)),
+            (Some(text), Some(id)) => {
+                let unit = V2Unit::from_id(&id).ok_or(UnitIdError::Unknown(id))?;
+                Some(WrittenUnit::known(text, unit))
+            }
+        };
+        Ok(Self {
+            value: repr.value,
+            unit,
+            scalable: repr.scalable,
+        })
     }
 }
 
@@ -131,13 +241,26 @@ impl PartialEq for Number {
 }
 
 impl Quantity {
-    /// Creates a new quantity
+    /// Creates a new quantity, its unit not read through any locale: it
+    /// behaves as an unknown unit until [`read_with`](Self::read_with).
     pub fn new(value: Value, unit: Option<String>) -> Self {
         Self {
             value,
-            unit,
+            unit: unit.map(WrittenUnit::unresolved),
             scalable: false,
         }
+    }
+
+    /// The quantity with its unit text read through `converter`'s locale.
+    pub fn read_with(self, converter: &Converter) -> Self {
+        self.resolved(converter.locale())
+    }
+
+    pub(crate) fn resolved(mut self, locale: &Locale) -> Self {
+        if let Some(unit) = self.unit.take() {
+            self.unit = Some(WrittenUnit::read(unit.text, locale));
+        }
+        self
     }
 
     /// Returns `true` if the quantity is scalable
@@ -147,9 +270,15 @@ impl Quantity {
         self.scalable
     }
 
-    /// Get the unit
+    /// Get the unit, as written
     pub fn unit(&self) -> Option<&str> {
-        self.unit.as_deref()
+        self.unit.as_ref().map(WrittenUnit::text)
+    }
+
+    /// The unit the text names in the recipe's locale, if it was read and
+    /// known there (ADR 0010).
+    pub fn unit_id(&self) -> Option<V2Unit> {
+        self.unit.as_ref().and_then(WrittenUnit::unit)
     }
 
     pub fn value(&self) -> &Value {
@@ -172,7 +301,7 @@ impl Quantity {
 impl Display for Quantity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.value.fmt(f)?;
-        if let Some(unit) = &self.unit {
+        if let Some(unit) = self.unit() {
             f.write_str(" ")?;
             unit.fmt(f)?;
         }
@@ -295,19 +424,19 @@ impl Quantity {
         rhs: &Self,
         converter: &LegacyConverter,
     ) -> Result<Option<Arc<Unit>>, IncompatibleUnits> {
-        let base = match (&self.unit, &rhs.unit) {
+        let base = match (self.unit(), rhs.unit()) {
             // No units = ok
             (None, None) => None,
             // Mixed = error
             (None, Some(u)) => {
                 return Err(IncompatibleUnits::MissingUnit {
-                    found: u.clone(),
+                    found: u.to_string(),
                     lhs: false,
                 });
             }
             (Some(u), None) => {
                 return Err(IncompatibleUnits::MissingUnit {
-                    found: u.clone(),
+                    found: u.to_string(),
                     lhs: true,
                 });
             }
@@ -331,8 +460,8 @@ impl Quantity {
                         // if units are unknown, their text must be equal
                         if a != b {
                             return Err(IncompatibleUnits::UnknownDifferentUnits {
-                                a: a.clone(),
-                                b: b.clone(),
+                                a: a.to_string(),
+                                b: b.to_string(),
                             });
                         }
                         None
@@ -383,7 +512,11 @@ impl Quantity {
         let value = op(&self.value, &rhs.value)?;
 
         // the result keeps the left-hand unit, so `1 l` plus `500 ml` is `1.5 l`
-        let qty = Quantity::new(value, self.unit.clone());
+        let qty = Quantity {
+            value,
+            unit: self.unit.clone(),
+            scalable: false,
+        };
 
         Ok(qty)
     }
@@ -410,7 +543,11 @@ impl Quantity {
             None => rhs.clone(),
         };
         let value = op(&self.value, &rhs.value)?;
-        Ok(Quantity::new(value, self.unit.clone()))
+        Ok(Quantity {
+            value,
+            unit: self.unit.clone(),
+            scalable: false,
+        })
     }
 
     /// [`compatible_unit_legacy`](Self::compatible_unit_legacy) through the new converter, which is what stays (ADR 0009):
@@ -420,14 +557,14 @@ impl Quantity {
         rhs: &Self,
         converter: &Converter,
     ) -> Result<Option<V2Unit>, IncompatibleUnits> {
-        match (&self.unit, &rhs.unit) {
+        match (self.unit(), rhs.unit()) {
             (None, None) => Ok(None),
             (None, Some(u)) => Err(IncompatibleUnits::MissingUnit {
-                found: u.clone(),
+                found: u.to_string(),
                 lhs: false,
             }),
             (Some(u), None) => Err(IncompatibleUnits::MissingUnit {
-                found: u.clone(),
+                found: u.to_string(),
                 lhs: true,
             }),
             (Some(a), Some(b)) => match (converter.resolve_text(a), converter.resolve_text(b)) {
@@ -442,8 +579,8 @@ impl Quantity {
                 }
                 // if units are unknown, their text must be equal
                 _ if a != b => Err(IncompatibleUnits::UnknownDifferentUnits {
-                    a: a.clone(),
-                    b: b.clone(),
+                    a: a.to_string(),
+                    b: b.to_string(),
                 }),
                 _ => Ok(None),
             },
@@ -486,9 +623,9 @@ impl LegacySemanticEq for Quantity {
         };
 
         match (base(self), base(other)) {
-            (Some(a), Some(b)) => a.unit == b.unit && value_equals(&a.value, &b.value),
+            (Some(a), Some(b)) => a.unit() == b.unit() && value_equals(&a.value, &b.value),
             // at least one of them can't be converted, compare them as written
-            _ => self.unit == other.unit && value_equals(&self.value, &other.value),
+            _ => self.unit() == other.unit() && value_equals(&self.value, &other.value),
         }
     }
 }
@@ -504,8 +641,8 @@ impl crate::semantic_eq::SemanticEq for Quantity {
                 .ok()
         };
         match (base(self), base(other)) {
-            (Some(a), Some(b)) => a.unit == b.unit && value_equals(&a.value, &b.value),
-            _ => self.unit == other.unit && value_equals(&self.value, &other.value),
+            (Some(a), Some(b)) => a.unit() == b.unit() && value_equals(&a.value, &b.value),
+            _ => self.unit() == other.unit() && value_equals(&self.value, &other.value),
         }
     }
 }
@@ -1438,6 +1575,85 @@ mod tests {
             let mut shown: Vec<String> = g.iter().map(|q| q.to_string()).collect();
             shown.sort();
             assert_eq!(shown, ["1 l", "1.5 kg", "2 bunch"]);
+        }
+    }
+
+    /// ADR 0010: the unit as written and the unit it names travel together.
+    mod written_unit {
+        use super::*;
+        use crate::convert::LocaleTag;
+        use crate::Converter;
+
+        fn swedish() -> Converter {
+            Converter::for_tag(&LocaleTag::parse("sv-SE").unwrap()).unwrap()
+        }
+
+        fn msk() -> Quantity {
+            Quantity::new(Value::from(2.0), Some("msk".into()))
+        }
+
+        #[test]
+        fn reading_resolves_the_text_through_the_locale() {
+            assert_eq!(msk().unit_id(), None);
+            let read = msk().read_with(&swedish());
+            assert_eq!(read.unit(), Some("msk"));
+            assert_eq!(read.unit_id(), V2Unit::from_id("metric tablespoon"));
+            // a spelling the locale does not know stays unknown
+            let unknown =
+                Quantity::new(Value::from(1.0), Some("tbsp".into())).read_with(&swedish());
+            assert_eq!(unknown.unit_id(), None);
+        }
+
+        #[test]
+        fn a_read_quantity_serialises_its_unit_id_and_reads_it_back() {
+            let q = msk().read_with(&swedish());
+            let json = serde_json::to_value(&q).unwrap();
+            assert_eq!(json["unit"], "msk");
+            assert_eq!(json["unit_id"], "metric tablespoon");
+            let back: Quantity = serde_json::from_value(json).unwrap();
+            assert_eq!(back.unit_id(), q.unit_id());
+            assert_eq!(back, q);
+        }
+
+        #[test]
+        fn an_unread_unit_has_no_unit_id_on_the_wire() {
+            let json = serde_json::to_value(msk()).unwrap();
+            assert_eq!(json["unit"], "msk");
+            assert!(json.get("unit_id").is_none(), "{json}");
+            let none = serde_json::to_value(Quantity::new(Value::from(1.0), None)).unwrap();
+            assert_eq!(none["unit"], serde_json::Value::Null);
+        }
+
+        #[test]
+        fn a_document_without_unit_id_reads_unresolved() {
+            let q: Quantity = serde_json::from_str(
+                r#"{"value":{"type":"number","value":{"type":"regular","value":2.0}},"unit":"msk","scalable":true}"#,
+            )
+            .unwrap();
+            assert_eq!(q.unit(), Some("msk"));
+            assert_eq!(q.unit_id(), None);
+            assert!(q.scalable());
+        }
+
+        #[test]
+        fn a_unit_id_that_names_nothing_or_has_no_text_is_an_error() {
+            let value = r#"{"type":"number","value":{"type":"regular","value":2.0}}"#;
+            let bad = serde_json::from_str::<Quantity>(&format!(
+                r#"{{"value":{value},"unit":"msk","unit_id":"bunch","scalable":true}}"#
+            ))
+            .unwrap_err();
+            assert!(bad.to_string().contains("names no unit"), "{bad}");
+            let no_text = serde_json::from_str::<Quantity>(&format!(
+                r#"{{"value":{value},"unit":null,"unit_id":"liter","scalable":true}}"#
+            ))
+            .unwrap_err();
+            assert!(no_text.to_string().contains("no unit text"), "{no_text}");
+        }
+
+        #[test]
+        fn as_written_equality_ignores_resolution() {
+            assert_eq!(msk(), msk().read_with(&swedish()));
+            assert_ne!(msk(), Quantity::new(Value::from(2.0), Some("tbsp".into())));
         }
     }
 

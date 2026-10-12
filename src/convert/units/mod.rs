@@ -15,12 +15,12 @@ mod tests;
 
 use strum::VariantArray;
 
-pub(crate) use definitions::{LengthUnit, MassUnit, TemperatureUnit, TimeUnit, VolumeUnit};
+pub use definitions::{LengthUnit, MassUnit, TemperatureUnit, TimeUnit, VolumeUnit};
 
 /// The kind of thing a unit measures. Only units of the same physical quantity
 /// convert into each other.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum PhysicalQuantity {
+pub enum PhysicalQuantity {
     Volume,
     Mass,
     Length,
@@ -42,7 +42,7 @@ impl From<PhysicalQuantity> for crate::convert_legacy::PhysicalQuantity {
 
 /// Any unit, tagged with its physical quantity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum Unit {
+pub enum Unit {
     Volume(VolumeUnit),
     Mass(MassUnit),
     Length(LengthUnit),
@@ -60,7 +60,7 @@ pub struct MixedQuantities {
 
 impl Unit {
     /// Every unit, grouped by physical quantity.
-    pub(crate) fn all() -> impl Iterator<Item = Unit> {
+    pub fn all() -> impl Iterator<Item = Unit> {
         VolumeUnit::VARIANTS
             .iter()
             .copied()
@@ -83,7 +83,7 @@ impl Unit {
     /// Recipe-facing: it resolves as input in every locale and is what a
     /// conversion writes when a locale has no symbol for the unit (ADR 0004,
     /// ADR 0007).
-    pub(crate) fn id(self) -> &'static str {
+    pub fn id(self) -> &'static str {
         match self {
             Unit::Volume(u) => u.id(),
             Unit::Mass(u) => u.id(),
@@ -94,7 +94,7 @@ impl Unit {
     }
 
     /// The unit with this [`Unit::id`], if any.
-    pub(crate) fn from_id(id: &str) -> Option<Unit> {
+    pub fn from_id(id: &str) -> Option<Unit> {
         Unit::all().find(|unit| unit.id() == id)
     }
 
@@ -110,7 +110,7 @@ impl Unit {
         }
     }
 
-    pub(crate) fn physical_quantity(self) -> PhysicalQuantity {
+    pub fn physical_quantity(self) -> PhysicalQuantity {
         match self {
             Unit::Volume(_) => PhysicalQuantity::Volume,
             Unit::Mass(_) => PhysicalQuantity::Mass,
@@ -121,7 +121,7 @@ impl Unit {
     }
 
     /// Converts `value` from one unit to another of the same physical quantity.
-    pub(crate) fn convert(value: f64, from: Unit, to: Unit) -> Result<f64, MixedQuantities> {
+    pub fn convert(value: f64, from: Unit, to: Unit) -> Result<f64, MixedQuantities> {
         match (from, to) {
             (Unit::Volume(from), Unit::Volume(to)) => Ok(VolumeUnit::convert(value, from, to)),
             (Unit::Mass(from), Unit::Mass(to)) => Ok(MassUnit::convert(value, from, to)),
