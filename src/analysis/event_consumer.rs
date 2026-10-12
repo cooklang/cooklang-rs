@@ -315,7 +315,17 @@ impl<'i> RecipeCollector<'i, '_> {
         };
 
         let mut to_remove = Vec::new();
-        for (key, value) in yaml_map.iter() {
+        // the block is one unit, so its locale applies to every key in it
+        // whatever order they are written in: it is read first, and the time
+        // keys are then checked through it
+        let is_locale = |key: &serde_yaml::Value| {
+            key.as_str().and_then(|s| StdKey::from_str(s).ok()) == Some(StdKey::Locale)
+        };
+        let locale_first = yaml_map
+            .iter()
+            .filter(|(key, _)| is_locale(key))
+            .chain(yaml_map.iter().filter(|(key, _)| !is_locale(key)));
+        for (key, value) in locale_first {
             let mut action = CheckOptions::default();
             // run custom validator if any
             if let Some(validator) = self.parse_options.metadata_validator.as_mut() {

@@ -429,6 +429,26 @@ mod locale_warnings {
         assert!(!tell(&warnings(&old, "@flour{1%g}\n")));
     }
 
+    /// Front matter is one block, so the locale applies to every key in it
+    /// whatever order they are written in.
+    #[test]
+    fn a_front_matter_locale_applies_to_the_keys_above_it() {
+        let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let above = "---\nprep time: 30 minuter\nlocale: sv-SE\n---\n@mjöl{1%g}\n";
+        let below = "---\nlocale: sv-SE\nprep time: 30 minuter\n---\n@mjöl{1%g}\n";
+        for src in [above, below] {
+            let w = warnings(&new, src);
+            assert!(
+                !w.iter().any(|m| m.contains("Unsupported value")),
+                "{src:?}: {w:?}"
+            );
+        }
+        // the key itself is still checked and labelled in the loop
+        let bad = "---\nprep time: 30 minuter\nlocale: sv_SE\n---\n@mjöl{1%g}\n";
+        let w = warnings(&new, bad);
+        assert!(w.iter().any(|m| m.contains("Unsupported value for key: 'locale'")), "{w:?}");
+    }
+
     #[test]
     fn a_locale_line_after_the_first_quantity_is_ignored_with_a_warning() {
         let new = CooklangParser::new(Extensions::all(), Converter::legacy());
