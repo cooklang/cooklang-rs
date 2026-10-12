@@ -456,6 +456,28 @@ mod tests {
         assert_eq!(fraction_in(&rows, 0.5, liter).to_string(), "0.5");
     }
 
+    /// `build.rs` refuses a larger denominator; this keeps the two limits
+    /// the same number.
+    #[test]
+    fn every_fraction_row_is_within_what_a_number_can_write() {
+        let all = PREFERENCES
+            .iter()
+            .chain(LEGACY_PREFERENCES)
+            .map(|(_, _, rows)| *rows)
+            .chain(REGION_PREFERENCES.iter().map(|(_, _, rows)| *rows));
+        for row in all.flatten() {
+            if let Some(den) = row.fractions {
+                assert!(
+                    (1..=Number::MAX_FRACTION_DENOMINATOR).contains(&den),
+                    "{} fractions /{den}",
+                    row.unit.id()
+                );
+                // and the number layer agrees, rather than panicking
+                let _ = fraction(1.5, row);
+            }
+        }
+    }
+
     /// A row's units must all measure the row's quantity, or `convert`
     /// would panic at the first lookup.
     #[test]

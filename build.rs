@@ -610,10 +610,22 @@ fn generate_preferences() {
             other => panic!("locales/preferences.toml: unknown quantity '{other}'"),
         }
     }
+    // `Number::MAX_FRACTION_DENOMINATOR`, which a build script cannot import:
+    // `Number::new_approx` asserts it, so a larger row would panic on the
+    // first conversion that reaches it instead of failing here
+    const MAX_FRACTION_DENOMINATOR: u8 = 64;
     fn rows(quantity_name: &str, rows: &[Threshold]) -> String {
         let (q, enum_name) = quantity(quantity_name);
         rows.iter()
             .map(|t| {
+                if let Some(den) = t.fractions {
+                    assert!(
+                        (1..=MAX_FRACTION_DENOMINATOR).contains(&den),
+                        "locales/preferences.toml: `{}` has fractions = {den}, but the largest \
+                         denominator a fraction is written with is {MAX_FRACTION_DENOMINATOR}",
+                        t.unit
+                    );
+                }
                 format!(
                     "Row {{ unit: Unit::{q}({enum_name}::{}), at_least: {:?}, fractions: {:?}, or_decimal: {} }}",
                     variant(&t.unit),

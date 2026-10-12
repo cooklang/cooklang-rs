@@ -1151,6 +1151,10 @@ impl FractionLookupTable {
 }
 
 impl Number {
+    /// The largest denominator [`new_approx`](Self::new_approx) writes. A
+    /// preference row's `fractions` must not exceed it; `build.rs` checks.
+    pub const MAX_FRACTION_DENOMINATOR: u8 = 64;
+
     /// Tries to create a new approximate number within a margin of error.
     ///
     /// It returns none if:
@@ -1167,7 +1171,8 @@ impl Number {
     /// `accuracy` is a value between 0 and 1 representing the error percent.
     ///
     /// `max_den` is the maximum denominator. The denominator is one a list of
-    /// "common" fractions: 2, 3, 4, 5, 8, 10, 16, 32, 64. 64 is the max.
+    /// "common" fractions: 2, 3, 4, 5, 8, 10, 16, 32, 64.
+    /// [`MAX_FRACTION_DENOMINATOR`](Self::MAX_FRACTION_DENOMINATOR) is the max.
     ///
     /// `max_whole` determines the maximum value of the integer. Setting this to
     /// 0 only allows fractions < 1. Exact values higher than this are also
@@ -1175,10 +1180,10 @@ impl Number {
     ///
     /// # Panics
     /// - If `accuracy > 1` or `accuracy < 0`.
-    /// - If `max_den > 64`
+    /// - If `max_den > MAX_FRACTION_DENOMINATOR`
     pub fn new_approx(value: f64, accuracy: f32, max_den: u8, max_whole: u32) -> Option<Self> {
         assert!((0.0..=1.0).contains(&accuracy));
-        assert!(max_den <= 64);
+        assert!(max_den <= Self::MAX_FRACTION_DENOMINATOR);
         if value <= 0.0 || !value.is_finite() {
             return None;
         }
