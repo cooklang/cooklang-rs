@@ -5,6 +5,7 @@ use super::locale::*;
 use super::vendored::*;
 use crate::convert::units::Unit;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 fn names(symbol: &str, aliases: &[&str]) -> UnitNames {
     UnitNames {
@@ -64,7 +65,8 @@ fn an_unnamed_unit_is_written_as_its_identifier() {
 fn the_identifier_resolves_in_every_locale() {
     let empty = locale_with(&[]).unwrap();
     let named = locale_with(&[("us cup", names("c", &["cup"]))]).unwrap();
-    for locale in [&empty, &named, &legacy_locale()] {
+    let legacy = legacy_locale();
+    for locale in [&empty, &named, &*legacy] {
         assert_eq!(locale.resolve("us cup"), Some(unit("us cup")));
         assert_eq!(
             locale.resolve("us fluid ounce"),
@@ -220,7 +222,7 @@ mod fallback {
     use super::*;
     use crate::convert::locales::tag::LocaleTag;
 
-    fn locale(tag: &str) -> Option<Locale> {
+    fn locale(tag: &str) -> Option<Arc<Locale>> {
         for_tag(&LocaleTag::parse(tag).unwrap())
     }
 
@@ -438,8 +440,8 @@ mod universal_aliases {
         let celsius = unit("celsius");
         let fahrenheit = unit("fahrenheit");
         let empty = locale_with(&[]).unwrap();
-        let mut locales: Vec<(String, Locale)> = vec![
-            ("empty".to_string(), empty),
+        let mut locales: Vec<(String, Arc<Locale>)> = vec![
+            ("empty".to_string(), Arc::new(empty)),
             ("legacy".to_string(), legacy_locale()),
         ];
         for tag in vendored_tags() {
@@ -588,7 +590,7 @@ mod served {
     use super::*;
     use crate::convert::locales::tag::LocaleTag;
 
-    fn served(tag: &str) -> Result<Locale, Refusal> {
+    fn served(tag: &str) -> Result<Arc<Locale>, Refusal> {
         reviewed_locale(&LocaleTag::parse(tag).unwrap())
     }
 

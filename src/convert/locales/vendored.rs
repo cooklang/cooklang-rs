@@ -3,6 +3,7 @@
 //! it may be served to a reader.
 
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, OnceLock};
 
 use super::locale::{Locale, PluralRules, UnitNames};
 use super::tag::{LocaleTag, RegionError};
@@ -33,9 +34,18 @@ pub(crate) struct GeneratedUnit {
 
 include!(concat!(env!("OUT_DIR"), "/cldr_locales.rs"));
 
-fn generated(tag: &str) -> Option<&'static GeneratedLocale> {
-    GENERATED_LOCALES.iter().find(|locale| locale.tag == tag)
+fn generated_index(tag: &str) -> Option<usize> {
+    GENERATED_LOCALES.iter().position(|locale| locale.tag == tag)
 }
+
+fn generated(tag: &str) -> Option<&'static GeneratedLocale> {
+    generated_index(tag).map(|i| &GENERATED_LOCALES[i])
+}
+
+/// Each vendored locale, built the first time it is asked for and shared
+/// from then on, parallel to `GENERATED_LOCALES`.
+static BUILT: LazyLock<Vec<OnceLock<Arc<Locale>>>> =
+    LazyLock::new(|| GENERATED_LOCALES.iter().map(|_| OnceLock::new()).collect());
 
 /// Every locale vendored from CLDR, by tag.
 pub(crate) fn vendored_tags() -> impl Iterator<Item = &'static str> {
@@ -54,8 +64,17 @@ pub(crate) fn cldr_version(tag: &str) -> Option<&'static str> {
 /// and is written by its identifier. Nothing is inherited from any other
 /// locale: inheriting legacy's English names would reinstate the strings
 /// adjudication rejected.
-pub(crate) fn vendored_locale(tag: &str) -> Option<Locale> {
-    let generated = generated(tag)?;
+pub(crate) fn vendored_locale(tag: &str) -> Option<Arc<Locale>> {
+    let i = generated_index(tag)?;
+    Some(
+        BUILT[i]
+            .get_or_init(|| Arc::new(build(&GENERATED_LOCALES[i])))
+            .clone(),
+    )
+}
+
+fn build(generated: &GeneratedLocale) -> Locale {
+    let tag = generated.tag;
     let names: HashMap<Unit, UnitNames> = generated
         .units
         .iter()
@@ -74,10 +93,8 @@ pub(crate) fn vendored_locale(tag: &str) -> Option<Locale> {
             (unit, names)
         })
         .collect();
-    Some(
-        Locale::with_plurals(names, generated.plural_rules)
-            .unwrap_or_else(|e| panic!("locale '{tag}' is invalid: {e}")),
-    )
+    Locale::with_plurals(names, generated.plural_rules)
+        .unwrap_or_else(|e| panic!("locale '{tag}' is invalid: {e}"))
 }
 
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
@@ -90,7 +107,7 @@ include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
 /// `en-NZ` to `en-001` rather than to US English — CLDR gives `en-NZ`,
 /// `en-AU` and the rest an explicit `en-001` parent, and `es-MX` an `es-419`
 /// one.
-pub(crate) fn for_tag(tag: &LocaleTag) -> Option<Locale> {
+pub(crate) fn for_tag(tag: &LocaleTag) -> Option<Arc<Locale>> {
     vendored_locale(tag_for(tag)?)
 }
 
@@ -136,7 +153,7 @@ pub(crate) fn names_reviewed(tag: &str) -> bool {
 /// # Panics
 ///
 /// If nothing vendored covers `tag`, or the locale it reaches is unreviewed.
-pub(crate) fn reviewed_for_tag(tag: &LocaleTag) -> Locale {
+pub(crate) fn reviewed_for_tag(tag: &LocaleTag) -> Arc<Locale> {
     match reviewed_locale(tag) {
         Ok(locale) => locale,
         Err(Refusal::Unknown(tag)) => panic!("no vendored locale covers '{tag}'"),
@@ -165,7 +182,7 @@ pub enum Refusal {
 /// [`reviewed_for_tag`] as a result, for a caller that reports rather than
 /// panics: the parser. The refusal names the locale reached, since that is
 /// the one needing review.
-pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Locale, Refusal> {
+pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
     let reached = tag_for(tag).ok_or_else(|| Refusal::Unknown(tag.language_identifier()))?;
     if !names_reviewed(reached) {
         return Err(Refusal::Unreviewed(reached.to_string()));

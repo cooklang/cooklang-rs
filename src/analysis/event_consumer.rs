@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::convert::locales::legacy::legacy_locale;
 use crate::convert::locales::vendored::Refusal;
@@ -103,7 +104,7 @@ fn collect<'i, 'c>(
     path: Option<RecipeReference>,
     extensions: Extensions,
     converter: Option<&'c LegacyConverter>,
-    locale: Option<Locale>,
+    locale: Option<Arc<Locale>>,
     parse_options: ParseOptions<'c>,
 ) -> AnalysisResult {
     debug_assert!(converter.is_some() || locale.is_some());
@@ -147,7 +148,7 @@ struct RecipeCollector<'i, 'c> {
     /// The recipe's own locale: the legacy locale on the new pipeline, and
     /// the reviewed one once a `locale` key has named it. Units are read
     /// through it rather than through `converter`.
-    locale: Option<Locale>,
+    locale: Option<Arc<Locale>>,
     /// Whether a `locale` key has been adopted.
     tagged: bool,
     parse_options: ParseOptions<'c>,

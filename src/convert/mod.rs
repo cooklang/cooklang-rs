@@ -20,6 +20,8 @@ pub(crate) mod units;
 #[cfg(test)]
 mod tests;
 
+use std::sync::Arc;
+
 use crate::model::Recipe;
 use crate::quantity::{Number, Quantity, Value};
 use locales::legacy::{legacy_locale, legacy_system};
@@ -78,7 +80,7 @@ enum Target {
 #[derive(Debug, Clone)]
 pub struct Converter {
     naming: Naming,
-    locale: Locale,
+    locale: Arc<Locale>,
     target: Target,
 }
 

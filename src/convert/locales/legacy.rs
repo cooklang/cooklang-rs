@@ -3,6 +3,7 @@
 //! exactly those units.
 
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 use super::locale::{Locale, UnitNames};
 use super::preference::System;
@@ -67,7 +68,14 @@ pub(crate) fn legacy_system(unit: Unit) -> System {
     }
 }
 
-pub(crate) fn legacy_locale() -> Locale {
+/// Built once: the locale is immutable, and every parse, scale and list of
+/// an untagged recipe reads it.
+pub(crate) fn legacy_locale() -> Arc<Locale> {
+    static LEGACY: LazyLock<Arc<Locale>> = LazyLock::new(|| Arc::new(build_legacy_locale()));
+    LEGACY.clone()
+}
+
+fn build_legacy_locale() -> Locale {
     let mut names = HashMap::new();
     let mut add = |id: &str, unit_names: UnitNames| {
         let unit = Unit::from_id(id).unwrap_or_else(|| panic!("no unit with id '{id}'"));
