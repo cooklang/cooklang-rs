@@ -429,6 +429,30 @@ mod locale_warnings {
         assert!(!tell(&warnings(&old, "@flour{1%g}\n")));
     }
 
+    /// What refuses a late `>> locale:` is a unit written above it, not a
+    /// component: an ingredient with no quantity has nothing to re-read.
+    #[test]
+    fn a_locale_line_is_refused_only_after_a_unit_or_a_time_key() {
+        let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let late = |m: &String| m.contains("after") && m.contains("locale");
+
+        let no_unit_yet = "Add @salt.\nUse #pan{1}.\nWait ~{5}.\n>> locale: sv-SE\nRör ner 2 msk socker.\n";
+        let result = new.parse(no_unit_yet);
+        let w: Vec<String> = result.report().warnings().map(|w| w.message.to_string()).collect();
+        assert!(!w.iter().any(late), "{w:?}");
+        assert_eq!(result.into_output().unwrap().inline_quantities.len(), 1);
+
+        for src in [
+            "Add @salt{1%tsp}.\n>> locale: sv-SE\n",
+            "Use #pan{1%large}.\n>> locale: sv-SE\n",
+            "Wait ~{5%min}.\n>> locale: sv-SE\n",
+            "Heat to 180°C.\n>> locale: sv-SE\n",
+            ">> prep time: 30 min\n>> locale: sv-SE\n",
+        ] {
+            assert!(warnings(&new, src).iter().any(late), "{src:?}");
+        }
+    }
+
     /// Front matter is one block, so the locale applies to every key in it
     /// whatever order they are written in.
     #[test]

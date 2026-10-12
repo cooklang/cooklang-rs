@@ -523,12 +523,9 @@ impl<'i> RecipeCollector<'i, '_> {
 
             if sp_key == StdKey::Locale {
                 // a locale only applies from where it is read, so one that
-                // comes after a quantity would leave that quantity read the
-                // old way; it is refused rather than pre-scanned (ADR 0009)
-                let quantities_read = !self.content.ingredients.is_empty()
-                    || !self.content.timers.is_empty()
-                    || !self.content.inline_quantities.is_empty();
-                if quantities_read {
+                // comes after a unit would leave that unit read the old way;
+                // it is refused rather than pre-scanned (ADR 0009)
+                if self.units_written() {
                     self.ctx.warn(
                         warning!(
                             "The `locale` comes after the first quantity, so it is not used: quantities above it have already been read",
@@ -561,6 +558,20 @@ impl<'i> RecipeCollector<'i, '_> {
         self.locale = Some(locale);
         self.tagged = true;
         Ok(())
+    }
+
+    /// Whether anything read through the locale has been written yet: a
+    /// quantity with a unit, an inline quantity, or a time key.
+    fn units_written(&self) -> bool {
+        let has_unit = |q: &Option<Quantity>| q.as_ref().is_some_and(|q| q.unit().is_some());
+        let content = &self.content;
+        content.ingredients.iter().any(|i| has_unit(&i.quantity))
+            || content.cookware.iter().any(|c| has_unit(&c.quantity))
+            || content.timers.iter().any(|t| has_unit(&t.quantity))
+            || !content.inline_quantities.is_empty()
+            || [StdKey::Time, StdKey::PrepTime, StdKey::CookTime]
+                .iter()
+                .any(|key| content.metadata.get(*key).is_some())
     }
 
     /// Where the units of a time value are read from: the recipe's locale,
