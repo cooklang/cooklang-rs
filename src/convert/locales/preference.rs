@@ -5,7 +5,7 @@
 //! States is US customary; everyone else, the United Kingdom included, is
 //! metric. How a locale *names* units is a separate matter (`en-GB` reads
 //! `pint` as the imperial pint); this module only decides what a converted
-//! value is written in. See `docs/adr/0005-preferences-by-official-system.md`.
+//! value is written in. See `docs/adr/locale-aware-units.md` (decision 5).
 //!
 //! The schema is CLDR's — rows ordered largest first, each with a threshold
 //! the value must reach — but the rows are ours. CLDR has no cooking usage,

@@ -4,7 +4,7 @@
 //! A locale names only the units it has a safe name for. A unit it does not
 //! name is written as its identifier with spaces (`imperial pint`), and that
 //! spaced form resolves in every locale, so what is written can always be
-//! read back. See `docs/adr/0004-partial-locales.md`.
+//! read back. See `docs/adr/locale-aware-units.md` (decision 4).
 
 use std::collections::HashMap;
 

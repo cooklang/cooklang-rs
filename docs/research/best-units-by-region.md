@@ -1,7 +1,7 @@
 # Best units by region: what home-cooking recipes actually write amounts in
 
 Researched 2026-10-04 as the evidence base for region rows in `convert::preference`
-(`src/convert/locales/preference.rs`; see `docs/adr/0005-preferences-by-official-system.md`). Today
+(`src/convert/locales/preference.rs`; see `docs/adr/locale-aware-units.md` (decision 5)). Today
 the `PREFERENCES` table is keyed by system only: Metric (`liter → milliliter`, `kilogram → gram →
 milligram`, `meter → centimeter → millimeter`, `celsius`), US customary and Imperial. A region falls
 back to its official system; only `US` is US customary. No region has rows of its own.

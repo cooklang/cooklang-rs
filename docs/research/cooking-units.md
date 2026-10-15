@@ -1,7 +1,7 @@
 # Cooking and recipe measurement units worldwide
 
 Researched 2026-10-02 for the `convert_v2` closed unit set (see
-`docs/adr/0001-units-v2-closed-unit-set.md` and `CONTEXT.md`).
+`docs/adr/locale-aware-units.md` (decision 1) and `CONTEXT.md`).
 
 **Scope.** This file lists units of volume, mass and temperature that appear in cooking, recipes and
 food markets. It covers length only where recipes use it (pan and tin sizes). It also lists informal

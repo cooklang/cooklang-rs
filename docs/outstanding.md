@@ -5,14 +5,14 @@ says what it is, why it is parked, and what finishing it would take.
 
 This file does not duplicate:
 
-- [`adr/0001-units-v2-closed-unit-set.md`](./adr/0001-units-v2-closed-unit-set.md) — the roadmap for
+- [`locale-aware-units.md`, decision 1](./adr/locale-aware-units.md#1-unit-conversion-uses-a-closed-set-of-units-defined-in-rust) — the roadmap for
   moving the converter onto `convert_v2` (naming, systems, best units, fractions, loading).
 - [`research/cooking-units.md`](./research/cooking-units.md) — the survey of units worldwide, with
   the recipe-scale cutoff.
 - [`research/measurement-precision.md`](./research/measurement-precision.md) — what rounding error
   cooking tolerates, and the prior art for marking a quantity exempt from rounding (ADR 0001
   items 4 and 5).
-- [`adr/0006-locales-are-seeded-not-vendored.md`](./adr/0006-locales-are-seeded-not-vendored.md) —
+- [`locale-aware-units.md`, decision 6](./adr/locale-aware-units.md#6-locales-are-seeded-from-cldr-once-not-vendored) —
   why a locale is one hand-editable file rather than vendored CLDR plus four overlays, and what
   that costs.
 
@@ -71,7 +71,7 @@ Facts worth not rediscovering:
 ## Facts about CLDR worth not rediscovering
 
 Collected while seeding locale names from CLDR. The mechanism is in
-[ADR 0006](./adr/0006-locales-are-seeded-not-vendored.md) and in `locales/<tag>.toml`; these are
+[ADR 0006](./adr/locale-aware-units.md#6-locales-are-seeded-from-cldr-once-not-vendored) and in `locales/<tag>.toml`; these are
 the things that would otherwise be rediscovered the hard way. CLDR's JSON is no longer in the
 repository, so re-checking any of these means re-fetching with `xtask/new-locale.sh`.
 
@@ -236,7 +236,7 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
 ## Closed by the seeding conversion (2026-10-06)
 
 Kept briefly so that anyone holding the old mental model can see what happened; delete once the
-dust settles. [ADR 0006](./adr/0006-locales-are-seeded-not-vendored.md) is the decision.
+dust settles. [ADR 0006](./adr/locale-aware-units.md#6-locales-are-seeded-from-cldr-once-not-vendored) is the decision.
 
 - The four overlay layers, the 331-line merge in `build.rs`, the `needs_verdict` /
   `accept` / `reject` / `accept_all` / `Unadjudicated` vocabulary and the ten tests policing the
@@ -287,7 +287,7 @@ dust settles. [ADR 0006](./adr/0006-locales-are-seeded-not-vendored.md) is the d
   reach the display layer.
 
 - **How the `legacy` locale is addressed.** Decided in
-  [ADR 0009](./adr/0009-the-old-converter-is-replaced-in-one-step.md): a distinct naming, not a
+  [ADR 0009](./adr/locale-aware-units.md#9-the-old-converter-is-replaced-in-one-step): a distinct naming, not a
   tag; untagged recipes read through it and get a parse warning. The ADR also settles the rest of
   the converter swap.
 

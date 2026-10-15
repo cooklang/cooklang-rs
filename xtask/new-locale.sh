@@ -5,7 +5,7 @@
 # with the unambiguous names accepted and the regionally variable ones left
 # pending a verdict. The fetched JSON is a temporary file and is never
 # committed: cooklang does not vendor CLDR, it seeds from it once per locale
-# and hand-edits from then on. See docs/adr/0006.
+# and hand-edits from then on. See docs/adr/locale-aware-units.md (decision 6).
 #
 # The locale is refused at runtime until someone who speaks the language
 # confirms it and adds a `reviewed` key.
