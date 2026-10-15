@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::Arc;
 
-use crate::convert::locales::legacy::legacy_locale;
+use crate::convert::locales::locale::Locale;
+use crate::convert::locales::tag::LocaleTag;
 use crate::convert::locales::vendored::Refusal;
-use crate::convert::locales::{locale::Locale, tag::LocaleTag, vendored::reviewed_locale};
+use crate::convert::Converter;
 use crate::convert_legacy::{LegacyConverter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
 use crate::located::Located;
@@ -65,8 +65,7 @@ pub fn parse_events_legacy<'i, 'c>(
         input,
         path,
         extensions,
-        Some(converter),
-        None,
+        Units::Legacy(converter),
         parse_options,
     )
 }
@@ -88,8 +87,7 @@ pub fn parse_events<'i>(
         input,
         path,
         extensions,
-        None,
-        Some(legacy_locale()),
+        Units::Locale(Converter::legacy()),
         parse_options,
     )
 }
@@ -98,21 +96,66 @@ pub fn parse_events<'i>(
 pub const UNTAGGED_WARNING: &str =
     "This recipe has no `locale`, so its units are read as the legacy locale names them";
 
+/// How a collector reads the units it meets. The old converter goes, and
+/// this enum with it (ADR 0009).
+enum Units<'c> {
+    /// The converter the recipe's own naming calls for: the legacy locale
+    /// until a `locale` key names another.
+    Locale(Converter),
+    /// The old converter, which reads unit text on demand.
+    Legacy(&'c LegacyConverter),
+}
+
+impl Units<'_> {
+    /// The locale a quantity's unit is read through as it is built, or
+    /// `None` on the old pipeline, which reads it when it needs it.
+    fn locale(&self) -> Option<&Locale> {
+        match self {
+            Units::Locale(converter) => Some(converter.locale()),
+            Units::Legacy(_) => None,
+        }
+    }
+
+    /// Where the units of a time value are read from.
+    fn time_units(&self) -> TimeUnits<'_> {
+        match self {
+            Units::Locale(converter) => TimeUnits::Locale(converter.locale()),
+            Units::Legacy(converter) => TimeUnits::Legacy(converter),
+        }
+    }
+
+    /// What `unit` measures, if it can be read here.
+    fn measures(&self, unit: &str) -> Option<PhysicalQuantity> {
+        match self {
+            Units::Locale(converter) => converter
+                .resolve_text(unit)
+                .map(|u| u.physical_quantity().into()),
+            Units::Legacy(converter) => converter.find_unit(unit).map(|u| u.physical_quantity),
+        }
+    }
+
+    /// Whether two quantities can be added: on the new pipeline their units
+    /// were read when they were built (ADR 0010); the old one reads them now.
+    fn compatible(&self, a: &Quantity, b: &Quantity) -> Result<(), IncompatibleUnits> {
+        match self {
+            Units::Locale(_) => a.compatible_unit(b).map(|_| ()),
+            Units::Legacy(converter) => a.compatible_unit_legacy(b, converter).map(|_| ()),
+        }
+    }
+}
+
 fn collect<'i, 'c>(
     events: impl Iterator<Item = Event<'i>>,
     input: &'i str,
     path: Option<RecipeReference>,
     extensions: Extensions,
-    converter: Option<&'c LegacyConverter>,
-    locale: Option<Arc<Locale>>,
+    units: Units<'c>,
     parse_options: ParseOptions<'c>,
 ) -> AnalysisResult {
-    debug_assert!(converter.is_some() || locale.is_some());
     let col = RecipeCollector {
         input,
         extensions,
-        converter,
-        locale,
+        units,
         tagged: false,
         parse_options,
 
@@ -142,13 +185,9 @@ fn collect<'i, 'c>(
 struct RecipeCollector<'i, 'c> {
     input: &'i str,
     extensions: Extensions,
-    /// The old converter, which reads the units of a recipe that has no
-    /// locale. `None` on the new pipeline, where `locale` is always set.
-    converter: Option<&'c LegacyConverter>,
-    /// The recipe's own locale: the legacy locale on the new pipeline, and
-    /// the reviewed one once a `locale` key has named it. Units are read
-    /// through it rather than through `converter`.
-    locale: Option<Arc<Locale>>,
+    /// How units are read: through the recipe's own locale, or through the
+    /// old converter.
+    units: Units<'c>,
     /// Whether a `locale` key has been adopted.
     tagged: bool,
     parse_options: ParseOptions<'c>,
@@ -283,7 +322,7 @@ impl<'i> RecipeCollector<'i, '_> {
 
         // on the new pipeline an untagged recipe reads the legacy locale,
         // which is frozen; the nudge is what moves recipes off it (ADR 0009)
-        if self.converter.is_none() && !self.tagged {
+        if matches!(self.units, Units::Locale(_)) && !self.tagged {
             self.ctx.warn(
                 warning!(UNTAGGED_WARNING)
                     .hint("Add `locale: <tag>` to the front matter, such as `locale: en-US` or `locale: sv-SE`, so its units are read and written for those readers"),
@@ -356,7 +395,7 @@ impl<'i> RecipeCollector<'i, '_> {
                         }
                     }
                 };
-                match check_std_entry(sk, value, self.time_units()) {
+                match check_std_entry(sk, value, self.units.time_units()) {
                     Err(err) => {
                         let mut diag = warning!(format!(
                             "Unsupported value for key: '{}'",
@@ -501,7 +540,7 @@ impl<'i> RecipeCollector<'i, '_> {
             let check_result = crate::metadata::check_std_entry(
                 sp_key,
                 self.content.metadata.map.get(key_t.as_ref()).unwrap(),
-                self.time_units(),
+                self.units.time_units(),
             );
 
             if let Err(err) = check_result {
@@ -552,11 +591,10 @@ impl<'i> RecipeCollector<'i, '_> {
     /// that locale cannot be served. `tag` has passed [`check_std_entry`].
     fn adopt_locale(&mut self, tag: &str) -> Result<(), Refusal> {
         let tag = LocaleTag::parse(tag).expect("checked as a standard key");
-        let locale = reviewed_locale(&tag)?;
-        // scaling fits units for the tag's audience, so a tag without one is
-        // refused here rather than guessed at then (ADR 0009)
-        tag.audience()?;
-        self.locale = Some(locale);
+        // the same refusals the recipe will meet when it is scaled or
+        // listed: an unreviewed locale, and a tag that determines no
+        // audience to fit units for (ADR 0009)
+        self.units = Units::Locale(Converter::for_tag(&tag)?);
         self.tagged = true;
         Ok(())
     }
@@ -573,41 +611,6 @@ impl<'i> RecipeCollector<'i, '_> {
             || [StdKey::Time, StdKey::PrepTime, StdKey::CookTime]
                 .iter()
                 .any(|key| content.metadata.get(*key).is_some())
-    }
-
-    /// Where the units of a time value are read from: the recipe's locale,
-    /// else the old converter.
-    fn time_units(&self) -> TimeUnits<'_> {
-        match (&self.locale, self.converter) {
-            (Some(locale), _) => TimeUnits::Locale(locale),
-            (None, Some(converter)) => TimeUnits::Legacy(converter),
-            (None, None) => unreachable!("a collector has a locale or the old converter"),
-        }
-    }
-
-    /// Whether `unit` is a unit this recipe can read: the locale's, once it
-    /// has one, else the converter's.
-    fn knows_unit(&self, unit: &str) -> bool {
-        self.unit_quantity(unit).is_some()
-    }
-
-    /// What `unit` measures, if this recipe can read it.
-    fn unit_quantity(&self, unit: &str) -> Option<PhysicalQuantity> {
-        match (&self.locale, self.converter) {
-            (Some(locale), _) => locale.resolve(unit).map(|u| u.physical_quantity().into()),
-            (None, Some(converter)) => converter.find_unit(unit).map(|u| u.physical_quantity),
-            (None, None) => unreachable!("a collector has a locale or the old converter"),
-        }
-    }
-
-    /// Whether two quantities can be added: on the new pipeline their units
-    /// were read when they were built (ADR 0010); the old one reads them now.
-    fn compatible_units(&self, a: &Quantity, b: &Quantity) -> Result<(), IncompatibleUnits> {
-        match (&self.locale, self.converter) {
-            (Some(_), _) => a.compatible_unit(b).map(|_| ()),
-            (None, Some(converter)) => a.compatible_unit_legacy(b, converter).map(|_| ()),
-            (None, None) => unreachable!("a collector has a locale or the old converter"),
-        }
     }
 
     fn time_override_check(&mut self, new: StdKey) {
@@ -676,7 +679,7 @@ impl<'i> RecipeCollector<'i, '_> {
                 if self.extensions.contains(Extensions::INLINE_QUANTITIES) {
                     let mut haystack = t.as_ref();
                     while let Some((before, temperature, after)) =
-                        find_inline_quantity(haystack, |unit| self.knows_unit(unit))
+                        find_inline_quantity(haystack, |unit| self.units.measures(unit).is_some())
                     {
                         if !before.is_empty() {
                             items.push(Item::Text {
@@ -687,7 +690,7 @@ impl<'i> RecipeCollector<'i, '_> {
                         items.push(Item::InlineQuantity {
                             index: self.content.inline_quantities.len(),
                         });
-                        let temperature = match &self.locale {
+                        let temperature = match self.units.locale() {
                             Some(locale) => temperature.resolved(locale),
                             None => temperature,
                         };
@@ -810,7 +813,7 @@ impl<'i> RecipeCollector<'i, '_> {
                                 .map(|q| (index, q))
                         });
                     for (index, q) in all_quantities {
-                        if let Err(e) = self.compatible_units(q, new_quantity) {
+                        if let Err(e) = self.units.compatible(q, new_quantity) {
                             let old_q_loc =
                                 self.locations.ingredients[index].quantity.as_ref().unwrap();
                             let old = old_q_loc
@@ -1175,7 +1178,7 @@ impl<'i> RecipeCollector<'i, '_> {
                 }
                 if let Some(unit_text) = quantity.unit() {
                     let unit_span = located_quantity.unit.as_ref().unwrap().span();
-                    match self.unit_quantity(unit_text) {
+                    match self.units.measures(unit_text) {
                         Some(measures) => {
                             if measures != PhysicalQuantity::Time {
                                 self.ctx.error(error!(
@@ -1214,7 +1217,7 @@ impl<'i> RecipeCollector<'i, '_> {
         // pipeline has no locale and reads the text when it needs it
         let unit = unit.map(|t| {
             let text = t.text_trimmed().into_owned();
-            match &self.locale {
+            match self.units.locale() {
                 Some(locale) => WrittenUnit::read(text, locale),
                 None => WrittenUnit::unresolved(text),
             }
