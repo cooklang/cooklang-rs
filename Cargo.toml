@@ -35,7 +35,7 @@ wasm-bindgen = { version = "0.2", optional = true }
 [dev-dependencies]
 toml = "0.8"
 serde_json = "1"
-criterion = "0.5"
+criterion = "0.8"
 test-case = "3.2.1"
 indoc = "2.0.3"
 
