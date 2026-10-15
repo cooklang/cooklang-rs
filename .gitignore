@@ -12,3 +12,6 @@ dist
 # TypeScript compiled output
 typescript/index.js
 typescript/index.d.ts
+
+# wasm-pack output (its own pkg/.gitignore is removed by fix-wasm-start.cjs)
+typescript/pkg/
