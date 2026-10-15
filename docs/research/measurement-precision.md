@@ -1,6 +1,6 @@
 # Measurement precision in cooking, and marking a quantity exact
 
-Researched 2026-10-05 for ADR 0001 follow-up items 4 (fraction display) and 5 (equality tolerance).
+Researched 2026-10-05 for ADR 1 follow-up items 4 (fraction display) and 5 (equality tolerance).
 Written to answer two questions:
 
 1. What rounding error may `convert_v2` introduce when it converts, scales or picks a display
@@ -238,7 +238,7 @@ Three things to carry into the design:
 
 - **The spread is 5×10⁷.** `1 cup` equals anything within **5%** of a cup, while `250 ml` equals
   only what is within 1e-9. Two ways of writing the same volume get wildly different equality. This
-  is ADR 0001 item 5 made concrete.
+  is ADR 1 item 5 made concrete.
 - **The ragged values are an `f32` artefact.** `FractionsConfig::accuracy` is `f32`
   (`src/convert_legacy/units_file.rs:147`), so 0.01 widens to 0.009999999776482582 and 0.05 to
   0.05000000074505806. Whatever replaces this should hold the tolerance as `f64`.
@@ -347,7 +347,7 @@ The brief suggests 1e-8 "because float math is wonky". For the record on what th
 
 - `CONVERSION_EPSILON` is already **1e-9** (`src/convert_legacy/mod.rs:223`) and is what metric units get
   today (§6).
-- ADR 0001 records that `convert_v2` uses the legal definitions rather than `units.toml`'s rounded
+- ADR 1 records that `convert_v2` uses the legal definitions rather than `units.toml`'s rounded
   ratios, "largest difference about 1.2e-7 relative, for the teaspoon". So the *converter's own*
   disagreement with the legacy one is **~1.2e-7**, two orders of magnitude above 1e-9 and one
   order above 1e-8. Any floor below that will make the two converters disagree about equality.
@@ -367,7 +367,7 @@ which is a behaviour worth pinning in a test either way.
 Separately, and regardless of the marker: §7's second lesson is that **the stored value should never
 be rounded**; rounding belongs to display [26]. If that holds, the exactness marker only has to
 reach the display layer, and the equality tolerance (item 5) stops depending on display
-configuration — which is the whole point of ADR 0001 item 5.
+configuration — which is the whole point of ADR 1 item 5.
 
 ## 10. Open questions for the owner
 

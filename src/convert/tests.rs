@@ -328,7 +328,7 @@ mod parsed {
     }
 
     /// Fitting units after scaling needs an audience, so a tag that gives
-    /// none is refused up front rather than guessed at later (ADR 0009).
+    /// none is refused up front rather than guessed at later (ADR 7).
     #[test]
     fn a_tag_must_determine_an_audience() {
         let sv = errors(">> locale: sv\n@mjöl{1%dl}\n");
@@ -380,9 +380,9 @@ mod parsed {
         );
 
         // for an American: US rows, still the recipe's own names; the US
-        // units sv declines to name are written by identifier (ADR 0004).
+        // units sv declines to name are written by identifier (ADR 4).
         // 2 msk is 30 ml, a fluid ounce: the row above the tablespoon
-        // (ADR 0005), where bundled would have written 2 tbsp
+        // (ADR 5), where bundled would have written 2 tbsp
         let mut american = recipe.clone();
         let errors = american.convert_for(Audience::region(region!("US")));
         assert!(errors.is_empty(), "{errors:?}");
@@ -406,7 +406,7 @@ mod parsed {
     }
 }
 
-/// What the parser says about `locale` itself (ADR 0009).
+/// What the parser says about `locale` itself (ADR 7).
 mod locale_warnings {
     use crate::{CooklangParser, Extensions, LegacyConverter};
 
@@ -520,7 +520,7 @@ mod locale_warnings {
     }
 }
 
-/// A recipe's naming, and the converter the parser holds (ADR 0009).
+/// A recipe's naming, which the parser never chooses (ADR 7).
 mod naming {
     use crate::convert::{LocaleTag, Naming};
     use crate::{Converter, CooklangParser, Extensions};
@@ -640,7 +640,7 @@ mod own_naming {
         assert!(msk.read_with(&sv).equals(&ml.read_with(&sv)));
     }
 
-    /// ADR 0010: the parser records what each unit names, so nothing after
+    /// ADR 8: the parser records what each unit names, so nothing after
     /// it needs the locale again.
     #[test]
     fn the_parser_records_what_each_unit_names() {
@@ -702,7 +702,7 @@ mod own_naming {
 }
 
 /// A list built from recipes in several locales adds what it recognises in
-/// one unit (ADR 0009, "Aggregation converts into the target first").
+/// one unit (ADR 7, "Aggregation converts into the target first").
 mod lists {
     use crate::convert::LocaleTag;
     use crate::ingredient_list::IngredientList;

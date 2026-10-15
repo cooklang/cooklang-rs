@@ -119,7 +119,7 @@ stated by any source (`research/best-units-by-region.md` §7.1).
 
 What an untagged recipe is fitted with: `units.toml`'s `best` lists and
 fraction config, frozen, for the system the quantity was written in
-(ADR 0009). Bundled's "imperial" is US customary.
+(ADR 7). Bundled's "imperial" is US customary.
 
 | System | Quantity | Order |
 |---|---|---|

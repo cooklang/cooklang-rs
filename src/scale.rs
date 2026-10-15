@@ -143,7 +143,7 @@ impl Recipe {
     }
 
     /// [`scale_to_servings_legacy`](Self::scale_to_servings_legacy) through the new
-    /// converter, which is what stays (ADR 0009).
+    /// converter, which is what stays (ADR 9).
     pub fn scale_to_servings(&mut self, target: f64) -> Result<(), ScaleError> {
         let factor = self.servings_factor(target)?;
         self.scale(factor);
@@ -188,7 +188,7 @@ impl Recipe {
         }
     }
 
-    /// [`scale_to_target_legacy`](Self::scale_to_target_legacy) through the new converter, which is what stays (ADR 0009).
+    /// [`scale_to_target_legacy`](Self::scale_to_target_legacy) through the new converter, which is what stays (ADR 9).
     pub fn scale_to_target(
         &mut self,
         target_value: f64,
@@ -287,7 +287,7 @@ impl Recipe {
         Ok(())
     }
 
-    /// [`scale_to_yield_legacy`](Self::scale_to_yield_legacy) through the new converter, which is what stays (ADR 0009).
+    /// [`scale_to_yield_legacy`](Self::scale_to_yield_legacy) through the new converter, which is what stays (ADR 9).
     pub fn scale_to_yield(
         &mut self,
         target_value: f64,

@@ -161,26 +161,26 @@ long = { one = "{0} grado Fahrenheit", other = "{0} grados Fahrenheit" }
 # above, so this is the record of why, not a mechanism.
 #
 #   us fluid ounce -- onza líquida, onzas líquidas, fl oz
-#     Unmarked US name (ADR 0003): CLDR marks only `onza líquida imperial`;
+#     Unmarked US name (ADR 3): CLDR marks only `onza líquida imperial`;
 #     29.57 against 28.41 ml.
 #   us cup -- tza, taza, tazas
 #     A Spanish taza is the 250 ml breakfast cup and a Mexican one 240 ml
 #     (lines 507, 610, 619); neither is the 236.588 ml US cup, and language-
 #     level `es` cannot pick between the two metric readings either.
 #   us pint -- pinta, pintas, p
-#     Unmarked US name outside a US customary locale (ADR 0003): CLDR marks
+#     Unmarked US name outside a US customary locale (ADR 3): CLDR marks
 #     only the imperial pint, and the two differ by 20%. Refused; the US pint
 #     is written and read by its identifier.
 #   us quart -- cuarto, cuartos, qt
 #     `cuarto` is one string for two volumes a factor of four apart — the US
 #     quart and the quarter-litre or quarter-kilo of Spanish recipes — and
-#     `qt` is the same symbol for the US and imperial quart (ADR 0003). es-US,
+#     `qt` is the same symbol for the US and imperial quart (ADR 3). es-US,
 #     where US quarts are real, accepts them.
 #   us gallon -- galón, galones, gal
-#     Unmarked US name (ADR 0003): CLDR marks only `galón imperial`; 3.785
+#     Unmarked US name (ADR 3): CLDR marks only `galón imperial`; 3.785
 #     against 4.546 l.
 #   imperial fluid ounce -- fl oz imp., onza líquida imperial, onzas líquidas imperiales
-#     A unit no Spanish kitchen uses (ADR 0003); written by identifier. es-US
+#     A unit no Spanish kitchen uses (ADR 3); written by identifier. es-US
 #     keeps these names.
 #   imperial pint -- pt Imp., pint Imp.
 #     CLDR has no Spanish name for the imperial pint; these are root's English

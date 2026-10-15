@@ -81,8 +81,8 @@ impl Unit {
     /// Unique across all units.
     ///
     /// Recipe-facing: it resolves as input in every locale and is what a
-    /// conversion writes when a locale has no symbol for the unit (ADR 0004,
-    /// ADR 0007).
+    /// conversion writes when a locale has no symbol for the unit (ADR 4,
+    /// ADR 2).
     pub fn id(self) -> &'static str {
         match self {
             Unit::Volume(u) => u.id(),

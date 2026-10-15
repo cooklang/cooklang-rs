@@ -3,7 +3,7 @@
 //!
 //! The rules are CLDR's own, now carried in each `locales/<tag>.toml`. Evaluated
 //! here rather than taken from a plural-rules crate: they are part of how a
-//! unit is *written*, the same footing as the names (ADR 0003), and a CLDR
+//! unit is *written*, the same footing as the names (ADR 3), and a CLDR
 //! bump then refreshes rules and forms together. The syntax is small —
 //! operands `n i v w f t` (and `e`, always 0 here), `=` and `!=` against
 //! values and `a..b` ranges, `%`, `and`, `or`. The tests use CLDR's own

@@ -3,9 +3,9 @@
 //! Every recipe in the corpus is parsed through both pipelines and the results
 //! must be equal as written, warnings and errors included. The one difference
 //! allowed is the warning the new pipeline adds to an untagged recipe. A
-//! divergence is either ported or recorded in ADR 0009; there is no tolerance.
+//! divergence is either ported or recorded in ADR 9; there is no tolerance.
 //!
-//! This test is deleted together with the old converter (ADR 0009).
+//! This test is deleted together with the old converter (ADR 9).
 
 use cooklang::ingredient_list::IngredientList;
 use cooklang::{
@@ -227,7 +227,7 @@ fn parsing_matches_the_old_converter() {
 
 /// Renderings the new pipeline writes differently on purpose, as `(old, new)`,
 /// all on the US side of the legacy locale, where the old converter fitted
-/// a fraction before it applied its thresholds (ADR 0008, ADR 0009). Every
+/// a fraction before it applied its thresholds (ADR 6, ADR 9). Every
 /// pair here must still occur, so the list cannot outlive what it explains.
 const KNOWN_FIT_DIVERGENCES: &[(&str, &str)] = &[
     // The old converter searched every best unit for the smallest fraction

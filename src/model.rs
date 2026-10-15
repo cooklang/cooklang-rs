@@ -336,7 +336,7 @@ impl Ingredient {
         self.modifiers
     }
 
-    /// [`group_quantities`](Self::group_quantities) through the old converter; goes with it (ADR 0009).
+    /// [`group_quantities`](Self::group_quantities) through the old converter; goes with it (ADR 9).
     pub fn group_quantities_legacy(
         &self,
         all_ingredients: &[Self],
@@ -491,7 +491,7 @@ impl Cookware {
         g
     }
 
-    /// [`group_quantities_legacy`](Self::group_quantities_legacy) through the new converter, which is what stays (ADR 0009).
+    /// [`group_quantities_legacy`](Self::group_quantities_legacy) through the new converter, which is what stays (ADR 9).
     pub fn group_quantities(
         &self,
         all_cookware: &[Self],

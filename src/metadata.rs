@@ -552,7 +552,7 @@ pub trait CooklangValueExt: private::Sealed {
     /// - `1h 30min` 90 minutes
     fn as_minutes_legacy(&self, converter: &LegacyConverter) -> Option<u32>;
 
-    /// [`as_minutes_legacy`](Self::as_minutes_legacy) through the new converter, which is what stays (ADR 0009).
+    /// [`as_minutes_legacy`](Self::as_minutes_legacy) through the new converter, which is what stays (ADR 9).
     fn as_minutes(&self, converter: &Converter) -> Option<u32>;
 
     /// Get a [`RecipeTime`]
@@ -562,7 +562,7 @@ pub trait CooklangValueExt: private::Sealed {
     /// and `cook_time` where each of them is a number or string.
     fn as_time_legacy(&self, converter: &LegacyConverter) -> Option<RecipeTime>;
 
-    /// [`as_time_legacy`](Self::as_time_legacy) through the new converter, which is what stays (ADR 0009).
+    /// [`as_time_legacy`](Self::as_time_legacy) through the new converter, which is what stays (ADR 9).
     fn as_time(&self, converter: &Converter) -> Option<RecipeTime>;
 
     /// Like [`serde_yaml::Value::as_u64`] but ensuring the value fits in a u32
@@ -1021,7 +1021,7 @@ pub enum RecipeTime {
 
 /// Returns minutes
 /// Where the units of a time value are read from: the old converter, or a
-/// locale of the new one. Goes with the old converter (ADR 0009).
+/// locale of the new one. Goes with the old converter (ADR 9).
 #[derive(Clone, Copy)]
 pub(crate) enum TimeUnits<'a> {
     Legacy(&'a LegacyConverter),

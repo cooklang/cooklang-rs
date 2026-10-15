@@ -8,7 +8,7 @@
 //! locale we already have: those files carry hand-written comments and
 //! ordering, and a canonical re-render would flatten them. Once
 //! `locales/<tag>.toml` exists it is edited by hand, which is the point of
-//! ADR 0006.
+//! ADR 3.
 
 mod seed;
 

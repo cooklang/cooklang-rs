@@ -134,26 +134,26 @@ long = { one = "{0} grad Fahrenheit", other = "{0} grader Fahrenheit" }
 # above, so this is the record of why, not a mechanism.
 #
 #   us fluid ounce -- fluid ounce, fluid ounces, flytande uns, fl oz
-#     Unmarked US name (ADR 0003): CLDR marks only `Imp. fluid ounces`.
+#     Unmarked US name (ADR 3): CLDR marks only `Imp. fluid ounces`.
 #   us cup -- kopp, koppar
 #     A Swedish kopp is a coffee cup of 150 ml (line 558), and recipes measure
 #     in dl; it is not the 236.588 ml US cup.
 #   us pint -- pint, pt
-#     Unmarked US name (ADR 0003): CLDR marks only `pt Imp.`; 473 against 568
+#     Unmarked US name (ADR 3): CLDR marks only `pt Imp.`; 473 against 568
 #     ml.
 #   us quart -- quart
-#     Unmarked US name (ADR 0003): Swedish marks the imperial one `brittiska
+#     Unmarked US name (ADR 3): Swedish marks the imperial one `brittiska
 #     quarts` and leaves this bare, so the bare word is the generic quart, 20%
 #     ambiguous.
 #   us gallon -- gallon, gal
-#     Unmarked US name (ADR 0003): CLDR marks only `br. gallon`; 3.785 against
+#     Unmarked US name (ADR 3): CLDR marks only `br. gallon`; 3.785 against
 #     4.546 l.
 #   imperial fluid ounce -- Imp. fluid ounce, Imp. fluid ounces, fl oz Imp.
-#     English, not Swedish, and a unit no Swedish kitchen uses (ADR 0003).
+#     English, not Swedish, and a unit no Swedish kitchen uses (ADR 3).
 #   imperial pint -- pt Imp., pint Imp.
 #     Root's English strings, not a Swedish name.
 #   imperial quart -- br. qt, br. quart, brittisk quart, brittiska quarts
-#     A unit no Swedish kitchen uses (ADR 0003); written by identifier.
+#     A unit no Swedish kitchen uses (ADR 3); written by identifier.
 #   imperial gallon -- Br. gallon, br. gal, br. gallon
 #     As the quart.
 #   metric dessert spoon -- dessertsked, dessertskedar, dsk

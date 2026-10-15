@@ -171,18 +171,18 @@ long = { one = "{0} grad fahrenheit", other = "{0} grader fahrenheit" }
 #     used. CLDR's symbol was also the plural `m. kopper`, which could never
 #     be an invariant symbol.
 #   us fluid ounce -- væskeunse, væskeunser, fl oz
-#     Unmarked US name (ADR 0003): CLDR marks only `britiske væskeunser`.
+#     Unmarked US name (ADR 3): CLDR marks only `britiske væskeunser`.
 #   us cup -- kopp, kopper, k
 #     A Norwegian kaffekopp is 150 ml and a tekopp 250 ml (line 565); neither
 #     is the US cup, and the bare word cannot pick between them.
 #   us pint -- pint, pt
-#     Unmarked US name (ADR 0003): CLDR marks only `pt Imp.`.
+#     Unmarked US name (ADR 3): CLDR marks only `pt Imp.`.
 #   us quart -- quart, qt
-#     Unmarked US name (ADR 0003): CLDR marks only `britiske quart`.
+#     Unmarked US name (ADR 3): CLDR marks only `britiske quart`.
 #   us gallon -- gallon, gal
-#     Unmarked US name (ADR 0003): CLDR marks only `britiske gallon`.
+#     Unmarked US name (ADR 3): CLDR marks only `britiske gallon`.
 #   imperial fluid ounce -- britisk væskeunse, britiske væskeunser, imp. fl oz
-#     A unit no Norwegian kitchen uses (ADR 0003); written by identifier.
+#     A unit no Norwegian kitchen uses (ADR 3); written by identifier.
 #   imperial pint -- pt Imp., pint Imp.
 #     Root's English strings, not a Norwegian name.
 #   imperial quart -- britisk quart, britiske quart, imp. quart

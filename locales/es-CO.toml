@@ -163,17 +163,17 @@ long = { one = "{0} grado Fahrenheit", other = "{0} grados Fahrenheit" }
 # above, so this is the record of why, not a mechanism.
 #
 #   us fluid ounce -- onza fluida, onzas fluidas, fl oz
-#     As es: unmarked US name (ADR 0003).
+#     As es: unmarked US name (ADR 3).
 #   us cup -- taza, tazas, tza.
 #     Resolución 810 permits a 200 or 240 ml cup and Nestlé Colombia exhibits
 #     250 (research/best-units-by-region.md §7.2): three readings, so the word
 #     is refused until one is established.
 #   us pint -- pinta, pintas, pt
-#     As es: unmarked US name (ADR 0003).
+#     As es: unmarked US name (ADR 3).
 #   us quart -- cuarto, cuartos, qt
 #     As es: a cuarto is a quarter of a litre or kilo, and `qt` is unmarked.
 #   us gallon -- galón, galones, gal
-#     As es: unmarked US name (ADR 0003).
+#     As es: unmarked US name (ADR 3).
 #   imperial fluid ounce -- fl oz imp., onza líquida imperial, onzas líquidas imperiales
 #     As es.
 #   imperial pint -- pt Imp., pint Imp.

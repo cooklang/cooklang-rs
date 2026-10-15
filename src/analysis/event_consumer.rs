@@ -73,7 +73,7 @@ pub fn parse_events_legacy<'i, 'c>(
 /// Builds a recipe from the events: an untagged recipe reads its units
 /// through the legacy locale, a tagged one through its own.
 /// [`parse_events_legacy`] is the same through the old converter and goes
-/// with it (ADR 0009).
+/// with it (ADR 9).
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
 pub fn parse_events<'i>(
     events: impl Iterator<Item = Event<'i>>,
@@ -92,12 +92,12 @@ pub fn parse_events<'i>(
     )
 }
 
-/// The warning an untagged recipe gets on the new pipeline (ADR 0009).
+/// The warning an untagged recipe gets on the new pipeline (ADR 7).
 pub const UNTAGGED_WARNING: &str =
     "This recipe has no `locale`, so its units are read as the legacy locale names them";
 
 /// How a collector reads the units it meets. The old converter goes, and
-/// this enum with it (ADR 0009).
+/// this enum with it (ADR 9).
 enum Units<'c> {
     /// The converter the recipe's own naming calls for: the legacy locale
     /// until a `locale` key names another.
@@ -135,7 +135,7 @@ impl Units<'_> {
     }
 
     /// Whether two quantities can be added: on the new pipeline their units
-    /// were read when they were built (ADR 0010); the old one reads them now.
+    /// were read when they were built (ADR 8); the old one reads them now.
     fn compatible(&self, a: &Quantity, b: &Quantity) -> Result<(), IncompatibleUnits> {
         match self {
             Units::Locale(_) => a.compatible_unit(b).map(|_| ()),
@@ -321,7 +321,7 @@ impl<'i> RecipeCollector<'i, '_> {
         }
 
         // on the new pipeline an untagged recipe reads the legacy locale,
-        // which is frozen; the nudge is what moves recipes off it (ADR 0009)
+        // which is frozen; the nudge is what moves recipes off it (ADR 7)
         if matches!(self.units, Units::Locale(_)) && !self.tagged {
             self.ctx.warn(
                 warning!(UNTAGGED_WARNING)
@@ -564,7 +564,7 @@ impl<'i> RecipeCollector<'i, '_> {
             if sp_key == StdKey::Locale {
                 // a locale only applies from where it is read, so one that
                 // comes after a unit would leave that unit read the old way;
-                // it is refused rather than pre-scanned (ADR 0009)
+                // it is refused rather than pre-scanned (ADR 7)
                 if self.units_written() {
                     self.ctx.warn(
                         warning!(
@@ -593,7 +593,7 @@ impl<'i> RecipeCollector<'i, '_> {
         let tag = LocaleTag::parse(tag).expect("checked as a standard key");
         // the same refusals the recipe will meet when it is scaled or
         // listed: an unreviewed locale, and a tag that determines no
-        // audience to fit units for (ADR 0009)
+        // audience to fit units for (ADR 7)
         self.units = Units::Locale(Converter::for_tag(&tag)?);
         self.tagged = true;
         Ok(())
@@ -1213,7 +1213,7 @@ impl<'i> RecipeCollector<'i, '_> {
     ) -> Quantity {
         let parser::Quantity { value, unit, .. } = quantity.into_inner();
         let (value, scalable) = self.value(value, is_ingredient);
-        // read through the recipe's locale here, once (ADR 0010); the old
+        // read through the recipe's locale here, once (ADR 8); the old
         // pipeline has no locale and reads the text when it needs it
         let unit = unit.map(|t| {
             let text = t.text_trimmed().into_owned();

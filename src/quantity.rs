@@ -20,7 +20,7 @@ use crate::{
 /// A quantity used in components
 ///
 /// The unit is kept as written and, once the parser has read it through the
-/// recipe's locale, as the [`Unit`](V2Unit) it names (ADR 0010). Serialised
+/// recipe's locale, as the [`Unit`](V2Unit) it names (ADR 8). Serialised
 /// as `value`, `unit`, `unit_id` (the unit's identifier, absent when unknown)
 /// and `scalable`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -49,7 +49,7 @@ impl PartialEq for Quantity {
 }
 
 /// A unit as the recipe wrote it, and what it names when the recipe's locale
-/// knows that spelling (ADR 0010).
+/// knows that spelling (ADR 8).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WrittenUnit {
     text: String,
@@ -299,7 +299,7 @@ impl Quantity {
     }
 
     /// The unit the text names in the recipe's locale, if it was read and
-    /// known there (ADR 0010).
+    /// known there (ADR 8).
     pub fn unit_id(&self) -> Option<V2Unit> {
         self.unit.as_ref().and_then(WrittenUnit::unit)
     }
@@ -545,7 +545,7 @@ impl Quantity {
     }
 
     /// Adds `rhs`, converted into this quantity's unit; the result keeps
-    /// this quantity's unit text. Both units must have been read (ADR 0010):
+    /// this quantity's unit text. Both units must have been read (ADR 8):
     /// an unread or unknown unit adds only to the same text.
     pub fn try_add(&self, rhs: &Self) -> Result<Self, QuantityOpError> {
         self.try_op(rhs, Value::try_add)
@@ -656,7 +656,7 @@ impl LegacySemanticEq for Quantity {
 
 /// Both quantities go to the smallest metric unit of their family and are
 /// compared there; what cannot be converted, a text value or a unit that was
-/// not read or not known (ADR 0010), is compared as written.
+/// not read or not known (ADR 8), is compared as written.
 impl crate::semantic_eq::SemanticEq for Quantity {
     fn equals(&self, other: &Self) -> bool {
         let base = |q: &Quantity| {
@@ -874,7 +874,7 @@ impl GroupedQuantity {
     }
 
     /// Adds a quantity to the group: to the one of its physical quantity
-    /// when its unit was read (ADR 0010), to the one with the same text
+    /// when its unit was read (ADR 8), to the one with the same text
     /// when it was not, to the unitless one when it has none; a text value,
     /// or one that cannot be added, is kept apart.
     pub fn add(&mut self, q: &Quantity) {
@@ -1474,7 +1474,7 @@ mod tests {
     }
 
     /// The operations through the legacy locale do what the `_legacy` ones
-    /// do (ADR 0009). Results are compared with the old converter, which
+    /// do (ADR 9). Results are compared with the old converter, which
     /// only reads them.
     mod v2 {
         use super::*;
@@ -1603,7 +1603,7 @@ mod tests {
         }
     }
 
-    /// ADR 0010: the unit as written and the unit it names travel together.
+    /// ADR 8: the unit as written and the unit it names travel together.
     mod written_unit {
         use super::*;
         use crate::convert::LocaleTag;

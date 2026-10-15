@@ -510,7 +510,7 @@ fn render_units_doc() -> String {
     out.push_str("\n## Preferred units of the legacy locale\n\n");
     out.push_str("What an untagged recipe is fitted with: `units.toml`'s `best` lists and\n");
     out.push_str("fraction config, frozen, for the system the quantity was written in\n");
-    out.push_str("(ADR 0009). Bundled's \"imperial\" is US customary.\n\n");
+    out.push_str("(ADR 7). Bundled's \"imperial\" is US customary.\n\n");
     out.push_str("| System | Quantity | Order |\n|---|---|---|\n");
     for (system, quantity, rows) in LEGACY_PREFERENCES {
         let order = reference::order(rows, true);

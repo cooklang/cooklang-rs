@@ -205,7 +205,7 @@ amounts ≥ 50 ml only.
 | CZ, SK, PL | volume (liquids) | ml at Toprecepty, Varecha (modern) and Aniagotuje; szklanka/hrnek is used for dry goods, and a converter cannot tell flour from milk. | [192][200][201][206] |
 | CZ, SK, PL | mass | Edited publishers write g; dkg/dag is the traditional register. | [192][194][195][200][201][206] |
 | RU, UA | volume | ml at Klopotenko and in Gastronom's hedged form; the стакан has no stated size on any recipe page, so a converter cannot choose between 200 and 250 ml. | [182][183][188] |
-| GB, IE | volume, mass, length | Metric is always first and often alone; GFW recommends metric only; the imperial figure is a bracketed secondary indication, which is a different feature from best-unit choice. Confirms ADR 0005's "GB has no rows". | [84][85][89][90][96][98][100] |
+| GB, IE | volume, mass, length | Metric is always first and often alone; GFW recommends metric only; the imperial figure is a bracketed secondary indication, which is a different feature from best-unit choice. Confirms ADR 5's "GB has no rows". | [84][85][89][90][96][98][100] |
 | GB, IE | temperature | °C is always present; gas mark and °F are secondary displays. | section 5 |
 | AU, NZ, ZA, CA, IN, JP, KR, CN, TW, HK, MX, BR, AR, CO | temperature | °C (except English Canada, section 7). | section 5 |
 | AU, NZ, ZA, IN, JP, KR, CN, TW, HK, LatAm | mass | g (CO libra and occasional 斤/台斤 excepted, section 7). | section 3 |
@@ -250,7 +250,7 @@ any source. Units marked **missing** do not exist in `definitions.rs`.
 
 | Row | What is unresolved |
 |---|---|
-| `(AT, Mass, [kilogram ≥ 1, decagram ≥ 1, gram ≥ 1])` | ADR 0005 names Austrian decagrams as the example region row. The evidence: ichkoche.at user recipes write `25 dag`; gutekueche.at, Plachutta, Sacher, Dr. Oetker AT and ichkoche's own editorial recipe write g. Adding the row serves the traditional register and surprises readers of every edited Austrian publisher. |
+| `(AT, Mass, [kilogram ≥ 1, decagram ≥ 1, gram ≥ 1])` | ADR 5 names Austrian decagrams as the example region row. The evidence: ichkoche.at user recipes write `25 dag`; gutekueche.at, Plachutta, Sacher, Dr. Oetker AT and ichkoche's own editorial recipe write g. Adding the row serves the traditional register and surprises readers of every edited Austrian publisher. |
 | `(PT, Volume, [liter ≥ 1, deciliter ≥ 0.5, metric-tablespoon ≥ 1, metric-teaspoon ≥ 0.5])` | Teleculinária and Vaqueiro: dl. DGS and Pingo Doce (half its recipes): ml. Two of four. |
 | `(ZA, Volume, …)` as NZ | Huletts and Food24 write all-ml down to `3ml salt`; Food & Home writes cups. Either register is defensible; the all-ml one is what the Metric fallback produces (with spoons written as ml). |
 | `(IN, Volume, [cup ≥ 0.25, metric-tablespoon ≥ 1, metric-teaspoon ≥ 0.25])` | Which cup: NIN 200 ml (nutrition), Archana's 240, IDA's "large" 250. No recipe site states its size except Tarla Dalal (200, snippet). |

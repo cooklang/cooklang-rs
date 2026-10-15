@@ -178,7 +178,7 @@ pub enum Refusal {
     )]
     Unreviewed(String),
     /// The tag names no region and no measurement system, so nothing says
-    /// which units its readers want (ADR 0009).
+    /// which units its readers want (ADR 7).
     #[error(transparent)]
     NoAudience(#[from] RegionError),
 }

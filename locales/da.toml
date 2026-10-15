@@ -140,24 +140,24 @@ long = { one = "{0} grad fahrenheit", other = "{0} grader fahrenheit" }
 #     As the quart: "engelsk" names the wrong unit, and with no Danish
 #     convention the bare `fl oz` cannot pick between 28.4 and 29.6 ml either.
 #   us cup -- cup, cups, c
-#     Unmarked US name (ADR 0003): the English loanword in a dl kitchen, 5.7%
+#     Unmarked US name (ADR 3): the English loanword in a dl kitchen, 5.7%
 #     from the metric cup CLDR marks `metrisk kop`. Refused rather than
 #     guessed.
 #   us pint -- pint, pints, pt
-#     Unmarked US name (ADR 0003).
+#     Unmarked US name (ADR 3).
 #   us quart -- engelsk quart, engelske quarts, qt
 #     CLDR names the 946 ml US quart "engelsk" (English), which to a Danish
 #     reader is the 1137 ml imperial one; CLDR's own imperial quart here is
-#     "britiske". The words are a trap and `qt` is unmarked (ADR 0003).
+#     "britiske". The words are a trap and `qt` is unmarked (ADR 3).
 #   us gallon -- gallon, gallons, gal
-#     Unmarked US name (ADR 0003): CLDR marks the imperial one `engelske
+#     Unmarked US name (ADR 3): CLDR marks the imperial one `engelske
 #     gallons`.
 #   imperial fluid ounce -- Imp. fl oz, Imp. fluid ounce, Imp. fluid ounces, fl oz Imp.
-#     English, not Danish, and a unit no Danish kitchen uses (ADR 0003).
+#     English, not Danish, and a unit no Danish kitchen uses (ADR 3).
 #   imperial pint -- pt Imp., pint Imp.
 #     Root's English strings, not a Danish name.
 #   imperial quart -- britisk quart, britiske qt, britiske quarts
-#     A unit no Danish kitchen uses (ADR 0003); written by identifier.
+#     A unit no Danish kitchen uses (ADR 3); written by identifier.
 #   imperial gallon -- eng. gal, engelsk gallon, engelske gallons
 #     As the quart; and `engelsk` is the word Danish CLDR also uses for the US
 #     quart.
@@ -174,4 +174,4 @@ long = { one = "{0} grad fahrenheit", other = "{0} grader fahrenheit" }
 #     pound, and `lb` is not written here either. Per the maintainer.
 #
 # `ounce` and `pound` themselves still resolve: a unit's identifier resolves in
-# every locale (ADR 0004), so they cannot be refused and are not listed above.
+# every locale (ADR 4), so they cannot be refused and are not listed above.

@@ -82,7 +82,7 @@ reason = """
 The everyday Austrian unit for buying cold cuts and cheese: 10 g, listed \
 as "Deka" in the Austrian Maß- und Eichgesetz §3(4) \
 (docs/research/cooking-units.md line 446, source [88]). CLDR carries no \
-decagram, and ADR 0004 declines to derive SI symbols, so it is authored \
+decagram, and ADR 4 declines to derive SI symbols, so it is authored \
 where it is actually used."""
 
 [[unit]]
@@ -171,22 +171,22 @@ long = { one = "{0} Grad Fahrenheit", other = "{0} Grad Fahrenheit" }
 # above, so this is the record of why, not a mechanism.
 #
 #   us fluid ounce -- Flüssigunze, Flüssigunzen, fl oz
-#     Unmarked US name (ADR 0003): CLDR marks only `Imp. Flüssigunze`; 29.57
+#     Unmarked US name (ADR 3): CLDR marks only `Imp. Flüssigunze`; 29.57
 #     against 28.41 ml.
 #   us cup -- Cups, Tasse, Tassen
 #     A German Tasse is 150 ml, or 125 ml by some sources (lines 449, 619) —
 #     far from the 236.588 ml US cup, and not the 250 ml metric cup either.
 #   us pint -- Pint, Pints, pt
-#     Unmarked US name (ADR 0003): CLDR marks only `pt Imp.`; 473 against 568
+#     Unmarked US name (ADR 3): CLDR marks only `pt Imp.`; 473 against 568
 #     ml.
 #   us quart -- Quart, Quarts, qt
-#     Unmarked US name (ADR 0003): CLDR marks only `Imp. Quart`; 0.946 against
+#     Unmarked US name (ADR 3): CLDR marks only `Imp. Quart`; 0.946 against
 #     1.137 l.
 #   us gallon -- Gallone, Gallonen, gal
-#     Unmarked US name (ADR 0003): CLDR marks only `Imp. Gallone`; 3.785
+#     Unmarked US name (ADR 3): CLDR marks only `Imp. Gallone`; 3.785
 #     against 4.546 l.
 #   imperial fluid ounce -- Imp. Flüssigunze, Imp. Flüssigunzen, Imp.fl.oz.
-#     A unit no German kitchen uses (ADR 0003); written by identifier.
+#     A unit no German kitchen uses (ADR 3); written by identifier.
 #   imperial pint -- pt Imp., pint Imp.
 #     As es: root's English strings, not a German name.
 #   imperial quart -- Imp. Quart, Imp.qt.

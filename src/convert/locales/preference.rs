@@ -52,7 +52,7 @@ pub enum Units {
     System(System),
     /// The legacy locale's frozen rows for the system a quantity was
     /// written in, so an untagged recipe is fitted as it always was: metric
-    /// stays metric, US stays US (ADR 0009).
+    /// stays metric, US stays US (ADR 7).
     Legacy(System),
 }
 
@@ -119,7 +119,7 @@ pub(crate) struct Row {
     pub fractions: Option<u8>,
     /// When no fraction fits, write a decimal in this unit rather than
     /// trying the next row. The legacy rows need it: bundled fell back to a
-    /// decimal in the unit its threshold chose (ADR 0009).
+    /// decimal in the unit its threshold chose (ADR 7).
     pub or_decimal: bool,
 }
 
@@ -280,7 +280,7 @@ mod tests {
 
     /// Bundled wrote a decimal in the threshold's unit when no fraction fitted
     /// anywhere, `1.125 c`; a row marked `or_decimal` does the same instead of
-    /// trying the next row (ADR 0009).
+    /// trying the next row (ADR 7).
     #[test]
     fn a_legacy_cup_with_no_fraction_stays_a_decimal_cup() {
         let cup = Unit::from_id("us cup").unwrap();
@@ -568,7 +568,7 @@ mod tests {
         }
 
         /// The legacy metric rows reproduce bundled's metric `best` lists
-        /// with no exception: that is what they are for (ADR 0009). The US
+        /// with no exception: that is what they are for (ADR 7). The US
         /// rows cannot be checked this way, because bundled fitted a
         /// fraction before it applied its thresholds, so their proof is the
         /// scaling differential in `tests/differential.rs`.
@@ -595,7 +595,7 @@ mod tests {
         }
 
         /// Our rows reproduce today's `best` lists from units.toml with three
-        /// deliberate exceptions, recorded in ADR 0001 and ADR 0005: the US
+        /// deliberate exceptions, recorded in ADR 1 and ADR 5: the US
         /// rows have a fluid ounce and a cup from a quarter, so where we
         /// choose those and bundled disagrees it must have chosen the
         /// tablespoon; and the metric rows have the metric spoons, so where

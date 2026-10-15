@@ -165,21 +165,21 @@ long = { other = "華氏 {0} 度" }
 # above, so this is the record of why, not a mechanism.
 #
 #   us fluid ounce -- 液量オンス, fl oz
-#     Unmarked US name (ADR 0003): CLDR marks only 英液量オンス.
+#     Unmarked US name (ADR 3): CLDR marks only 英液量オンス.
 #   us cup -- カップ - 米国
 #     A Japanese カップ is 200 ml (line 619), not the US 236.588 ml, and the
 #     string itself is CLDR's dash disambiguator ("cup - USA") rather than a
 #     name anyone writes. CLDR has a separate cup-jp unit, but its factor is
 #     100 ml, which is wrong; see docs/outstanding.md.
 #   us pint -- パイント, pt
-#     Unmarked US name (ADR 0003): CLDR marks only the imperial twin (`pt
+#     Unmarked US name (ADR 3): CLDR marks only the imperial twin (`pt
 #     Imp.`).
 #   us quart -- クォート, qt
-#     Unmarked US name (ADR 0003): CLDR marks only 英クォート.
+#     Unmarked US name (ADR 3): CLDR marks only 英クォート.
 #   us gallon -- ガロン, gal
-#     Unmarked US name (ADR 0003): CLDR marks only 英ガロン.
+#     Unmarked US name (ADR 3): CLDR marks only 英ガロン.
 #   imperial fluid ounce -- fl oz Imp, 英液量オンス
-#     A unit no Japanese kitchen uses (ADR 0003); written by identifier.
+#     A unit no Japanese kitchen uses (ADR 3); written by identifier.
 #   imperial pint -- pt Imp., pint Imp.
 #     As es: root's English strings, not a Japanese name.
 #   imperial quart -- qt Imp., 英クォート

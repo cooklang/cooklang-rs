@@ -1,11 +1,11 @@
 # Which unit a converted value is written in, for a reader in a region or
-# asking for a measurement system outright. See ADR 0005.
+# asking for a measurement system outright. See ADR 5.
 #
 # Rows are ordered largest first; `at_least` is the amount *of that unit* a
 # value must reach to be shown in it, and a value below every threshold takes
 # the last row. A row with `fractions = N` writes the amount as a fraction
 # with a denominator up to N, within 5 %; if none fits, the next row is tried,
-# which is how an odd amount falls to the smaller unit (ADR 0008). Without
+# which is how an odd amount falls to the smaller unit (ADR 6). Without
 # `fractions` the amount is a decimal. A region gets its official system's rows (only US is US
 # customary; everyone else is metric) unless it has `[[region]]` rows of its
 # own for that quantity. Time has one list, under metric, which every system
@@ -33,7 +33,7 @@ reason = """
 Spoons for 5–45 ml: every metric region's recipes print them, bar mainland \
 China and a few publishers (§7.3). Below a quarter teaspoon it is millilitres \
 again, hence the second ml row as the floor. Bundled wrote 30 ml as `30 ml`; \
-this is a recorded divergence (ADR 0001). Half tablespoons and quarter \
+this is a recorded divergence (ADR 1). Half tablespoons and quarter \
 teaspoons (`½ EL`, `¾ TL Salz`, §2 CH, DE); litres and millilitres stay \
 decimal, `1,5 l` being how every metric publisher writes it. A region with \
 volume rows of its own decides its own fractions there."""
@@ -76,7 +76,7 @@ Stops at the cup, as bundled did: `4 cups`, not `1 quart`. The cup starts at a \
 quarter, as the AU/NZ/CA rows do, because American recipes write ¼, ⅓ and ½ cup \
 on every page; bundled reached the same only sideways, by capping tablespoons at \
 four in its fractions config. The fluid ounce row is new; bundled wrote 4 fl oz \
-of milk as `8 tbsp` (ADR 0001, ADR 0005). Fractions: quarters and thirds of a \
+of milk as `8 tbsp` (ADR 1, ADR 5). Fractions: quarters and thirds of a \
 cup, half fluid ounces, thirds of a tablespoon (one teaspoon) and eighths of a \
 teaspoon, the last two as units.toml's fractions config had them."""
 
@@ -307,7 +307,7 @@ reason = "§7.1 CO: `¼ de libra de arveja (125 g)`, `½ libra`, `1 libra` at Ne
 
 # --- Legacy ---------------------------------------------------------------
 # What an untagged recipe is fitted with: units.toml's `best` lists, frozen,
-# so that an untagged recipe does what it always did (ADR 0009). On the
+# so that an untagged recipe does what it always did (ADR 7). On the
 # metric side bundled chose the largest unit the amount reached a whole one
 # of, so `at_least = 1`, and wrote decimals. On its "imperial" side, which is
 # US customary, bundled first looked for a fraction in any best unit, with
@@ -316,13 +316,13 @@ reason = "§7.1 CO: `¼ de libra de arveja (125 g)`, `½ libra`, `1 libra` at Ne
 # below one reproduce that. When no fraction fitted anywhere, bundled wrote
 # a decimal in the unit its threshold chose, `1.125 c`; the rows at one cup
 # and two tablespoons are marked `or_decimal` to do the same instead of
-# falling through to the next row as ADR 0008 otherwise has it. Two, not
+# falling through to the next row as ADR 6 otherwise has it. Two, not
 # one, because up to two tablespoons bundled still found a teaspoon
 # fraction (`3 1/2 tsp`); beyond that the teaspoon's cap of five wholes
 # ruled it out. Bundled's
 # preference for a whole number in the smaller unit over a fraction in the
 # larger (`4 tsp`, not `1 1/3 tbsp`; `24 oz`, not `1 1/2 lb`) is the search
-# ADR 0008 does not port, and the scaling differential lists what it
+# ADR 6 does not port, and the scaling differential lists what it
 # changes. Never fractions for time or temperature.
 
 [[legacy]]

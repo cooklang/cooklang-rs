@@ -180,7 +180,7 @@ pub struct CooklangParser {
     /// The old converter, for a parser made with
     /// [`new_legacy`](CooklangParser::new_legacy); `None` is the new
     /// pipeline, where a recipe is read through its own locale. Goes with
-    /// the old converter (ADR 0009).
+    /// the old converter (ADR 9).
     legacy: Option<LegacyConverter>,
 }
 
@@ -188,7 +188,7 @@ pub type RecipeResult = PassResult<Recipe>;
 pub type MetadataResult = PassResult<Metadata>;
 
 impl CooklangParser {
-    /// [`new`](Self::new) through the old converter; goes with it (ADR 0009).
+    /// [`new`](Self::new) through the old converter; goes with it (ADR 9).
     pub fn new_legacy(extensions: Extensions, converter: LegacyConverter) -> Self {
         Self {
             extensions,
@@ -229,7 +229,7 @@ impl CooklangParser {
     }
 
     /// The old converter this parser was made with, or `None` for one made
-    /// with [`new`](Self::new); goes with the old converter (ADR 0009).
+    /// with [`new`](Self::new); goes with the old converter (ADR 9).
     pub fn converter_legacy(&self) -> Option<&LegacyConverter> {
         self.legacy.as_ref()
     }

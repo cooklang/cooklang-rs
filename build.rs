@@ -588,7 +588,7 @@ fn generate_preferences() {
     }
 
     // `metric tablespoon` -> `MetricTablespoon`: every identifier is the
-    // variant name as lowercase words (ADR 0007)
+    // variant name as lowercase words (ADR 2)
     fn variant(id: &str) -> String {
         id.split(' ')
             .map(|word| {

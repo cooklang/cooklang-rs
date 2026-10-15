@@ -5,14 +5,14 @@ says what it is, why it is parked, and what finishing it would take.
 
 This file does not duplicate:
 
-- [`locale-aware-units.md`, decision 1](./adr/locale-aware-units.md#1-unit-conversion-uses-a-closed-set-of-units-defined-in-rust) — the roadmap for
-  moving the converter onto `convert_v2` (naming, systems, best units, fractions, loading).
+- [`adr/locale-aware-units.md`](./adr/locale-aware-units.md) — the decisions themselves, and the
+  alternatives each one rejected.
 - [`research/cooking-units.md`](./research/cooking-units.md) — the survey of units worldwide, with
   the recipe-scale cutoff.
 - [`research/measurement-precision.md`](./research/measurement-precision.md) — what rounding error
-  cooking tolerates, and the prior art for marking a quantity exempt from rounding (ADR 0001
-  items 4 and 5).
-- [`locale-aware-units.md`, decision 6](./adr/locale-aware-units.md#6-locales-are-seeded-from-cldr-once-not-vendored) —
+  cooking tolerates, and the prior art for marking a quantity exempt from rounding (the precision
+  tiers [decision 6](./adr/locale-aware-units.md#6-fractions-are-a-property-of-the-preference-row) leaves open).
+- [`locale-aware-units.md`, decision 3](./adr/locale-aware-units.md#3-cldr-is-a-source-of-unit-names-only-seeded-once-into-a-file-per-locale) —
   why a locale is one hand-editable file rather than vendored CLDR plus four overlays, and what
   that costs.
 
@@ -47,7 +47,7 @@ Facts worth not rediscovering:
   `Recipe::inline_quantities`. If the feature is narrowed, that is the moment to add those tests.
 - **Every resolvable unit string widens this feature's reach.** Every name in every
   `locales/<tag>.toml` adds a string the scanner will match in prose, in
-  whichever locale is active. That is the reason ADR 0004 declines to name `km`, `hl`, `dm` and
+  whichever locale is active. That is the reason ADR 4 declines to name `km`, `hl`, `dm` and
   `mg` in CLDR locales, and it is one more reason to narrow this feature to the documented
   temperature case.
 
@@ -71,7 +71,7 @@ Facts worth not rediscovering:
 ## Facts about CLDR worth not rediscovering
 
 Collected while seeding locale names from CLDR. The mechanism is in
-[ADR 0006](./adr/locale-aware-units.md#6-locales-are-seeded-from-cldr-once-not-vendored) and in `locales/<tag>.toml`; these are
+[ADR 3](./adr/locale-aware-units.md#3-cldr-is-a-source-of-unit-names-only-seeded-once-into-a-file-per-locale) and in `locales/<tag>.toml`; these are
 the things that would otherwise be rediscovered the hard way. CLDR's JSON is no longer in the
 repository, so re-checking any of these means re-fetching with `xtask/new-locale.sh`.
 
@@ -102,7 +102,7 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
   English passthrough `ounces`; `en` has `qt-Imp.` beside `pt Imp.` and `gal Imp.`. (The
   imperial strings — Japanese and Danish root-English symbols, Finnish *British quarter-gallon*,
   German `Imp.fl.oz.` — are gone from the metric locales since the imperial keys need a verdict,
-  ADR 0003.) Candidate fixes: reject the Polish short form and typo, reject Danish `ounces`.
+  ADR 3.) Candidate fixes: reject the Polish short form and typo, reject Danish `ounces`.
   Waiting on adjudication: Romanian's long `other` patterns are `{0} de X`
   (`20 de litri`, the partitive), so extraction yields 31 aliases like `de litri` that already
   resolve under auto-accept; Arabic and Hebrew dual forms carry no placeholder (`يومان`,
@@ -111,7 +111,7 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
   full words (`毫升`, `克`) and a symbol decision is due per key; English passthroughs in
   `fr` (`gallons`, `quarts`, `minutes`), `nl` (`inches`), `pt`/`pt-PT` (`pints`), `vi` (`feet`),
   and whole root-English imperial units in `ms`. No locale uses one string for two units.
-- **A unit's spaced identifier resolves in every locale** (ADR 0004), so `ounce`, `pound` and
+- **A unit's spaced identifier resolves in every locale** (ADR 4), so `ounce`, `pound` and
   `liter` resolve whatever a locale lists. Listing one as refused is therefore meaningless, and
   `new-locale` drops it rather than let the file say something untrue. Three existed:
   `nl`'s `ounce` and `pound`, and `id`'s `metric cup` — all untranslated English in CLDR that
@@ -149,7 +149,7 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
   dessertspoon reading; the Hungarian 2 ml mokkáskanál and Brazilian 2.5 ml colher de café
   (single-source). CLDR 48 also carries `kosaji`, `osaji` and `cup-jp` under a `jpsystem`, so
   小さじ and 大さじ could be vendored once they have units.
-- **Unmarked US names outside US customary locales** are now refused everywhere (ADR 0003), so
+- **Unmarked US names outside US customary locales** are now refused everywhere (ADR 3), so
   `es`, `es-419`, `de`, `ja` and the Nordic locales no longer resolve `galones`, `Gallonen`,
   `ガロン`, `gallon` or the symbols `pt`/`qt`/`gal`/`fl oz` to the US units; `es-US` is the home
   of the US units in Spanish. Open: whether any metric locale wants a *marked* US name authored
@@ -157,9 +157,9 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
   written without the spaced identifier. None has been asked for.
 - **Region rows still open**, from
   [`research/best-units-by-region.md`](./research/best-units-by-region.md) after the 17 rows
-  landed (`SE NO DK FI CH HU BE FR NZ CA AU JP KR BR MX CO`; ADR 0005). Every threshold in those
+  landed (`SE NO DK FI CH HU BE FR NZ CA AU JP KR BR MX CO`; ADR 5). Every threshold in those
   rows is inferred from exhibits — no source states one — so they are judgements to revisit, not
-  facts. Fractions are per row as well (ADR 0008): the system rows have them, the region rows do
+  facts. Fractions are per row as well (ADR 6): the system rows have them, the region rows do
   not yet, and whether a region writes `½ dl` and `½ tsk` (SE, FI) or `0,25 ts` (NO) is its own
   line, with the exhibits in §2. Needing a decision first (§7.2): **AT** decagrams (user recipes write `25 dag`, every
   edited Austrian publisher writes grams); **PT** decilitres (Teleculinária and Vaqueiro dl, DGS
@@ -168,7 +168,7 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
   szklanka for flour and sugar but `650 ml` for water; **TW** 240 ml cup versus cc; **CO** volume
   (Resolución 810 allows 200 or 240 ml, Nestlé exhibits 250); **IS** as SE on one source.
   **Canada** splits by *language*, not region — en-CA prints °F and imperial first, fr-CA metric
-  and °C — which a region row cannot express. `-u-mu-fahrenhe` (ADR 0005 amendment, 2026-10-08)
+  and °C — which a region row cannot express. `-u-mu-fahrenhe` (ADR 5 amendment, 2026-10-08)
   covers the °F half; the imperial-first half is a secondary display, below, not a row. No dataset
   or library keys units by language, and CLDR's spec lists language keys as a future extension of
   `unitPreference`. **Secondary displays** are a separate
@@ -236,7 +236,7 @@ repository, so re-checking any of these means re-fetching with `xtask/new-locale
 ## Closed by the seeding conversion (2026-10-06)
 
 Kept briefly so that anyone holding the old mental model can see what happened; delete once the
-dust settles. [ADR 0006](./adr/locale-aware-units.md#6-locales-are-seeded-from-cldr-once-not-vendored) is the decision.
+dust settles. [ADR 3](./adr/locale-aware-units.md#3-cldr-is-a-source-of-unit-names-only-seeded-once-into-a-file-per-locale) is the decision.
 
 - The four overlay layers, the 331-line merge in `build.rs`, the `needs_verdict` /
   `accept` / `reject` / `accept_all` / `Unadjudicated` vocabulary and the ten tests policing the
@@ -252,7 +252,7 @@ dust settles. [ADR 0006](./adr/locale-aware-units.md#6-locales-are-seeded-from-c
 ## Blocked on a decision elsewhere
 
 - **The precision tiers and the exactness marker.**
-  [`research/measurement-precision.md`](./research/measurement-precision.md) researched ADR 0001
+  [`research/measurement-precision.md`](./research/measurement-precision.md) researched ADR 1
   items 4 and 5 and found **four** tiers rather than one tolerance: a quantity written in a
   volumetric container (`cup`, `tbsp`, `tsp`) is self-rounding and may go to a usable fraction; an
   ordinary quantity gets about **1% relative**; an additive dosed as a fraction of batch mass gets
@@ -282,12 +282,12 @@ dust settles. [ADR 0006](./adr/locale-aware-units.md#6-locales-are-seeded-from-c
   favour.
 
   Independent of all five: **the stored value is already never rounded.** `Number::Fraction`
-  keeps its residual (ADR 0008), so rounding is a display matter, and item 5's complaint reduces to
+  keeps its residual (ADR 6), so rounding is a display matter, and item 5's complaint reduces to
   `main`'s `float_tolerance` borrowing the display budget for equality. The marker only has to
   reach the display layer.
 
 - **How the `legacy` locale is addressed.** Decided in
-  [ADR 0009](./adr/locale-aware-units.md#9-the-old-converter-is-replaced-in-one-step): a distinct naming, not a
+  [ADR 7](./adr/locale-aware-units.md#7-a-recipe-reads-its-units-through-its-own-locale): a distinct naming, not a
   tag; untagged recipes read through it and get a parse warning. The ADR also settles the rest of
   the converter swap.
 

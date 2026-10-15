@@ -1,7 +1,7 @@
 //! The converter. [`crate::convert_legacy`] is the old one, kept until the
 //! swap is reviewed: each `_legacy` function on a recipe or quantity is the
 //! old form of the one without the suffix, and goes with the old converter
-//! (ADR 0009).
+//! (ADR 9).
 //!
 //! A [`Converter`] reads and writes units the way one locale names them,
 //! and fits them for one audience: the legacy locale and the system a
@@ -49,7 +49,7 @@ pub enum ConvertError {
 }
 
 /// Which locale a recipe reads its units through: the legacy locale when it
-/// has no `locale`, else the reviewed locale its tag names (ADR 0009).
+/// has no `locale`, else the reviewed locale its tag names (ADR 7).
 ///
 /// A distinct type rather than a tag, because `legacy` is not a language:
 /// a recipe that predates locales is a different kind of thing from `es-MX`.
@@ -63,7 +63,7 @@ pub enum Naming {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Target {
     /// The legacy locale's frozen rows for the system the quantity was
-    /// written in: metric stays metric, US stays US (ADR 0009).
+    /// written in: metric stays metric, US stays US (ADR 7).
     SameSystem,
     /// The audience the recipe's tag determines.
     Audience(Audience),
@@ -78,7 +78,7 @@ enum Target {
 /// let tag = LocaleTag::parse("sv-SE").unwrap();
 /// let converter = Converter::for_tag(&tag).unwrap();
 /// // a quantity built by hand is read through the converter's locale first;
-/// // one the parser built already carries its unit (ADR 0010)
+/// // one the parser built already carries its unit (ADR 8)
 /// let quantity = Quantity::new(Value::from(15.0), Some("ml".to_string())).read_with(&converter);
 /// assert_eq!(converter.fit(&quantity).unwrap().to_string(), "1 msk");
 /// ```
@@ -150,7 +150,7 @@ impl Converter {
     /// `quantity` as this converter's readers spell its unit: the amount is
     /// untouched. A unit that was not read, or not known where it was read,
     /// is left as written, so a list built from recipes in several locales
-    /// adds what it recognises and keeps the rest (ADR 0010).
+    /// adds what it recognises and keeps the rest (ADR 8).
     pub fn rewrite(&self, quantity: &Quantity) -> Quantity {
         // a text value is never operated on, so its unit stays as written too
         match quantity.unit_id() {
@@ -164,7 +164,7 @@ impl Converter {
     }
 
     /// `quantity` in the unit its readers would write it in, as scaling
-    /// leaves it. Its unit must have been read (ADR 0010); one that was not,
+    /// leaves it. Its unit must have been read (ADR 8); one that was not,
     /// or is not known, is an [`UnknownUnit`](ConvertError::UnknownUnit).
     pub fn fit(&self, quantity: &Quantity) -> Result<Quantity, ConvertError> {
         let from = self.resolve(quantity)?;
@@ -232,7 +232,7 @@ impl Converter {
         self.locale.resolve(text)
     }
 
-    /// The unit `quantity` was read as (ADR 0010).
+    /// The unit `quantity` was read as (ADR 8).
     fn resolve(&self, quantity: &Quantity) -> Result<Unit, ConvertError> {
         let text = quantity.unit().ok_or(ConvertError::NoUnit)?;
         quantity
@@ -248,7 +248,7 @@ impl Metadata {
     }
 
     /// Which locale the recipe reads its units through: the legacy locale
-    /// when it has no `locale` (ADR 0009).
+    /// when it has no `locale` (ADR 7).
     pub fn naming(&self) -> Naming {
         match self.locale_tag() {
             None => Naming::Legacy,
@@ -271,7 +271,7 @@ impl Recipe {
     }
 
     /// Which locale this recipe reads its units through, from its metadata:
-    /// the legacy locale when it has no `locale` (ADR 0009).
+    /// the legacy locale when it has no `locale` (ADR 7).
     pub fn naming(&self) -> Naming {
         self.metadata.naming()
     }
@@ -288,7 +288,7 @@ impl Recipe {
     /// Reads every quantity's unit through the recipe's own
     /// [`converter`](Self::converter), as the parser does. For a recipe
     /// deserialised from a document written before units were recorded
-    /// (ADR 0010); a parsed recipe needs no call.
+    /// (ADR 8); a parsed recipe needs no call.
     pub fn read_units(&mut self) {
         let converter = self.converter();
         let locale = converter.locale();
@@ -308,7 +308,7 @@ impl Recipe {
     /// keeping the recipe's own unit names: a `sv-SE` recipe written for an
     /// American reader is in US units spelled the Swedish way, and the US
     /// units Swedish declines to name are written by their identifier
-    /// (ADR 0004).
+    /// (ADR 4).
     ///
     /// Units are read through the recipe's own
     /// [`converter`](Self::converter). A quantity that cannot be converted

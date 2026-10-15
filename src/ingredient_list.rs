@@ -35,7 +35,7 @@ pub struct GroupedCookware<'a> {
 }
 
 impl Recipe {
-    /// [`group_ingredients`](Self::group_ingredients) through the old converter; goes with it (ADR 0009).
+    /// [`group_ingredients`](Self::group_ingredients) through the old converter; goes with it (ADR 9).
     pub fn group_ingredients_legacy<'a>(
         &'a self,
         converter: &LegacyConverter,
@@ -169,7 +169,7 @@ impl IngredientList {
         list
     }
 
-    /// [`from_recipe_legacy`](Self::from_recipe_legacy) through the new converter, which is what stays (ADR 0009).
+    /// [`from_recipe_legacy`](Self::from_recipe_legacy) through the new converter, which is what stays (ADR 9).
     pub fn from_recipe(recipe: &Recipe, converter: &Converter, list_references: bool) -> Self {
         let mut list = Self::new();
         list.add_recipe(recipe, converter, list_references);
@@ -408,7 +408,7 @@ impl IngredientList {
 
     /// Adds the ingredients of a recipe to the list, written in the list's
     /// locale: `converter` is the target, and a Swedish `msk` and an English
-    /// `tbsp` land in one unit (ADR 0009).
+    /// `tbsp` land in one unit (ADR 7).
     ///
     /// Returns the indices of the ingredients that are recipe references,
     /// which are listed only when `list_references` is set.

@@ -114,7 +114,7 @@ fn ids_are_single_spaced_words() {
     // catches a multi-word variant added without a `serialize` override, which
     // would otherwise be given an id with an underscore
     //
-    // The space checks are the price of ADR 0007: a hyphen could not hide a
+    // The space checks are the price of ADR 2: a hyphen could not hide a
     // double, leading, trailing or non-breaking space, and a space can -- all
     // of them invisible in a diff. So they are asserted rather than trusted.
     for unit in Unit::all() {
