@@ -27,20 +27,20 @@ unicase = "2.7.0"
 indexmap = { version = "2", features = ["serde"] }
 yansi = "1.0.1"
 serde_yaml = "0.9.34"
-toml = { version = "0.8", optional = true, features = ["preserve_order"] }
+toml = { version = "1.1", optional = true, features = ["preserve_order"] }
 toml_edit = { version = "0.25", optional = true }
 tsify = { version = "0.5", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 
 [dev-dependencies]
-toml = "0.8"
+toml = "1.1"
 serde_json = "1"
 criterion = "0.5"
 test-case = "3.2.1"
 indoc = "2.0.3"
 
 [build-dependencies]
-toml = { version = "0.8", optional = true }
+toml = { version = "1.1", optional = true }
 prettyplease = { version = "0.3", optional = true }
 quote = { version = "1", optional = true }
 syn = { version = "3", optional = true }
