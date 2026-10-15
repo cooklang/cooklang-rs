@@ -259,7 +259,7 @@ impl TemperatureUnit {
     pub fn convert(value: f64, from: Self, to: Self) -> f64 {
         match (from, to) {
             (Self::Celsius, Self::Celsius) | (Self::Fahrenheit, Self::Fahrenheit) => value,
-            (Self::Celsius, Self::Fahrenheit) => value * 9.0 / 5.0 + 32.0,
+            (Self::Celsius, Self::Fahrenheit) => (value * 9.0 / 5.0) + 32.0,
             (Self::Fahrenheit, Self::Celsius) => (value - 32.0) * (5.0 / 9.0),
         }
     }
