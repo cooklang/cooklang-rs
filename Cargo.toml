@@ -15,7 +15,7 @@ bitflags = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
 strum = { version = "0.26.1", features = ["derive"] }
 thiserror = "2"
-enum-map = { version = "2", features = ["serde"] }
+enum-map = { version = "3", features = ["serde"] }
 tracing = "0.1"
 codesnake = "0.2.1"
 unicode-width = "0.2"
