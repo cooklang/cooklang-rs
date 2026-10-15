@@ -26,7 +26,7 @@ use crate::convert::units::{
 /// of a unit: the metric spoons appear in the imperial rows because a British
 /// teaspoon is 5 ml.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub(crate) enum System {
+pub enum System {
     Metric,
     UsCustomary,
     Imperial,
@@ -35,7 +35,7 @@ pub(crate) enum System {
 /// Who a converted value is written for: where their units come from, and
 /// any single unit they asked for outright.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct Audience {
+pub struct Audience {
     pub units: Units,
     /// `-u-mu-`: a temperature unit asked for outright, overriding `units`
     /// for temperature only. BCP 47 has this override for temperature alone,
@@ -47,7 +47,7 @@ pub(crate) struct Audience {
 /// Where a reader's units come from: a region, which gets its official
 /// system, or a system asked for outright with `-u-ms-`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Units {
+pub enum Units {
     Region(Region),
     System(System),
     /// The legacy locale's frozen rows for the system a quantity was
@@ -57,14 +57,16 @@ pub(crate) enum Units {
 }
 
 impl Audience {
-    pub(crate) const fn region(region: Region) -> Self {
+    /// The readers of a region, who get its official system.
+    pub const fn region(region: Region) -> Self {
         Self {
             units: Units::Region(region),
             temperature: None,
         }
     }
 
-    pub(crate) const fn system(system: System) -> Self {
+    /// Readers who asked for a measurement system outright.
+    pub const fn system(system: System) -> Self {
         Self {
             units: Units::System(system),
             temperature: None,
@@ -78,7 +80,8 @@ impl Audience {
         }
     }
 
-    pub(crate) const fn with_temperature(self, unit: TemperatureUnit) -> Self {
+    /// The same readers, with a temperature unit asked for outright.
+    pub const fn with_temperature(self, unit: TemperatureUnit) -> Self {
         Self {
             units: self.units,
             temperature: Some(unit),
@@ -203,6 +206,10 @@ fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = &Row
 
 /// The unit `value` should be displayed in for `audience`: the largest one
 /// it reaches the threshold of, falling back to the smallest.
+///
+/// What a conversion writes is [`best_amount`], which also chooses how the
+/// amount is written; this is the unit alone, and the snapshot pins it.
+#[cfg(test)]
 pub(crate) fn best_unit(value: f64, from: Unit, audience: Audience) -> Unit {
     let rows = rows_for(audience, from.physical_quantity());
     candidates(rows, value, from)

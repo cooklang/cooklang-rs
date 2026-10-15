@@ -55,7 +55,7 @@ impl LocaleTag {
     /// only `en-GB-u-ms-uksystem` is imperial. `-u-mu-` then names a
     /// temperature unit outright, for temperature only; it never supplies a
     /// region. A value we have no rows for is an error, not a guess.
-    pub(crate) fn audience(&self) -> Result<Audience, RegionError> {
+    pub fn audience(&self) -> Result<Audience, RegionError> {
         let units = self.units()?;
         let temperature = match self.0.extensions.unicode.keywords.get(&key!("mu")) {
             None => None,

@@ -91,11 +91,8 @@ pub mod shopping_list;
 pub mod span;
 pub mod text;
 
-mod float;
-// Parts of it have no consumer until the swap reaches them; remove the allow
-// with the old converter (ADR 0009).
-#[allow(dead_code)]
 pub mod convert;
+mod float;
 mod lexer;
 
 use bitflags::bitflags;

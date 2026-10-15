@@ -102,8 +102,10 @@ fn build(generated: &GeneratedLocale) -> Locale {
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
 
 /// The locale whose names apply to `tag`, or `None` if nothing vendored
-/// covers it.
+/// covers it, whether or not it has been reviewed. [`reviewed_locale`] is
+/// what serves a reader.
 ///
+#[cfg(test)]
 /// Extensions are ignored: `-u-ms-metric` chooses units, not names. Lookup
 /// follows CLDR's own parent chain before truncating, which is what sends
 /// `en-NZ` to `en-001` rather than to US English — CLDR gives `en-NZ`,
@@ -143,10 +145,9 @@ pub(crate) fn names_reviewed(tag: &str) -> bool {
 /// The locale to serve a reader on `tag`, refusing one no speaker has
 /// confirmed.
 ///
-/// [`for_tag`] stays the neutral primitive, because `show-locale-as-md` has to
-/// render exactly the locales this refuses — that is how someone decides
-/// whether a locale is right. Everything that writes units *for a reader* goes
-/// through here instead.
+/// [`reviewed_locale`] is the same refusal as a result, and is what the
+/// parser uses; this panics with the whole locale instead, and today only
+/// the tests take that path.
 ///
 /// Refusing rather than degrading is deliberate: falling back to identifiers
 /// would ship `2 us cup` to a Swede as though it were a translation, and
@@ -155,6 +156,7 @@ pub(crate) fn names_reviewed(tag: &str) -> bool {
 /// # Panics
 ///
 /// If nothing vendored covers `tag`, or the locale it reaches is unreviewed.
+#[cfg(test)]
 pub(crate) fn reviewed_for_tag(tag: &LocaleTag) -> Arc<Locale> {
     match reviewed_locale(tag) {
         Ok(locale) => locale,
@@ -197,6 +199,7 @@ pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
 /// most likely to answer while they are already looking at it. It is the same
 /// text [`crate::locale_markdown`] renders, so `show-locale-as-md` reproduces
 /// it later. That makes for a long panic, about 110 lines, deliberately.
+#[cfg(test)]
 fn refuse_unless_reviewed(reached: &str) -> ! {
     let report = crate::locale_markdown(reached)
         .unwrap_or_else(|e| format!("(the locale could not be rendered: {e})"));

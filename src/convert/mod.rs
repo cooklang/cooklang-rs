@@ -27,10 +27,11 @@ use crate::model::Recipe;
 use crate::quantity::{Number, Quantity, Value, WrittenUnit};
 use locales::legacy::{legacy_locale, legacy_system};
 use locales::locale::Locale;
-use locales::preference::{as_written, best_amount, Audience};
+use locales::preference::{as_written, best_amount};
 use locales::vendored::reviewed_locale;
 use units::MixedQuantities;
 
+pub use locales::preference::{Audience, System, Units};
 pub use locales::tag::{InvalidTag, LocaleTag, RegionError};
 pub use locales::vendored::Refusal;
 pub use units::{PhysicalQuantity, Unit};
@@ -132,7 +133,8 @@ impl Converter {
         Self::for_naming(&recipe.naming())
     }
 
-    /// The naming this converter was built from.
+    /// The naming this converter was built from: which locale it reads and
+    /// writes units through.
     pub fn naming(&self) -> Naming {
         self.naming.clone()
     }
@@ -264,7 +266,7 @@ impl Metadata {
 
 impl Recipe {
     /// The locale the recipe's `locale` key names, if it has one.
-    pub(crate) fn locale_tag(&self) -> Option<LocaleTag> {
+    pub fn locale_tag(&self) -> Option<LocaleTag> {
         self.metadata.locale_tag()
     }
 
@@ -302,14 +304,35 @@ impl Recipe {
         }
     }
 
-    /// Writes every quantity as `audience` would write it, in place. A
-    /// quantity that cannot be converted is left as it is and its error
-    /// returned, as the legacy [`Recipe::convert`] does.
-    pub(crate) fn convert_for(
-        &mut self,
-        audience: Audience,
-        converter: &Converter,
-    ) -> Vec<ConvertError> {
+    /// Writes every quantity as `audience` would write it, in place, while
+    /// keeping the recipe's own unit names: a `sv-SE` recipe written for an
+    /// American reader is in US units spelled the Swedish way, and the US
+    /// units Swedish declines to name are written by their identifier
+    /// (ADR 0004).
+    ///
+    /// Units are read through the recipe's own
+    /// [`converter`](Self::converter). A quantity that cannot be converted
+    /// is left as it is and its error returned.
+    ///
+    /// ```
+    /// # use cooklang::{CooklangParser, Extensions};
+    /// # use cooklang::convert::{Audience, System};
+    /// let parser = CooklangParser::new(Extensions::all());
+    /// let mut recipe = parser
+    ///     .parse("---\nlocale: sv-SE\n---\nSmält @smör{2%msk} i @mjölk{5%dl}.\n")
+    ///     .into_output()
+    ///     .unwrap();
+    /// let errors = recipe.convert_for(Audience::system(System::UsCustomary));
+    /// assert!(errors.is_empty());
+    /// let written: Vec<String> = recipe
+    ///     .ingredients
+    ///     .iter()
+    ///     .map(|i| i.quantity.as_ref().unwrap().to_string())
+    ///     .collect();
+    /// assert_eq!(written, ["1 us fluid ounce", "17 us fluid ounce"]);
+    /// ```
+    pub fn convert_for(&mut self, audience: Audience) -> Vec<ConvertError> {
+        let converter = self.converter();
         let mut errors = Vec::new();
         let mut convert = |quantity: &mut Quantity| match converter.convert_for(quantity, audience)
         {

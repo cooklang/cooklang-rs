@@ -355,7 +355,9 @@ mod parsed {
         assert!(!result.report().has_errors(), "{:?}", result.report());
         let recipe = result.into_output().unwrap();
         let tag = recipe.locale_tag().expect("tagged");
-        let converter = Converter::for_tag(&tag).expect("sv is reviewed");
+        // the recipe reads and writes through its own locale, so nothing is
+        // passed in; the tag only says who the second rendering is for
+        assert_eq!(recipe.converter(), Converter::for_tag(&tag).unwrap());
 
         let written = |recipe: &crate::Recipe| -> Vec<String> {
             recipe
@@ -370,7 +372,7 @@ mod parsed {
 
         // for a reader in Sweden: the region's own rows, the locale's names
         let mut swedish = recipe.clone();
-        let errors = swedish.convert_for(tag.audience().unwrap(), &converter);
+        let errors = swedish.convert_for(tag.audience().unwrap());
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(
             written(&swedish),
@@ -382,7 +384,7 @@ mod parsed {
         // 2 msk is 30 ml, a fluid ounce: the row above the tablespoon
         // (ADR 0005), where bundled would have written 2 tbsp
         let mut american = recipe.clone();
-        let errors = american.convert_for(Audience::region(region!("US")), &converter);
+        let errors = american.convert_for(Audience::region(region!("US")));
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(
             written(&american),
