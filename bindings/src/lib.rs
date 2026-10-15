@@ -24,7 +24,8 @@ pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
 
     let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
 
-    parsed.scale_legacy(scaling_factor, parser.converter_legacy());
+    // the parser knows no units, as before, so scaling fits nothing
+    parsed.scale_legacy(scaling_factor, &cooklang::LegacyConverter::empty());
 
     Arc::new(into_simple_recipe(&parsed))
 }

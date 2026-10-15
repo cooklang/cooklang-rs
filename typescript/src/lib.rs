@@ -133,7 +133,7 @@ impl Parser {
         let report = display_report(report, input);
 
         if let Some(scale) = scale {
-            recipe.scale_legacy(scale, self.parser.converter_legacy());
+            recipe.scale_legacy(scale, self.legacy());
         }
 
         let metadata = InterpretedMetadata {
@@ -146,7 +146,7 @@ impl Parser {
             author: recipe.metadata.author(),
             source: recipe.metadata.source(),
             course: recipe.metadata.get(StdKey::Course).cloned(),
-            time: recipe.metadata.time_legacy(self.parser.converter_legacy()),
+            time: recipe.metadata.time_legacy(self.legacy()),
             servings: recipe.metadata.servings(),
             difficulty: recipe.metadata.get(StdKey::Difficulty).cloned(),
             cuisine: recipe.metadata.get(StdKey::Cuisine).cloned(),
@@ -171,7 +171,7 @@ impl Parser {
     /// returns vector of indices in r.recipe.ingredients and their quantities
     pub fn group_ingredients(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
         r.recipe
-            .group_ingredients_legacy(self.parser.converter_legacy())
+            .group_ingredients_legacy(self.legacy())
             .into_iter()
             .map(|r| GroupedIndexAndQuantity {
                 index: r.index,
@@ -183,7 +183,7 @@ impl Parser {
     /// returns vector of indices in r.recipe.cookware and their quantities
     pub fn group_cookware(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
         r.recipe
-            .group_cookware_legacy(self.parser.converter_legacy())
+            .group_cookware_legacy(self.legacy())
             .into_iter()
             .map(|r| GroupedIndexAndQuantity {
                 index: r.index,
@@ -212,9 +212,9 @@ impl Parser {
         let value = match recipe {
             Some(mut r) => {
                 if let Some(scale) = scale {
-                    r.scale_legacy(scale, self.parser.converter_legacy())
+                    r.scale_legacy(scale, self.legacy())
                 }
-                render(r, self.parser.converter_legacy())
+                render(r, self.legacy())
             }
             None => "<no output>".to_string(),
         };
@@ -239,7 +239,7 @@ impl Parser {
                     tags: m.tags(),
                     author: m.author(),
                     source: m.source(),
-                    time: m.time_legacy(self.parser.converter_legacy()),
+                    time: m.time_legacy(self.legacy()),
                     servings: m.servings(),
                     locale: m.locale(),
                 };
@@ -252,6 +252,14 @@ impl Parser {
 }
 
 impl Parser {
+    /// The old converter this parser was built with. Goes with it, when the
+    /// package moves to the locale-aware pipeline (ADR 0009).
+    fn legacy(&self) -> &cooklang::LegacyConverter {
+        self.parser
+            .converter_legacy()
+            .expect("built with new_legacy")
+    }
+
     fn build_parser(&self) -> CooklangParser {
         let ext = self.extensions;
         let converter = if self.load_units {

@@ -95,7 +95,7 @@ fn optional_and_required_are_listed_separately() {
             Top with extra @?parmesan{50%g} before serving.
         "#})
         .unwrap_output();
-    let grouped = r.group_ingredients_legacy(parser.converter_legacy());
+    let grouped = r.group_ingredients_legacy(parser.converter_legacy().unwrap());
     let got: Vec<_> = grouped
         .iter()
         .map(|g| {
@@ -129,7 +129,7 @@ fn duplicate_reference_mode_groups_by_optionality() {
         .expect("mixing optional and required occurrences is not an error");
     let (recipe, warnings) = r;
     assert!(!warnings.has_warnings(), "{warnings:?}");
-    let grouped = recipe.group_ingredients_legacy(parser.converter_legacy());
+    let grouped = recipe.group_ingredients_legacy(parser.converter_legacy().unwrap());
     let got: Vec<_> = grouped
         .iter()
         .map(|g| {
@@ -152,7 +152,7 @@ fn explicit_reference_inherits_optional() {
         .parse("Top with @?parmesan{50%g}, then @&parmesan{10%g}.")
         .unwrap_output();
     assert!(r.ingredients.iter().all(|i| i.modifiers().is_optional()));
-    let grouped = r.group_ingredients_legacy(parser.converter_legacy());
+    let grouped = r.group_ingredients_legacy(parser.converter_legacy().unwrap());
     assert_eq!(grouped.len(), 1);
     assert_eq!(grouped[0].quantity.to_string(), "60 g");
 }

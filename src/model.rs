@@ -353,7 +353,7 @@ impl Ingredient {
     /// Groups all quantities from itself and it's references (if any).
     /// ```
     /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
-    /// let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
+    /// let parser = CooklangParser::new(Extensions::all());
     /// let recipe = parser
     ///                 .parse("@flour{1000%g} @&flour{200%g} @&flour{1%bag}")
     ///                 .into_output()

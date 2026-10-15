@@ -196,7 +196,7 @@ fn parsing_matches_the_old_converter() {
         ("all", Extensions::all()),
     ] {
         let old = CooklangParser::new_legacy(ext, LegacyConverter::bundled());
-        let new = CooklangParser::new(ext, Converter::legacy());
+        let new = CooklangParser::new(ext);
         for case in corpus() {
             let old_result = old.parse(&case.source);
             let new_result = new.parse(&case.source);
@@ -386,7 +386,7 @@ fn scaling_matches_the_old_converter() {
         ("all", Extensions::all()),
     ] {
         let old = CooklangParser::new_legacy(ext, bundled.clone());
-        let new = CooklangParser::new(ext, Converter::legacy());
+        let new = CooklangParser::new(ext);
         for case in corpus() {
             let Some(old_recipe) = old.parse(&case.source).into_output() else {
                 continue;
@@ -481,7 +481,7 @@ fn lists_match_the_old_converter() {
         ("all", Extensions::all()),
     ] {
         let old = CooklangParser::new_legacy(ext, bundled.clone());
-        let new = CooklangParser::new(ext, Converter::legacy());
+        let new = CooklangParser::new(ext);
         for case in corpus() {
             let Some(old_recipe) = old.parse(&case.source).into_output() else {
                 continue;
@@ -601,7 +601,7 @@ fn metadata_time_matches_the_old_converter() {
         ("all", Extensions::all()),
     ] {
         let old = CooklangParser::new_legacy(ext, bundled.clone());
-        let new = CooklangParser::new(ext, Converter::legacy());
+        let new = CooklangParser::new(ext);
         for case in corpus() {
             let Some(old_recipe) = old.parse(&case.source).into_output() else {
                 continue;
@@ -635,7 +635,7 @@ fn metadata_time_matches_the_old_converter() {
 fn semantic_equality_matches_the_old_converter() {
     let bundled = LegacyConverter::bundled();
     let old = CooklangParser::new_legacy(Extensions::all(), bundled.clone());
-    let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+    let new = CooklangParser::new(Extensions::all());
     let mut recipes: Vec<(String, Recipe, Recipe)> = Vec::new();
     for case in corpus() {
         let Some(o) = old.parse(&case.source).into_output() else {

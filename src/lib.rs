@@ -17,14 +17,15 @@
 //!
 //! To construct a parser use [`CooklangParser::new`] or
 //! [`CooklangParser::default`] if you want to configure the parser. You can
-//! configure which [`Extensions`] are enabled and the [`Converter`] the
-//! parser holds for the lists built from its recipes.
+//! configure which [`Extensions`] are enabled. A recipe is always read
+//! through its own locale, so the parser holds no converter; the one that
+//! writes a list is its target, and the caller holds it.
 //!
 //! ```rust
-//! # use cooklang::{CooklangParser, Converter, Extensions};
+//! # use cooklang::{CooklangParser, Extensions};
 //! // Create a parser
 //! // (this is the default configuration)
-//! let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
+//! let parser = CooklangParser::new(Extensions::all());
 //! # assert_eq!(parser, CooklangParser::default());
 //! ```
 //!
@@ -176,20 +177,14 @@ impl Default for Extensions {
 /// The 2 main methods are [`CooklangParser::parse`] and [`CooklangParser::parse_metadata`].
 ///
 /// You can also skip using this struct and use [`parser::PullParser`] and [`analysis::parse_events`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct CooklangParser {
     extensions: Extensions,
-    converter: LegacyConverter,
-    /// The converter, when the parser reads units through it rather than
-    /// through the old `converter`; takes its place with the swap (ADR 0009).
-    v2: Option<Converter>,
-}
-
-impl Default for CooklangParser {
-    /// All extensions, and the legacy locale for untagged recipes
-    fn default() -> Self {
-        Self::new(Extensions::default(), Converter::legacy())
-    }
+    /// The old converter, for a parser made with
+    /// [`new_legacy`](CooklangParser::new_legacy); `None` is the new
+    /// pipeline, where a recipe is read through its own locale. Goes with
+    /// the old converter (ADR 0009).
+    legacy: Option<LegacyConverter>,
 }
 
 pub type RecipeResult = PassResult<Recipe>;
@@ -200,53 +195,46 @@ impl CooklangParser {
     pub fn new_legacy(extensions: Extensions, converter: LegacyConverter) -> Self {
         Self {
             extensions,
-            converter,
-            v2: None,
+            legacy: Some(converter),
         }
     }
 
     /// Creates a new parser.
     ///
     /// An untagged recipe is read through the legacy locale, a tagged one
-    /// through its own; parsing never reads `converter`. It is held for the
-    /// caller, as the target of the lists built from what this parser parses,
-    /// and [`converter`](Self::converter) hands it back.
+    /// through the locale its `locale` key names, so the parser needs no
+    /// converter. A [`Converter`] is the target a list is written in, which
+    /// the caller holds and passes to [`IngredientList`](crate::ingredient_list::IngredientList).
     ///
     /// It is encouraged to reuse the parser and not rebuild it every time.
-    pub fn new(extensions: Extensions, converter: Converter) -> Self {
+    pub fn new(extensions: Extensions) -> Self {
         Self {
             extensions,
-            converter: LegacyConverter::empty(),
-            v2: Some(converter),
+            legacy: None,
         }
-    }
-
-    /// The converter this parser holds: `None` only for a parser made with
-    /// [`new_legacy`](Self::new_legacy).
-    pub fn converter(&self) -> Option<&Converter> {
-        self.v2.as_ref()
     }
 
     /// Creates a new extended parser
     ///
-    /// This enables all extensions and uses the bundled units.
+    /// This enables all extensions.
     /// It is encouraged to reuse the parser and not rebuild it every time.
     pub fn extended() -> Self {
-        Self::new(Extensions::all(), Converter::legacy())
+        Self::new(Extensions::all())
     }
 
     /// Creates a new canonical parser
     ///
-    /// This disables all extensions and does not use units.
+    /// This disables all extensions.
     ///
     /// It is encouraged to reuse the parser and not rebuild it every time.
     pub fn canonical() -> Self {
-        Self::new(Extensions::empty(), Converter::legacy())
+        Self::new(Extensions::empty())
     }
 
-    /// Get the parser inner converter
-    pub fn converter_legacy(&self) -> &LegacyConverter {
-        &self.converter
+    /// The old converter this parser was made with, or `None` for one made
+    /// with [`new`](Self::new); goes with the old converter (ADR 0009).
+    pub fn converter_legacy(&self) -> Option<&LegacyConverter> {
+        self.legacy.as_ref()
     }
 
     /// Get the enabled extensions
@@ -275,15 +263,15 @@ impl CooklangParser {
         path: Option<RecipeReference>,
     ) -> RecipeResult {
         let mut parser = parser::PullParser::new(input, self.extensions);
-        if self.v2.is_some() {
+        let Some(converter) = &self.legacy else {
             return analysis::parse_events(&mut parser, input, path, self.extensions, options);
-        }
+        };
         analysis::parse_events_legacy(
             &mut parser,
             input,
             path,
             self.extensions,
-            &self.converter,
+            converter,
             options,
         )
     }
@@ -304,16 +292,16 @@ impl CooklangParser {
     ) -> MetadataResult {
         let parser = parser::PullParser::new(input, self.extensions);
         let meta_events = parser.into_meta_iter();
-        if self.v2.is_some() {
+        let Some(converter) = &self.legacy else {
             return analysis::parse_events(meta_events, input, None, self.extensions, options)
                 .map(|c| c.metadata);
-        }
+        };
         analysis::parse_events_legacy(
             meta_events,
             input,
             None,
             self.extensions,
-            &self.converter,
+            converter,
             options,
         )
         .map(|c| c.metadata)

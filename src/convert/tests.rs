@@ -406,7 +406,7 @@ mod parsed {
 
 /// What the parser says about `locale` itself (ADR 0009).
 mod locale_warnings {
-    use crate::{Converter, CooklangParser, Extensions, LegacyConverter};
+    use crate::{CooklangParser, Extensions, LegacyConverter};
 
     fn warnings(parser: &CooklangParser, src: &str) -> Vec<String> {
         parser
@@ -420,7 +420,7 @@ mod locale_warnings {
     #[test]
     fn an_untagged_recipe_is_told_to_add_a_locale_on_the_new_pipeline_only() {
         let tell = |w: &[String]| w.iter().any(|m| m.contains("no `locale`"));
-        let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let new = CooklangParser::new(Extensions::all());
         assert!(tell(&warnings(&new, "@flour{1%g}\n")));
         assert!(!tell(&warnings(
             &new,
@@ -428,7 +428,7 @@ mod locale_warnings {
         )));
         // the canonical parser is the same rule
         assert!(tell(&warnings(
-            &CooklangParser::new(Extensions::empty(), Converter::legacy()),
+            &CooklangParser::new(Extensions::empty()),
             "@flour{1%g}\n"
         )));
         // the old pipeline is untouched
@@ -440,7 +440,7 @@ mod locale_warnings {
     /// component: an ingredient with no quantity has nothing to re-read.
     #[test]
     fn a_locale_line_is_refused_only_after_a_unit_or_a_time_key() {
-        let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let new = CooklangParser::new(Extensions::all());
         let late = |m: &String| m.contains("after") && m.contains("locale");
 
         let no_unit_yet =
@@ -469,7 +469,7 @@ mod locale_warnings {
     /// whatever order they are written in.
     #[test]
     fn a_front_matter_locale_applies_to_the_keys_above_it() {
-        let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let new = CooklangParser::new(Extensions::all());
         let above = "---\nprep time: 30 minuter\nlocale: sv-SE\n---\n@mjöl{1%g}\n";
         let below = "---\nlocale: sv-SE\nprep time: 30 minuter\n---\n@mjöl{1%g}\n";
         for src in [above, below] {
@@ -491,7 +491,7 @@ mod locale_warnings {
 
     #[test]
     fn a_locale_line_after_the_first_quantity_is_ignored_with_a_warning() {
-        let new = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let new = CooklangParser::new(Extensions::all());
         let src = "Vispa @mjölk{5%dl}.\n>> locale: sv-SE\nRör ner 2 msk socker.\n";
         let result = new.parse(src);
         let warnings: Vec<String> = result
@@ -525,7 +525,7 @@ mod naming {
 
     #[test]
     fn a_recipe_names_its_locale_or_the_legacy_one() {
-        let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let parser = CooklangParser::new(Extensions::all());
         let untagged = parser.parse("@flour{1%g}\n").into_output().unwrap();
         assert_eq!(untagged.naming(), Naming::Legacy);
         let tagged = parser
@@ -543,28 +543,39 @@ mod naming {
         assert_eq!(Converter::legacy().naming(), Naming::Legacy);
     }
 
+    /// The parser is configured by its extensions alone: which locale a
+    /// recipe is read through comes from the recipe.
     #[test]
-    fn the_parser_holds_a_converter_it_never_parses_with() {
-        let sv = Converter::for_tag(&LocaleTag::parse("sv-SE").unwrap()).unwrap();
-        let parser = CooklangParser::new(Extensions::all(), sv.clone());
-        assert_eq!(parser.converter(), Some(&sv));
-        // an untagged recipe is still read through the legacy locale: msk is
+    fn the_parser_chooses_no_locale() {
+        let parser = CooklangParser::new(Extensions::all());
+        assert_eq!(parser, CooklangParser::default());
+
+        // an untagged recipe is read through the legacy locale: msk is
         // Swedish, so it is not an inline quantity here
-        let recipe = parser
+        let untagged = parser
             .parse("Rör ner 2 msk socker.\n")
             .into_output()
             .unwrap();
-        assert!(recipe.inline_quantities.is_empty());
-        // the default parser is the new pipeline on the legacy locale; only a
-        // legacy parser holds no new converter
+        assert!(untagged.inline_quantities.is_empty());
+        assert_eq!(untagged.naming(), Naming::Legacy);
+
+        // the same parser reads a tagged one through its own locale
+        let tagged = parser
+            .parse("---\nlocale: sv-SE\n---\nRör ner 2 msk socker.\n")
+            .into_output()
+            .unwrap();
+        assert_eq!(tagged.inline_quantities.len(), 1);
         assert_eq!(
-            CooklangParser::default().converter(),
-            Some(&Converter::legacy())
+            tagged.naming(),
+            Naming::Tagged(LocaleTag::parse("sv-SE").unwrap())
         );
+
+        // only a legacy parser carries a converter, and it is the old one
+        assert_eq!(parser.converter_legacy(), None);
+        let legacy = CooklangParser::new_legacy(Extensions::all(), crate::LegacyConverter::empty());
         assert_eq!(
-            CooklangParser::new_legacy(Extensions::all(), crate::LegacyConverter::empty())
-                .converter(),
-            None
+            legacy.converter_legacy(),
+            Some(&crate::LegacyConverter::empty())
         );
     }
 }
@@ -576,7 +587,7 @@ mod own_naming {
     use crate::{Converter, CooklangParser, Extensions, Quantity, SemanticEq, Value};
 
     fn swedish(body: &str) -> crate::Recipe {
-        let parser = CooklangParser::new(Extensions::all(), Converter::legacy());
+        let parser = CooklangParser::new(Extensions::all());
         let src = format!("---\nlocale: sv-SE\nprep time: 30 minuter\n---\n{body}");
         let result = parser.parse(&src);
         assert!(!result.report().has_errors(), "{:?}", result.report());
@@ -698,7 +709,7 @@ mod lists {
     #[test]
     fn a_swedish_and_an_untagged_recipe_add_up_in_the_target_locale() {
         let sv = Converter::for_tag(&LocaleTag::parse("sv-SE").unwrap()).unwrap();
-        let parser = CooklangParser::new(Extensions::all(), sv.clone());
+        let parser = CooklangParser::new(Extensions::all());
         let swedish = parser
             .parse("---\nlocale: sv-SE\n---\nSmält @smör{2%msk}.\n")
             .into_output()
