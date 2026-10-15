@@ -9,6 +9,11 @@ const path = require('path');
 
 const wasmFile = path.join(__dirname, 'pkg', 'cooklang_wasm.js');
 
+// wasm-pack writes pkg/.gitignore containing `*`. npm >= 11 honours nested
+// ignore files even for paths listed in package.json "files", which silently
+// drops pkg/ from the published tarball (this shipped a broken 0.19.0).
+fs.rmSync(path.join(__dirname, 'pkg', '.gitignore'), { force: true });
+
 try {
     let content = fs.readFileSync(wasmFile, 'utf8');
 
