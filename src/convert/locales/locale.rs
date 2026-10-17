@@ -69,32 +69,21 @@ impl Locale {
         plurals: PluralRules,
     ) -> Result<Self, LocaleError> {
         let mut index = HashMap::new();
-        let duplicate = |alias: &str, a, b| LocaleError::DuplicateAlias {
-            alias: alias.to_string(),
-            a,
-            b,
-        };
         for (&unit, unit_names) in &names {
             for alias in unit_names.symbol.iter().chain(&unit_names.aliases) {
-                claim(&mut index, alias, unit).map_err(|other| duplicate(alias, other, unit))?;
+                claim(&mut index, alias, unit)?;
             }
         }
         for (id, aliases) in UNIVERSAL_ALIASES {
             let unit = Unit::from_id(id).expect("a universal alias names a unit");
             for alias in *aliases {
-                claim(&mut index, alias, unit).map_err(|other| duplicate(alias, other, unit))?;
+                claim(&mut index, alias, unit)?;
             }
         }
-        // the spaced identifier always resolves, so it is indexed like any
-        // other spelling; a locale that has given it to another unit is wrong
+        // the identifier always resolves, so it is indexed like any other spelling; a locale that has given it to
+        // another unit is wrong
         for unit in Unit::all() {
-            claim(&mut index, unit.id(), unit).map_err(|other| {
-                LocaleError::AliasIsAnIdentifier {
-                    alias: unit.id().to_string(),
-                    unit: other,
-                    of: unit,
-                }
-            })?;
+            claim(&mut index, unit.id(), unit)?;
         }
         Ok(Self {
             names,
@@ -147,11 +136,29 @@ impl Locale {
     }
 }
 
-/// Indexes `text` as `unit`, or returns the other unit that already has it.
-/// The same unit claiming a string twice is not a conflict.
-fn claim(index: &mut HashMap<String, Unit>, text: &str, unit: Unit) -> Result<(), Unit> {
+/// Indexes `text` as `unit`. The same unit claiming a string twice is not a conflict; another unit already having it
+/// is.
+///
+/// A clash over an identifier is reported as that rather than as a duplicate, because the fix differs: an identifier
+/// resolves in every locale, so the string has to come off whichever unit borrowed it. Either side of the clash may be
+/// the owner, since which unit is reached first comes out of a `HashMap`.
+fn claim(index: &mut HashMap<String, Unit>, text: &str, unit: Unit) -> Result<(), LocaleError> {
+    let borrowed_identifier = |unit, of| {
+        Err(LocaleError::AliasIsAnIdentifier {
+            alias: text.to_string(),
+            unit,
+            of,
+        })
+    };
     match index.insert(text.to_string(), unit) {
-        Some(other) if other != unit => Err(other),
-        _ => Ok(()),
+        Some(other) if other == unit => Ok(()),
+        Some(other) if text == unit.id() => borrowed_identifier(other, unit),
+        Some(other) if text == other.id() => borrowed_identifier(unit, other),
+        Some(other) => Err(LocaleError::DuplicateAlias {
+            alias: text.to_string(),
+            a: other,
+            b: unit,
+        }),
+        None => Ok(()),
     }
 }

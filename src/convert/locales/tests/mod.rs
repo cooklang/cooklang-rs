@@ -109,6 +109,25 @@ fn a_string_may_name_only_one_unit() {
     assert!(locale_with(&[("us cup", names("c", &["c", "cup", "cup"]))]).is_ok());
 }
 
+/// Which unit the build reaches first comes out of a `HashMap`, so a clash over an identifier has to name the borrower
+/// and the owner the same way whichever order it is found in.
+#[test]
+fn a_clash_over_an_identifier_is_reported_the_same_way_either_way_round() {
+    let err = locale_with(&[
+        ("us cup", names("c", &["us cup"])),
+        ("celsius", names("\u{b0}C", &["us cup"])),
+    ])
+    .unwrap_err();
+    assert_eq!(
+        err,
+        LocaleError::AliasIsAnIdentifier {
+            alias: "us cup".to_string(),
+            unit: unit("celsius"),
+            of: unit("us cup"),
+        }
+    );
+}
+
 #[test]
 fn an_alias_may_not_be_another_units_spaced_identifier() {
     // `us cup` must always mean the US cup, so no locale may hand it to
