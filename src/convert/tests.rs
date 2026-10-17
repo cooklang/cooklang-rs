@@ -4,7 +4,8 @@ use crate::quantity::{Quantity, Value};
 
 #[test]
 fn convert_preserves_scalable() {
-    // the legacy converter resets `scalable` to false; see the module docs
+    // converting rebuilds the quantity, and must not lose the flag: the
+    // legacy converter went through `Quantity::new`, which resets it
     let quantity = Quantity {
         value: Value::from(1.0),
         unit: Some(crate::quantity::WrittenUnit::unresolved("l")),
@@ -74,9 +75,6 @@ mod convert_for {
         assert!(close(numbers(&out)[0], 236.588), "{out}");
     }
 
-    /// A range is judged by its start, as the legacy converter judges it:
-    /// the smaller unit never loses information. Both ends are then
-    /// converted into that one unit.
     #[test]
     fn a_range_is_judged_by_its_start() {
         let v2 = Converter::legacy();

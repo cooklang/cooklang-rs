@@ -8,11 +8,9 @@
 //! value is written in. See `docs/adr/locale-aware-units.md` (decision 5).
 //!
 //! The schema is CLDR's — rows ordered largest first, each with a threshold
-//! the value must reach — but the rows are ours. CLDR has no cooking usage,
-//! and its closest list gives `GB` only the imperial gallon and fluid ounce,
-//! so it cannot choose units for a recipe. See
-//! `docs/research/cldr-unit-data.md`. Rows are keyed by system, and a region
-//! may add rows of its own for a quantity, overriding its system's.
+//! the value must reach — but the rows are ours, because CLDR has no cooking
+//! usage. Rows are keyed by system, and a region may add rows of its own for
+//! a quantity, overriding its system's.
 
 use icu_locale_core::subtags::{region, Region};
 
@@ -37,10 +35,9 @@ pub enum System {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Audience {
     pub units: Units,
-    /// `-u-mu-`: a temperature unit asked for outright, overriding `units`
-    /// for temperature only. BCP 47 has this override for temperature alone,
-    /// it being the quantity a reader's system and habit most often disagree
-    /// on: English Canada has metric cups and Fahrenheit ovens.
+    /// `-u-mu-`: overrides `units` for temperature only, which is the one
+    /// quantity a reader's system and habit disagree on. English Canada has
+    /// metric cups and Fahrenheit ovens.
     pub temperature: Option<TemperatureUnit>,
 }
 
@@ -50,9 +47,9 @@ pub struct Audience {
 pub enum Units {
     Region(Region),
     System(System),
-    /// The legacy locale's frozen rows for the system a quantity was
-    /// written in, so an untagged recipe is fitted as it always was: metric
-    /// stays metric, US stays US (ADR 7).
+    /// The frozen rows an untagged recipe is fitted with, for the system
+    /// the quantity was written in: metric stays metric, US stays US
+    /// (ADR 7).
     Legacy(System),
 }
 

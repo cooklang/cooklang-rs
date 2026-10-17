@@ -29,15 +29,11 @@ pub(crate) type PluralRules = &'static [(&'static str, &'static str)];
 
 /// Spellings that resolve in every locale, whatever it names.
 ///
-/// The degree symbols in other encodings: `℃`/`℉` (U+2103, U+2109) and the
-/// common typo `ºC`/`ºF` with the ordinal indicator (U+00BA) in place of the
-/// degree sign. They are the same symbol, not a language's word, so no locale
-/// owns them. And the bare letters: `C` and `F`
-/// are safe only because lookup is exact and case-sensitive: `c` is a cup in
-/// `en`, `en-001`, `en-AU` and `en-GB`, so folding case would turn `180 C`
-/// into 180 cups. `units.toml` has always given `legacy` the bare letters, so
-/// this brings the CLDR locales into line with it rather than adding a new
-/// spelling.
+/// The degree symbols in other encodings (`℃`, `℉`) and with the ordinal
+/// indicator typed for the degree sign (`ºC`, `ºF`) are the same symbol, not
+/// a language's word, so no locale owns them. The bare `C` and `F` are safe
+/// only because lookup is case-sensitive: `c` is a cup in `en`, `en-001`,
+/// `en-AU` and `en-GB`, so folding case would turn `180 C` into 180 cups.
 pub(crate) const UNIVERSAL_ALIASES: &[(&str, &[&str])] = &[
     ("celsius", &["℃", "ºC", "C"]),
     ("fahrenheit", &["℉", "ºF", "F"]),
@@ -109,8 +105,8 @@ impl Locale {
         })
     }
 
-    /// The unit written as `text`, if the locale knows that spelling or it
-    /// is a unit's spaced identifier.
+    /// The unit written as `text`. Every unit's identifier resolves, named
+    /// or not.
     pub(crate) fn resolve(&self, text: &str) -> Option<Unit> {
         self.index.get(text).copied()
     }

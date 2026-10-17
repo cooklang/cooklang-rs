@@ -1,6 +1,6 @@
-//! The names `units.toml` gives the bundled units, as a [`Locale`], so the
-//! two converters can be compared on the same recipe text. Frozen: it names
-//! exactly those units.
+//! The locale an untagged recipe reads its units through: the names
+//! `units.toml` gives the bundled units, and nothing else. Frozen, so that
+//! what an untagged recipe does stays what it always did (ADR 7).
 
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
@@ -9,8 +9,8 @@ use super::locale::{Locale, UnitNames};
 use super::preference::System;
 use crate::convert::units::{PhysicalQuantity, Unit};
 
-/// A unit's names in one locale: its id, its symbols and its other spellings.
-/// The first symbol is the one a conversion writes back.
+/// Identifier, symbols, other spellings. The first symbol is the one a
+/// conversion writes back.
 #[rustfmt::skip]
 type Names = (&'static str, &'static [&'static str], &'static [&'static str]);
 

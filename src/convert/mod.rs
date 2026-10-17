@@ -1,18 +1,11 @@
-//! The converter. [`crate::convert_legacy`] is the old one, kept until the
-//! swap is reviewed: each `_legacy` function on a recipe or quantity is the
-//! old form of the one without the suffix, and goes with the old converter
-//! (ADR 9).
-//!
 //! A [`Converter`] reads and writes units the way one locale names them,
 //! and fits them for one audience: the legacy locale and the system a
 //! quantity was written in for a recipe with no `locale`, else what the
 //! recipe's tag determines.
 //!
-//! # Differences from the legacy converter
-//!
-//! - Converting a [`Quantity`] keeps its `scalable` flag. The legacy
-//!   converter rebuilds the quantity with [`Quantity::new`], which resets it
-//!   to `false`.
+//! [`crate::convert_legacy`] is the old one, kept until the swap is
+//! reviewed. Each `_legacy` function on a recipe or quantity is its old
+//! form, and goes with it (ADR 9).
 
 pub(crate) mod locales;
 pub mod units;
@@ -60,12 +53,15 @@ pub enum Naming {
 }
 
 /// Who a fitted quantity is written for.
+///
+/// One audience serves a tagged recipe, whatever its units; an untagged one
+/// needs the unit first, since each is fitted within the system it was
+/// written in, so it becomes an [`Audience`] only in [`audience_for`].
+///
+/// [`audience_for`]: Converter::audience_for
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Target {
-    /// The legacy locale's frozen rows for the system the quantity was
-    /// written in: metric stays metric, US stays US (ADR 7).
     SameSystem,
-    /// The audience the recipe's tag determines.
     Audience(Audience),
 }
 
@@ -194,8 +190,8 @@ impl Converter {
 
     /// `quantity` as `audience` would write it: in the unit its rows choose,
     /// as a fraction where the row has one that fits. A range is judged by
-    /// its start, as the legacy converter judges it: the smaller unit never
-    /// loses information. The end is then written in that same unit.
+    /// its start, so that the smaller unit never loses information, and its
+    /// end is written in whatever unit that chose.
     pub(crate) fn convert_for(
         &self,
         quantity: &Quantity,
@@ -222,12 +218,10 @@ impl Converter {
         })
     }
 
-    /// The locale this converter reads and writes units through.
     pub(crate) fn locale(&self) -> &Locale {
         &self.locale
     }
 
-    /// The unit `text` names in this converter's locale.
     pub(crate) fn resolve_text(&self, text: &str) -> Option<Unit> {
         self.locale.resolve(text)
     }
@@ -256,31 +250,28 @@ impl Metadata {
         }
     }
 
-    /// The converter the recipe reads its units through: the one its naming
-    /// calls for, or the legacy one when that cannot be served, which is
-    /// also what the parser read it through after reporting the refusal.
+    /// The converter this [`naming`](Self::naming) calls for, or the legacy
+    /// one when it cannot be served, which is what the parser read the
+    /// recipe through after reporting that refusal.
     pub(crate) fn converter(&self) -> Converter {
         Converter::for_naming(&self.naming()).unwrap_or_else(|_| Converter::legacy())
     }
 }
 
 impl Recipe {
-    /// The locale the recipe's `locale` key names, if it has one.
+    /// See [`Metadata::locale_tag`].
     pub fn locale_tag(&self) -> Option<LocaleTag> {
         self.metadata.locale_tag()
     }
 
-    /// Which locale this recipe reads its units through, from its metadata:
-    /// the legacy locale when it has no `locale` (ADR 7).
+    /// See [`Metadata::naming`].
     pub fn naming(&self) -> Naming {
         self.metadata.naming()
     }
 
-    /// The converter this recipe reads its units through: the one its
-    /// [`naming`](Self::naming) calls for, or the legacy one when that
-    /// cannot be served, which is also what the parser read it through
-    /// after reporting the refusal. Scaling, grouping and metadata time all
-    /// go through it, so a caller never chooses.
+    /// The converter this recipe reads its units through, from its
+    /// [`naming`](Self::naming). Scaling, grouping, metadata time and
+    /// equality all go through it, so a caller never chooses.
     pub fn converter(&self) -> Converter {
         self.metadata.converter()
     }

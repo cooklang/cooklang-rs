@@ -93,7 +93,6 @@ impl Unit {
         }
     }
 
-    /// The unit with this [`Unit::id`], if any.
     pub fn from_id(id: &str) -> Option<Unit> {
         Unit::all().find(|unit| unit.id() == id)
     }

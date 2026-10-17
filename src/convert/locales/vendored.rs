@@ -49,12 +49,10 @@ fn generated(tag: &str) -> Option<&'static GeneratedLocale> {
 static BUILT: LazyLock<Vec<OnceLock<Arc<Locale>>>> =
     LazyLock::new(|| GENERATED_LOCALES.iter().map(|_| OnceLock::new()).collect());
 
-/// Every locale vendored from CLDR, by tag.
 pub(crate) fn vendored_tags() -> impl Iterator<Item = &'static str> {
     GENERATED_LOCALES.iter().map(|locale| locale.tag)
 }
 
-/// Which CLDR release `tag`'s names were seeded from, if it was vendored.
 pub(crate) fn cldr_version(tag: &str) -> Option<&'static str> {
     generated(tag).map(|locale| locale.cldr_version)
 }
@@ -101,21 +99,18 @@ fn build(generated: &GeneratedLocale) -> Locale {
 
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
 
-/// The locale whose names apply to `tag`, or `None` if nothing vendored
-/// covers it, whether or not it has been reviewed. [`reviewed_locale`] is
-/// what serves a reader.
-///
+/// The locale whose names apply to `tag`, reviewed or not;
+/// [`reviewed_locale`] is what serves a reader.
 #[cfg(test)]
-/// Extensions are ignored: `-u-ms-metric` chooses units, not names. Lookup
-/// follows CLDR's own parent chain before truncating, which is what sends
-/// `en-NZ` to `en-001` rather than to US English — CLDR gives `en-NZ`,
-/// `en-AU` and the rest an explicit `en-001` parent, and `es-MX` an `es-419`
-/// one.
 pub(crate) fn for_tag(tag: &LocaleTag) -> Option<Arc<Locale>> {
     vendored_locale(tag_for(tag)?)
 }
 
-/// The vendored tag whose names apply to `tag`, if any. See [`for_tag`].
+/// The vendored tag whose names apply to `tag`, if any.
+///
+/// Extensions are ignored: `-u-ms-metric` chooses units, not names. Lookup
+/// follows CLDR's parent chain before truncating, which is what sends
+/// `en-NZ` to `en-001` rather than to US English.
 pub(crate) fn tag_for(tag: &LocaleTag) -> Option<&'static str> {
     let mut current = tag.language_identifier();
     loop {
@@ -142,16 +137,8 @@ pub(crate) fn names_reviewed(tag: &str) -> bool {
     generated(tag).is_some_and(|locale| locale.reviewed)
 }
 
-/// The locale to serve a reader on `tag`, refusing one no speaker has
-/// confirmed.
-///
-/// [`reviewed_locale`] is the same refusal as a result, and is what the
-/// parser uses; this panics with the whole locale instead, and today only
-/// the tests take that path.
-///
-/// Refusing rather than degrading is deliberate: falling back to identifiers
-/// would ship `2 us cup` to a Swede as though it were a translation, and
-/// falling back to the parent would hand a Ukrainian reader Russian.
+/// [`reviewed_locale`], panicking with the whole locale rather than
+/// reporting. No caller outside the tests wants that today.
 ///
 /// # Panics
 ///
@@ -183,9 +170,13 @@ pub enum Refusal {
     NoAudience(#[from] RegionError),
 }
 
-/// [`reviewed_for_tag`] as a result, for a caller that reports rather than
-/// panics: the parser. The refusal names the locale reached, since that is
-/// the one needing review.
+/// The locale to serve a reader on `tag`, refusing one no speaker has
+/// confirmed.
+///
+/// Refusing rather than degrading is deliberate: falling back to identifiers
+/// would ship `2 us cup` to a Swede as though it were a translation, and
+/// falling back to the parent would hand a Ukrainian reader Russian. The
+/// refusal names the locale reached, since that is the one needing review.
 pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
     let reached = tag_for(tag).ok_or_else(|| Refusal::Unknown(tag.language_identifier()))?;
     if !names_reviewed(reached) {
