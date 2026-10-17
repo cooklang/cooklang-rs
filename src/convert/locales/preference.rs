@@ -14,9 +14,8 @@ use crate::convert::units::{
     LengthUnit, MassUnit, PhysicalQuantity, TemperatureUnit, TimeUnit, Unit, VolumeUnit,
 };
 
-/// A family of units a reader prefers. A display preference, not a property
-/// of a unit: the metric spoons appear in the imperial rows because a British
-/// teaspoon is 5 ml.
+/// A family of units a reader prefers. A display preference, not a property of a unit: the metric spoons appear in the
+/// imperial rows because a British teaspoon is 5 ml.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum System {
     Metric,
@@ -24,8 +23,7 @@ pub enum System {
     Imperial,
 }
 
-/// Who a converted value is written for: where their units come from, and
-/// any single unit they asked for outright.
+/// Who a converted value is written for: where their units come from, and any single unit they asked for outright.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Audience {
     pub units: Units,
@@ -96,9 +94,8 @@ pub(crate) fn official_system(region: Region) -> System {
     }
 }
 
-/// A unit, the amount of it a value must reach to be shown in it, and how
-/// it is written when it is: as a fraction with at most this denominator,
-/// or as a decimal when there is none.
+/// A unit, the amount of it a value must reach to be shown in it, and how it is written when it is: as a fraction with
+/// at most this denominator, or as a decimal when there is none.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Row {
     pub unit: Unit,
@@ -109,9 +106,9 @@ pub(crate) struct Row {
     pub or_decimal: bool,
 }
 
-// The rows themselves are data: `locales/preferences.toml`, one entry per system, legacy system or region and
-// quantity, each with its citation. build.rs turns it into `PREFERENCES`, `LEGACY_PREFERENCES` and
-// `REGION_PREFERENCES`; `rows_for` says which of them applies.
+// The rows themselves are data: `locales/preferences.toml`, one entry per system, legacy system or region and quantity,
+// each with its citation. build.rs turns it into `PREFERENCES`, `LEGACY_PREFERENCES` and `REGION_PREFERENCES`;
+// `rows_for` says which of them applies.
 include!(concat!(env!("OUT_DIR"), "/preferences.rs"));
 
 fn rows(system: System, quantity: PhysicalQuantity) -> Option<&'static [Row]> {
@@ -135,9 +132,8 @@ fn region_rows(region: Region, quantity: PhysicalQuantity) -> Option<&'static [R
         .map(|(_, _, rows)| *rows)
 }
 
-/// The rows that apply to `audience` for `quantity`, most specific first: the `-u-mu-` unit for temperature, a
-/// region's own rows, its system's, then metric, which is where time lives. A legacy audience has only its frozen rows
-/// (ADR 7).
+/// The rows that apply to `audience` for `quantity`, most specific first: the `-u-mu-` unit for temperature, a region's
+/// own rows, its system's, then metric, which is where time lives. A legacy audience has only its frozen rows (ADR 7).
 pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'static [Row] {
     if quantity == PhysicalQuantity::Temperature {
         if let Some(unit) = audience.temperature {
@@ -175,14 +171,12 @@ fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
     }
 }
 
-/// How far a fraction may be from the amount it stands for, as a share of
-/// it: the legacy converter's imperial `accuracy`. The precision research's
-/// tiers (`docs/research/measurement-precision.md`) are parked.
+/// How far a fraction may be from the amount it stands for, as a share of it: the legacy converter's imperial
+/// `accuracy`. The precision research's tiers (`docs/research/measurement-precision.md`) are parked.
 const FRACTION_TOLERANCE: f32 = 0.05;
 
-/// The rows `value` reaches the threshold of, largest first. The magnitude
-/// is what matters, so a negative value — a freezer temperature — is judged
-/// by its absolute size.
+/// The rows `value` reaches the threshold of, largest first. The magnitude is what matters, so a negative value — a
+/// freezer temperature — is judged by its absolute size.
 fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = &Row> {
     rows.iter().filter(move |row| {
         Unit::convert(value.abs(), from, row.unit).expect("same quantity") >= row.at_least
@@ -205,16 +199,14 @@ pub(crate) fn best_unit(value: f64, from: Unit, audience: Audience) -> Unit {
 
 /// `value` of `from` as `audience` would write it, with the unit.
 ///
-/// The first row the value reaches the threshold of takes it, unless that
-/// row writes fractions and none fits, in which case the next row is tried:
-/// `100 ml` is no quarter of a cup, so it is `3 1/2 fl oz`. A fraction is a
-/// display form, not a rounding: [`Number::Fraction`] keeps the residual.
+/// The first row the value reaches the threshold of takes it, unless that row writes fractions and none fits, in which
+/// case the next row is tried: `100 ml` is no quarter of a cup, so it is `3 1/2 fl oz`. A fraction is a display form,
+/// not a rounding: [`Number::Fraction`] keeps the residual.
 pub(crate) fn best_amount(value: f64, from: Unit, audience: Audience) -> (Number, Unit) {
     amount_in(rows_for(audience, from.physical_quantity()), value, from)
 }
 
-/// `amount`, already in `unit`, as `audience` writes that unit: a fraction if
-/// its row has one that fits, else as it is.
+/// `amount`, already in `unit`, as `audience` writes that unit: a fraction if its row has one that fits, else as it is.
 pub(crate) fn as_written(amount: f64, unit: Unit, audience: Audience) -> Number {
     fraction_in(rows_for(audience, unit.physical_quantity()), amount, unit)
 }
@@ -240,9 +232,8 @@ fn fraction_in(rows: &[Row], amount: f64, unit: Unit) -> Number {
         .unwrap_or(Number::Regular(amount))
 }
 
-/// `amount` as `row` writes it, or `None` if the row wants a fraction and
-/// none fits. Only a positive amount can be a fraction; zero and negatives
-/// are written as they are.
+/// `amount` as `row` writes it, or `None` if the row wants a fraction and none fits. Only a positive amount can be a
+/// fraction; zero and negatives are written as they are.
 fn fraction(amount: f64, row: &Row) -> Option<Number> {
     match row.fractions {
         Some(den) if amount > 0.0 => Number::new_approx(amount, FRACTION_TOLERANCE, den, u32::MAX),
@@ -289,8 +280,8 @@ mod tests {
     #[test]
     fn a_region_gets_its_official_system() {
         assert_eq!(official_system(region!("US")), System::UsCustomary);
-        // officially metric, whatever the kitchen still says: the UK, and
-        // the two territories CLDR files under the US and UK systems
+        // officially metric, whatever the kitchen still says: the UK, and the two territories CLDR files under the US
+        // and UK systems
         for r in [
             region!("GB"),
             region!("LR"),
