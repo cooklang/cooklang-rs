@@ -1,12 +1,10 @@
 //! Starts a locale from CLDR's own JSON for it, as `locales/<tag>.toml`.
 //!
-//! Only for a language we do not have. There is deliberately no command to
-//! re-render a locale we *do* have: those files carry hand-written comments
-//! and ordering, and a canonical re-render would flatten them. Once a file
-//! exists it is edited by hand, which is the point of ADR 3.
+//! Only for a language we do not have. There is deliberately no command to re-render a locale we *do* have: those files
+//! carry hand-written comments and ordering, and a canonical re-render would flatten them. Once a file exists it is
+//! edited by hand, which is the point of ADR 3.
 //!
-//! This is the only code that knows CLDR's vocabulary. The library reads
-//! `locales/*.toml` and never CLDR itself.
+//! This is the only code that knows CLDR's vocabulary. The library reads `locales/*.toml` and never CLDR itself.
 
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -197,8 +195,8 @@ pub(crate) fn render_new_locale(
             .and_then(alias_of);
         names.extend(symbol.clone());
 
-        // a unit's spaced identifier resolves everywhere (ADR 4), so it is
-        // neither a name to add nor one that could be refused
+        // a unit's spaced identifier resolves everywhere (ADR 4), so it is neither a name to add nor one that could be
+        // refused
         names.retain(|n| !spaced.iter().any(|i| i == n));
         names.sort();
         names.dedup();
@@ -270,10 +268,9 @@ mod tests {
 
     /// Our units that take no names from CLDR.
     ///
-    /// Most are units CLDR does not define. Four it does define are declined
-    /// because no recipe uses them: taking them would spend `km`, `hl`, `dm` and
-    /// `mg` in every locale on units nobody writes, and every resolvable string
-    /// is one more the inline-quantities scanner matches in prose (ADR 4).
+    /// Most are units CLDR does not define. Four it does define are declined because no recipe uses them: taking them
+    /// would spend `km`, `hl`, `dm` and `mg` in every locale on units nobody writes, and every resolvable string is one
+    /// more the inline-quantities scanner matches in prose (ADR 4).
     #[rustfmt::skip]
     const NOT_FROM_CLDR: &[&str] = &[
         // CLDR has no kiloliter or decaliter

@@ -70,10 +70,8 @@ pub fn parse_events_legacy<'i, 'c>(
     )
 }
 
-/// Builds a recipe from the events: an untagged recipe reads its units
-/// through the legacy locale, a tagged one through its own.
-/// [`parse_events_legacy`] is the same through the old converter and goes
-/// with it (ADR 9).
+/// Builds a recipe from the events: an untagged recipe reads its units through the legacy locale, a tagged one through
+/// its own. [`parse_events_legacy`] is the same through the old converter and goes with it (ADR 9).
 #[tracing::instrument(level = "debug", skip_all, target = "cooklang::analysis")]
 pub fn parse_events<'i>(
     events: impl Iterator<Item = Event<'i>>,
@@ -96,19 +94,17 @@ pub fn parse_events<'i>(
 pub const UNTAGGED_WARNING: &str =
     "This recipe has no `locale`, so its units are read as the legacy locale names them";
 
-/// How a collector reads the units it meets. The old converter goes, and
-/// this enum with it (ADR 9).
+/// How a collector reads the units it meets. The old converter goes, and this enum with it (ADR 9).
 enum Units<'c> {
-    /// The converter the recipe's own naming calls for: the legacy locale
-    /// until a `locale` key names another.
+    /// The converter the recipe's own naming calls for: the legacy locale until a `locale` key names another.
     Locale(Converter),
     /// The old converter, which reads unit text on demand.
     Legacy(&'c LegacyConverter),
 }
 
 impl Units<'_> {
-    /// The locale a quantity's unit is read through as it is built, or
-    /// `None` on the old pipeline, which reads it when it needs it.
+    /// The locale a quantity's unit is read through as it is built, or `None` on the old pipeline, which reads it when
+    /// it needs it.
     fn locale(&self) -> Option<&Locale> {
         match self {
             Units::Locale(converter) => Some(converter.locale()),
@@ -134,8 +130,8 @@ impl Units<'_> {
         }
     }
 
-    /// Whether two quantities can be added: on the new pipeline their units
-    /// were read when they were built (ADR 8); the old one reads them now.
+    /// Whether two quantities can be added: on the new pipeline their units were read when they were built (ADR 8); the
+    /// old one reads them now.
     fn compatible(&self, a: &Quantity, b: &Quantity) -> Result<(), IncompatibleUnits> {
         match self {
             Units::Locale(_) => a.compatible_unit(b).map(|_| ()),
@@ -185,8 +181,7 @@ fn collect<'i, 'c>(
 struct RecipeCollector<'i, 'c> {
     input: &'i str,
     extensions: Extensions,
-    /// How units are read: through the recipe's own locale, or through the
-    /// old converter.
+    /// How units are read: through the recipe's own locale, or through the old converter.
     units: Units<'c>,
     /// Whether a `locale` key has been adopted.
     tagged: bool,
@@ -320,8 +315,8 @@ impl<'i> RecipeCollector<'i, '_> {
             self.ctx.warn(diag);
         }
 
-        // on the new pipeline an untagged recipe reads the legacy locale,
-        // which is frozen; the nudge is what moves recipes off it (ADR 7)
+        // on the new pipeline an untagged recipe reads the legacy locale, which is frozen; the nudge is what moves
+        // recipes off it (ADR 7)
         if matches!(self.units, Units::Locale(_)) && !self.tagged {
             self.ctx.warn(
                 warning!(UNTAGGED_WARNING)
@@ -355,9 +350,8 @@ impl<'i> RecipeCollector<'i, '_> {
         };
 
         let mut to_remove = Vec::new();
-        // the block is one unit, so its locale applies to every key in it
-        // whatever order they are written in: it is read first, and the time
-        // keys are then checked through it
+        // the block is one unit, so its locale applies to every key in it whatever order they are written in: it is
+        // read first, and the time keys are then checked through it
         let is_locale = |key: &serde_yaml::Value| {
             key.as_str().and_then(|s| StdKey::from_str(s).ok()) == Some(StdKey::Locale)
         };
@@ -562,9 +556,8 @@ impl<'i> RecipeCollector<'i, '_> {
                 .insert(sp_key, (key.clone(), value.clone()));
 
             if sp_key == StdKey::Locale {
-                // a locale only applies from where it is read, so one that
-                // comes after a unit would leave that unit read the old way;
-                // it is refused rather than pre-scanned (ADR 7)
+                // a locale only applies from where it is read, so one that comes after a unit would leave that unit
+                // read the old way; it is refused rather than pre-scanned (ADR 7)
                 if self.units_written() {
                     self.ctx.warn(
                         warning!(
@@ -591,16 +584,15 @@ impl<'i> RecipeCollector<'i, '_> {
     /// that locale cannot be served. `tag` has passed [`check_std_entry`].
     fn adopt_locale(&mut self, tag: &str) -> Result<(), Refusal> {
         let tag = LocaleTag::parse(tag).expect("checked as a standard key");
-        // the same refusals the recipe will meet when it is scaled or
-        // listed: an unreviewed locale, and a tag that determines no
-        // audience to fit units for (ADR 7)
+        // the same refusals the recipe will meet when it is scaled or listed: an unreviewed locale, and a tag that
+        // determines no audience to fit units for (ADR 7)
         self.units = Units::Locale(Converter::for_tag(&tag)?);
         self.tagged = true;
         Ok(())
     }
 
-    /// Whether anything read through the locale has been written yet: a
-    /// quantity with a unit, an inline quantity, or a time key.
+    /// Whether anything read through the locale has been written yet: a quantity with a unit, an inline quantity, or a
+    /// time key.
     fn units_written(&self) -> bool {
         let has_unit = |q: &Option<Quantity>| q.as_ref().is_some_and(|q| q.unit().is_some());
         let content = &self.content;
@@ -1213,8 +1205,8 @@ impl<'i> RecipeCollector<'i, '_> {
     ) -> Quantity {
         let parser::Quantity { value, unit, .. } = quantity.into_inner();
         let (value, scalable) = self.value(value, is_ingredient);
-        // read through the recipe's locale here, once (ADR 8); the old
-        // pipeline has no locale and reads the text when it needs it
+        // read through the recipe's locale here, once (ADR 8); the old pipeline has no locale and reads the text when
+        // it needs it
         let unit = unit.map(|t| {
             let text = t.text_trimmed().into_owned();
             match self.units.locale() {

@@ -44,8 +44,7 @@ fn generated(tag: &str) -> Option<&'static GeneratedLocale> {
     generated_index(tag).map(|i| &GENERATED_LOCALES[i])
 }
 
-/// Each vendored locale, built the first time it is asked for and shared
-/// from then on, parallel to `GENERATED_LOCALES`.
+/// Each vendored locale, built the first time it is asked for and shared from then on, parallel to `GENERATED_LOCALES`.
 static BUILT: LazyLock<Vec<OnceLock<Arc<Locale>>>> =
     LazyLock::new(|| GENERATED_LOCALES.iter().map(|_| OnceLock::new()).collect());
 
@@ -99,8 +98,7 @@ fn build(generated: &GeneratedLocale) -> Locale {
 
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
 
-/// The locale whose names apply to `tag`, reviewed or not;
-/// [`reviewed_locale`] is what serves a reader.
+/// The locale whose names apply to `tag`, reviewed or not; [`reviewed_locale`] is what serves a reader.
 #[cfg(test)]
 pub(crate) fn for_tag(tag: &LocaleTag) -> Option<Arc<Locale>> {
     vendored_locale(tag_for(tag)?)
@@ -108,9 +106,8 @@ pub(crate) fn for_tag(tag: &LocaleTag) -> Option<Arc<Locale>> {
 
 /// The vendored tag whose names apply to `tag`, if any.
 ///
-/// Extensions are ignored: `-u-ms-metric` chooses units, not names. Lookup
-/// follows CLDR's parent chain before truncating, which is what sends
-/// `en-NZ` to `en-001` rather than to US English.
+/// Extensions are ignored: `-u-ms-metric` chooses units, not names. Lookup follows CLDR's parent chain before
+/// truncating, which is what sends `en-NZ` to `en-001` rather than to US English.
 pub(crate) fn tag_for(tag: &LocaleTag) -> Option<&'static str> {
     let mut current = tag.language_identifier();
     loop {
@@ -137,8 +134,8 @@ pub(crate) fn names_reviewed(tag: &str) -> bool {
     generated(tag).is_some_and(|locale| locale.reviewed)
 }
 
-/// [`reviewed_locale`], panicking with the whole locale rather than
-/// reporting. No caller outside the tests wants that today.
+/// [`reviewed_locale`], panicking with the whole locale rather than reporting. No caller outside the tests wants that
+/// today.
 ///
 /// # Panics
 ///
@@ -164,19 +161,16 @@ pub enum Refusal {
          write, and locales/README.md says how to review it"
     )]
     Unreviewed(String),
-    /// The tag names no region and no measurement system, so nothing says
-    /// which units its readers want (ADR 7).
+    /// The tag names no region and no measurement system, so nothing says which units its readers want (ADR 7).
     #[error(transparent)]
     NoAudience(#[from] RegionError),
 }
 
-/// The locale to serve a reader on `tag`, refusing one no speaker has
-/// confirmed.
+/// The locale to serve a reader on `tag`, refusing one no speaker has confirmed.
 ///
-/// Refusing rather than degrading is deliberate: falling back to identifiers
-/// would ship `2 us cup` to a Swede as though it were a translation, and
-/// falling back to the parent would hand a Ukrainian reader Russian. The
-/// refusal names the locale reached, since that is the one needing review.
+/// Refusing rather than degrading is deliberate: falling back to identifiers would ship `2 us cup` to a Swede as though
+/// it were a translation, and falling back to the parent would hand a Ukrainian reader Russian. The refusal names the
+/// locale reached, since that is the one needing review.
 pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
     let reached = tag_for(tag).ok_or_else(|| Refusal::Unknown(tag.language_identifier()))?;
     if !names_reviewed(reached) {

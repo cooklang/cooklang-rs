@@ -76,13 +76,11 @@ impl Unit {
             )
     }
 
-    /// Stable identifier: lowercase words separated by spaces, with any
-    /// regional or system variant first, as in `us cup` or `imperial pint`.
-    /// Unique across all units.
+    /// Stable identifier: lowercase words separated by spaces, with any regional or system variant first, as in `us
+    /// cup` or `imperial pint`. Unique across all units.
     ///
-    /// Recipe-facing: it resolves as input in every locale and is what a
-    /// conversion writes when a locale has no symbol for the unit (ADR 4,
-    /// ADR 2).
+    /// Recipe-facing: it resolves as input in every locale and is what a conversion writes when a locale has no symbol
+    /// for the unit (ADR 4, ADR 2).
     pub fn id(self) -> &'static str {
         match self {
             Unit::Volume(u) => u.id(),

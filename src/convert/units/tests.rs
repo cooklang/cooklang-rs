@@ -111,12 +111,11 @@ fn from_id_finds_every_unit_by_its_id() {
 
 #[test]
 fn ids_are_single_spaced_words() {
-    // catches a multi-word variant added without a `serialize` override, which
-    // would otherwise be given an id with an underscore
+    // catches a multi-word variant added without a `serialize` override, which would otherwise be given an id with an
+    // underscore
     //
-    // The space checks are the price of ADR 2: a hyphen could not hide a
-    // double, leading, trailing or non-breaking space, and a space can -- all
-    // of them invisible in a diff. So they are asserted rather than trusted.
+    // The space checks are the price of ADR 2: a hyphen could not hide a double, leading, trailing or non-breaking
+    // space, and a space can -- all of them invisible in a diff. So they are asserted rather than trusted.
     for unit in Unit::all() {
         let id = unit.id();
         assert!(

@@ -177,10 +177,8 @@ impl Default for Extensions {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct CooklangParser {
     extensions: Extensions,
-    /// The old converter, for a parser made with
-    /// [`new_legacy`](CooklangParser::new_legacy); `None` is the new
-    /// pipeline, where a recipe is read through its own locale. Goes with
-    /// the old converter (ADR 9).
+    /// The old converter, for a parser made with [`new_legacy`](CooklangParser::new_legacy); `None` is the new
+    /// pipeline, where a recipe is read through its own locale. Goes with the old converter (ADR 9).
     legacy: Option<LegacyConverter>,
 }
 
@@ -198,10 +196,9 @@ impl CooklangParser {
 
     /// Creates a new parser.
     ///
-    /// An untagged recipe is read through the legacy locale, a tagged one
-    /// through the locale its `locale` key names, so the parser needs no
-    /// converter. A [`Converter`] is the target a list is written in, which
-    /// the caller holds and passes to [`IngredientList`](crate::ingredient_list::IngredientList).
+    /// An untagged recipe is read through the legacy locale, a tagged one through the locale its `locale` key names, so
+    /// the parser needs no converter. A [`Converter`] is the target a list is written in, which the caller holds and
+    /// passes to [`IngredientList`](crate::ingredient_list::IngredientList).
     ///
     /// It is encouraged to reuse the parser and not rebuild it every time.
     pub fn new(extensions: Extensions) -> Self {
@@ -213,8 +210,7 @@ impl CooklangParser {
 
     /// Creates a new extended parser
     ///
-    /// This enables all extensions.
-    /// It is encouraged to reuse the parser and not rebuild it every time.
+    /// This enables all extensions. It is encouraged to reuse the parser and not rebuild it every time.
     pub fn extended() -> Self {
         Self::new(Extensions::all())
     }
@@ -228,8 +224,8 @@ impl CooklangParser {
         Self::new(Extensions::empty())
     }
 
-    /// The old converter this parser was made with, or `None` for one made
-    /// with [`new`](Self::new); goes with the old converter (ADR 9).
+    /// The old converter this parser was made with, or `None` for one made with [`new`](Self::new); goes with the old
+    /// converter (ADR 9).
     pub fn converter_legacy(&self) -> Option<&LegacyConverter> {
         self.legacy.as_ref()
     }

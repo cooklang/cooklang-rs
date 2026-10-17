@@ -95,14 +95,12 @@ pub fn unordered_equals_legacy<T: LegacySemanticEq>(
     })
 }
 
-/// Compares two values for equality in meaning. A quantity carries the unit
-/// it was read as (ADR 8), so no converter is needed; [`LegacySemanticEq`]
-/// is the same through the old converter and goes with it (ADR 9).
+/// Compares two values for equality in meaning. A quantity carries the unit it was read as (ADR 8), so no converter is
+/// needed; [`LegacySemanticEq`] is the same through the old converter and goes with it (ADR 9).
 ///
-/// The types of a parsed recipe implement this, and it composes through
-/// [`Option`], slices and [`Vec`], so a whole recipe is compared by comparing
-/// its parts. Like the old trait it is reflexive and symmetric but **not
-/// transitive**, since numbers are compared within a tolerance.
+/// The types of a parsed recipe implement this, and it composes through [`Option`], slices and [`Vec`], so a whole
+/// recipe is compared by comparing its parts. Like the old trait it is reflexive and symmetric but **not transitive**,
+/// since numbers are compared within a tolerance.
 pub trait SemanticEq {
     /// Compares `self` with `other` by meaning
     fn equals(&self, other: &Self) -> bool;

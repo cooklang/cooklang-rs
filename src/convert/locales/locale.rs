@@ -1,10 +1,9 @@
-//! How units are written in one language: the symbol a conversion writes
-//! back, and every alias a recipe may use for the unit.
+//! How units are written in one language: the symbol a conversion writes back, and every alias a recipe may use for the
+//! unit.
 //!
-//! A locale names only the units it has a safe name for. A unit it does not
-//! name is written as its identifier with spaces (`imperial pint`), and that
-//! spaced form resolves in every locale, so what is written can always be
-//! read back. See `docs/adr/locale-aware-units.md` (decision 4).
+//! A locale names only the units it has a safe name for. A unit it does not name is written as its identifier with
+//! spaces (`imperial pint`), and that spaced form resolves in every locale, so what is written can always be read back.
+//! See `docs/adr/locale-aware-units.md` (decision 4).
 
 use std::collections::HashMap;
 
@@ -29,11 +28,10 @@ pub(crate) type PluralRules = &'static [(&'static str, &'static str)];
 
 /// Spellings that resolve in every locale, whatever it names.
 ///
-/// The degree symbols in other encodings (`℃`, `℉`) and with the ordinal
-/// indicator typed for the degree sign (`ºC`, `ºF`) are the same symbol, not
-/// a language's word, so no locale owns them. The bare `C` and `F` are safe
-/// only because lookup is case-sensitive: `c` is a cup in `en`, `en-001`,
-/// `en-AU` and `en-GB`, so folding case would turn `180 C` into 180 cups.
+/// The degree symbols in other encodings (`℃`, `℉`) and with the ordinal indicator typed for the degree sign (`ºC`,
+/// `ºF`) are the same symbol, not a language's word, so no locale owns them. The bare `C` and `F` are safe only because
+/// lookup is case-sensitive: `c` is a cup in `en`, `en-001`, `en-AU` and `en-GB`, so folding case would turn `180 C`
+/// into 180 cups.
 pub(crate) const UNIVERSAL_ALIASES: &[(&str, &[&str])] = &[
     ("celsius", &["℃", "ºC", "C"]),
     ("fahrenheit", &["℉", "ºF", "F"]),
@@ -105,8 +103,7 @@ impl Locale {
         })
     }
 
-    /// The unit written as `text`. Every unit's identifier resolves, named
-    /// or not.
+    /// The unit written as `text`. Every unit's identifier resolves, named or not.
     pub(crate) fn resolve(&self, text: &str) -> Option<Unit> {
         self.index.get(text).copied()
     }

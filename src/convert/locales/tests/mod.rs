@@ -345,11 +345,9 @@ mod markdown {
     }
 }
 
-/// ADR 3: outside US customary locales, an unmarked word for a US unit
-/// is refused. CLDR marks only the imperial side of each pair (`brittiska
-/// quarts`, `Imp. Gallonen`) and leaves the US side bare, which is CLDR's
-/// layout, not evidence that a Swedish or German kitchen means 3.79 l by
-/// `gallon`; the readings differ by 20% (4% for the fluid ounce).
+/// ADR 3: outside US customary locales, an unmarked word for a US unit is refused. CLDR marks only the imperial side of
+/// each pair (`brittiska quarts`, `Imp. Gallonen`) and leaves the US side bare, which is CLDR's layout, not evidence
+/// that a Swedish or German kitchen means 3.79 l by `gallon`; the readings differ by 20% (4% for the fluid ounce).
 #[cfg(feature = "bundled_units")]
 mod unmarked_us_words {
     use super::*;
@@ -392,9 +390,8 @@ mod unmarked_us_words {
         }
     }
 
-    /// Every non-English locale here strips the imperial names (ADR 3).
-    /// Locales whose region has a US/UK-system past -- hi, ms, he, ar,
-    /// zh-Hant -- keep theirs, and are not in `NON_US`.
+    /// Every non-English locale here strips the imperial names (ADR 3). Locales whose region has a US/UK-system past --
+    /// hi, ms, he, ar, zh-Hant -- keep theirs, and are not in `NON_US`.
     #[test]
     fn imperial_names_are_stripped_in_metric_only_locales() {
         let imperial = [

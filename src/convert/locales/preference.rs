@@ -1,16 +1,13 @@
-//! Which unit to display a value in, for a reader in a region or asking for
-//! a measurement system outright.
+//! Which unit to display a value in, for a reader in a region or asking for a measurement system outright.
 //!
-//! A region gets the units of its **official** system: only the United
-//! States is US customary; everyone else, the United Kingdom included, is
-//! metric. How a locale *names* units is a separate matter (`en-GB` reads
-//! `pint` as the imperial pint); this module only decides what a converted
-//! value is written in. See `docs/adr/locale-aware-units.md` (decision 5).
+//! A region gets the units of its **official** system: only the United States is US customary; everyone else, the
+//! United Kingdom included, is metric. How a locale *names* units is a separate matter (`en-GB` reads `pint` as the
+//! imperial pint); this module only decides what a converted value is written in. See `docs/adr/locale-aware-units.md`
+//! (decision 5).
 //!
-//! The schema is CLDR's — rows ordered largest first, each with a threshold
-//! the value must reach — but the rows are ours, because CLDR has no cooking
-//! usage. Rows are keyed by system, and a region may add rows of its own for
-//! a quantity, overriding its system's.
+//! The schema is CLDR's — rows ordered largest first, each with a threshold the value must reach — but the rows are
+//! ours, because CLDR has no cooking usage. Rows are keyed by system, and a region may add rows of its own for a
+//! quantity, overriding its system's.
 
 use icu_locale_core::subtags::{region, Region};
 
@@ -35,9 +32,8 @@ pub enum System {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Audience {
     pub units: Units,
-    /// `-u-mu-`: overrides `units` for temperature only, which is the one
-    /// quantity a reader's system and habit disagree on. English Canada has
-    /// metric cups and Fahrenheit ovens.
+    /// `-u-mu-`: overrides `units` for temperature only, which is the one quantity a reader's system and habit disagree
+    /// on. English Canada has metric cups and Fahrenheit ovens.
     pub temperature: Option<TemperatureUnit>,
 }
 
@@ -47,9 +43,8 @@ pub struct Audience {
 pub enum Units {
     Region(Region),
     System(System),
-    /// The frozen rows an untagged recipe is fitted with, for the system
-    /// the quantity was written in: metric stays metric, US stays US
-    /// (ADR 7).
+    /// The frozen rows an untagged recipe is fitted with, for the system the quantity was written in: metric stays
+    /// metric, US stays US (ADR 7).
     Legacy(System),
 }
 
@@ -114,9 +109,8 @@ pub(crate) struct Row {
     pub unit: Unit,
     pub at_least: f64,
     pub fractions: Option<u8>,
-    /// When no fraction fits, write a decimal in this unit rather than
-    /// trying the next row. The legacy rows need it: bundled fell back to a
-    /// decimal in the unit its threshold chose (ADR 7).
+    /// When no fraction fits, write a decimal in this unit rather than trying the next row. The legacy rows need it:
+    /// bundled fell back to a decimal in the unit its threshold chose (ADR 7).
     pub or_decimal: bool,
 }
 
@@ -201,11 +195,11 @@ fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = &Row
     })
 }
 
-/// The unit `value` should be displayed in for `audience`: the largest one
-/// it reaches the threshold of, falling back to the smallest.
+/// The unit `value` should be displayed in for `audience`: the largest one it reaches the threshold of, falling back to
+/// the smallest.
 ///
-/// What a conversion writes is [`best_amount`], which also chooses how the
-/// amount is written; this is the unit alone, and the snapshot pins it.
+/// What a conversion writes is [`best_amount`], which also chooses how the amount is written; this is the unit alone,
+/// and the snapshot pins it.
 #[cfg(test)]
 pub(crate) fn best_unit(value: f64, from: Unit, audience: Audience) -> Unit {
     let rows = rows_for(audience, from.physical_quantity());
@@ -275,9 +269,8 @@ mod tests {
         best_unit(value, Unit::from_id(from).unwrap(), audience).id()
     }
 
-    /// Bundled wrote a decimal in the threshold's unit when no fraction fitted
-    /// anywhere, `1.125 c`; a row marked `or_decimal` does the same instead of
-    /// trying the next row (ADR 7).
+    /// Bundled wrote a decimal in the threshold's unit when no fraction fitted anywhere, `1.125 c`; a row marked
+    /// `or_decimal` does the same instead of trying the next row (ADR 7).
     #[test]
     fn a_legacy_cup_with_no_fraction_stays_a_decimal_cup() {
         let cup = Unit::from_id("us cup").unwrap();
@@ -460,8 +453,7 @@ mod tests {
         assert_eq!(fraction_in(&rows, 0.5, liter).to_string(), "0.5");
     }
 
-    /// `build.rs` refuses a larger denominator; this keeps the two limits
-    /// the same number.
+    /// `build.rs` refuses a larger denominator; this keeps the two limits the same number.
     #[test]
     fn every_fraction_row_is_within_what_a_number_can_write() {
         let all = PREFERENCES
@@ -564,11 +556,9 @@ mod tests {
             unit.symbol().to_string()
         }
 
-        /// The legacy metric rows reproduce bundled's metric `best` lists
-        /// with no exception: that is what they are for (ADR 7). The US
-        /// rows cannot be checked this way, because bundled fitted a
-        /// fraction before it applied its thresholds, so their proof is the
-        /// scaling differential in `tests/differential.rs`.
+        /// The legacy metric rows reproduce bundled's metric `best` lists with no exception: that is what they are for
+        /// (ADR 7). The US rows cannot be checked this way, because bundled fitted a fraction before it applied its
+        /// thresholds, so their proof is the scaling differential in `tests/differential.rs`.
         #[test]
         fn the_legacy_metric_rows_reproduce_the_bundled_best_lists_exactly() {
             let converter = LegacyConverter::bundled();
@@ -591,13 +581,11 @@ mod tests {
             }
         }
 
-        /// Our rows reproduce today's `best` lists from units.toml with three
-        /// deliberate exceptions, recorded in ADR 1 and ADR 5: the US
-        /// rows have a fluid ounce and a cup from a quarter, so where we
-        /// choose those and bundled disagrees it must have chosen the
-        /// tablespoon; and the metric rows have the metric spoons, so where
-        /// we choose one bundled must have chosen millilitres. Metric stands
-        /// in for bundled's metric, US customary for its "imperial".
+        /// Our rows reproduce today's `best` lists from units.toml with three deliberate exceptions, recorded in ADR 1
+        /// and ADR 5: the US rows have a fluid ounce and a cup from a quarter, so where we choose those and bundled
+        /// disagrees it must have chosen the tablespoon; and the metric rows have the metric spoons, so where we choose
+        /// one bundled must have chosen millilitres. Metric stands in for bundled's metric, US customary for its
+        /// "imperial".
         #[test]
         fn the_rows_reproduce_the_bundled_best_lists_except_the_recorded_divergences() {
             let converter = LegacyConverter::bundled();

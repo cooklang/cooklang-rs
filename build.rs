@@ -587,8 +587,7 @@ fn generate_preferences() {
         or_decimal: bool,
     }
 
-    // `metric tablespoon` -> `MetricTablespoon`: every identifier is the
-    // variant name as lowercase words (ADR 2)
+    // `metric tablespoon` -> `MetricTablespoon`: every identifier is the variant name as lowercase words (ADR 2)
     fn variant(id: &str) -> String {
         id.split(' ')
             .map(|word| {
@@ -610,9 +609,8 @@ fn generate_preferences() {
             other => panic!("locales/preferences.toml: unknown quantity '{other}'"),
         }
     }
-    // `Number::MAX_FRACTION_DENOMINATOR`, which a build script cannot import:
-    // `Number::new_approx` asserts it, so a larger row would panic on the
-    // first conversion that reaches it instead of failing here
+    // `Number::MAX_FRACTION_DENOMINATOR`, which a build script cannot import: `Number::new_approx` asserts it, so a
+    // larger row would panic on the first conversion that reaches it instead of failing here
     const MAX_FRACTION_DENOMINATOR: u8 = 64;
     fn rows(quantity_name: &str, rows: &[Threshold]) -> String {
         let (q, enum_name) = quantity(quantity_name);

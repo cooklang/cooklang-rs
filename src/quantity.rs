@@ -19,10 +19,8 @@ use crate::{
 
 /// A quantity used in components
 ///
-/// The unit is kept as written and, once the parser has read it through the
-/// recipe's locale, as the [`Unit`](V2Unit) it names (ADR 8). Serialised
-/// as `value`, `unit`, `unit_id` (the unit's identifier, absent when unknown)
-/// and `scalable`.
+/// The unit is kept as written and, once the parser has read it through the recipe's locale, as the [`Unit`](V2Unit) it
+/// names (ADR 8). Serialised as `value`, `unit`, `unit_id` (the unit's identifier, absent when unknown) and `scalable`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(into = "QuantityRepr", try_from = "QuantityRepr")]
 #[cfg_attr(feature = "ts", derive(Tsify))]
@@ -48,8 +46,7 @@ impl PartialEq for Quantity {
     }
 }
 
-/// A unit as the recipe wrote it, and what it names when the recipe's locale
-/// knows that spelling (ADR 8).
+/// A unit as the recipe wrote it, and what it names when the recipe's locale knows that spelling (ADR 8).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WrittenUnit {
     text: String,
@@ -163,8 +160,8 @@ impl Value {
         matches!(self, Value::Text(_))
     }
 
-    /// The same amount expressed in `to` instead of `from`; a range converts
-    /// end by end. A text value has no amount to convert.
+    /// The same amount expressed in `to` instead of `from`; a range converts end by end. A text value has no amount to
+    /// convert.
     pub(crate) fn in_unit(
         &self,
         from: V2Unit,
@@ -259,8 +256,8 @@ impl PartialEq for Number {
 }
 
 impl Quantity {
-    /// Creates a new quantity, its unit not read through any locale: it
-    /// behaves as an unknown unit until [`read_with`](Self::read_with).
+    /// Creates a new quantity, its unit not read through any locale: it behaves as an unknown unit until
+    /// [`read_with`](Self::read_with).
     pub fn new(value: Value, unit: Option<String>) -> Self {
         Self {
             value,
@@ -298,8 +295,7 @@ impl Quantity {
         self.unit.as_ref().map(WrittenUnit::text)
     }
 
-    /// The unit the text names in the recipe's locale, if it was read and
-    /// known there (ADR 8).
+    /// The unit the text names in the recipe's locale, if it was read and known there (ADR 8).
     pub fn unit_id(&self) -> Option<V2Unit> {
         self.unit.as_ref().and_then(WrittenUnit::unit)
     }
@@ -544,18 +540,16 @@ impl Quantity {
         Ok(qty)
     }
 
-    /// Adds `rhs`, converted into this quantity's unit; the result keeps
-    /// this quantity's unit text. Both units must have been read (ADR 8):
-    /// an unread or unknown unit adds only to the same text.
+    /// Adds `rhs`, converted into this quantity's unit; the result keeps this quantity's unit text. Both units must
+    /// have been read (ADR 8): an unread or unknown unit adds only to the same text.
     pub fn try_add(&self, rhs: &Self) -> Result<Self, QuantityOpError> {
         self.try_op(rhs, Value::try_add)
     }
 
-    /// Subtracts `rhs`, converted into this quantity's unit, as
-    /// [`try_add`](Self::try_add) adds it.
+    /// Subtracts `rhs`, converted into this quantity's unit, as [`try_add`](Self::try_add) adds it.
     ///
-    /// The result can be negative, callers that don't want that have to check
-    /// it. [`GroupedQuantity::try_saturating_sub`] does.
+    /// The result can be negative, callers that don't want that have to check it.
+    /// [`GroupedQuantity::try_saturating_sub`] does.
     pub fn try_sub(&self, rhs: &Self) -> Result<Self, QuantityOpError> {
         self.try_op(rhs, Value::try_sub)
     }
@@ -580,8 +574,7 @@ impl Quantity {
         })
     }
 
-    /// The unit `rhs` must be converted into to be added to `self`, if any,
-    /// or why the two cannot be added.
+    /// The unit `rhs` must be converted into to be added to `self`, if any, or why the two cannot be added.
     pub(crate) fn compatible_unit(&self, rhs: &Self) -> Result<Option<V2Unit>, IncompatibleUnits> {
         match (self.unit(), rhs.unit()) {
             (None, None) => Ok(None),
@@ -654,9 +647,8 @@ impl LegacySemanticEq for Quantity {
     }
 }
 
-/// Both quantities go to the smallest metric unit of their family and are
-/// compared there; what cannot be converted, a text value or a unit that was
-/// not read or not known (ADR 8), is compared as written.
+/// Both quantities go to the smallest metric unit of their family and are compared there; what cannot be converted, a
+/// text value or a unit that was not read or not known (ADR 8), is compared as written.
 impl crate::semantic_eq::SemanticEq for Quantity {
     fn equals(&self, other: &Self) -> bool {
         let base = |q: &Quantity| {
@@ -873,10 +865,9 @@ impl GroupedQuantity {
         };
     }
 
-    /// Adds a quantity to the group: to the one of its physical quantity
-    /// when its unit was read (ADR 8), to the one with the same text
-    /// when it was not, to the unitless one when it has none; a text value,
-    /// or one that cannot be added, is kept apart.
+    /// Adds a quantity to the group: to the one of its physical quantity when its unit was read (ADR 8), to the one
+    /// with the same text when it was not, to the unitless one when it has none; a text value, or one that cannot be
+    /// added, is kept apart.
     pub fn add(&mut self, q: &Quantity) {
         if q.value.is_text() {
             self.other.push(q.clone());
@@ -911,11 +902,10 @@ impl GroupedQuantity {
 
     /// Subtract a quantity from the group, saturating at zero
     ///
-    /// The quantity is subtracted from the one it would have been added to by
-    /// [`add`](Self::add); if nothing is there the group is unchanged and the
-    /// error says so. Subtracting an amount that [equals](crate::SemanticEq::equals) what
-    /// is stored leaves nothing, so `9 tsp` empties a group of `3 tbsp`
-    /// instead of leaving the residue of converting between them.
+    /// The quantity is subtracted from the one it would have been added to by [`add`](Self::add); if nothing is there
+    /// the group is unchanged and the error says so. Subtracting an amount that [equals](crate::SemanticEq::equals)
+    /// what is stored leaves nothing, so `9 tsp` empties a group of `3 tbsp` instead of leaving the residue of
+    /// converting between them.
     pub fn try_saturating_sub(&mut self, q: &Quantity) -> Result<(), GroupedQuantityOpError> {
         if q.value.is_text() {
             let at = self
@@ -964,11 +954,9 @@ impl GroupedQuantity {
         }
     }
 
-    /// Subtracts every quantity of `other` that could be added to this
-    /// group, or none of them: the group is unchanged when any one fails.
-    /// The quantities of `other` that could not be added to any other one
-    /// are skipped, since they are stored apart from the unit they failed
-    /// to merge into and subtracting them would subtract that amount twice.
+    /// Subtracts every quantity of `other` that could be added to this group, or none of them: the group is unchanged
+    /// when any one fails. The quantities of `other` that could not be added to any other one are skipped, since they
+    /// are stored apart from the unit they failed to merge into and subtracting them would subtract that amount twice.
     pub fn try_saturating_sub_group(&mut self, other: &Self) -> Result<(), GroupedQuantityOpError> {
         let mut taken = self.clone();
         for q in other.mergeable() {
@@ -978,8 +966,8 @@ impl GroupedQuantity {
         Ok(())
     }
 
-    /// Writes every quantity with a known unit as `converter`'s readers
-    /// would write it. A quantity that cannot be fitted is left as it is.
+    /// Writes every quantity with a known unit as `converter`'s readers would write it. A quantity that cannot be
+    /// fitted is left as it is.
     pub fn fit(&mut self, converter: &Converter) {
         for q in self.known.values_mut().filter_map(|q| q.as_mut()) {
             if let Ok(fitted) = converter.fit(q) {
@@ -1314,8 +1302,8 @@ impl FractionLookupTable {
 }
 
 impl Number {
-    /// The largest denominator [`new_approx`](Self::new_approx) writes. A
-    /// preference row's `fractions` must not exceed it; `build.rs` checks.
+    /// The largest denominator [`new_approx`](Self::new_approx) writes. A preference row's `fractions` must not exceed
+    /// it; `build.rs` checks.
     pub const MAX_FRACTION_DENOMINATOR: u8 = 64;
 
     /// Tries to create a new approximate number within a margin of error.
@@ -1325,21 +1313,17 @@ impl Number {
     /// - It can't be represented with the given restrictions as a fraction.
     /// - The number is not positive.
     ///
-    /// It will return `Number::Regular` when the number is an integer with less
-    /// than a 1e-10 margin of error.
+    /// It will return `Number::Regular` when the number is an integer with less than a 1e-10 margin of error.
     ///
-    /// Otherwise it will return a `Number::Fraction`. `num` can be 0 if the
-    /// value is rounded to an integer.
+    /// Otherwise it will return a `Number::Fraction`. `num` can be 0 if the value is rounded to an integer.
     ///
     /// `accuracy` is a value between 0 and 1 representing the error percent.
     ///
-    /// `max_den` is the maximum denominator. The denominator is one a list of
-    /// "common" fractions: 2, 3, 4, 5, 8, 10, 16, 32, 64.
-    /// [`MAX_FRACTION_DENOMINATOR`](Self::MAX_FRACTION_DENOMINATOR) is the max.
+    /// `max_den` is the maximum denominator. The denominator is one a list of "common" fractions: 2, 3, 4, 5, 8, 10,
+    /// 16, 32, 64. [`MAX_FRACTION_DENOMINATOR`](Self::MAX_FRACTION_DENOMINATOR) is the max.
     ///
-    /// `max_whole` determines the maximum value of the integer. Setting this to
-    /// 0 only allows fractions < 1. Exact values higher than this are also
-    /// rejected.
+    /// `max_whole` determines the maximum value of the integer. Setting this to 0 only allows fractions < 1. Exact
+    /// values higher than this are also rejected.
     ///
     /// # Panics
     /// - If `accuracy > 1` or `accuracy < 0`.
@@ -1473,9 +1457,8 @@ mod tests {
         g
     }
 
-    /// The operations through the legacy locale do what the `_legacy` ones
-    /// do (ADR 9). Results are compared with the old converter, which
-    /// only reads them.
+    /// The operations through the legacy locale do what the `_legacy` ones do (ADR 9). Results are compared with the
+    /// old converter, which only reads them.
     mod v2 {
         use super::*;
         use crate::Converter;

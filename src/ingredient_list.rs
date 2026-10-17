@@ -121,8 +121,7 @@ impl Recipe {
         list
     }
 
-    /// List of cookware **definitions** with amount of all of it
-    /// references grouped, through the recipe's own
+    /// List of cookware **definitions** with amount of all of it references grouped, through the recipe's own
     /// [`converter`](Self::converter).
     ///
     /// Order is the recipe order.
@@ -201,9 +200,8 @@ impl IngredientList {
         self.subtract_pantry_with(pantry, &mut |group, q| group.add_legacy(q, converter))
     }
 
-    /// Subtracts what the pantry has from each ingredient, matching units by
-    /// their text; an ingredient the pantry has an unlimited amount of goes,
-    /// and one whose units do not match is kept whole.
+    /// Subtracts what the pantry has from each ingredient, matching units by their text; an ingredient the pantry has
+    /// an unlimited amount of goes, and one whose units do not match is kept whole.
     #[cfg(feature = "pantry")]
     pub fn subtract_pantry(&self, pantry: &crate::pantry::PantryConf) -> Self {
         self.subtract_pantry_with(pantry, &mut |group, q| group.add(q))
@@ -267,8 +265,7 @@ impl IngredientList {
                                     let remaining_value = req_value - pantry_value;
 
                                     if remaining_value > 0.0 {
-                                        // the unit as the recipe read it, so it
-                                        // lands where the requirement was
+                                        // the unit as the recipe read it, so it lands where the requirement was
                                         let remaining_qty = crate::quantity::Quantity {
                                             value: crate::quantity::Value::Number(
                                                 crate::quantity::Number::Regular(remaining_value),
@@ -406,12 +403,11 @@ impl IngredientList {
         references
     }
 
-    /// Adds the ingredients of a recipe to the list, written in the list's
-    /// locale: `converter` is the target, and a Swedish `msk` and an English
-    /// `tbsp` land in one unit (ADR 7).
+    /// Adds the ingredients of a recipe to the list, written in the list's locale: `converter` is the target, and a
+    /// Swedish `msk` and an English `tbsp` land in one unit (ADR 7).
     ///
-    /// Returns the indices of the ingredients that are recipe references,
-    /// which are listed only when `list_references` is set.
+    /// Returns the indices of the ingredients that are recipe references, which are listed only when `list_references`
+    /// is set.
     ///
     /// Ingredients are listed based on their [`display_name`](crate::model::Ingredient::display_name).
     pub fn add_recipe(

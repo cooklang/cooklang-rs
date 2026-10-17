@@ -1,14 +1,11 @@
 //! The closed set of units, one enum per physical quantity.
 //!
-//! Factors are the exact legal definitions, relative to the quantity's
-//! reference unit (liter, gram, meter, second). A factor that rests on
-//! convention rather than statute cites its row in
-//! `docs/research/cooking-units.md`.
+//! Factors are the exact legal definitions, relative to the quantity's reference unit (liter, gram, meter, second). A
+//! factor that rests on convention rather than statute cites its row in `docs/research/cooking-units.md`.
 //!
-//! Identifiers are the variant names as lowercase words, so renaming a
-//! variant changes the identifier a locale binds to. A multi-word identifier
-//! needs an explicit `serialize`, because no case style writes lowercase words
-//! separated by spaces.
+//! Identifiers are the variant names as lowercase words, so renaming a variant changes the identifier a locale binds
+//! to. A multi-word identifier needs an explicit `serialize`, because no case style writes lowercase words separated by
+//! spaces.
 
 /// Converts between two units of a linear quantity, given their factors to
 /// the reference unit.
@@ -107,17 +104,15 @@ impl VolumeUnit {
             // The Swedish kryddmått, Norwegian kryddermål and Finnish
             // maustemitta: 1 ml by convention in all three.
             Self::NordicSpiceMeasure => 0.001,
-            // The Danish knivspids, a knife point, 0.25 ml by convention.
-            // Denmark only: Sweden and Norway have no knife-point measure,
-            // and the German Messerspitze has no defined amount at all.
+            // The Danish knivspids, a knife point, 0.25 ml by convention. Denmark only: Sweden and Norway have no
+            // knife-point measure, and the German Messerspitze has no defined amount at all.
             Self::DanishKnifePoint => 0.00025,
             // 20 ml by Australian standard, four teaspoons.
             Self::AustralianTablespoon => 0.020,
-            // The 200 ml measuring cup set by 女子栄養大学 in 1948, which
-            // Korean recipes also use. Not CLDR's cup-jp, which is 100 ml.
+            // The 200 ml measuring cup set by 女子栄養大学 in 1948, which Korean recipes also use. Not CLDR's cup-jp, which
+            // is 100 ml.
             Self::JapaneseCup => 0.200,
-            // The 240 ml cup of US nutrition labels (21 CFR 101.9), and of
-            // Brazilian and Mexican recipes.
+            // The 240 ml cup of US nutrition labels (21 CFR 101.9), and of Brazilian and Mexican recipes.
             Self::UsLegalCup => 0.240,
         }
     }
@@ -161,8 +156,8 @@ impl MassUnit {
             // Avoirdupois, defined by the international yard and pound agreement.
             Self::Ounce => 28.349_523_125,
             Self::Pound => 453.592_37,
-            // Ley 33 de 1905, as quoted by the SIC regulator: 500 g exactly.
-            // Not the avoirdupois pound, hence an identifier of its own.
+            // Ley 33 de 1905, as quoted by the SIC regulator: 500 g exactly. Not the avoirdupois pound, hence an
+            // identifier of its own.
             Self::ColombianLibra => 500.0,
         }
     }

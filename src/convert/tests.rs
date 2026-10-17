@@ -4,8 +4,8 @@ use crate::quantity::{Quantity, Value};
 
 #[test]
 fn convert_preserves_scalable() {
-    // converting rebuilds the quantity, and must not lose the flag: the
-    // legacy converter went through `Quantity::new`, which resets it
+    // converting rebuilds the quantity, and must not lose the flag: the legacy converter went through `Quantity::new`,
+    // which resets it
     let quantity = Quantity {
         value: Value::from(1.0),
         unit: Some(crate::quantity::WrittenUnit::unresolved("l")),
@@ -325,8 +325,8 @@ mod parsed {
         assert!(xh.iter().any(|e| e.contains("no locale covers")), "{xh:?}");
     }
 
-    /// Fitting units after scaling needs an audience, so a tag that gives
-    /// none is refused up front rather than guessed at later (ADR 7).
+    /// Fitting units after scaling needs an audience, so a tag that gives none is refused up front rather than guessed
+    /// at later (ADR 7).
     #[test]
     fn a_tag_must_determine_an_audience() {
         let sv = errors(">> locale: sv\n@mjöl{1%dl}\n");
@@ -353,8 +353,8 @@ mod parsed {
         assert!(!result.report().has_errors(), "{:?}", result.report());
         let recipe = result.into_output().unwrap();
         let tag = recipe.locale_tag().expect("tagged");
-        // the recipe reads and writes through its own locale, so nothing is
-        // passed in; the tag only says who the second rendering is for
+        // the recipe reads and writes through its own locale, so nothing is passed in; the tag only says who the second
+        // rendering is for
         assert_eq!(recipe.converter(), Converter::for_tag(&tag).unwrap());
 
         let written = |recipe: &crate::Recipe| -> Vec<String> {
@@ -377,10 +377,9 @@ mod parsed {
             ["5 dl", "2 msk", "1 krm", "1 h", "200 °C"]
         );
 
-        // for an American: US rows, still the recipe's own names; the US
-        // units sv declines to name are written by identifier (ADR 4).
-        // 2 msk is 30 ml, a fluid ounce: the row above the tablespoon
-        // (ADR 5), where bundled would have written 2 tbsp
+        // for an American: US rows, still the recipe's own names; the US units sv declines to name are written by
+        // identifier (ADR 4). 2 msk is 30 ml, a fluid ounce: the row above the tablespoon (ADR 5), where bundled would
+        // have written 2 tbsp
         let mut american = recipe.clone();
         let errors = american.convert_for(Audience::region(region!("US")));
         assert!(errors.is_empty(), "{errors:?}");
@@ -436,8 +435,8 @@ mod locale_warnings {
         assert!(!tell(&warnings(&old, "@flour{1%g}\n")));
     }
 
-    /// What refuses a late `>> locale:` is a unit written above it, not a
-    /// component: an ingredient with no quantity has nothing to re-read.
+    /// What refuses a late `>> locale:` is a unit written above it, not a component: an ingredient with no quantity has
+    /// nothing to re-read.
     #[test]
     fn a_locale_line_is_refused_only_after_a_unit_or_a_time_key() {
         let new = CooklangParser::new(Extensions::all());
@@ -465,8 +464,7 @@ mod locale_warnings {
         }
     }
 
-    /// Front matter is one block, so the locale applies to every key in it
-    /// whatever order they are written in.
+    /// Front matter is one block, so the locale applies to every key in it whatever order they are written in.
     #[test]
     fn a_front_matter_locale_applies_to_the_keys_above_it() {
         let new = CooklangParser::new(Extensions::all());
@@ -543,15 +541,13 @@ mod naming {
         assert_eq!(Converter::legacy().naming(), Naming::Legacy);
     }
 
-    /// The parser is configured by its extensions alone: which locale a
-    /// recipe is read through comes from the recipe.
+    /// The parser is configured by its extensions alone: which locale a recipe is read through comes from the recipe.
     #[test]
     fn the_parser_chooses_no_locale() {
         let parser = CooklangParser::new(Extensions::all());
         assert_eq!(parser, CooklangParser::default());
 
-        // an untagged recipe is read through the legacy locale: msk is
-        // Swedish, so it is not an inline quantity here
+        // an untagged recipe is read through the legacy locale: msk is Swedish, so it is not an inline quantity here
         let untagged = parser
             .parse("Rör ner 2 msk socker.\n")
             .into_output()
@@ -580,8 +576,8 @@ mod naming {
     }
 }
 
-/// A recipe reads its units through its own naming wherever they are read,
-/// not only at parse time: a caller cannot hand it the wrong converter.
+/// A recipe reads its units through its own naming wherever they are read, not only at parse time: a caller cannot hand
+/// it the wrong converter.
 mod own_naming {
     use crate::metadata::RecipeTime;
     use crate::{Converter, CooklangParser, Extensions, Quantity, SemanticEq, Value};
@@ -638,8 +634,7 @@ mod own_naming {
         assert!(msk.read_with(&sv).equals(&ml.read_with(&sv)));
     }
 
-    /// ADR 8: the parser records what each unit names, so nothing after
-    /// it needs the locale again.
+    /// ADR 8: the parser records what each unit names, so nothing after it needs the locale again.
     #[test]
     fn the_parser_records_what_each_unit_names() {
         use crate::convert::Unit;
@@ -699,8 +694,8 @@ mod own_naming {
     }
 }
 
-/// A list built from recipes in several locales adds what it recognises in
-/// one unit (ADR 7, "Aggregation converts into the target first").
+/// A list built from recipes in several locales adds what it recognises in one unit (ADR 7, "Aggregation converts into
+/// the target first").
 mod lists {
     use crate::convert::LocaleTag;
     use crate::ingredient_list::IngredientList;

@@ -1,6 +1,5 @@
-//! The locale an untagged recipe reads its units through: the names
-//! `units.toml` gives the bundled units, and nothing else. Frozen, so that
-//! what an untagged recipe does stays what it always did (ADR 7).
+//! The locale an untagged recipe reads its units through: the names `units.toml` gives the bundled units, and nothing
+//! else. Frozen, so that what an untagged recipe does stays what it always did (ADR 7).
 
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
@@ -9,8 +8,7 @@ use super::locale::{Locale, UnitNames};
 use super::preference::System;
 use crate::convert::units::{PhysicalQuantity, Unit};
 
-/// Identifier, symbols, other spellings. The first symbol is the one a
-/// conversion writes back.
+/// Identifier, symbols, other spellings. The first symbol is the one a conversion writes back.
 #[rustfmt::skip]
 type Names = (&'static str, &'static [&'static str], &'static [&'static str]);
 
@@ -68,8 +66,7 @@ pub(crate) fn legacy_system(unit: Unit) -> System {
     }
 }
 
-/// Built once: the locale is immutable, and every parse, scale and list of
-/// an untagged recipe reads it.
+/// Built once: the locale is immutable, and every parse, scale and list of an untagged recipe reads it.
 pub(crate) fn legacy_locale() -> Arc<Locale> {
     static LEGACY: LazyLock<Arc<Locale>> = LazyLock::new(|| Arc::new(build_legacy_locale()));
     LEGACY.clone()

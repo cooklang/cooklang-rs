@@ -491,7 +491,8 @@ impl Cookware {
         g
     }
 
-    /// [`group_quantities_legacy`](Self::group_quantities_legacy) through the new converter, which is what stays (ADR 9).
+    /// [`group_quantities_legacy`](Self::group_quantities_legacy) through the new converter, which is what stays (ADR
+    /// 9).
     pub fn group_quantities(
         &self,
         all_cookware: &[Self],

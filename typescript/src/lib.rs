@@ -252,8 +252,8 @@ impl Parser {
 }
 
 impl Parser {
-    /// The old converter this parser was built with. Goes with it, when the
-    /// package moves to the locale-aware pipeline (ADR 9).
+    /// The old converter this parser was built with. Goes with it, when the package moves to the locale-aware pipeline
+    /// (ADR 9).
     fn legacy(&self) -> &cooklang::LegacyConverter {
         self.parser
             .converter_legacy()

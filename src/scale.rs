@@ -35,9 +35,8 @@ impl Recipe {
         });
     }
 
-    /// Scale a recipe. Units are fitted through the recipe's own
-    /// [`converter`](Self::converter): within the system they were written
-    /// in when it has no `locale`, else for the audience its tag determines.
+    /// Scale a recipe. Units are fitted through the recipe's own [`converter`](Self::converter): within the system they
+    /// were written in when it has no `locale`, else for the audience its tag determines.
     pub fn scale(&mut self, factor: f64) {
         let converter = self.converter();
         self.scale_with(factor, &mut |q| {
@@ -142,8 +141,8 @@ impl Recipe {
         Ok(())
     }
 
-    /// [`scale_to_servings_legacy`](Self::scale_to_servings_legacy) through the new
-    /// converter, which is what stays (ADR 9).
+    /// [`scale_to_servings_legacy`](Self::scale_to_servings_legacy) through the new converter, which is what stays (ADR
+    /// 9).
     pub fn scale_to_servings(&mut self, target: f64) -> Result<(), ScaleError> {
         let factor = self.servings_factor(target)?;
         self.scale(factor);

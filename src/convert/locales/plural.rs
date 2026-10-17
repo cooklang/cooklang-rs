@@ -1,13 +1,10 @@
-//! CLDR plural categories, so a long form can pick between `1 łyżeczka`,
-//! `2 łyżeczki` and `5 łyżeczek`.
+//! CLDR plural categories, so a long form can pick between `1 łyżeczka`, `2 łyżeczki` and `5 łyżeczek`.
 //!
-//! The rules are CLDR's own, now carried in each `locales/<tag>.toml`. Evaluated
-//! here rather than taken from a plural-rules crate: they are part of how a
-//! unit is *written*, the same footing as the names (ADR 3), and a CLDR
-//! bump then refreshes rules and forms together. The syntax is small —
-//! operands `n i v w f t` (and `e`, always 0 here), `=` and `!=` against
-//! values and `a..b` ranges, `%`, `and`, `or`. The tests use CLDR's own
-//! sample numbers, kept in `locales/plural-samples.json`, as the oracle.
+//! The rules are CLDR's own, now carried in each `locales/<tag>.toml`. Evaluated here rather than taken from a
+//! plural-rules crate: they are part of how a unit is *written*, the same footing as the names (ADR 3), and a CLDR bump
+//! then refreshes rules and forms together. The syntax is small — operands `n i v w f t` (and `e`, always 0 here), `=`
+//! and `!=` against values and `a..b` ranges, `%`, `and`, `or`. The tests use CLDR's own sample numbers, kept in
+//! `locales/plural-samples.json`, as the oracle.
 
 /// The operands a rule is written against, taken from the number *as it
 /// will be printed*: `v` and `f` depend on the digits shown, which is why
