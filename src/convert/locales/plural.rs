@@ -1,14 +1,7 @@
 //! CLDR plural categories, so a long form can pick between `1 łyżeczka`, `2 łyżeczki` and `5 łyżeczek`.
-//!
-//! The rules are CLDR's own, now carried in each `locales/<tag>.toml`. Evaluated here rather than taken from a
-//! plural-rules crate: they are part of how a unit is *written*, the same footing as the names (ADR 3), and a CLDR bump
-//! then refreshes rules and forms together. The syntax is small — operands `n i v w f t` (and `e`, always 0 here), `=`
-//! and `!=` against values and `a..b` ranges, `%`, `and`, `or`. The tests use CLDR's own sample numbers, kept in
-//! `locales/plural-samples.json`, as the oracle.
 
-/// The operands a rule is written against, taken from the number *as it
-/// will be printed*: `v` and `f` depend on the digits shown, which is why
-/// this takes text and not an `f64`.
+/// The operands a rule is written against, taken from the number *as it will be printed*: `v` and `f` depend on the
+/// digits shown, which is why this takes text and not an `f64`.
 struct Operands {
     /// Absolute value.
     n: f64,
@@ -56,8 +49,8 @@ struct Relation<'a> {
 
 impl Relation<'_> {
     fn holds(&self, ops: &Operands) -> bool {
-        // `n` may be fractional; a range or value relation on it is true
-        // only for an integral value, as CLDR's `in` semantics require
+        // `n` may be fractional; a range or value relation on it is true only for an integral value, as CLDR's `in`
+        // semantics require
         let (value, integral) = match self.operand {
             'n' => (ops.n, ops.n.fract() == 0.0),
             'i' => (ops.i as f64, true),
@@ -141,10 +134,9 @@ fn holds(rule: &str, ops: &Operands) -> bool {
     })
 }
 
-/// The CLDR category for `number` (the digits as they will be printed)
-/// under `rules`, a list of `(category, rule)` pairs. Categories other than
-/// `other` are mutually exclusive by construction, so the first match wins;
-/// nothing matching is `other`.
+/// The CLDR category for `number` (the digits as they will be printed) under `rules`, a list of `(category, rule)`
+/// pairs. Categories other than `other` are mutually exclusive by construction, so the first match wins; nothing
+/// matching is `other`.
 pub(crate) fn category<'r>(rules: &'r [(&'r str, &'r str)], number: &str) -> &'r str {
     let ops = operands(number);
     rules
@@ -188,10 +180,9 @@ mod tests {
         assert_eq!(category(&rules, "0"), "many");
     }
 
-    /// Every sample CLDR attaches to a rule must land in that rule's
-    /// category: `@integer 2~4, 22~24, …` and `@decimal 0.0~1.5, 10.0, …`.
-    /// Ranges are enumerated at the sample's precision; compact-notation
-    /// samples (`1c6`) are skipped since we never print them.
+    /// Every sample CLDR attaches to a rule must land in that rule's category: `@integer 2~4, 22~24, …` and `@decimal
+    /// 0.0~1.5, 10.0, …`.  Ranges are enumerated at the sample's precision; compact-notation samples (`1c6`) are
+    /// skipped since we never print them.
     #[test]
     fn every_cldr_sample_lands_in_its_own_category() {
         let text = std::fs::read_to_string(concat!(
