@@ -1,13 +1,10 @@
 //! Which unit to display a value in, for a reader in a region or asking for a measurement system outright.
 //!
-//! A region gets the units of its **official** system: only the United States is US customary; everyone else, the
-//! United Kingdom included, is metric. How a locale *names* units is a separate matter (`en-GB` reads `pint` as the
-//! imperial pint); this module only decides what a converted value is written in. See `docs/adr/locale-aware-units.md`
-//! (decision 5).
+//! How a locale *names* units is a separate matter (`en-GB` reads `pint` as the imperial pint); this module only
+//! decides what a converted value is written in. Which system a region gets is [`official_system`]'s to say.
 //!
 //! The schema is CLDR's — rows ordered largest first, each with a threshold the value must reach — but the rows are
-//! ours, because CLDR has no cooking usage. Rows are keyed by system, and a region may add rows of its own for a
-//! quantity, overriding its system's.
+//! ours, because CLDR has no cooking usage.
 
 use icu_locale_core::subtags::{region, Region};
 
@@ -37,8 +34,7 @@ pub struct Audience {
     pub temperature: Option<TemperatureUnit>,
 }
 
-/// Where a reader's units come from: a region, which gets its official
-/// system, or a system asked for outright with `-u-ms-`.
+/// Where a reader's units come from: a region, or a system asked for outright with `-u-ms-`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Units {
     Region(Region),
@@ -49,7 +45,6 @@ pub enum Units {
 }
 
 impl Audience {
-    /// The readers of a region, who get its official system.
     pub const fn region(region: Region) -> Self {
         Self {
             units: Units::Region(region),
@@ -88,11 +83,11 @@ impl Audience {
     }
 }
 
-/// The measurement system a region's law prescribes.
+/// The measurement system a region's law prescribes, which is what its readers are shown (ADR 5): only the United
+/// States is US customary; everyone else, the United Kingdom included, is metric.
 ///
-/// CLDR's own data also lists Liberia as US customary and Myanmar, with the
-/// UK, as imperial; all three are officially metric or metricating, and a
-/// reader there who wants otherwise can say so with `-u-ms-`.
+/// CLDR's own data also lists Liberia as US customary and Myanmar, with the UK, as imperial; all three are officially
+/// metric or metricating, and a reader there who wants otherwise can say so with `-u-ms-`.
 pub(crate) fn official_system(region: Region) -> System {
     if region == region!("US") {
         System::UsCustomary
@@ -114,10 +109,9 @@ pub(crate) struct Row {
     pub or_decimal: bool,
 }
 
-// The rows themselves are data: `locales/preferences.toml`, one entry per
-// system or region and quantity, each with its citation. build.rs turns it
-// into `PREFERENCES` (by system) and `REGION_PREFERENCES` (a region's own
-// rows, overriding its official system's for that quantity only).
+// The rows themselves are data: `locales/preferences.toml`, one entry per system, legacy system or region and
+// quantity, each with its citation. build.rs turns it into `PREFERENCES`, `LEGACY_PREFERENCES` and
+// `REGION_PREFERENCES`; `rows_for` says which of them applies.
 include!(concat!(env!("OUT_DIR"), "/preferences.rs"));
 
 fn rows(system: System, quantity: PhysicalQuantity) -> Option<&'static [Row]> {
@@ -141,9 +135,9 @@ fn region_rows(region: Region, quantity: PhysicalQuantity) -> Option<&'static [R
         .map(|(_, _, rows)| *rows)
 }
 
-/// The rows that apply to `audience` for `quantity`: the `-u-mu-` unit for
-/// temperature, else a region's own rows, else its official system's, else
-/// metric (which is where time lives).
+/// The rows that apply to `audience` for `quantity`, most specific first: the `-u-mu-` unit for temperature, a
+/// region's own rows, its system's, then metric, which is where time lives. A legacy audience has only its frozen rows
+/// (ADR 7).
 pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'static [Row] {
     if quantity == PhysicalQuantity::Temperature {
         if let Some(unit) = audience.temperature {

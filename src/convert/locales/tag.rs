@@ -50,9 +50,9 @@ impl LocaleTag {
     /// Who converted values are written for.
     ///
     /// Precedence, most specific first: `-u-ms-` names a measurement system outright, `-u-rg-` overrides the region,
-    /// then the tag's own region. A region gets its official system (ADR 5), so `en-GB` is metric and only
-    /// `en-GB-u-ms-uksystem` is imperial. `-u-mu-` then names a temperature unit outright, for temperature only; it
-    /// never supplies a region. A value we have no rows for is an error, not a guess.
+    /// then the tag's own region, so `en-GB` is metric and only `en-GB-u-ms-uksystem` is imperial (ADR 5). `-u-mu-`
+    /// then names a temperature unit outright, for temperature only; it never supplies a region. A value we have no
+    /// rows for is an error, not a guess.
     pub fn audience(&self) -> Result<Audience, RegionError> {
         let units = self.units()?;
         let temperature = match self.0.extensions.unicode.keywords.get(&key!("mu")) {
@@ -106,6 +106,7 @@ impl std::fmt::Display for LocaleTag {
 }
 
 fn region_of_subdivision(id: &str) -> Option<Region> {
+    // a region subtag is two letters or three digits (UTS #35, `unicode_region_subtag`)
     let len = if id.starts_with(|c: char| c.is_ascii_digit()) {
         3
     } else {

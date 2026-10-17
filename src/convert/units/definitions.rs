@@ -1,14 +1,12 @@
 //! The closed set of units, one enum per physical quantity.
 //!
-//! Factors are the exact legal definitions, relative to the quantity's reference unit (liter, gram, meter, second). A
-//! factor that rests on convention rather than statute cites its row in `docs/research/cooking-units.md`.
+//! Factors are the exact legal definitions, relative to the reference unit each enum names. A factor that rests on
+//! convention rather than statute cites its row in `docs/research/cooking-units.md`.
 //!
 //! Identifiers are the variant names as lowercase words, so renaming a variant changes the identifier a locale binds
 //! to. A multi-word identifier needs an explicit `serialize`, because no case style writes lowercase words separated by
 //! spaces.
 
-/// Converts between two units of a linear quantity, given their factors to
-/// the reference unit.
 fn linear(value: f64, from: f64, to: f64) -> f64 {
     // `from / to` first so converting a unit to itself is exact (`f / f == 1`).
     value * (from / to)
@@ -101,13 +99,15 @@ impl VolumeUnit {
             Self::MetricDessertSpoon => 0.010,
             Self::MetricTablespoon => 0.015,
             Self::MetricCup => 0.25,
-            // The Swedish kryddmått, Norwegian kryddermål and Finnish
-            // maustemitta: 1 ml by convention in all three.
+            // The Swedish kryddmått, Norwegian kryddermål and Finnish maustemitta: 1 ml by convention in all three
+            // (docs/research/cooking-units.md, row "kryddmått (SE)").
             Self::NordicSpiceMeasure => 0.001,
-            // The Danish knivspids, a knife point, 0.25 ml by convention. Denmark only: Sweden and Norway have no
-            // knife-point measure, and the German Messerspitze has no defined amount at all.
+            // The Danish knivspids, a knife point, 0.25 ml by convention (docs/research/cooking-units.md, row
+            // "knivspids / teske / spiseske (DK)"). Denmark only: Sweden and Norway have no knife-point measure, and
+            // the German Messerspitze has no defined amount at all.
             Self::DanishKnifePoint => 0.00025,
-            // 20 ml by Australian standard, four teaspoons.
+            // 20 ml, four teaspoons, by a Standards Association of Australia standard whose number is unverified
+            // (docs/research/cooking-units.md, row "AU tablespoon").
             Self::AustralianTablespoon => 0.020,
             // The 200 ml measuring cup set by 女子栄養大学 in 1948, which Korean recipes also use. Not CLDR's cup-jp, which
             // is 100 ml.

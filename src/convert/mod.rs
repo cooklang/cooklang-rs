@@ -1,9 +1,6 @@
 //! A [`Converter`] reads and writes units the way one locale names them, and fits them for one audience: the legacy
 //! locale and the system a quantity was written in for a recipe with no `locale`, else what the recipe's tag
 //! determines.
-//!
-//! [`crate::convert_legacy`] is the old one, kept until the swap is reviewed. Each `_legacy` function on a recipe or
-//! quantity is its old form, and goes with it (ADR 9).
 
 pub(crate) mod locales;
 pub mod units;
@@ -113,7 +110,6 @@ impl Converter {
         })
     }
 
-    /// The converter `naming` calls for.
     pub fn for_naming(naming: &Naming) -> Result<Self, Refusal> {
         match naming {
             Naming::Legacy => Ok(Self::legacy()),
@@ -121,12 +117,10 @@ impl Converter {
         }
     }
 
-    /// The converter a recipe's own [`naming`](Recipe::naming) calls for.
     pub fn for_recipe(recipe: &Recipe) -> Result<Self, Refusal> {
         Self::for_naming(&recipe.naming())
     }
 
-    /// The naming this converter was built from: which locale it reads and writes units through.
     pub fn naming(&self) -> Naming {
         self.naming.clone()
     }
@@ -161,9 +155,8 @@ impl Converter {
         self.convert_for(quantity, self.audience_for(from))
     }
 
-    /// The same amount as `quantity`, expressed in `to` and written with the
-    /// locale's symbol for it, or its spaced identifier when the locale has
-    /// none. A range converts end by end.
+    /// The same amount as `quantity`, expressed in `to` and written as this locale writes it. A range converts end by
+    /// end.
     pub(crate) fn convert(&self, quantity: &Quantity, to: Unit) -> Result<Quantity, ConvertError> {
         let from = self.resolve(quantity)?;
         let convert = |n: &Number| Unit::convert(n.value(), from, to).map(Number::Regular);
@@ -234,7 +227,7 @@ impl Metadata {
         self.locale().and_then(|tag| LocaleTag::parse(tag).ok())
     }
 
-    /// Which locale the recipe reads its units through: the legacy locale when it has no `locale` (ADR 7).
+    /// The [`Naming`] the `locale` key gives the recipe.
     pub fn naming(&self) -> Naming {
         match self.locale_tag() {
             None => Naming::Legacy,

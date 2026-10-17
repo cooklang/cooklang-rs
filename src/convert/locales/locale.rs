@@ -30,8 +30,8 @@ pub(crate) type PluralRules = &'static [(&'static str, &'static str)];
 ///
 /// The degree symbols in other encodings (`℃`, `℉`) and with the ordinal indicator typed for the degree sign (`ºC`,
 /// `ºF`) are the same symbol, not a language's word, so no locale owns them. The bare `C` and `F` are safe only because
-/// lookup is case-sensitive: `c` is a cup in `en`, `en-001`, `en-AU` and `en-GB`, so folding case would turn `180 C`
-/// into 180 cups.
+/// [`Locale`] looks up case-sensitively: `c` is a cup in `en`, `en-001`, `en-AU` and `en-GB`, so folding case would
+/// turn `180 C` into 180 cups.
 pub(crate) const UNIVERSAL_ALIASES: &[(&str, &[&str])] = &[
     ("celsius", &["℃", "ºC", "C"]),
     ("fahrenheit", &["℉", "ºF", "F"]),
@@ -80,8 +80,6 @@ impl Locale {
                 claim(&mut index, alias, unit)?;
             }
         }
-        // the identifier always resolves, so it is indexed like any other spelling; a locale that has given it to
-        // another unit is wrong
         for unit in Unit::all() {
             claim(&mut index, unit.id(), unit)?;
         }
@@ -92,7 +90,7 @@ impl Locale {
         })
     }
 
-    /// The unit written as `text`. Every unit's identifier resolves, named or not.
+    /// The unit `text` spells, by symbol, alias or identifier.
     pub(crate) fn resolve(&self, text: &str) -> Option<Unit> {
         self.index.get(text).copied()
     }

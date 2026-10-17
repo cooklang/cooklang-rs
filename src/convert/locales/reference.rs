@@ -38,8 +38,7 @@ const PLURAL_SAMPLES: [f64; 9] = [0.0, 1.0, 2.0, 5.0, 11.0, 21.0, 22.0, 100.0, 1
 /// for a few numbers. `tag` is any BCP 47 tag; names come from the vendored
 /// locale its fallback chain reaches.
 pub(crate) fn render_locale(tag: &str) -> Result<String, String> {
-    // `legacy` is not a tag; how it will be addressed is undecided
-    // (docs/outstanding.md). The example accepts the bare word meanwhile.
+    // `legacy` is a naming, not a tag (ADR 7); the example takes the bare word for it
     let (locale, parsed, reached) = if tag == "legacy" {
         (super::legacy::legacy_locale(), None, "legacy")
     } else {
@@ -72,9 +71,7 @@ fn write_header(out: &mut String, tag: &str, reached: &str, parsed: Option<&Loca
         None => {
             out.push_str("The frozen compatibility locale: exactly the names `units.toml` gives\n");
             out.push_str("the bundled units, and nothing for any other unit. It is not a BCP 47\n");
-            out.push_str(
-                "tag; how recipes will address it is undecided (`docs/outstanding.md`).\n\n",
-            );
+            out.push_str("tag: a recipe with no `locale` reads through it (ADR 7).\n\n");
         }
         Some(parsed) => {
             if reached != parsed.language_identifier() {

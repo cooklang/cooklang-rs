@@ -1,9 +1,8 @@
 //! Pure unit conversion for the units used in cooking.
 //!
-//! This module only converts numbers between units. Everything else that the
-//! configurable converter mixes in (names, symbols, aliases, translations,
-//! unit systems, best-unit selection and fraction display) belongs to a layer
-//! above it. The set of units is closed: adding a unit is a code change.
+//! This module only converts numbers between units. Names, aliases, translations, unit systems, best-unit selection and
+//! fraction display belong to the layer above it, `convert::locales`. The set of units is closed: adding a unit is a
+//! code change.
 //!
 //! Each unit has a stable [`Unit::id`] for that layer to bind to, so a locale
 //! can decide that `cup` means [`VolumeUnit::UsCup`] or some other cup.
@@ -40,7 +39,6 @@ impl From<PhysicalQuantity> for crate::convert_legacy::PhysicalQuantity {
     }
 }
 
-/// Any unit, tagged with its physical quantity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Unit {
     Volume(VolumeUnit),

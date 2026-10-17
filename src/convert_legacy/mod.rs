@@ -1,5 +1,8 @@
 //! Support for **configurable** unit conversion
 //!
+//! The old converter, kept until the swap to [`crate::convert`] is reviewed. Each `_legacy` function on a recipe or
+//! quantity is its old form, and goes with it (ADR 9).
+//!
 //! This includes:
 //! - A layered configuration system
 //! - Conversions between systems

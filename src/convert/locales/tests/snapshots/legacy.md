@@ -4,7 +4,7 @@
 
 The frozen compatibility locale: exactly the names `units.toml` gives
 the bundled units, and nothing for any other unit. It is not a BCP 47
-tag; how recipes will address it is undecided (`docs/outstanding.md`).
+tag: a recipe with no `locale` reads through it (ADR 7).
 
 ## Plural rules
 
