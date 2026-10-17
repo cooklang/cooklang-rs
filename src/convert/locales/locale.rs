@@ -13,13 +13,12 @@ use crate::convert::units::Unit;
 /// The strings one locale uses for a unit.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub(crate) struct UnitNames {
-    /// Written back after a conversion. Also resolves as input. `None` when
-    /// the locale has aliases for the unit but no safe symbol.
+    /// Written back after a conversion. Also resolves as input. `None` when the locale has aliases for the unit but no
+    /// safe symbol.
     pub symbol: Option<String>,
     pub aliases: Vec<String>,
-    /// Long patterns by CLDR plural category, with `{0}` where the number
-    /// goes: `("few", "{0} łyżeczki")`. Empty when the locale has no
-    /// accepted long form.
+    /// Long patterns by CLDR plural category, with `{0}` where the number goes: `("few", "{0} łyżeczki")`. Empty when
+    /// the locale has no accepted long form.
     pub long: Vec<(String, String)>,
 }
 
@@ -45,20 +44,19 @@ pub(crate) enum LocaleError {
     AliasIsAnIdentifier { alias: String, unit: Unit, of: Unit },
 }
 
-/// Names for the units one language has names for. Lookup is exact and
-/// case-sensitive: `c` and `C` are different strings.
+/// Names for the units one language has names for. Lookup is exact and case-sensitive: `c` and `C` are different
+/// strings.
 #[derive(Debug, Clone)]
 pub(crate) struct Locale {
     names: HashMap<Unit, UnitNames>,
     index: HashMap<String, Unit>,
-    /// Empty when the locale has no rules, in which case every number is
-    /// `other`.
+    /// Empty when the locale has no rules, in which case every number is `other`.
     plurals: PluralRules,
 }
 
 impl Locale {
-    /// No string may name two units, and no string may name a unit other
-    /// than the one whose spaced identifier it is. Units may be left unnamed.
+    /// No string may name two units, and no string may name a unit other than the one whose spaced identifier it
+    /// is. Units may be left unnamed.
     pub(crate) fn new(names: HashMap<Unit, UnitNames>) -> Result<Self, LocaleError> {
         Self::with_plurals(names, &[])
     }
@@ -99,14 +97,12 @@ impl Locale {
         self.names.get(&unit)?.symbol.as_deref()
     }
 
-    /// The string a conversion to `unit` writes back: the symbol, or the
-    /// spaced identifier when the locale has none.
+    /// The string a conversion to `unit` writes back: the symbol, or the spaced identifier when the locale has none.
     pub(crate) fn written(&self, unit: Unit) -> &str {
         self.symbol(unit).unwrap_or_else(|| unit.id())
     }
 
-    /// Every string this locale has for `unit`, or `None` if it names it
-    /// by identifier only.
+    /// Every string this locale has for `unit`, or `None` if it names it by identifier only.
     pub(crate) fn names(&self, unit: Unit) -> Option<&UnitNames> {
         self.names.get(&unit)
     }
@@ -115,10 +111,9 @@ impl Locale {
         self.plurals
     }
 
-    /// `value` with `unit` spelled out in the locale's long form, with the
-    /// plural the number calls for: `1 łyżeczka`, `5 łyżeczek`, `小さじ 2`.
-    /// A locale with no accepted long form for the unit writes the number
-    /// followed by [`Locale::written`].
+    /// `value` with `unit` spelled out in the locale's long form, with the plural the number calls for: `1 łyżeczka`,
+    /// `5 łyżeczek`, `小さじ 2`.  A locale with no accepted long form for the unit writes the number followed by
+    /// [`Locale::written`].
     pub(crate) fn written_long(&self, value: f64, unit: Unit) -> String {
         let number = format!("{value}");
         let long = self.names(unit).map_or(&[][..], |n| n.long.as_slice());
