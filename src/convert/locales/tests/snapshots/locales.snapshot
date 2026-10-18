@@ -4,10 +4,7 @@
 # change.
 resolve legacy "\"" -> inch
 resolve legacy "'" -> foot
-resolve legacy "C" -> celsius
-resolve legacy "F" -> fahrenheit
 resolve legacy "L" -> liter
-resolve legacy "australian tablespoon" -> australian tablespoon
 resolve legacy "c" -> us cup
 resolve legacy "cL" -> centiliter
 resolve legacy "celsius" -> celsius
@@ -24,7 +21,6 @@ resolve legacy "centimetres" -> centimeter
 resolve legacy "cg" -> centigram
 resolve legacy "cl" -> centiliter
 resolve legacy "cm" -> centimeter
-resolve legacy "colombian libra" -> colombian libra
 resolve legacy "cup" -> us cup
 resolve legacy "cups" -> us cup
 resolve legacy "d" -> day
@@ -33,7 +29,6 @@ resolve legacy "daL" -> decaliter
 resolve legacy "dag" -> decagram
 resolve legacy "dal" -> decaliter
 resolve legacy "dam" -> decameter
-resolve legacy "danish knife point" -> danish knife point
 resolve legacy "day" -> day
 resolve legacy "days" -> day
 resolve legacy "decagram" -> decagram
@@ -92,14 +87,9 @@ resolve legacy "hl" -> hectoliter
 resolve legacy "hm" -> hectometer
 resolve legacy "hour" -> hour
 resolve legacy "hours" -> hour
-resolve legacy "imperial fluid ounce" -> imperial fluid ounce
-resolve legacy "imperial gallon" -> imperial gallon
-resolve legacy "imperial pint" -> imperial pint
-resolve legacy "imperial quart" -> imperial quart
 resolve legacy "in" -> inch
 resolve legacy "inch" -> inch
 resolve legacy "inches" -> inch
-resolve legacy "japanese cup" -> japanese cup
 resolve legacy "kL" -> kiloliter
 resolve legacy "kg" -> kilogram
 resolve legacy "kilogram" -> kilogram
@@ -127,10 +117,6 @@ resolve legacy "meter" -> meter
 resolve legacy "meters" -> meter
 resolve legacy "metre" -> meter
 resolve legacy "metres" -> meter
-resolve legacy "metric cup" -> metric cup
-resolve legacy "metric dessert spoon" -> metric dessert spoon
-resolve legacy "metric tablespoon" -> metric tablespoon
-resolve legacy "metric teaspoon" -> metric teaspoon
 resolve legacy "mg" -> milligram
 resolve legacy "milligram" -> milligram
 resolve legacy "milligrams" -> milligram
@@ -148,7 +134,6 @@ resolve legacy "minute" -> minute
 resolve legacy "minutes" -> minute
 resolve legacy "ml" -> milliliter
 resolve legacy "mm" -> millimeter
-resolve legacy "nordic spice measure" -> nordic spice measure
 resolve legacy "ounce" -> ounce
 resolve legacy "ounces" -> ounce
 resolve legacy "oz" -> ounce
@@ -176,20 +161,8 @@ resolve legacy "teaspoon" -> us teaspoon
 resolve legacy "teaspoons" -> us teaspoon
 resolve legacy "tsp" -> us teaspoon
 resolve legacy "tsp." -> us teaspoon
-resolve legacy "us cup" -> us cup
-resolve legacy "us fluid ounce" -> us fluid ounce
-resolve legacy "us gallon" -> us gallon
-resolve legacy "us legal cup" -> us legal cup
-resolve legacy "us pint" -> us pint
-resolve legacy "us quart" -> us quart
-resolve legacy "us tablespoon" -> us tablespoon
-resolve legacy "us teaspoon" -> us teaspoon
 resolve legacy "°C" -> celsius
 resolve legacy "°F" -> fahrenheit
-resolve legacy "ºC" -> celsius
-resolve legacy "ºF" -> fahrenheit
-resolve legacy "℃" -> celsius
-resolve legacy "℉" -> fahrenheit
 written legacy kiloliter -> "kl"
 written legacy hectoliter -> "hl"
 written legacy decaliter -> "dal"
@@ -242,64 +215,8 @@ written legacy hour -> "h"
 written legacy day -> "d"
 written legacy celsius -> "°C"
 written legacy fahrenheit -> "°F"
-resolve ar "C" -> celsius
-resolve ar "F" -> fahrenheit
-resolve ar "australian tablespoon" -> australian tablespoon
-resolve ar "celsius" -> celsius
-resolve ar "centigram" -> centigram
-resolve ar "centiliter" -> centiliter
-resolve ar "centimeter" -> centimeter
-resolve ar "colombian libra" -> colombian libra
-resolve ar "danish knife point" -> danish knife point
-resolve ar "day" -> day
-resolve ar "decagram" -> decagram
-resolve ar "decaliter" -> decaliter
-resolve ar "decameter" -> decameter
-resolve ar "decigram" -> decigram
-resolve ar "deciliter" -> deciliter
-resolve ar "decimeter" -> decimeter
-resolve ar "fahrenheit" -> fahrenheit
-resolve ar "foot" -> foot
-resolve ar "gram" -> gram
-resolve ar "hectogram" -> hectogram
-resolve ar "hectoliter" -> hectoliter
-resolve ar "hectometer" -> hectometer
-resolve ar "hour" -> hour
-resolve ar "imperial fluid ounce" -> imperial fluid ounce
-resolve ar "imperial gallon" -> imperial gallon
-resolve ar "imperial pint" -> imperial pint
-resolve ar "imperial quart" -> imperial quart
-resolve ar "inch" -> inch
-resolve ar "japanese cup" -> japanese cup
-resolve ar "kilogram" -> kilogram
-resolve ar "kiloliter" -> kiloliter
-resolve ar "kilometer" -> kilometer
-resolve ar "liter" -> liter
-resolve ar "meter" -> meter
-resolve ar "metric cup" -> metric cup
-resolve ar "metric dessert spoon" -> metric dessert spoon
-resolve ar "metric tablespoon" -> metric tablespoon
-resolve ar "metric teaspoon" -> metric teaspoon
-resolve ar "milligram" -> milligram
-resolve ar "milliliter" -> milliliter
-resolve ar "millimeter" -> millimeter
-resolve ar "minute" -> minute
-resolve ar "nordic spice measure" -> nordic spice measure
-resolve ar "ounce" -> ounce
-resolve ar "pound" -> pound
-resolve ar "second" -> second
-resolve ar "us cup" -> us cup
-resolve ar "us fluid ounce" -> us fluid ounce
-resolve ar "us gallon" -> us gallon
-resolve ar "us legal cup" -> us legal cup
-resolve ar "us pint" -> us pint
-resolve ar "us quart" -> us quart
-resolve ar "us tablespoon" -> us tablespoon
-resolve ar "us teaspoon" -> us teaspoon
 resolve ar "°ف" -> fahrenheit
 resolve ar "°م" -> celsius
-resolve ar "ºC" -> celsius
-resolve ar "ºF" -> fahrenheit
 resolve ar "أمتار" -> meter
 resolve ar "أيام" -> day
 resolve ar "بوصة" -> inch
@@ -333,8 +250,6 @@ resolve ar "مليمتر" -> millimeter
 resolve ar "مم" -> millimeter
 resolve ar "يوم" -> day
 resolve ar "يوم\u{64b}ا" -> day
-resolve ar "℃" -> celsius
-resolve ar "℉" -> fahrenheit
 written ar kiloliter -> "kiloliter"
 written ar hectoliter -> "hectoliter"
 written ar decaliter -> "decaliter"
@@ -625,43 +540,25 @@ long-written ar fahrenheit 1.5 -> "1.5 درجة فهرنهايت"
 long-written ar fahrenheit 0 -> "0 درجة فهرنهايت"
 long-written ar fahrenheit 12 -> "12 درجة فهرنهايت"
 long-written ar fahrenheit 14 -> "14 درجة فهرنهايت"
-resolve cs "C" -> celsius
-resolve cs "F" -> fahrenheit
-resolve cs "australian tablespoon" -> australian tablespoon
-resolve cs "celsius" -> celsius
-resolve cs "centigram" -> centigram
-resolve cs "centiliter" -> centiliter
 resolve cs "centilitr" -> centiliter
 resolve cs "centilitru" -> centiliter
 resolve cs "centilitry" -> centiliter
 resolve cs "centilitrů" -> centiliter
-resolve cs "centimeter" -> centimeter
 resolve cs "centimetr" -> centimeter
 resolve cs "centimetru" -> centimeter
 resolve cs "centimetry" -> centimeter
 resolve cs "centimetrů" -> centimeter
 resolve cs "cl" -> centiliter
 resolve cs "cm" -> centimeter
-resolve cs "colombian libra" -> colombian libra
-resolve cs "danish knife point" -> danish knife point
-resolve cs "day" -> day
-resolve cs "decagram" -> decagram
-resolve cs "decaliter" -> decaliter
-resolve cs "decameter" -> decameter
-resolve cs "decigram" -> decigram
-resolve cs "deciliter" -> deciliter
 resolve cs "decilitr" -> deciliter
 resolve cs "decilitru" -> deciliter
 resolve cs "decilitry" -> deciliter
 resolve cs "decilitrů" -> deciliter
-resolve cs "decimeter" -> decimeter
 resolve cs "den" -> day
 resolve cs "dl" -> deciliter
 resolve cs "dne" -> day
 resolve cs "dny" -> day
 resolve cs "dnů" -> day
-resolve cs "fahrenheit" -> fahrenheit
-resolve cs "foot" -> foot
 resolve cs "ft" -> foot
 resolve cs "g" -> gram
 resolve cs "gram" -> gram
@@ -669,40 +566,22 @@ resolve cs "gramu" -> gram
 resolve cs "gramy" -> gram
 resolve cs "gramů" -> gram
 resolve cs "h" -> hour
-resolve cs "hectogram" -> hectogram
-resolve cs "hectoliter" -> hectoliter
-resolve cs "hectometer" -> hectometer
 resolve cs "hodin" -> hour
 resolve cs "hodina" -> hour
 resolve cs "hodiny" -> hour
-resolve cs "hour" -> hour
-resolve cs "imperial fluid ounce" -> imperial fluid ounce
-resolve cs "imperial gallon" -> imperial gallon
-resolve cs "imperial pint" -> imperial pint
-resolve cs "imperial quart" -> imperial quart
 resolve cs "in" -> inch
-resolve cs "inch" -> inch
-resolve cs "japanese cup" -> japanese cup
 resolve cs "kg" -> kilogram
 resolve cs "kilogram" -> kilogram
 resolve cs "kilogramu" -> kilogram
 resolve cs "kilogramy" -> kilogram
 resolve cs "kilogramů" -> kilogram
-resolve cs "kiloliter" -> kiloliter
-resolve cs "kilometer" -> kilometer
 resolve cs "l" -> liter
-resolve cs "liter" -> liter
 resolve cs "litr" -> liter
 resolve cs "litru" -> liter
 resolve cs "litry" -> liter
 resolve cs "litrů" -> liter
 resolve cs "m" -> meter
-resolve cs "meter" -> meter
 resolve cs "metr" -> meter
-resolve cs "metric cup" -> metric cup
-resolve cs "metric dessert spoon" -> metric dessert spoon
-resolve cs "metric tablespoon" -> metric tablespoon
-resolve cs "metric teaspoon" -> metric teaspoon
 resolve cs "metru" -> meter
 resolve cs "metry" -> meter
 resolve cs "metrů" -> meter
@@ -714,24 +593,16 @@ resolve cs "milimetr" -> millimeter
 resolve cs "milimetru" -> millimeter
 resolve cs "milimetry" -> millimeter
 resolve cs "milimetrů" -> millimeter
-resolve cs "milligram" -> milligram
-resolve cs "milliliter" -> milliliter
-resolve cs "millimeter" -> millimeter
 resolve cs "min" -> minute
 resolve cs "minut" -> minute
 resolve cs "minuta" -> minute
-resolve cs "minute" -> minute
 resolve cs "minuty" -> minute
 resolve cs "ml" -> milliliter
 resolve cs "mm" -> millimeter
-resolve cs "nordic spice measure" -> nordic spice measure
-resolve cs "ounce" -> ounce
 resolve cs "palce" -> inch
 resolve cs "palců" -> inch
 resolve cs "palec" -> inch
-resolve cs "pound" -> pound
 resolve cs "s" -> second
-resolve cs "second" -> second
 resolve cs "sekund" -> second
 resolve cs "sekunda" -> second
 resolve cs "sekundy" -> second
@@ -744,20 +615,8 @@ resolve cs "stupně Celsia" -> celsius
 resolve cs "stupně Fahrenheita" -> fahrenheit
 resolve cs "stupňů Celsia" -> celsius
 resolve cs "stupňů Fahrenheita" -> fahrenheit
-resolve cs "us cup" -> us cup
-resolve cs "us fluid ounce" -> us fluid ounce
-resolve cs "us gallon" -> us gallon
-resolve cs "us legal cup" -> us legal cup
-resolve cs "us pint" -> us pint
-resolve cs "us quart" -> us quart
-resolve cs "us tablespoon" -> us tablespoon
-resolve cs "us teaspoon" -> us teaspoon
 resolve cs "°C" -> celsius
 resolve cs "°F" -> fahrenheit
-resolve cs "ºC" -> celsius
-resolve cs "ºF" -> fahrenheit
-resolve cs "℃" -> celsius
-resolve cs "℉" -> fahrenheit
 written cs kiloliter -> "kiloliter"
 written cs hectoliter -> "hectoliter"
 written cs decaliter -> "decaliter"
@@ -1014,31 +873,16 @@ long-written cs fahrenheit 1.5 -> "1.5 stupně Fahrenheita"
 long-written cs fahrenheit 0 -> "0 stupňů Fahrenheita"
 long-written cs fahrenheit 12 -> "12 stupňů Fahrenheita"
 long-written cs fahrenheit 14 -> "14 stupňů Fahrenheita"
-resolve da "C" -> celsius
-resolve da "F" -> fahrenheit
-resolve da "australian tablespoon" -> australian tablespoon
-resolve da "celsius" -> celsius
-resolve da "centigram" -> centigram
 resolve da "centiliter" -> centiliter
 resolve da "centimeter" -> centimeter
 resolve da "cl" -> centiliter
 resolve da "cm" -> centimeter
-resolve da "colombian libra" -> colombian libra
 resolve da "d" -> day
 resolve da "d." -> day
 resolve da "dag" -> day
 resolve da "dage" -> day
-resolve da "danish knife point" -> danish knife point
-resolve da "day" -> day
-resolve da "decagram" -> decagram
-resolve da "decaliter" -> decaliter
-resolve da "decameter" -> decameter
-resolve da "decigram" -> decigram
 resolve da "deciliter" -> deciliter
-resolve da "decimeter" -> decimeter
 resolve da "dl" -> deciliter
-resolve da "fahrenheit" -> fahrenheit
-resolve da "foot" -> foot
 resolve da "g" -> gram
 resolve da "grad celsius" -> celsius
 resolve da "grad fahrenheit" -> fahrenheit
@@ -1046,22 +890,10 @@ resolve da "grader celsius" -> celsius
 resolve da "grader fahrenheit" -> fahrenheit
 resolve da "gram" -> gram
 resolve da "h" -> hour
-resolve da "hectogram" -> hectogram
-resolve da "hectoliter" -> hectoliter
-resolve da "hectometer" -> hectometer
 resolve da "hektogram" -> hectogram
 resolve da "hg" -> hectogram
-resolve da "hour" -> hour
-resolve da "imperial fluid ounce" -> imperial fluid ounce
-resolve da "imperial gallon" -> imperial gallon
-resolve da "imperial pint" -> imperial pint
-resolve da "imperial quart" -> imperial quart
-resolve da "inch" -> inch
-resolve da "japanese cup" -> japanese cup
 resolve da "kg" -> kilogram
 resolve da "kilogram" -> kilogram
-resolve da "kiloliter" -> kiloliter
-resolve da "kilometer" -> kilometer
 resolve da "knivspids" -> danish knife point
 resolve da "knivspidser" -> danish knife point
 resolve da "knsp" -> danish knife point
@@ -1070,26 +902,16 @@ resolve da "l" -> liter
 resolve da "liter" -> liter
 resolve da "m" -> meter
 resolve da "meter" -> meter
-resolve da "metric cup" -> metric cup
-resolve da "metric dessert spoon" -> metric dessert spoon
-resolve da "metric tablespoon" -> metric tablespoon
-resolve da "metric teaspoon" -> metric teaspoon
-resolve da "milligram" -> milligram
 resolve da "milliliter" -> milliliter
 resolve da "millimeter" -> millimeter
 resolve da "min" -> minute
 resolve da "min." -> minute
 resolve da "minut" -> minute
-resolve da "minute" -> minute
 resolve da "minutter" -> minute
 resolve da "ml" -> milliliter
 resolve da "mm" -> millimeter
-resolve da "nordic spice measure" -> nordic spice measure
-resolve da "ounce" -> ounce
-resolve da "pound" -> pound
 resolve da "s" -> second
 resolve da "s." -> second
-resolve da "second" -> second
 resolve da "sek" -> second
 resolve da "sek." -> second
 resolve da "sekund" -> second
@@ -1105,20 +927,8 @@ resolve da "time" -> hour
 resolve da "timer" -> hour
 resolve da "tsk" -> metric teaspoon
 resolve da "tsk." -> metric teaspoon
-resolve da "us cup" -> us cup
-resolve da "us fluid ounce" -> us fluid ounce
-resolve da "us gallon" -> us gallon
-resolve da "us legal cup" -> us legal cup
-resolve da "us pint" -> us pint
-resolve da "us quart" -> us quart
-resolve da "us tablespoon" -> us tablespoon
-resolve da "us teaspoon" -> us teaspoon
 resolve da "°C" -> celsius
 resolve da "°F" -> fahrenheit
-resolve da "ºC" -> celsius
-resolve da "ºF" -> fahrenheit
-resolve da "℃" -> celsius
-resolve da "℉" -> fahrenheit
 written da kiloliter -> "kiloliter"
 written da hectoliter -> "hectoliter"
 written da decaliter -> "decaliter"
@@ -1361,13 +1171,11 @@ long-written da fahrenheit 1.5 -> "1.5 grad fahrenheit"
 long-written da fahrenheit 0 -> "0 grader fahrenheit"
 long-written da fahrenheit 12 -> "12 grader fahrenheit"
 long-written da fahrenheit 14 -> "14 grader fahrenheit"
-resolve de "C" -> celsius
 resolve de "Deka" -> decagram
 resolve de "Dekagramm" -> decagram
 resolve de "Deziliter" -> deciliter
 resolve de "EL" -> metric tablespoon
 resolve de "Esslöffel" -> metric tablespoon
-resolve de "F" -> fahrenheit
 resolve de "Fuß" -> foot
 resolve de "Grad Celsius" -> celsius
 resolve de "Grad Fahrenheit" -> fahrenheit
@@ -1397,81 +1205,25 @@ resolve de "Unzen" -> ounce
 resolve de "Zentiliter" -> centiliter
 resolve de "Zentimeter" -> centimeter
 resolve de "Zoll" -> inch
-resolve de "australian tablespoon" -> australian tablespoon
-resolve de "celsius" -> celsius
-resolve de "centigram" -> centigram
-resolve de "centiliter" -> centiliter
-resolve de "centimeter" -> centimeter
 resolve de "cl" -> centiliter
 resolve de "cm" -> centimeter
-resolve de "colombian libra" -> colombian libra
 resolve de "dag" -> decagram
-resolve de "danish knife point" -> danish knife point
-resolve de "day" -> day
-resolve de "decagram" -> decagram
-resolve de "decaliter" -> decaliter
-resolve de "decameter" -> decameter
-resolve de "decigram" -> decigram
-resolve de "deciliter" -> deciliter
-resolve de "decimeter" -> decimeter
 resolve de "dkg" -> decagram
 resolve de "dl" -> deciliter
-resolve de "fahrenheit" -> fahrenheit
-resolve de "foot" -> foot
 resolve de "ft" -> foot
 resolve de "g" -> gram
-resolve de "gram" -> gram
-resolve de "hectogram" -> hectogram
-resolve de "hectoliter" -> hectoliter
-resolve de "hectometer" -> hectometer
-resolve de "hour" -> hour
-resolve de "imperial fluid ounce" -> imperial fluid ounce
-resolve de "imperial gallon" -> imperial gallon
-resolve de "imperial pint" -> imperial pint
-resolve de "imperial quart" -> imperial quart
 resolve de "in" -> inch
-resolve de "inch" -> inch
-resolve de "japanese cup" -> japanese cup
 resolve de "kg" -> kilogram
-resolve de "kilogram" -> kilogram
-resolve de "kiloliter" -> kiloliter
-resolve de "kilometer" -> kilometer
 resolve de "l" -> liter
 resolve de "lb" -> pound
-resolve de "liter" -> liter
 resolve de "m" -> meter
-resolve de "meter" -> meter
-resolve de "metric cup" -> metric cup
-resolve de "metric dessert spoon" -> metric dessert spoon
-resolve de "metric tablespoon" -> metric tablespoon
-resolve de "metric teaspoon" -> metric teaspoon
 resolve de "metrische Tasse" -> metric cup
 resolve de "metrische Tassen" -> metric cup
-resolve de "milligram" -> milligram
-resolve de "milliliter" -> milliliter
-resolve de "millimeter" -> millimeter
-resolve de "minute" -> minute
 resolve de "ml" -> milliliter
 resolve de "mm" -> millimeter
-resolve de "nordic spice measure" -> nordic spice measure
-resolve de "ounce" -> ounce
 resolve de "oz" -> ounce
-resolve de "pound" -> pound
-resolve de "second" -> second
-resolve de "us cup" -> us cup
-resolve de "us fluid ounce" -> us fluid ounce
-resolve de "us gallon" -> us gallon
-resolve de "us legal cup" -> us legal cup
-resolve de "us pint" -> us pint
-resolve de "us quart" -> us quart
-resolve de "us tablespoon" -> us tablespoon
-resolve de "us teaspoon" -> us teaspoon
 resolve de "°C" -> celsius
 resolve de "°F" -> fahrenheit
-resolve de "ºC" -> celsius
-resolve de "ºF" -> fahrenheit
-resolve de "℃" -> celsius
-resolve de "℉" -> fahrenheit
 written de kiloliter -> "kiloliter"
 written de hectoliter -> "hectoliter"
 written de decaliter -> "decaliter"
@@ -1734,67 +1486,11 @@ long-written de fahrenheit 1.5 -> "1.5 Grad Fahrenheit"
 long-written de fahrenheit 0 -> "0 Grad Fahrenheit"
 long-written de fahrenheit 12 -> "12 Grad Fahrenheit"
 long-written de fahrenheit 14 -> "14 Grad Fahrenheit"
-resolve el "C" -> celsius
-resolve el "F" -> fahrenheit
-resolve el "australian tablespoon" -> australian tablespoon
 resolve el "cL" -> centiliter
-resolve el "celsius" -> celsius
-resolve el "centigram" -> centigram
-resolve el "centiliter" -> centiliter
-resolve el "centimeter" -> centimeter
-resolve el "colombian libra" -> colombian libra
 resolve el "dL" -> deciliter
-resolve el "danish knife point" -> danish knife point
-resolve el "day" -> day
-resolve el "decagram" -> decagram
-resolve el "decaliter" -> decaliter
-resolve el "decameter" -> decameter
-resolve el "decigram" -> decigram
-resolve el "deciliter" -> deciliter
-resolve el "decimeter" -> decimeter
-resolve el "fahrenheit" -> fahrenheit
-resolve el "foot" -> foot
-resolve el "gram" -> gram
-resolve el "hectogram" -> hectogram
-resolve el "hectoliter" -> hectoliter
-resolve el "hectometer" -> hectometer
-resolve el "hour" -> hour
-resolve el "imperial fluid ounce" -> imperial fluid ounce
-resolve el "imperial gallon" -> imperial gallon
-resolve el "imperial pint" -> imperial pint
-resolve el "imperial quart" -> imperial quart
-resolve el "inch" -> inch
-resolve el "japanese cup" -> japanese cup
-resolve el "kilogram" -> kilogram
-resolve el "kiloliter" -> kiloliter
-resolve el "kilometer" -> kilometer
-resolve el "liter" -> liter
 resolve el "mL" -> milliliter
-resolve el "meter" -> meter
-resolve el "metric cup" -> metric cup
-resolve el "metric dessert spoon" -> metric dessert spoon
-resolve el "metric tablespoon" -> metric tablespoon
-resolve el "metric teaspoon" -> metric teaspoon
-resolve el "milligram" -> milligram
-resolve el "milliliter" -> milliliter
-resolve el "millimeter" -> millimeter
-resolve el "minute" -> minute
-resolve el "nordic spice measure" -> nordic spice measure
-resolve el "ounce" -> ounce
-resolve el "pound" -> pound
-resolve el "second" -> second
-resolve el "us cup" -> us cup
-resolve el "us fluid ounce" -> us fluid ounce
-resolve el "us gallon" -> us gallon
-resolve el "us legal cup" -> us legal cup
-resolve el "us pint" -> us pint
-resolve el "us quart" -> us quart
-resolve el "us tablespoon" -> us tablespoon
-resolve el "us teaspoon" -> us teaspoon
 resolve el "°C" -> celsius
 resolve el "°F" -> fahrenheit
-resolve el "ºC" -> celsius
-resolve el "ºF" -> fahrenheit
 resolve el "ίν." -> inch
 resolve el "ίντσα" -> inch
 resolve el "ίντσες" -> inch
@@ -1840,8 +1536,6 @@ resolve el "χλστ." -> millimeter
 resolve el "ώ." -> hour
 resolve el "ώρα" -> hour
 resolve el "ώρες" -> hour
-resolve el "℃" -> celsius
-resolve el "℉" -> fahrenheit
 written el kiloliter -> "kiloliter"
 written el hectoliter -> "hectoliter"
 written el decaliter -> "decaliter"
@@ -2064,8 +1758,6 @@ long-written el fahrenheit 1.5 -> "1.5 βαθμοί Φαρενάιτ"
 long-written el fahrenheit 0 -> "0 βαθμοί Φαρενάιτ"
 long-written el fahrenheit 12 -> "12 βαθμοί Φαρενάιτ"
 long-written el fahrenheit 14 -> "14 βαθμοί Φαρενάιτ"
-resolve en "C" -> celsius
-resolve en "F" -> fahrenheit
 resolve en "Imp. fluid ounce" -> imperial fluid ounce
 resolve en "Imp. fluid ounces" -> imperial fluid ounce
 resolve en "Imp. gallon" -> imperial gallon
@@ -2073,31 +1765,21 @@ resolve en "Imp. gallons" -> imperial gallon
 resolve en "Imp. quart" -> imperial quart
 resolve en "Imp. quarts" -> imperial quart
 resolve en "L" -> liter
-resolve en "australian tablespoon" -> australian tablespoon
 resolve en "c" -> us cup
 resolve en "cL" -> centiliter
-resolve en "celsius" -> celsius
-resolve en "centigram" -> centigram
 resolve en "centiliter" -> centiliter
 resolve en "centiliters" -> centiliter
 resolve en "centimeter" -> centimeter
 resolve en "centimeters" -> centimeter
 resolve en "cm" -> centimeter
-resolve en "colombian libra" -> colombian libra
 resolve en "cup" -> us cup
 resolve en "cups" -> us cup
 resolve en "d" -> day
 resolve en "dL" -> deciliter
-resolve en "danish knife point" -> danish knife point
 resolve en "day" -> day
 resolve en "days" -> day
-resolve en "decagram" -> decagram
-resolve en "decaliter" -> decaliter
-resolve en "decameter" -> decameter
-resolve en "decigram" -> decigram
 resolve en "deciliter" -> deciliter
 resolve en "deciliters" -> deciliter
-resolve en "decimeter" -> decimeter
 resolve en "degree Celsius" -> celsius
 resolve en "degree Fahrenheit" -> fahrenheit
 resolve en "degrees Celsius" -> celsius
@@ -2105,7 +1787,6 @@ resolve en "degrees Fahrenheit" -> fahrenheit
 resolve en "dessert spoon" -> metric dessert spoon
 resolve en "dessert spoons" -> metric dessert spoon
 resolve en "dsp" -> metric dessert spoon
-resolve en "fahrenheit" -> fahrenheit
 resolve en "feet" -> foot
 resolve en "fl oz" -> us fluid ounce
 resolve en "fl oz Imp." -> imperial fluid ounce
@@ -2121,25 +1802,15 @@ resolve en "gallons" -> us gallon
 resolve en "gram" -> gram
 resolve en "grams" -> gram
 resolve en "h" -> hour
-resolve en "hectogram" -> hectogram
-resolve en "hectoliter" -> hectoliter
-resolve en "hectometer" -> hectometer
 resolve en "hour" -> hour
 resolve en "hours" -> hour
 resolve en "hr" -> hour
-resolve en "imperial fluid ounce" -> imperial fluid ounce
-resolve en "imperial gallon" -> imperial gallon
-resolve en "imperial pint" -> imperial pint
-resolve en "imperial quart" -> imperial quart
 resolve en "in" -> inch
 resolve en "inch" -> inch
 resolve en "inches" -> inch
-resolve en "japanese cup" -> japanese cup
 resolve en "kg" -> kilogram
 resolve en "kilogram" -> kilogram
 resolve en "kilograms" -> kilogram
-resolve en "kiloliter" -> kiloliter
-resolve en "kilometer" -> kilometer
 resolve en "lb" -> pound
 resolve en "liter" -> liter
 resolve en "liters" -> liter
@@ -2150,10 +1821,6 @@ resolve en "meter" -> meter
 resolve en "meters" -> meter
 resolve en "metric cup" -> metric cup
 resolve en "metric cups" -> metric cup
-resolve en "metric dessert spoon" -> metric dessert spoon
-resolve en "metric tablespoon" -> metric tablespoon
-resolve en "metric teaspoon" -> metric teaspoon
-resolve en "milligram" -> milligram
 resolve en "milliliter" -> milliliter
 resolve en "milliliters" -> milliliter
 resolve en "millimeter" -> millimeter
@@ -2162,7 +1829,6 @@ resolve en "min" -> minute
 resolve en "minute" -> minute
 resolve en "minutes" -> minute
 resolve en "mm" -> millimeter
-resolve en "nordic spice measure" -> nordic spice measure
 resolve en "ounce" -> ounce
 resolve en "ounces" -> ounce
 resolve en "oz" -> ounce
@@ -2188,20 +1854,8 @@ resolve en "tbsp" -> us tablespoon
 resolve en "teaspoon" -> us teaspoon
 resolve en "teaspoons" -> us teaspoon
 resolve en "tsp" -> us teaspoon
-resolve en "us cup" -> us cup
-resolve en "us fluid ounce" -> us fluid ounce
-resolve en "us gallon" -> us gallon
-resolve en "us legal cup" -> us legal cup
-resolve en "us pint" -> us pint
-resolve en "us quart" -> us quart
-resolve en "us tablespoon" -> us tablespoon
-resolve en "us teaspoon" -> us teaspoon
 resolve en "°C" -> celsius
 resolve en "°F" -> fahrenheit
-resolve en "ºC" -> celsius
-resolve en "ºF" -> fahrenheit
-resolve en "℃" -> celsius
-resolve en "℉" -> fahrenheit
 written en kiloliter -> "kiloliter"
 written en hectoliter -> "hectoliter"
 written en decaliter -> "decaliter"
@@ -2574,8 +2228,6 @@ long-written en fahrenheit 1.5 -> "1.5 degrees Fahrenheit"
 long-written en fahrenheit 0 -> "0 degrees Fahrenheit"
 long-written en fahrenheit 12 -> "12 degrees Fahrenheit"
 long-written en fahrenheit 14 -> "14 degrees Fahrenheit"
-resolve en-001 "C" -> celsius
-resolve en-001 "F" -> fahrenheit
 resolve en-001 "US c" -> us cup
 resolve en-001 "US fl oz" -> us fluid ounce
 resolve en-001 "US fluid ounce" -> us fluid ounce
@@ -2589,33 +2241,20 @@ resolve en-001 "US quart" -> us quart
 resolve en-001 "US quarts" -> us quart
 resolve en-001 "US tbsp" -> us tablespoon
 resolve en-001 "US tsp" -> us teaspoon
-resolve en-001 "australian tablespoon" -> australian tablespoon
 resolve en-001 "c" -> metric cup
-resolve en-001 "celsius" -> celsius
-resolve en-001 "centigram" -> centigram
-resolve en-001 "centiliter" -> centiliter
 resolve en-001 "centilitre" -> centiliter
 resolve en-001 "centilitres" -> centiliter
-resolve en-001 "centimeter" -> centimeter
 resolve en-001 "centimetre" -> centimeter
 resolve en-001 "centimetres" -> centimeter
 resolve en-001 "cl" -> centiliter
 resolve en-001 "cm" -> centimeter
-resolve en-001 "colombian libra" -> colombian libra
 resolve en-001 "cup" -> metric cup
 resolve en-001 "cups" -> metric cup
 resolve en-001 "d" -> day
-resolve en-001 "danish knife point" -> danish knife point
 resolve en-001 "day" -> day
 resolve en-001 "days" -> day
-resolve en-001 "decagram" -> decagram
-resolve en-001 "decaliter" -> decaliter
-resolve en-001 "decameter" -> decameter
-resolve en-001 "decigram" -> decigram
-resolve en-001 "deciliter" -> deciliter
 resolve en-001 "decilitre" -> deciliter
 resolve en-001 "decilitres" -> deciliter
-resolve en-001 "decimeter" -> decimeter
 resolve en-001 "degree Celsius" -> celsius
 resolve en-001 "degree Fahrenheit" -> fahrenheit
 resolve en-001 "degrees Celsius" -> celsius
@@ -2626,7 +2265,6 @@ resolve en-001 "dessertspoon" -> metric dessert spoon
 resolve en-001 "dessertspoons" -> metric dessert spoon
 resolve en-001 "dl" -> deciliter
 resolve en-001 "dsp" -> metric dessert spoon
-resolve en-001 "fahrenheit" -> fahrenheit
 resolve en-001 "feet" -> foot
 resolve en-001 "fl oz" -> imperial fluid ounce
 resolve en-001 "fluid ounce" -> imperial fluid ounce
@@ -2640,45 +2278,27 @@ resolve en-001 "gallons" -> imperial gallon
 resolve en-001 "gram" -> gram
 resolve en-001 "grams" -> gram
 resolve en-001 "h" -> hour
-resolve en-001 "hectogram" -> hectogram
-resolve en-001 "hectoliter" -> hectoliter
-resolve en-001 "hectometer" -> hectometer
 resolve en-001 "hour" -> hour
 resolve en-001 "hours" -> hour
 resolve en-001 "hrs" -> hour
-resolve en-001 "imperial fluid ounce" -> imperial fluid ounce
-resolve en-001 "imperial gallon" -> imperial gallon
-resolve en-001 "imperial pint" -> imperial pint
-resolve en-001 "imperial quart" -> imperial quart
 resolve en-001 "in" -> inch
 resolve en-001 "inch" -> inch
 resolve en-001 "inches" -> inch
-resolve en-001 "japanese cup" -> japanese cup
 resolve en-001 "kg" -> kilogram
 resolve en-001 "kilogram" -> kilogram
 resolve en-001 "kilograms" -> kilogram
-resolve en-001 "kiloliter" -> kiloliter
-resolve en-001 "kilometer" -> kilometer
 resolve en-001 "l" -> liter
 resolve en-001 "lb" -> pound
-resolve en-001 "liter" -> liter
 resolve en-001 "litre" -> liter
 resolve en-001 "litres" -> liter
 resolve en-001 "m" -> meter
 resolve en-001 "mc" -> metric cup
-resolve en-001 "meter" -> meter
 resolve en-001 "metre" -> meter
 resolve en-001 "metres" -> meter
 resolve en-001 "metric cup" -> metric cup
 resolve en-001 "metric cups" -> metric cup
-resolve en-001 "metric dessert spoon" -> metric dessert spoon
-resolve en-001 "metric tablespoon" -> metric tablespoon
-resolve en-001 "metric teaspoon" -> metric teaspoon
-resolve en-001 "milligram" -> milligram
-resolve en-001 "milliliter" -> milliliter
 resolve en-001 "millilitre" -> milliliter
 resolve en-001 "millilitres" -> milliliter
-resolve en-001 "millimeter" -> millimeter
 resolve en-001 "millimetre" -> millimeter
 resolve en-001 "millimetres" -> millimeter
 resolve en-001 "min" -> minute
@@ -2687,7 +2307,6 @@ resolve en-001 "minute" -> minute
 resolve en-001 "minutes" -> minute
 resolve en-001 "ml" -> milliliter
 resolve en-001 "mm" -> millimeter
-resolve en-001 "nordic spice measure" -> nordic spice measure
 resolve en-001 "ounce" -> ounce
 resolve en-001 "ounces" -> ounce
 resolve en-001 "oz" -> ounce
@@ -2712,20 +2331,8 @@ resolve en-001 "tbsp" -> metric tablespoon
 resolve en-001 "teaspoon" -> metric teaspoon
 resolve en-001 "teaspoons" -> metric teaspoon
 resolve en-001 "tsp" -> metric teaspoon
-resolve en-001 "us cup" -> us cup
-resolve en-001 "us fluid ounce" -> us fluid ounce
-resolve en-001 "us gallon" -> us gallon
-resolve en-001 "us legal cup" -> us legal cup
-resolve en-001 "us pint" -> us pint
-resolve en-001 "us quart" -> us quart
-resolve en-001 "us tablespoon" -> us tablespoon
-resolve en-001 "us teaspoon" -> us teaspoon
 resolve en-001 "°C" -> celsius
 resolve en-001 "°F" -> fahrenheit
-resolve en-001 "ºC" -> celsius
-resolve en-001 "ºF" -> fahrenheit
-resolve en-001 "℃" -> celsius
-resolve en-001 "℉" -> fahrenheit
 written en-001 kiloliter -> "kiloliter"
 written en-001 hectoliter -> "hectoliter"
 written en-001 decaliter -> "decaliter"
@@ -3068,8 +2675,6 @@ long-written en-001 fahrenheit 1.5 -> "1.5 degrees Fahrenheit"
 long-written en-001 fahrenheit 0 -> "0 degrees Fahrenheit"
 long-written en-001 fahrenheit 12 -> "12 degrees Fahrenheit"
 long-written en-001 fahrenheit 14 -> "14 degrees Fahrenheit"
-resolve en-AU "C" -> celsius
-resolve en-AU "F" -> fahrenheit
 resolve en-AU "Imp. fluid ounce" -> imperial fluid ounce
 resolve en-AU "Imp. fluid ounces" -> imperial fluid ounce
 resolve en-AU "L" -> liter
@@ -3085,38 +2690,24 @@ resolve en-AU "US quart" -> us quart
 resolve en-AU "US quarts" -> us quart
 resolve en-AU "US tbsp" -> us tablespoon
 resolve en-AU "US tsp" -> us teaspoon
-resolve en-AU "australian tablespoon" -> australian tablespoon
 resolve en-AU "c" -> metric cup
 resolve en-AU "cL" -> centiliter
-resolve en-AU "celsius" -> celsius
-resolve en-AU "centigram" -> centigram
-resolve en-AU "centiliter" -> centiliter
 resolve en-AU "centilitre" -> centiliter
 resolve en-AU "centilitres" -> centiliter
-resolve en-AU "centimeter" -> centimeter
 resolve en-AU "centimetre" -> centimeter
 resolve en-AU "centimetres" -> centimeter
 resolve en-AU "cm" -> centimeter
-resolve en-AU "colombian libra" -> colombian libra
 resolve en-AU "cup" -> metric cup
 resolve en-AU "cups" -> metric cup
 resolve en-AU "dL" -> deciliter
-resolve en-AU "danish knife point" -> danish knife point
 resolve en-AU "day" -> day
 resolve en-AU "days" -> day
-resolve en-AU "decagram" -> decagram
-resolve en-AU "decaliter" -> decaliter
-resolve en-AU "decameter" -> decameter
-resolve en-AU "decigram" -> decigram
-resolve en-AU "deciliter" -> deciliter
 resolve en-AU "decilitre" -> deciliter
 resolve en-AU "decilitres" -> deciliter
-resolve en-AU "decimeter" -> decimeter
 resolve en-AU "degree Celsius" -> celsius
 resolve en-AU "degree Fahrenheit" -> fahrenheit
 resolve en-AU "degrees Celsius" -> celsius
 resolve en-AU "degrees Fahrenheit" -> fahrenheit
-resolve en-AU "fahrenheit" -> fahrenheit
 resolve en-AU "feet" -> foot
 resolve en-AU "fl oz Imp." -> imperial fluid ounce
 resolve en-AU "foot" -> foot
@@ -3128,54 +2719,36 @@ resolve en-AU "gallon" -> imperial gallon
 resolve en-AU "gallons" -> imperial gallon
 resolve en-AU "gram" -> gram
 resolve en-AU "grams" -> gram
-resolve en-AU "hectogram" -> hectogram
-resolve en-AU "hectoliter" -> hectoliter
-resolve en-AU "hectometer" -> hectometer
 resolve en-AU "hour" -> hour
 resolve en-AU "hours" -> hour
 resolve en-AU "hrs" -> hour
-resolve en-AU "imperial fluid ounce" -> imperial fluid ounce
-resolve en-AU "imperial gallon" -> imperial gallon
-resolve en-AU "imperial pint" -> imperial pint
-resolve en-AU "imperial quart" -> imperial quart
 resolve en-AU "in" -> inch
 resolve en-AU "inch" -> inch
 resolve en-AU "inches" -> inch
-resolve en-AU "japanese cup" -> japanese cup
 resolve en-AU "kg" -> kilogram
 resolve en-AU "kilogram" -> kilogram
 resolve en-AU "kilograms" -> kilogram
-resolve en-AU "kiloliter" -> kiloliter
-resolve en-AU "kilometer" -> kilometer
 resolve en-AU "lb" -> pound
-resolve en-AU "liter" -> liter
 resolve en-AU "litre" -> liter
 resolve en-AU "litres" -> liter
 resolve en-AU "m" -> meter
 resolve en-AU "mL" -> milliliter
 resolve en-AU "mc" -> metric cup
-resolve en-AU "meter" -> meter
 resolve en-AU "metre" -> meter
 resolve en-AU "metres" -> meter
 resolve en-AU "metric cup" -> metric cup
 resolve en-AU "metric cups" -> metric cup
-resolve en-AU "metric dessert spoon" -> metric dessert spoon
 resolve en-AU "metric tablespoon" -> metric tablespoon
 resolve en-AU "metric tablespoons" -> metric tablespoon
 resolve en-AU "metric tbsp" -> metric tablespoon
-resolve en-AU "metric teaspoon" -> metric teaspoon
-resolve en-AU "milligram" -> milligram
-resolve en-AU "milliliter" -> milliliter
 resolve en-AU "millilitre" -> milliliter
 resolve en-AU "millilitres" -> milliliter
-resolve en-AU "millimeter" -> millimeter
 resolve en-AU "millimetre" -> millimeter
 resolve en-AU "millimetres" -> millimeter
 resolve en-AU "mins" -> minute
 resolve en-AU "minute" -> minute
 resolve en-AU "minutes" -> minute
 resolve en-AU "mm" -> millimeter
-resolve en-AU "nordic spice measure" -> nordic spice measure
 resolve en-AU "ounce" -> ounce
 resolve en-AU "ounces" -> ounce
 resolve en-AU "oz" -> ounce
@@ -3199,20 +2772,8 @@ resolve en-AU "tbsp" -> australian tablespoon
 resolve en-AU "teaspoon" -> metric teaspoon
 resolve en-AU "teaspoons" -> metric teaspoon
 resolve en-AU "tsp" -> metric teaspoon
-resolve en-AU "us cup" -> us cup
-resolve en-AU "us fluid ounce" -> us fluid ounce
-resolve en-AU "us gallon" -> us gallon
-resolve en-AU "us legal cup" -> us legal cup
-resolve en-AU "us pint" -> us pint
-resolve en-AU "us quart" -> us quart
-resolve en-AU "us tablespoon" -> us tablespoon
-resolve en-AU "us teaspoon" -> us teaspoon
 resolve en-AU "°C" -> celsius
 resolve en-AU "°F" -> fahrenheit
-resolve en-AU "ºC" -> celsius
-resolve en-AU "ºF" -> fahrenheit
-resolve en-AU "℃" -> celsius
-resolve en-AU "℉" -> fahrenheit
 written en-AU kiloliter -> "kiloliter"
 written en-AU hectoliter -> "hectoliter"
 written en-AU decaliter -> "decaliter"
@@ -3555,8 +3116,6 @@ long-written en-AU fahrenheit 1.5 -> "1.5 degrees Fahrenheit"
 long-written en-AU fahrenheit 0 -> "0 degrees Fahrenheit"
 long-written en-AU fahrenheit 12 -> "12 degrees Fahrenheit"
 long-written en-AU fahrenheit 14 -> "14 degrees Fahrenheit"
-resolve en-GB "C" -> celsius
-resolve en-GB "F" -> fahrenheit
 resolve en-GB "US c" -> us cup
 resolve en-GB "US fl oz" -> us fluid ounce
 resolve en-GB "US fluid ounce" -> us fluid ounce
@@ -3570,33 +3129,20 @@ resolve en-GB "US quart" -> us quart
 resolve en-GB "US quarts" -> us quart
 resolve en-GB "US tbsp" -> us tablespoon
 resolve en-GB "US tsp" -> us teaspoon
-resolve en-GB "australian tablespoon" -> australian tablespoon
 resolve en-GB "c" -> metric cup
-resolve en-GB "celsius" -> celsius
-resolve en-GB "centigram" -> centigram
-resolve en-GB "centiliter" -> centiliter
 resolve en-GB "centilitre" -> centiliter
 resolve en-GB "centilitres" -> centiliter
-resolve en-GB "centimeter" -> centimeter
 resolve en-GB "centimetre" -> centimeter
 resolve en-GB "centimetres" -> centimeter
 resolve en-GB "cl" -> centiliter
 resolve en-GB "cm" -> centimeter
-resolve en-GB "colombian libra" -> colombian libra
 resolve en-GB "cup" -> metric cup
 resolve en-GB "cups" -> metric cup
 resolve en-GB "d" -> day
-resolve en-GB "danish knife point" -> danish knife point
 resolve en-GB "day" -> day
 resolve en-GB "days" -> day
-resolve en-GB "decagram" -> decagram
-resolve en-GB "decaliter" -> decaliter
-resolve en-GB "decameter" -> decameter
-resolve en-GB "decigram" -> decigram
-resolve en-GB "deciliter" -> deciliter
 resolve en-GB "decilitre" -> deciliter
 resolve en-GB "decilitres" -> deciliter
-resolve en-GB "decimeter" -> decimeter
 resolve en-GB "degree Celsius" -> celsius
 resolve en-GB "degree Fahrenheit" -> fahrenheit
 resolve en-GB "degrees Celsius" -> celsius
@@ -3607,7 +3153,6 @@ resolve en-GB "dessertspoon" -> metric dessert spoon
 resolve en-GB "dessertspoons" -> metric dessert spoon
 resolve en-GB "dl" -> deciliter
 resolve en-GB "dsp" -> metric dessert spoon
-resolve en-GB "fahrenheit" -> fahrenheit
 resolve en-GB "feet" -> foot
 resolve en-GB "fl oz" -> imperial fluid ounce
 resolve en-GB "fluid ounce" -> imperial fluid ounce
@@ -3621,45 +3166,27 @@ resolve en-GB "gallons" -> imperial gallon
 resolve en-GB "gram" -> gram
 resolve en-GB "grams" -> gram
 resolve en-GB "h" -> hour
-resolve en-GB "hectogram" -> hectogram
-resolve en-GB "hectoliter" -> hectoliter
-resolve en-GB "hectometer" -> hectometer
 resolve en-GB "hour" -> hour
 resolve en-GB "hours" -> hour
 resolve en-GB "hrs" -> hour
-resolve en-GB "imperial fluid ounce" -> imperial fluid ounce
-resolve en-GB "imperial gallon" -> imperial gallon
-resolve en-GB "imperial pint" -> imperial pint
-resolve en-GB "imperial quart" -> imperial quart
 resolve en-GB "in" -> inch
 resolve en-GB "inch" -> inch
 resolve en-GB "inches" -> inch
-resolve en-GB "japanese cup" -> japanese cup
 resolve en-GB "kg" -> kilogram
 resolve en-GB "kilogram" -> kilogram
 resolve en-GB "kilograms" -> kilogram
-resolve en-GB "kiloliter" -> kiloliter
-resolve en-GB "kilometer" -> kilometer
 resolve en-GB "l" -> liter
 resolve en-GB "lb" -> pound
-resolve en-GB "liter" -> liter
 resolve en-GB "litre" -> liter
 resolve en-GB "litres" -> liter
 resolve en-GB "m" -> meter
 resolve en-GB "mc" -> metric cup
-resolve en-GB "meter" -> meter
 resolve en-GB "metre" -> meter
 resolve en-GB "metres" -> meter
 resolve en-GB "metric cup" -> metric cup
 resolve en-GB "metric cups" -> metric cup
-resolve en-GB "metric dessert spoon" -> metric dessert spoon
-resolve en-GB "metric tablespoon" -> metric tablespoon
-resolve en-GB "metric teaspoon" -> metric teaspoon
-resolve en-GB "milligram" -> milligram
-resolve en-GB "milliliter" -> milliliter
 resolve en-GB "millilitre" -> milliliter
 resolve en-GB "millilitres" -> milliliter
-resolve en-GB "millimeter" -> millimeter
 resolve en-GB "millimetre" -> millimeter
 resolve en-GB "millimetres" -> millimeter
 resolve en-GB "min" -> minute
@@ -3668,7 +3195,6 @@ resolve en-GB "minute" -> minute
 resolve en-GB "minutes" -> minute
 resolve en-GB "ml" -> milliliter
 resolve en-GB "mm" -> millimeter
-resolve en-GB "nordic spice measure" -> nordic spice measure
 resolve en-GB "ounce" -> ounce
 resolve en-GB "ounces" -> ounce
 resolve en-GB "oz" -> ounce
@@ -3693,20 +3219,8 @@ resolve en-GB "tbsp" -> metric tablespoon
 resolve en-GB "teaspoon" -> metric teaspoon
 resolve en-GB "teaspoons" -> metric teaspoon
 resolve en-GB "tsp" -> metric teaspoon
-resolve en-GB "us cup" -> us cup
-resolve en-GB "us fluid ounce" -> us fluid ounce
-resolve en-GB "us gallon" -> us gallon
-resolve en-GB "us legal cup" -> us legal cup
-resolve en-GB "us pint" -> us pint
-resolve en-GB "us quart" -> us quart
-resolve en-GB "us tablespoon" -> us tablespoon
-resolve en-GB "us teaspoon" -> us teaspoon
 resolve en-GB "°C" -> celsius
 resolve en-GB "°F" -> fahrenheit
-resolve en-GB "ºC" -> celsius
-resolve en-GB "ºF" -> fahrenheit
-resolve en-GB "℃" -> celsius
-resolve en-GB "℉" -> fahrenheit
 written en-GB kiloliter -> "kiloliter"
 written en-GB hectoliter -> "hectoliter"
 written en-GB decaliter -> "decaliter"
@@ -4049,128 +3563,70 @@ long-written en-GB fahrenheit 1.5 -> "1.5 degrees Fahrenheit"
 long-written en-GB fahrenheit 0 -> "0 degrees Fahrenheit"
 long-written en-GB fahrenheit 12 -> "12 degrees Fahrenheit"
 long-written en-GB fahrenheit 14 -> "14 degrees Fahrenheit"
-resolve es "C" -> celsius
-resolve es "F" -> fahrenheit
-resolve es "australian tablespoon" -> australian tablespoon
 resolve es "cda" -> metric tablespoon
 resolve es "cdta" -> metric teaspoon
-resolve es "celsius" -> celsius
-resolve es "centigram" -> centigram
-resolve es "centiliter" -> centiliter
 resolve es "centilitro" -> centiliter
 resolve es "centilitros" -> centiliter
-resolve es "centimeter" -> centimeter
 resolve es "centímetro" -> centimeter
 resolve es "centímetros" -> centimeter
 resolve es "cl" -> centiliter
 resolve es "cm" -> centimeter
-resolve es "colombian libra" -> colombian libra
 resolve es "cucharada" -> metric tablespoon
 resolve es "cucharadas" -> metric tablespoon
 resolve es "cucharadita" -> metric teaspoon
 resolve es "cucharaditas" -> metric teaspoon
 resolve es "d" -> day
-resolve es "danish knife point" -> danish knife point
-resolve es "day" -> day
-resolve es "decagram" -> decagram
-resolve es "decaliter" -> decaliter
-resolve es "decameter" -> decameter
-resolve es "decigram" -> decigram
-resolve es "deciliter" -> deciliter
 resolve es "decilitro" -> deciliter
 resolve es "decilitros" -> deciliter
-resolve es "decimeter" -> decimeter
 resolve es "dl" -> deciliter
 resolve es "día" -> day
 resolve es "días" -> day
-resolve es "fahrenheit" -> fahrenheit
-resolve es "foot" -> foot
 resolve es "ft" -> foot
 resolve es "g" -> gram
 resolve es "grado Celsius" -> celsius
 resolve es "grado Fahrenheit" -> fahrenheit
 resolve es "grados Celsius" -> celsius
 resolve es "grados Fahrenheit" -> fahrenheit
-resolve es "gram" -> gram
 resolve es "gramo" -> gram
 resolve es "gramos" -> gram
 resolve es "h" -> hour
-resolve es "hectogram" -> hectogram
-resolve es "hectoliter" -> hectoliter
-resolve es "hectometer" -> hectometer
 resolve es "hora" -> hour
 resolve es "horas" -> hour
-resolve es "hour" -> hour
-resolve es "imperial fluid ounce" -> imperial fluid ounce
-resolve es "imperial gallon" -> imperial gallon
-resolve es "imperial pint" -> imperial pint
-resolve es "imperial quart" -> imperial quart
 resolve es "in" -> inch
-resolve es "inch" -> inch
-resolve es "japanese cup" -> japanese cup
 resolve es "kg" -> kilogram
-resolve es "kilogram" -> kilogram
 resolve es "kilogramo" -> kilogram
 resolve es "kilogramos" -> kilogram
-resolve es "kiloliter" -> kiloliter
-resolve es "kilometer" -> kilometer
 resolve es "l" -> liter
 resolve es "lb" -> pound
-resolve es "liter" -> liter
 resolve es "litro" -> liter
 resolve es "litros" -> liter
 resolve es "m" -> meter
-resolve es "meter" -> meter
-resolve es "metric cup" -> metric cup
-resolve es "metric dessert spoon" -> metric dessert spoon
-resolve es "metric tablespoon" -> metric tablespoon
-resolve es "metric teaspoon" -> metric teaspoon
 resolve es "metro" -> meter
 resolve es "metros" -> meter
 resolve es "mililitro" -> milliliter
 resolve es "mililitros" -> milliliter
-resolve es "milligram" -> milligram
-resolve es "milliliter" -> milliliter
-resolve es "millimeter" -> millimeter
 resolve es "milímetro" -> millimeter
 resolve es "milímetros" -> millimeter
 resolve es "min" -> minute
-resolve es "minute" -> minute
 resolve es "minuto" -> minute
 resolve es "minutos" -> minute
 resolve es "ml" -> milliliter
 resolve es "mm" -> millimeter
-resolve es "nordic spice measure" -> nordic spice measure
 resolve es "onza" -> ounce
 resolve es "onzas" -> ounce
-resolve es "ounce" -> ounce
 resolve es "oz" -> ounce
 resolve es "pie" -> foot
 resolve es "pies" -> foot
-resolve es "pound" -> pound
 resolve es "pulgada" -> inch
 resolve es "pulgadas" -> inch
 resolve es "s" -> second
-resolve es "second" -> second
 resolve es "segundo" -> second
 resolve es "segundos" -> second
 resolve es "taza métrica" -> metric cup
 resolve es "tazas métricas" -> metric cup
 resolve es "tza m" -> metric cup
-resolve es "us cup" -> us cup
-resolve es "us fluid ounce" -> us fluid ounce
-resolve es "us gallon" -> us gallon
-resolve es "us legal cup" -> us legal cup
-resolve es "us pint" -> us pint
-resolve es "us quart" -> us quart
-resolve es "us tablespoon" -> us tablespoon
-resolve es "us teaspoon" -> us teaspoon
 resolve es "°C" -> celsius
 resolve es "°F" -> fahrenheit
-resolve es "ºC" -> celsius
-resolve es "ºF" -> fahrenheit
-resolve es "℃" -> celsius
-resolve es "℉" -> fahrenheit
 written es kiloliter -> "kiloliter"
 written es hectoliter -> "hectoliter"
 written es decaliter -> "decaliter"
@@ -4433,128 +3889,70 @@ long-written es fahrenheit 1.5 -> "1.5 grados Fahrenheit"
 long-written es fahrenheit 0 -> "0 grados Fahrenheit"
 long-written es fahrenheit 12 -> "12 grados Fahrenheit"
 long-written es fahrenheit 14 -> "14 grados Fahrenheit"
-resolve es-419 "C" -> celsius
-resolve es-419 "F" -> fahrenheit
-resolve es-419 "australian tablespoon" -> australian tablespoon
 resolve es-419 "cdas." -> metric tablespoon
 resolve es-419 "cdtas." -> metric teaspoon
-resolve es-419 "celsius" -> celsius
-resolve es-419 "centigram" -> centigram
-resolve es-419 "centiliter" -> centiliter
 resolve es-419 "centilitro" -> centiliter
 resolve es-419 "centilitros" -> centiliter
-resolve es-419 "centimeter" -> centimeter
 resolve es-419 "centímetro" -> centimeter
 resolve es-419 "centímetros" -> centimeter
 resolve es-419 "cl" -> centiliter
 resolve es-419 "cm" -> centimeter
-resolve es-419 "colombian libra" -> colombian libra
 resolve es-419 "cucharada" -> metric tablespoon
 resolve es-419 "cucharadas" -> metric tablespoon
 resolve es-419 "cucharadita" -> metric teaspoon
 resolve es-419 "cucharaditas" -> metric teaspoon
-resolve es-419 "danish knife point" -> danish knife point
-resolve es-419 "day" -> day
 resolve es-419 "dd." -> day
-resolve es-419 "decagram" -> decagram
-resolve es-419 "decaliter" -> decaliter
-resolve es-419 "decameter" -> decameter
-resolve es-419 "decigram" -> decigram
-resolve es-419 "deciliter" -> deciliter
 resolve es-419 "decilitro" -> deciliter
 resolve es-419 "decilitros" -> deciliter
-resolve es-419 "decimeter" -> decimeter
 resolve es-419 "dl" -> deciliter
 resolve es-419 "día" -> day
 resolve es-419 "días" -> day
-resolve es-419 "fahrenheit" -> fahrenheit
-resolve es-419 "foot" -> foot
 resolve es-419 "ft" -> foot
 resolve es-419 "g" -> gram
 resolve es-419 "grado Celsius" -> celsius
 resolve es-419 "grado Fahrenheit" -> fahrenheit
 resolve es-419 "grados Celsius" -> celsius
 resolve es-419 "grados Fahrenheit" -> fahrenheit
-resolve es-419 "gram" -> gram
 resolve es-419 "gramo" -> gram
 resolve es-419 "gramos" -> gram
 resolve es-419 "h" -> hour
-resolve es-419 "hectogram" -> hectogram
-resolve es-419 "hectoliter" -> hectoliter
-resolve es-419 "hectometer" -> hectometer
 resolve es-419 "hora" -> hour
 resolve es-419 "horas" -> hour
-resolve es-419 "hour" -> hour
-resolve es-419 "imperial fluid ounce" -> imperial fluid ounce
-resolve es-419 "imperial gallon" -> imperial gallon
-resolve es-419 "imperial pint" -> imperial pint
-resolve es-419 "imperial quart" -> imperial quart
 resolve es-419 "in" -> inch
-resolve es-419 "inch" -> inch
-resolve es-419 "japanese cup" -> japanese cup
 resolve es-419 "kg" -> kilogram
-resolve es-419 "kilogram" -> kilogram
 resolve es-419 "kilogramo" -> kilogram
 resolve es-419 "kilogramos" -> kilogram
-resolve es-419 "kiloliter" -> kiloliter
-resolve es-419 "kilometer" -> kilometer
 resolve es-419 "l" -> liter
 resolve es-419 "lb" -> pound
-resolve es-419 "liter" -> liter
 resolve es-419 "litro" -> liter
 resolve es-419 "litros" -> liter
 resolve es-419 "m" -> meter
-resolve es-419 "meter" -> meter
-resolve es-419 "metric cup" -> metric cup
-resolve es-419 "metric dessert spoon" -> metric dessert spoon
-resolve es-419 "metric tablespoon" -> metric tablespoon
-resolve es-419 "metric teaspoon" -> metric teaspoon
 resolve es-419 "metro" -> meter
 resolve es-419 "metros" -> meter
 resolve es-419 "mililitro" -> milliliter
 resolve es-419 "mililitros" -> milliliter
-resolve es-419 "milligram" -> milligram
-resolve es-419 "milliliter" -> milliliter
-resolve es-419 "millimeter" -> millimeter
 resolve es-419 "milímetro" -> millimeter
 resolve es-419 "milímetros" -> millimeter
 resolve es-419 "min" -> minute
-resolve es-419 "minute" -> minute
 resolve es-419 "minuto" -> minute
 resolve es-419 "minutos" -> minute
 resolve es-419 "ml" -> milliliter
 resolve es-419 "mm" -> millimeter
-resolve es-419 "nordic spice measure" -> nordic spice measure
 resolve es-419 "onza" -> ounce
 resolve es-419 "onzas" -> ounce
-resolve es-419 "ounce" -> ounce
 resolve es-419 "oz" -> ounce
 resolve es-419 "pie" -> foot
 resolve es-419 "pies" -> foot
-resolve es-419 "pound" -> pound
 resolve es-419 "pulgada" -> inch
 resolve es-419 "pulgadas" -> inch
 resolve es-419 "s" -> second
-resolve es-419 "second" -> second
 resolve es-419 "segundo" -> second
 resolve es-419 "segundos" -> second
 resolve es-419 "taza métrica" -> metric cup
 resolve es-419 "tazas métricas" -> metric cup
 resolve es-419 "tza m" -> metric cup
-resolve es-419 "us cup" -> us cup
-resolve es-419 "us fluid ounce" -> us fluid ounce
-resolve es-419 "us gallon" -> us gallon
-resolve es-419 "us legal cup" -> us legal cup
-resolve es-419 "us pint" -> us pint
-resolve es-419 "us quart" -> us quart
-resolve es-419 "us tablespoon" -> us tablespoon
-resolve es-419 "us teaspoon" -> us teaspoon
 resolve es-419 "°C" -> celsius
 resolve es-419 "°F" -> fahrenheit
-resolve es-419 "ºC" -> celsius
-resolve es-419 "ºF" -> fahrenheit
-resolve es-419 "℃" -> celsius
-resolve es-419 "℉" -> fahrenheit
 written es-419 kiloliter -> "kiloliter"
 written es-419 hectoliter -> "hectoliter"
 written es-419 decaliter -> "decaliter"
@@ -4817,129 +4215,71 @@ long-written es-419 fahrenheit 1.5 -> "1.5 grados Fahrenheit"
 long-written es-419 fahrenheit 0 -> "0 grados Fahrenheit"
 long-written es-419 fahrenheit 12 -> "12 grados Fahrenheit"
 long-written es-419 fahrenheit 14 -> "14 grados Fahrenheit"
-resolve es-CO "C" -> celsius
-resolve es-CO "F" -> fahrenheit
-resolve es-CO "australian tablespoon" -> australian tablespoon
 resolve es-CO "cdas." -> metric tablespoon
 resolve es-CO "cdtas." -> metric teaspoon
-resolve es-CO "celsius" -> celsius
-resolve es-CO "centigram" -> centigram
-resolve es-CO "centiliter" -> centiliter
 resolve es-CO "centilitro" -> centiliter
 resolve es-CO "centilitros" -> centiliter
-resolve es-CO "centimeter" -> centimeter
 resolve es-CO "centímetro" -> centimeter
 resolve es-CO "centímetros" -> centimeter
 resolve es-CO "cl" -> centiliter
 resolve es-CO "cm" -> centimeter
-resolve es-CO "colombian libra" -> colombian libra
 resolve es-CO "cucharada" -> metric tablespoon
 resolve es-CO "cucharadas" -> metric tablespoon
 resolve es-CO "cucharadita" -> metric teaspoon
 resolve es-CO "cucharaditas" -> metric teaspoon
-resolve es-CO "danish knife point" -> danish knife point
-resolve es-CO "day" -> day
-resolve es-CO "decagram" -> decagram
-resolve es-CO "decaliter" -> decaliter
-resolve es-CO "decameter" -> decameter
-resolve es-CO "decigram" -> decigram
-resolve es-CO "deciliter" -> deciliter
 resolve es-CO "decilitro" -> deciliter
 resolve es-CO "decilitros" -> deciliter
-resolve es-CO "decimeter" -> decimeter
 resolve es-CO "dl" -> deciliter
 resolve es-CO "día" -> day
 resolve es-CO "días" -> day
-resolve es-CO "fahrenheit" -> fahrenheit
-resolve es-CO "foot" -> foot
 resolve es-CO "ft" -> foot
 resolve es-CO "g" -> gram
 resolve es-CO "grado Celsius" -> celsius
 resolve es-CO "grado Fahrenheit" -> fahrenheit
 resolve es-CO "grados Celsius" -> celsius
 resolve es-CO "grados Fahrenheit" -> fahrenheit
-resolve es-CO "gram" -> gram
 resolve es-CO "gramo" -> gram
 resolve es-CO "gramos" -> gram
 resolve es-CO "h" -> hour
-resolve es-CO "hectogram" -> hectogram
-resolve es-CO "hectoliter" -> hectoliter
-resolve es-CO "hectometer" -> hectometer
 resolve es-CO "hora" -> hour
 resolve es-CO "horas" -> hour
-resolve es-CO "hour" -> hour
-resolve es-CO "imperial fluid ounce" -> imperial fluid ounce
-resolve es-CO "imperial gallon" -> imperial gallon
-resolve es-CO "imperial pint" -> imperial pint
-resolve es-CO "imperial quart" -> imperial quart
 resolve es-CO "in" -> inch
-resolve es-CO "inch" -> inch
-resolve es-CO "japanese cup" -> japanese cup
 resolve es-CO "kg" -> kilogram
-resolve es-CO "kilogram" -> kilogram
 resolve es-CO "kilogramo" -> kilogram
 resolve es-CO "kilogramos" -> kilogram
-resolve es-CO "kiloliter" -> kiloliter
-resolve es-CO "kilometer" -> kilometer
 resolve es-CO "l" -> liter
 resolve es-CO "lb" -> colombian libra
 resolve es-CO "libra" -> colombian libra
 resolve es-CO "libras" -> colombian libra
-resolve es-CO "liter" -> liter
 resolve es-CO "litro" -> liter
 resolve es-CO "litros" -> liter
 resolve es-CO "m" -> meter
-resolve es-CO "meter" -> meter
-resolve es-CO "metric cup" -> metric cup
-resolve es-CO "metric dessert spoon" -> metric dessert spoon
-resolve es-CO "metric tablespoon" -> metric tablespoon
-resolve es-CO "metric teaspoon" -> metric teaspoon
 resolve es-CO "metro" -> meter
 resolve es-CO "metros" -> meter
 resolve es-CO "mililitro" -> milliliter
 resolve es-CO "mililitros" -> milliliter
-resolve es-CO "milligram" -> milligram
-resolve es-CO "milliliter" -> milliliter
-resolve es-CO "millimeter" -> millimeter
 resolve es-CO "milímetro" -> millimeter
 resolve es-CO "milímetros" -> millimeter
 resolve es-CO "min" -> minute
-resolve es-CO "minute" -> minute
 resolve es-CO "minuto" -> minute
 resolve es-CO "minutos" -> minute
 resolve es-CO "ml" -> milliliter
 resolve es-CO "mm" -> millimeter
-resolve es-CO "nordic spice measure" -> nordic spice measure
 resolve es-CO "onza" -> ounce
 resolve es-CO "onzas" -> ounce
-resolve es-CO "ounce" -> ounce
 resolve es-CO "oz" -> ounce
 resolve es-CO "pie" -> foot
 resolve es-CO "pies" -> foot
-resolve es-CO "pound" -> pound
 resolve es-CO "pulgada" -> inch
 resolve es-CO "pulgadas" -> inch
 resolve es-CO "s" -> second
-resolve es-CO "second" -> second
 resolve es-CO "segundo" -> second
 resolve es-CO "segundos" -> second
 resolve es-CO "taza métrica" -> metric cup
 resolve es-CO "tazas métricas" -> metric cup
 resolve es-CO "tza m" -> metric cup
-resolve es-CO "us cup" -> us cup
-resolve es-CO "us fluid ounce" -> us fluid ounce
-resolve es-CO "us gallon" -> us gallon
-resolve es-CO "us legal cup" -> us legal cup
-resolve es-CO "us pint" -> us pint
-resolve es-CO "us quart" -> us quart
-resolve es-CO "us tablespoon" -> us tablespoon
-resolve es-CO "us teaspoon" -> us teaspoon
 resolve es-CO "°C" -> celsius
 resolve es-CO "°F" -> fahrenheit
-resolve es-CO "ºC" -> celsius
-resolve es-CO "ºF" -> fahrenheit
-resolve es-CO "℃" -> celsius
-resolve es-CO "℉" -> fahrenheit
 written es-CO kiloliter -> "kiloliter"
 written es-CO hectoliter -> "hectoliter"
 written es-CO decaliter -> "decaliter"
@@ -5212,108 +4552,62 @@ long-written es-CO fahrenheit 1.5 -> "1.5 grados Fahrenheit"
 long-written es-CO fahrenheit 0 -> "0 grados Fahrenheit"
 long-written es-CO fahrenheit 12 -> "12 grados Fahrenheit"
 long-written es-CO fahrenheit 14 -> "14 grados Fahrenheit"
-resolve es-MX "C" -> celsius
-resolve es-MX "F" -> fahrenheit
-resolve es-MX "australian tablespoon" -> australian tablespoon
 resolve es-MX "cdas." -> metric tablespoon
 resolve es-MX "cdtas." -> metric teaspoon
-resolve es-MX "celsius" -> celsius
-resolve es-MX "centigram" -> centigram
-resolve es-MX "centiliter" -> centiliter
 resolve es-MX "centilitro" -> centiliter
 resolve es-MX "centilitros" -> centiliter
-resolve es-MX "centimeter" -> centimeter
 resolve es-MX "centímetro" -> centimeter
 resolve es-MX "centímetros" -> centimeter
 resolve es-MX "cl" -> centiliter
 resolve es-MX "cm" -> centimeter
-resolve es-MX "colombian libra" -> colombian libra
 resolve es-MX "cucharada" -> metric tablespoon
 resolve es-MX "cucharadas" -> metric tablespoon
 resolve es-MX "cucharadita" -> metric teaspoon
 resolve es-MX "cucharaditas" -> metric teaspoon
-resolve es-MX "danish knife point" -> danish knife point
-resolve es-MX "day" -> day
-resolve es-MX "decagram" -> decagram
-resolve es-MX "decaliter" -> decaliter
-resolve es-MX "decameter" -> decameter
-resolve es-MX "decigram" -> decigram
-resolve es-MX "deciliter" -> deciliter
 resolve es-MX "decilitro" -> deciliter
 resolve es-MX "decilitros" -> deciliter
-resolve es-MX "decimeter" -> decimeter
 resolve es-MX "dl" -> deciliter
 resolve es-MX "día" -> day
 resolve es-MX "días" -> day
-resolve es-MX "fahrenheit" -> fahrenheit
-resolve es-MX "foot" -> foot
 resolve es-MX "ft" -> foot
 resolve es-MX "g" -> gram
 resolve es-MX "grado Celsius" -> celsius
 resolve es-MX "grado Fahrenheit" -> fahrenheit
 resolve es-MX "grados Celsius" -> celsius
 resolve es-MX "grados Fahrenheit" -> fahrenheit
-resolve es-MX "gram" -> gram
 resolve es-MX "gramo" -> gram
 resolve es-MX "gramos" -> gram
 resolve es-MX "h" -> hour
-resolve es-MX "hectogram" -> hectogram
-resolve es-MX "hectoliter" -> hectoliter
-resolve es-MX "hectometer" -> hectometer
 resolve es-MX "hora" -> hour
 resolve es-MX "horas" -> hour
-resolve es-MX "hour" -> hour
-resolve es-MX "imperial fluid ounce" -> imperial fluid ounce
-resolve es-MX "imperial gallon" -> imperial gallon
-resolve es-MX "imperial pint" -> imperial pint
-resolve es-MX "imperial quart" -> imperial quart
 resolve es-MX "in" -> inch
-resolve es-MX "inch" -> inch
-resolve es-MX "japanese cup" -> japanese cup
 resolve es-MX "kg" -> kilogram
-resolve es-MX "kilogram" -> kilogram
 resolve es-MX "kilogramo" -> kilogram
 resolve es-MX "kilogramos" -> kilogram
-resolve es-MX "kiloliter" -> kiloliter
-resolve es-MX "kilometer" -> kilometer
 resolve es-MX "l" -> liter
 resolve es-MX "lb" -> pound
-resolve es-MX "liter" -> liter
 resolve es-MX "litro" -> liter
 resolve es-MX "litros" -> liter
 resolve es-MX "m" -> meter
-resolve es-MX "meter" -> meter
-resolve es-MX "metric cup" -> metric cup
-resolve es-MX "metric dessert spoon" -> metric dessert spoon
-resolve es-MX "metric tablespoon" -> metric tablespoon
-resolve es-MX "metric teaspoon" -> metric teaspoon
 resolve es-MX "metro" -> meter
 resolve es-MX "metros" -> meter
 resolve es-MX "mililitro" -> milliliter
 resolve es-MX "mililitros" -> milliliter
-resolve es-MX "milligram" -> milligram
-resolve es-MX "milliliter" -> milliliter
-resolve es-MX "millimeter" -> millimeter
 resolve es-MX "milímetro" -> millimeter
 resolve es-MX "milímetros" -> millimeter
 resolve es-MX "min" -> minute
-resolve es-MX "minute" -> minute
 resolve es-MX "minuto" -> minute
 resolve es-MX "minutos" -> minute
 resolve es-MX "ml" -> milliliter
 resolve es-MX "mm" -> millimeter
-resolve es-MX "nordic spice measure" -> nordic spice measure
 resolve es-MX "onza" -> ounce
 resolve es-MX "onzas" -> ounce
-resolve es-MX "ounce" -> ounce
 resolve es-MX "oz" -> ounce
 resolve es-MX "pie" -> foot
 resolve es-MX "pies" -> foot
-resolve es-MX "pound" -> pound
 resolve es-MX "pulgada" -> inch
 resolve es-MX "pulgadas" -> inch
 resolve es-MX "s" -> second
-resolve es-MX "second" -> second
 resolve es-MX "segundo" -> second
 resolve es-MX "segundos" -> second
 resolve es-MX "taza" -> us legal cup
@@ -5322,20 +4616,8 @@ resolve es-MX "tazas" -> us legal cup
 resolve es-MX "tazas métricas" -> metric cup
 resolve es-MX "tza m" -> metric cup
 resolve es-MX "tzas." -> us legal cup
-resolve es-MX "us cup" -> us cup
-resolve es-MX "us fluid ounce" -> us fluid ounce
-resolve es-MX "us gallon" -> us gallon
-resolve es-MX "us legal cup" -> us legal cup
-resolve es-MX "us pint" -> us pint
-resolve es-MX "us quart" -> us quart
-resolve es-MX "us tablespoon" -> us tablespoon
-resolve es-MX "us teaspoon" -> us teaspoon
 resolve es-MX "°C" -> celsius
 resolve es-MX "°F" -> fahrenheit
-resolve es-MX "ºC" -> celsius
-resolve es-MX "ºF" -> fahrenheit
-resolve es-MX "℃" -> celsius
-resolve es-MX "℉" -> fahrenheit
 written es-MX kiloliter -> "kiloliter"
 written es-MX hectoliter -> "hectoliter"
 written es-MX decaliter -> "decaliter"
@@ -5608,22 +4890,14 @@ long-written es-MX fahrenheit 1.5 -> "1.5 grados Fahrenheit"
 long-written es-MX fahrenheit 0 -> "0 grados Fahrenheit"
 long-written es-MX fahrenheit 12 -> "12 grados Fahrenheit"
 long-written es-MX fahrenheit 14 -> "14 grados Fahrenheit"
-resolve es-US "C" -> celsius
-resolve es-US "F" -> fahrenheit
-resolve es-US "australian tablespoon" -> australian tablespoon
 resolve es-US "cdas." -> us tablespoon
 resolve es-US "cdtas." -> us teaspoon
-resolve es-US "celsius" -> celsius
-resolve es-US "centigram" -> centigram
-resolve es-US "centiliter" -> centiliter
 resolve es-US "centilitro" -> centiliter
 resolve es-US "centilitros" -> centiliter
-resolve es-US "centimeter" -> centimeter
 resolve es-US "centímetro" -> centimeter
 resolve es-US "centímetros" -> centimeter
 resolve es-US "cl" -> centiliter
 resolve es-US "cm" -> centimeter
-resolve es-US "colombian libra" -> colombian libra
 resolve es-US "cuarto" -> us quart
 resolve es-US "cuarto imperial" -> imperial quart
 resolve es-US "cuartos" -> us quart
@@ -5632,23 +4906,13 @@ resolve es-US "cucharada" -> us tablespoon
 resolve es-US "cucharadas" -> us tablespoon
 resolve es-US "cucharadita" -> us teaspoon
 resolve es-US "cucharaditas" -> us teaspoon
-resolve es-US "danish knife point" -> danish knife point
-resolve es-US "day" -> day
-resolve es-US "decagram" -> decagram
-resolve es-US "decaliter" -> decaliter
-resolve es-US "decameter" -> decameter
-resolve es-US "decigram" -> decigram
-resolve es-US "deciliter" -> deciliter
 resolve es-US "decilitro" -> deciliter
 resolve es-US "decilitros" -> deciliter
-resolve es-US "decimeter" -> decimeter
 resolve es-US "dl" -> deciliter
 resolve es-US "día" -> day
 resolve es-US "días" -> day
-resolve es-US "fahrenheit" -> fahrenheit
 resolve es-US "fl oz" -> us fluid ounce
 resolve es-US "fl oz imp." -> imperial fluid ounce
-resolve es-US "foot" -> foot
 resolve es-US "ft" -> foot
 resolve es-US "g" -> gram
 resolve es-US "gal" -> us gallon
@@ -5661,77 +4925,49 @@ resolve es-US "grado Celsius" -> celsius
 resolve es-US "grado Fahrenheit" -> fahrenheit
 resolve es-US "grados Celsius" -> celsius
 resolve es-US "grados Fahrenheit" -> fahrenheit
-resolve es-US "gram" -> gram
 resolve es-US "gramo" -> gram
 resolve es-US "gramos" -> gram
 resolve es-US "h" -> hour
-resolve es-US "hectogram" -> hectogram
-resolve es-US "hectoliter" -> hectoliter
-resolve es-US "hectometer" -> hectometer
 resolve es-US "hora" -> hour
 resolve es-US "horas" -> hour
-resolve es-US "hour" -> hour
-resolve es-US "imperial fluid ounce" -> imperial fluid ounce
-resolve es-US "imperial gallon" -> imperial gallon
-resolve es-US "imperial pint" -> imperial pint
-resolve es-US "imperial quart" -> imperial quart
 resolve es-US "in" -> inch
-resolve es-US "inch" -> inch
-resolve es-US "japanese cup" -> japanese cup
 resolve es-US "kg" -> kilogram
-resolve es-US "kilogram" -> kilogram
 resolve es-US "kilogramo" -> kilogram
 resolve es-US "kilogramos" -> kilogram
-resolve es-US "kiloliter" -> kiloliter
-resolve es-US "kilometer" -> kilometer
 resolve es-US "l" -> liter
 resolve es-US "lb" -> pound
 resolve es-US "libra" -> pound
 resolve es-US "libras" -> pound
-resolve es-US "liter" -> liter
 resolve es-US "litro" -> liter
 resolve es-US "litros" -> liter
 resolve es-US "m" -> meter
-resolve es-US "meter" -> meter
-resolve es-US "metric cup" -> metric cup
-resolve es-US "metric dessert spoon" -> metric dessert spoon
-resolve es-US "metric tablespoon" -> metric tablespoon
-resolve es-US "metric teaspoon" -> metric teaspoon
 resolve es-US "metro" -> meter
 resolve es-US "metros" -> meter
 resolve es-US "mililitro" -> milliliter
 resolve es-US "mililitros" -> milliliter
-resolve es-US "milligram" -> milligram
-resolve es-US "milliliter" -> milliliter
-resolve es-US "millimeter" -> millimeter
 resolve es-US "milímetro" -> millimeter
 resolve es-US "milímetros" -> millimeter
 resolve es-US "min" -> minute
-resolve es-US "minute" -> minute
 resolve es-US "minuto" -> minute
 resolve es-US "minutos" -> minute
 resolve es-US "ml" -> milliliter
 resolve es-US "mm" -> millimeter
-resolve es-US "nordic spice measure" -> nordic spice measure
 resolve es-US "onza" -> ounce
 resolve es-US "onza fluida" -> us fluid ounce
 resolve es-US "onzas" -> ounce
 resolve es-US "onzas fluidas" -> us fluid ounce
 resolve es-US "onzas fluidas imperiales" -> imperial fluid ounce
-resolve es-US "ounce" -> ounce
 resolve es-US "oz" -> ounce
 resolve es-US "pie" -> foot
 resolve es-US "pies" -> foot
 resolve es-US "pinta" -> us pint
 resolve es-US "pintas" -> us pint
-resolve es-US "pound" -> pound
 resolve es-US "pt" -> us pint
 resolve es-US "pulgada" -> inch
 resolve es-US "pulgadas" -> inch
 resolve es-US "qt" -> us quart
 resolve es-US "qt imp." -> imperial quart
 resolve es-US "s" -> second
-resolve es-US "second" -> second
 resolve es-US "segundo" -> second
 resolve es-US "segundos" -> second
 resolve es-US "taza" -> us cup
@@ -5740,20 +4976,8 @@ resolve es-US "tazas" -> us cup
 resolve es-US "tazas métricas" -> metric cup
 resolve es-US "tza m" -> metric cup
 resolve es-US "tzas." -> us cup
-resolve es-US "us cup" -> us cup
-resolve es-US "us fluid ounce" -> us fluid ounce
-resolve es-US "us gallon" -> us gallon
-resolve es-US "us legal cup" -> us legal cup
-resolve es-US "us pint" -> us pint
-resolve es-US "us quart" -> us quart
-resolve es-US "us tablespoon" -> us tablespoon
-resolve es-US "us teaspoon" -> us teaspoon
 resolve es-US "°C" -> celsius
 resolve es-US "°F" -> fahrenheit
-resolve es-US "ºC" -> celsius
-resolve es-US "ºF" -> fahrenheit
-resolve es-US "℃" -> celsius
-resolve es-US "℉" -> fahrenheit
 written es-US kiloliter -> "kiloliter"
 written es-US hectoliter -> "hectoliter"
 written es-US decaliter -> "decaliter"
@@ -6106,98 +5330,53 @@ long-written es-US fahrenheit 1.5 -> "1.5 grados Fahrenheit"
 long-written es-US fahrenheit 0 -> "0 grados Fahrenheit"
 long-written es-US fahrenheit 12 -> "12 grados Fahrenheit"
 long-written es-US fahrenheit 14 -> "14 grados Fahrenheit"
-resolve fi "C" -> celsius
-resolve fi "F" -> fahrenheit
-resolve fi "australian tablespoon" -> australian tablespoon
-resolve fi "celsius" -> celsius
 resolve fi "celsiusaste" -> celsius
 resolve fi "celsiusasteet" -> celsius
 resolve fi "celsiusastetta" -> celsius
-resolve fi "centigram" -> centigram
-resolve fi "centiliter" -> centiliter
-resolve fi "centimeter" -> centimeter
 resolve fi "cl" -> centiliter
 resolve fi "cm" -> centimeter
-resolve fi "colombian libra" -> colombian libra
 resolve fi "d" -> day
-resolve fi "danish knife point" -> danish knife point
-resolve fi "day" -> day
-resolve fi "decagram" -> decagram
-resolve fi "decaliter" -> decaliter
-resolve fi "decameter" -> decameter
-resolve fi "decigram" -> decigram
-resolve fi "deciliter" -> deciliter
-resolve fi "decimeter" -> decimeter
 resolve fi "desilitra" -> deciliter
 resolve fi "desilitraa" -> deciliter
 resolve fi "desilitrat" -> deciliter
 resolve fi "dl" -> deciliter
-resolve fi "fahrenheit" -> fahrenheit
 resolve fi "fahrenheitaste" -> fahrenheit
 resolve fi "fahrenheitasteet" -> fahrenheit
 resolve fi "fahrenheitastetta" -> fahrenheit
-resolve fi "foot" -> foot
 resolve fi "g" -> gram
-resolve fi "gram" -> gram
 resolve fi "gramma" -> gram
 resolve fi "grammaa" -> gram
 resolve fi "grammat" -> gram
 resolve fi "h" -> hour
-resolve fi "hectogram" -> hectogram
-resolve fi "hectoliter" -> hectoliter
-resolve fi "hectometer" -> hectometer
 resolve fi "hehtogramma" -> hectogram
 resolve fi "hehtogrammaa" -> hectogram
 resolve fi "hg" -> hectogram
-resolve fi "hour" -> hour
-resolve fi "imperial fluid ounce" -> imperial fluid ounce
-resolve fi "imperial gallon" -> imperial gallon
-resolve fi "imperial pint" -> imperial pint
-resolve fi "imperial quart" -> imperial quart
-resolve fi "inch" -> inch
-resolve fi "japanese cup" -> japanese cup
 resolve fi "kg" -> kilogram
-resolve fi "kilogram" -> kilogram
 resolve fi "kilogramma" -> kilogram
 resolve fi "kilogrammaa" -> kilogram
 resolve fi "kilogrammat" -> kilogram
-resolve fi "kiloliter" -> kiloliter
-resolve fi "kilometer" -> kilometer
 resolve fi "l" -> liter
-resolve fi "liter" -> liter
 resolve fi "litra" -> liter
 resolve fi "litraa" -> liter
 resolve fi "litrat" -> liter
 resolve fi "m" -> meter
 resolve fi "maustemitta" -> nordic spice measure
 resolve fi "maustemittaa" -> nordic spice measure
-resolve fi "meter" -> meter
 resolve fi "metri" -> meter
-resolve fi "metric cup" -> metric cup
-resolve fi "metric dessert spoon" -> metric dessert spoon
-resolve fi "metric tablespoon" -> metric tablespoon
-resolve fi "metric teaspoon" -> metric teaspoon
 resolve fi "metrit" -> meter
 resolve fi "metriä" -> meter
-resolve fi "milligram" -> milligram
-resolve fi "milliliter" -> milliliter
 resolve fi "millilitra" -> milliliter
 resolve fi "millilitraa" -> milliliter
 resolve fi "millilitrat" -> milliliter
-resolve fi "millimeter" -> millimeter
 resolve fi "millimetri" -> millimeter
 resolve fi "millimetrit" -> millimeter
 resolve fi "millimetriä" -> millimeter
 resolve fi "min" -> minute
-resolve fi "minute" -> minute
 resolve fi "minuutit" -> minute
 resolve fi "minuutti" -> minute
 resolve fi "minuuttia" -> minute
 resolve fi "ml" -> milliliter
 resolve fi "mm" -> nordic spice measure
-resolve fi "nordic spice measure" -> nordic spice measure
-resolve fi "ounce" -> ounce
-resolve fi "pound" -> pound
 resolve fi "pv" -> day
 resolve fi "päivä" -> day
 resolve fi "päivät" -> day
@@ -6207,7 +5386,6 @@ resolve fi "ruokalusikat" -> metric tablespoon
 resolve fi "ruokalusikka" -> metric tablespoon
 resolve fi "ruokalusikkaa" -> metric tablespoon
 resolve fi "s" -> second
-resolve fi "second" -> second
 resolve fi "sekunnit" -> second
 resolve fi "sekunti" -> second
 resolve fi "sekuntia" -> second
@@ -6225,20 +5403,8 @@ resolve fi "tl" -> metric teaspoon
 resolve fi "tunnit" -> hour
 resolve fi "tunti" -> hour
 resolve fi "tuntia" -> hour
-resolve fi "us cup" -> us cup
-resolve fi "us fluid ounce" -> us fluid ounce
-resolve fi "us gallon" -> us gallon
-resolve fi "us legal cup" -> us legal cup
-resolve fi "us pint" -> us pint
-resolve fi "us quart" -> us quart
-resolve fi "us tablespoon" -> us tablespoon
-resolve fi "us teaspoon" -> us teaspoon
 resolve fi "°C" -> celsius
 resolve fi "°F" -> fahrenheit
-resolve fi "ºC" -> celsius
-resolve fi "ºF" -> fahrenheit
-resolve fi "℃" -> celsius
-resolve fi "℉" -> fahrenheit
 written fi kiloliter -> "kiloliter"
 written fi hectoliter -> "hectoliter"
 written fi decaliter -> "decaliter"
@@ -6481,28 +5647,12 @@ long-written fi fahrenheit 1.5 -> "1.5 fahrenheitastetta"
 long-written fi fahrenheit 0 -> "0 fahrenheitastetta"
 long-written fi fahrenheit 12 -> "12 fahrenheitastetta"
 long-written fi fahrenheit 14 -> "14 fahrenheitastetta"
-resolve fr "C" -> celsius
-resolve fr "F" -> fahrenheit
-resolve fr "australian tablespoon" -> australian tablespoon
-resolve fr "celsius" -> celsius
-resolve fr "centigram" -> centigram
-resolve fr "centiliter" -> centiliter
 resolve fr "centilitre" -> centiliter
 resolve fr "centilitres" -> centiliter
-resolve fr "centimeter" -> centimeter
 resolve fr "centimètre" -> centimeter
 resolve fr "centimètres" -> centimeter
 resolve fr "cl" -> centiliter
 resolve fr "cm" -> centimeter
-resolve fr "colombian libra" -> colombian libra
-resolve fr "danish knife point" -> danish knife point
-resolve fr "day" -> day
-resolve fr "decagram" -> decagram
-resolve fr "decaliter" -> decaliter
-resolve fr "decameter" -> decameter
-resolve fr "decigram" -> decigram
-resolve fr "deciliter" -> deciliter
-resolve fr "decimeter" -> decimeter
 resolve fr "degré Celsius" -> celsius
 resolve fr "degré Fahrenheit" -> fahrenheit
 resolve fr "degrés Celsius" -> celsius
@@ -6510,49 +5660,24 @@ resolve fr "degrés Fahrenheit" -> fahrenheit
 resolve fr "dl" -> deciliter
 resolve fr "décilitre" -> deciliter
 resolve fr "décilitres" -> deciliter
-resolve fr "fahrenheit" -> fahrenheit
-resolve fr "foot" -> foot
 resolve fr "g" -> gram
-resolve fr "gram" -> gram
 resolve fr "gramme" -> gram
 resolve fr "grammes" -> gram
 resolve fr "h" -> hour
-resolve fr "hectogram" -> hectogram
-resolve fr "hectoliter" -> hectoliter
-resolve fr "hectometer" -> hectometer
 resolve fr "heure" -> hour
 resolve fr "heures" -> hour
-resolve fr "hour" -> hour
-resolve fr "imperial fluid ounce" -> imperial fluid ounce
-resolve fr "imperial gallon" -> imperial gallon
-resolve fr "imperial pint" -> imperial pint
-resolve fr "imperial quart" -> imperial quart
-resolve fr "inch" -> inch
 resolve fr "j" -> day
-resolve fr "japanese cup" -> japanese cup
 resolve fr "jour" -> day
 resolve fr "jours" -> day
 resolve fr "kg" -> kilogram
-resolve fr "kilogram" -> kilogram
 resolve fr "kilogramme" -> kilogram
 resolve fr "kilogrammes" -> kilogram
-resolve fr "kiloliter" -> kiloliter
-resolve fr "kilometer" -> kilometer
 resolve fr "l" -> liter
-resolve fr "liter" -> liter
 resolve fr "litre" -> liter
 resolve fr "litres" -> liter
 resolve fr "m" -> meter
-resolve fr "meter" -> meter
-resolve fr "metric cup" -> metric cup
-resolve fr "metric dessert spoon" -> metric dessert spoon
-resolve fr "metric tablespoon" -> metric tablespoon
-resolve fr "metric teaspoon" -> metric teaspoon
-resolve fr "milligram" -> milligram
-resolve fr "milliliter" -> milliliter
 resolve fr "millilitre" -> milliliter
 resolve fr "millilitres" -> milliliter
-resolve fr "millimeter" -> millimeter
 resolve fr "millimètre" -> millimeter
 resolve fr "millimètres" -> millimeter
 resolve fr "min" -> minute
@@ -6562,33 +5687,17 @@ resolve fr "ml" -> milliliter
 resolve fr "mm" -> millimeter
 resolve fr "mètre" -> meter
 resolve fr "mètres" -> meter
-resolve fr "nordic spice measure" -> nordic spice measure
-resolve fr "ounce" -> ounce
 resolve fr "pi" -> foot
 resolve fr "pied" -> foot
 resolve fr "pieds" -> foot
 resolve fr "po" -> inch
 resolve fr "pouce" -> inch
 resolve fr "pouces" -> inch
-resolve fr "pound" -> pound
 resolve fr "s" -> second
-resolve fr "second" -> second
 resolve fr "seconde" -> second
 resolve fr "secondes" -> second
-resolve fr "us cup" -> us cup
-resolve fr "us fluid ounce" -> us fluid ounce
-resolve fr "us gallon" -> us gallon
-resolve fr "us legal cup" -> us legal cup
-resolve fr "us pint" -> us pint
-resolve fr "us quart" -> us quart
-resolve fr "us tablespoon" -> us tablespoon
-resolve fr "us teaspoon" -> us teaspoon
 resolve fr "°C" -> celsius
 resolve fr "°F" -> fahrenheit
-resolve fr "ºC" -> celsius
-resolve fr "ºF" -> fahrenheit
-resolve fr "℃" -> celsius
-resolve fr "℉" -> fahrenheit
 written fr kiloliter -> "kiloliter"
 written fr hectoliter -> "hectoliter"
 written fr decaliter -> "decaliter"
@@ -6811,67 +5920,11 @@ long-written fr fahrenheit 1.5 -> "1.5\u{a0}degré Fahrenheit"
 long-written fr fahrenheit 0 -> "0\u{a0}degré Fahrenheit"
 long-written fr fahrenheit 12 -> "12\u{a0}degrés Fahrenheit"
 long-written fr fahrenheit 14 -> "14\u{a0}degrés Fahrenheit"
-resolve he "C" -> celsius
-resolve he "F" -> fahrenheit
-resolve he "australian tablespoon" -> australian tablespoon
 resolve he "cL" -> centiliter
-resolve he "celsius" -> celsius
-resolve he "centigram" -> centigram
-resolve he "centiliter" -> centiliter
-resolve he "centimeter" -> centimeter
-resolve he "colombian libra" -> colombian libra
-resolve he "danish knife point" -> danish knife point
-resolve he "day" -> day
-resolve he "decagram" -> decagram
-resolve he "decaliter" -> decaliter
-resolve he "decameter" -> decameter
-resolve he "decigram" -> decigram
-resolve he "deciliter" -> deciliter
-resolve he "decimeter" -> decimeter
-resolve he "fahrenheit" -> fahrenheit
-resolve he "foot" -> foot
 resolve he "ft" -> foot
-resolve he "gram" -> gram
-resolve he "hectogram" -> hectogram
-resolve he "hectoliter" -> hectoliter
-resolve he "hectometer" -> hectometer
-resolve he "hour" -> hour
-resolve he "imperial fluid ounce" -> imperial fluid ounce
-resolve he "imperial gallon" -> imperial gallon
-resolve he "imperial pint" -> imperial pint
-resolve he "imperial quart" -> imperial quart
 resolve he "in" -> inch
-resolve he "inch" -> inch
-resolve he "japanese cup" -> japanese cup
-resolve he "kilogram" -> kilogram
-resolve he "kiloliter" -> kiloliter
-resolve he "kilometer" -> kilometer
-resolve he "liter" -> liter
-resolve he "meter" -> meter
-resolve he "metric cup" -> metric cup
-resolve he "metric dessert spoon" -> metric dessert spoon
-resolve he "metric tablespoon" -> metric tablespoon
-resolve he "metric teaspoon" -> metric teaspoon
-resolve he "milligram" -> milligram
-resolve he "milliliter" -> milliliter
-resolve he "millimeter" -> millimeter
-resolve he "minute" -> minute
-resolve he "nordic spice measure" -> nordic spice measure
-resolve he "ounce" -> ounce
-resolve he "pound" -> pound
-resolve he "second" -> second
-resolve he "us cup" -> us cup
-resolve he "us fluid ounce" -> us fluid ounce
-resolve he "us gallon" -> us gallon
-resolve he "us legal cup" -> us legal cup
-resolve he "us pint" -> us pint
-resolve he "us quart" -> us quart
-resolve he "us tablespoon" -> us tablespoon
-resolve he "us teaspoon" -> us teaspoon
 resolve he "°C" -> celsius
 resolve he "°F" -> fahrenheit
-resolve he "ºC" -> celsius
-resolve he "ºF" -> fahrenheit
 resolve he "אינץ׳" -> inch
 resolve he "גרם" -> gram
 resolve he "גר׳" -> gram
@@ -6910,8 +5963,6 @@ resolve he "שנ׳" -> second
 resolve he "שעה" -> hour
 resolve he "שעות" -> hour
 resolve he "שע׳" -> hour
-resolve he "℃" -> celsius
-resolve he "℉" -> fahrenheit
 written he kiloliter -> "kiloliter"
 written he hectoliter -> "hectoliter"
 written he decaliter -> "decaliter"
@@ -7168,64 +6219,8 @@ long-written he fahrenheit 1.5 -> "1.5 מעלות פרנהייט"
 long-written he fahrenheit 0 -> "0 מעלות פרנהייט"
 long-written he fahrenheit 12 -> "12 מעלות פרנהייט"
 long-written he fahrenheit 14 -> "14 מעלות פרנהייט"
-resolve hi "C" -> celsius
-resolve hi "F" -> fahrenheit
-resolve hi "australian tablespoon" -> australian tablespoon
-resolve hi "celsius" -> celsius
-resolve hi "centigram" -> centigram
-resolve hi "centiliter" -> centiliter
-resolve hi "centimeter" -> centimeter
-resolve hi "colombian libra" -> colombian libra
-resolve hi "danish knife point" -> danish knife point
-resolve hi "day" -> day
-resolve hi "decagram" -> decagram
-resolve hi "decaliter" -> decaliter
-resolve hi "decameter" -> decameter
-resolve hi "decigram" -> decigram
-resolve hi "deciliter" -> deciliter
-resolve hi "decimeter" -> decimeter
-resolve hi "fahrenheit" -> fahrenheit
-resolve hi "foot" -> foot
-resolve hi "gram" -> gram
-resolve hi "hectogram" -> hectogram
-resolve hi "hectoliter" -> hectoliter
-resolve hi "hectometer" -> hectometer
-resolve hi "hour" -> hour
-resolve hi "imperial fluid ounce" -> imperial fluid ounce
-resolve hi "imperial gallon" -> imperial gallon
-resolve hi "imperial pint" -> imperial pint
-resolve hi "imperial quart" -> imperial quart
-resolve hi "inch" -> inch
-resolve hi "japanese cup" -> japanese cup
-resolve hi "kilogram" -> kilogram
-resolve hi "kiloliter" -> kiloliter
-resolve hi "kilometer" -> kilometer
-resolve hi "liter" -> liter
-resolve hi "meter" -> meter
-resolve hi "metric cup" -> metric cup
-resolve hi "metric dessert spoon" -> metric dessert spoon
-resolve hi "metric tablespoon" -> metric tablespoon
-resolve hi "metric teaspoon" -> metric teaspoon
-resolve hi "milligram" -> milligram
-resolve hi "milliliter" -> milliliter
-resolve hi "millimeter" -> millimeter
-resolve hi "minute" -> minute
-resolve hi "nordic spice measure" -> nordic spice measure
-resolve hi "ounce" -> ounce
-resolve hi "pound" -> pound
-resolve hi "second" -> second
-resolve hi "us cup" -> us cup
-resolve hi "us fluid ounce" -> us fluid ounce
-resolve hi "us gallon" -> us gallon
-resolve hi "us legal cup" -> us legal cup
-resolve hi "us pint" -> us pint
-resolve hi "us quart" -> us quart
-resolve hi "us tablespoon" -> us tablespoon
-resolve hi "us teaspoon" -> us teaspoon
 resolve hi "°फ\u{93c}\u{947}रन" -> fahrenheit
 resolve hi "°स\u{947}॰" -> celsius
-resolve hi "ºC" -> celsius
-resolve hi "ºF" -> fahrenheit
 resolve hi "इ\u{902}च" -> inch
 resolve hi "किलोग\u{94d}राम" -> kilogram
 resolve hi "कि॰ग\u{94d}रा॰" -> kilogram
@@ -7257,8 +6252,6 @@ resolve hi "स\u{947}\u{902}॰मी॰" -> centimeter
 resolve hi "स\u{947}\u{902}॰ली॰" -> centiliter
 resolve hi "स\u{947}क\u{902}ड" -> second
 resolve hi "स\u{947}॰" -> second
-resolve hi "℃" -> celsius
-resolve hi "℉" -> fahrenheit
 written hi kiloliter -> "kiloliter"
 written hi hectoliter -> "hectoliter"
 written hi decaliter -> "decaliter"
@@ -7481,91 +6474,37 @@ long-written hi fahrenheit 1.5 -> "1.5 डिग\u{94d}री फ\u{93c}\u{947}�
 long-written hi fahrenheit 0 -> "0 डिग\u{94d}री फ\u{93c}\u{947}रनहाइट"
 long-written hi fahrenheit 12 -> "12 डिग\u{94d}री फ\u{93c}\u{947}रनहाइट"
 long-written hi fahrenheit 14 -> "14 डिग\u{94d}री फ\u{93c}\u{947}रनहाइट"
-resolve hu "C" -> celsius
 resolve hu "Celsius-fok" -> celsius
-resolve hu "F" -> fahrenheit
 resolve hu "Fahrenheit-fok" -> fahrenheit
-resolve hu "australian tablespoon" -> australian tablespoon
-resolve hu "celsius" -> celsius
-resolve hu "centigram" -> centigram
 resolve hu "centiliter" -> centiliter
-resolve hu "centimeter" -> centimeter
 resolve hu "centiméter" -> centimeter
 resolve hu "cl" -> centiliter
 resolve hu "cm" -> centimeter
-resolve hu "colombian libra" -> colombian libra
-resolve hu "danish knife point" -> danish knife point
-resolve hu "day" -> day
-resolve hu "decagram" -> decagram
-resolve hu "decaliter" -> decaliter
-resolve hu "decameter" -> decameter
-resolve hu "decigram" -> decigram
 resolve hu "deciliter" -> deciliter
-resolve hu "decimeter" -> decimeter
 resolve hu "dl" -> deciliter
-resolve hu "fahrenheit" -> fahrenheit
-resolve hu "foot" -> foot
 resolve hu "g" -> gram
-resolve hu "gram" -> gram
 resolve hu "gramm" -> gram
-resolve hu "hectogram" -> hectogram
-resolve hu "hectoliter" -> hectoliter
-resolve hu "hectometer" -> hectometer
-resolve hu "hour" -> hour
 resolve hu "hüvelyk" -> inch
-resolve hu "imperial fluid ounce" -> imperial fluid ounce
-resolve hu "imperial gallon" -> imperial gallon
-resolve hu "imperial pint" -> imperial pint
-resolve hu "imperial quart" -> imperial quart
-resolve hu "inch" -> inch
-resolve hu "japanese cup" -> japanese cup
 resolve hu "kg" -> kilogram
-resolve hu "kilogram" -> kilogram
 resolve hu "kilogramm" -> kilogram
-resolve hu "kiloliter" -> kiloliter
-resolve hu "kilometer" -> kilometer
 resolve hu "l" -> liter
 resolve hu "liter" -> liter
 resolve hu "láb" -> foot
 resolve hu "m" -> meter
-resolve hu "meter" -> meter
-resolve hu "metric cup" -> metric cup
-resolve hu "metric dessert spoon" -> metric dessert spoon
-resolve hu "metric tablespoon" -> metric tablespoon
-resolve hu "metric teaspoon" -> metric teaspoon
-resolve hu "milligram" -> milligram
 resolve hu "milliliter" -> milliliter
-resolve hu "millimeter" -> millimeter
 resolve hu "milliméter" -> millimeter
-resolve hu "minute" -> minute
 resolve hu "ml" -> milliliter
 resolve hu "mm" -> millimeter
 resolve hu "mp" -> second
 resolve hu "másodperc" -> second
 resolve hu "méter" -> meter
 resolve hu "nap" -> day
-resolve hu "nordic spice measure" -> nordic spice measure
-resolve hu "ounce" -> ounce
 resolve hu "p" -> minute
 resolve hu "perc" -> minute
-resolve hu "pound" -> pound
-resolve hu "second" -> second
-resolve hu "us cup" -> us cup
-resolve hu "us fluid ounce" -> us fluid ounce
-resolve hu "us gallon" -> us gallon
-resolve hu "us legal cup" -> us legal cup
-resolve hu "us pint" -> us pint
-resolve hu "us quart" -> us quart
-resolve hu "us tablespoon" -> us tablespoon
-resolve hu "us teaspoon" -> us teaspoon
 resolve hu "°C" -> celsius
 resolve hu "°F" -> fahrenheit
-resolve hu "ºC" -> celsius
-resolve hu "ºF" -> fahrenheit
 resolve hu "ó" -> hour
 resolve hu "óra" -> hour
-resolve hu "℃" -> celsius
-resolve hu "℉" -> fahrenheit
 written hu kiloliter -> "kiloliter"
 written hu hectoliter -> "hectoliter"
 written hu decaliter -> "decaliter"
@@ -7788,94 +6727,40 @@ long-written hu fahrenheit 1.5 -> "1.5 Fahrenheit-fok"
 long-written hu fahrenheit 0 -> "0 Fahrenheit-fok"
 long-written hu fahrenheit 12 -> "12 Fahrenheit-fok"
 long-written hu fahrenheit 14 -> "14 Fahrenheit-fok"
-resolve id "C" -> celsius
-resolve id "F" -> fahrenheit
 resolve id "L" -> liter
-resolve id "australian tablespoon" -> australian tablespoon
 resolve id "cL" -> centiliter
-resolve id "celsius" -> celsius
-resolve id "centigram" -> centigram
-resolve id "centiliter" -> centiliter
-resolve id "centimeter" -> centimeter
 resolve id "cm" -> centimeter
-resolve id "colombian libra" -> colombian libra
 resolve id "dL" -> deciliter
-resolve id "danish knife point" -> danish knife point
-resolve id "day" -> day
-resolve id "decagram" -> decagram
-resolve id "decaliter" -> decaliter
-resolve id "decameter" -> decameter
-resolve id "decigram" -> decigram
-resolve id "deciliter" -> deciliter
-resolve id "decimeter" -> decimeter
 resolve id "derajat Celsius" -> celsius
 resolve id "derajat Fahrenheit" -> fahrenheit
 resolve id "desiliter" -> deciliter
 resolve id "detik" -> second
 resolve id "dtk" -> second
-resolve id "fahrenheit" -> fahrenheit
-resolve id "foot" -> foot
 resolve id "ft" -> foot
 resolve id "g" -> gram
 resolve id "gram" -> gram
 resolve id "hari" -> day
-resolve id "hectogram" -> hectogram
-resolve id "hectoliter" -> hectoliter
-resolve id "hectometer" -> hectometer
-resolve id "hour" -> hour
 resolve id "hr" -> day
-resolve id "imperial fluid ounce" -> imperial fluid ounce
-resolve id "imperial gallon" -> imperial gallon
-resolve id "imperial pint" -> imperial pint
-resolve id "imperial quart" -> imperial quart
 resolve id "in" -> inch
-resolve id "inch" -> inch
 resolve id "inci" -> inch
 resolve id "j" -> hour
 resolve id "jam" -> hour
-resolve id "japanese cup" -> japanese cup
 resolve id "kaki" -> foot
 resolve id "kg" -> kilogram
 resolve id "kilogram" -> kilogram
-resolve id "kiloliter" -> kiloliter
-resolve id "kilometer" -> kilometer
 resolve id "liter" -> liter
 resolve id "m" -> meter
 resolve id "mL" -> milliliter
 resolve id "menit" -> minute
 resolve id "meter" -> meter
-resolve id "metric cup" -> metric cup
-resolve id "metric dessert spoon" -> metric dessert spoon
-resolve id "metric tablespoon" -> metric tablespoon
-resolve id "metric teaspoon" -> metric teaspoon
 resolve id "mililiter" -> milliliter
 resolve id "milimeter" -> millimeter
-resolve id "milligram" -> milligram
-resolve id "milliliter" -> milliliter
-resolve id "millimeter" -> millimeter
-resolve id "minute" -> minute
 resolve id "mm" -> millimeter
 resolve id "mnt" -> minute
-resolve id "nordic spice measure" -> nordic spice measure
-resolve id "ounce" -> ounce
-resolve id "pound" -> pound
-resolve id "second" -> second
 resolve id "sentiliter" -> centiliter
 resolve id "sentimeter" -> centimeter
-resolve id "us cup" -> us cup
-resolve id "us fluid ounce" -> us fluid ounce
-resolve id "us gallon" -> us gallon
-resolve id "us legal cup" -> us legal cup
-resolve id "us pint" -> us pint
-resolve id "us quart" -> us quart
-resolve id "us tablespoon" -> us tablespoon
-resolve id "us teaspoon" -> us teaspoon
 resolve id "°C" -> celsius
 resolve id "°F" -> fahrenheit
-resolve id "ºC" -> celsius
-resolve id "ºF" -> fahrenheit
-resolve id "℃" -> celsius
-resolve id "℉" -> fahrenheit
 written id kiloliter -> "kiloliter"
 written id hectoliter -> "hectoliter"
 written id decaliter -> "decaliter"
@@ -8081,39 +6966,21 @@ long-written id fahrenheit 1.5 -> "1.5 derajat Fahrenheit"
 long-written id fahrenheit 0 -> "0 derajat Fahrenheit"
 long-written id fahrenheit 12 -> "12 derajat Fahrenheit"
 long-written id fahrenheit 14 -> "14 derajat Fahrenheit"
-resolve it "C" -> celsius
-resolve it "F" -> fahrenheit
-resolve it "australian tablespoon" -> australian tablespoon
-resolve it "celsius" -> celsius
-resolve it "centigram" -> centigram
-resolve it "centiliter" -> centiliter
 resolve it "centilitri" -> centiliter
 resolve it "centilitro" -> centiliter
-resolve it "centimeter" -> centimeter
 resolve it "centimetri" -> centimeter
 resolve it "centimetro" -> centimeter
 resolve it "chilogrammi" -> kilogram
 resolve it "chilogrammo" -> kilogram
 resolve it "cl" -> centiliter
 resolve it "cm" -> centimeter
-resolve it "colombian libra" -> colombian libra
-resolve it "danish knife point" -> danish knife point
-resolve it "day" -> day
-resolve it "decagram" -> decagram
-resolve it "decaliter" -> decaliter
-resolve it "decameter" -> decameter
-resolve it "decigram" -> decigram
-resolve it "deciliter" -> deciliter
 resolve it "decilitri" -> deciliter
 resolve it "decilitro" -> deciliter
-resolve it "decimeter" -> decimeter
 resolve it "dl" -> deciliter
 resolve it "etti" -> hectogram
 resolve it "etto" -> hectogram
 resolve it "ettogrammi" -> hectogram
 resolve it "ettogrammo" -> hectogram
-resolve it "fahrenheit" -> fahrenheit
-resolve it "foot" -> foot
 resolve it "ft" -> foot
 resolve it "g" -> gram
 resolve it "giorni" -> day
@@ -8122,78 +6989,38 @@ resolve it "gradi Celsius" -> celsius
 resolve it "gradi Fahrenheit" -> fahrenheit
 resolve it "grado Celsius" -> celsius
 resolve it "grado Fahrenheit" -> fahrenheit
-resolve it "gram" -> gram
 resolve it "grammi" -> gram
 resolve it "grammo" -> gram
 resolve it "h" -> hour
-resolve it "hectogram" -> hectogram
-resolve it "hectoliter" -> hectoliter
-resolve it "hectometer" -> hectometer
 resolve it "hg" -> hectogram
-resolve it "hour" -> hour
-resolve it "imperial fluid ounce" -> imperial fluid ounce
-resolve it "imperial gallon" -> imperial gallon
-resolve it "imperial pint" -> imperial pint
-resolve it "imperial quart" -> imperial quart
 resolve it "in" -> inch
-resolve it "inch" -> inch
-resolve it "japanese cup" -> japanese cup
 resolve it "kg" -> kilogram
-resolve it "kilogram" -> kilogram
-resolve it "kiloliter" -> kiloliter
-resolve it "kilometer" -> kilometer
 resolve it "l" -> liter
-resolve it "liter" -> liter
 resolve it "litri" -> liter
 resolve it "litro" -> liter
 resolve it "m" -> meter
-resolve it "meter" -> meter
 resolve it "metri" -> meter
-resolve it "metric cup" -> metric cup
-resolve it "metric dessert spoon" -> metric dessert spoon
-resolve it "metric tablespoon" -> metric tablespoon
-resolve it "metric teaspoon" -> metric teaspoon
 resolve it "metro" -> meter
-resolve it "milligram" -> milligram
-resolve it "milliliter" -> milliliter
 resolve it "millilitri" -> milliliter
 resolve it "millilitro" -> milliliter
-resolve it "millimeter" -> millimeter
 resolve it "millimetri" -> millimeter
 resolve it "millimetro" -> millimeter
 resolve it "min" -> minute
-resolve it "minute" -> minute
 resolve it "minuti" -> minute
 resolve it "minuto" -> minute
 resolve it "ml" -> milliliter
 resolve it "mm" -> millimeter
-resolve it "nordic spice measure" -> nordic spice measure
 resolve it "ora" -> hour
 resolve it "ore" -> hour
-resolve it "ounce" -> ounce
 resolve it "piede" -> foot
 resolve it "piedi" -> foot
 resolve it "pollice" -> inch
 resolve it "pollici" -> inch
-resolve it "pound" -> pound
 resolve it "s" -> second
-resolve it "second" -> second
 resolve it "secondi" -> second
 resolve it "secondo" -> second
-resolve it "us cup" -> us cup
-resolve it "us fluid ounce" -> us fluid ounce
-resolve it "us gallon" -> us gallon
-resolve it "us legal cup" -> us legal cup
-resolve it "us pint" -> us pint
-resolve it "us quart" -> us quart
-resolve it "us tablespoon" -> us tablespoon
-resolve it "us teaspoon" -> us teaspoon
 resolve it "°C" -> celsius
 resolve it "°F" -> fahrenheit
-resolve it "ºC" -> celsius
-resolve it "ºF" -> fahrenheit
-resolve it "℃" -> celsius
-resolve it "℉" -> fahrenheit
 written it kiloliter -> "kiloliter"
 written it hectoliter -> "hectoliter"
 written it decaliter -> "decaliter"
@@ -8416,83 +7243,25 @@ long-written it fahrenheit 1.5 -> "1.5 gradi Fahrenheit"
 long-written it fahrenheit 0 -> "0 gradi Fahrenheit"
 long-written it fahrenheit 12 -> "12 gradi Fahrenheit"
 long-written it fahrenheit 14 -> "14 gradi Fahrenheit"
-resolve ja "C" -> celsius
-resolve ja "F" -> fahrenheit
 resolve ja "L" -> liter
-resolve ja "australian tablespoon" -> australian tablespoon
 resolve ja "cL" -> centiliter
-resolve ja "celsius" -> celsius
-resolve ja "centigram" -> centigram
-resolve ja "centiliter" -> centiliter
-resolve ja "centimeter" -> centimeter
 resolve ja "cm" -> centimeter
-resolve ja "colombian libra" -> colombian libra
 resolve ja "dL" -> deciliter
-resolve ja "danish knife point" -> danish knife point
-resolve ja "day" -> day
-resolve ja "decagram" -> decagram
-resolve ja "decaliter" -> decaliter
-resolve ja "decameter" -> decameter
-resolve ja "decigram" -> decigram
-resolve ja "deciliter" -> deciliter
-resolve ja "decimeter" -> decimeter
-resolve ja "fahrenheit" -> fahrenheit
-resolve ja "foot" -> foot
 resolve ja "ft" -> foot
 resolve ja "g" -> gram
-resolve ja "gram" -> gram
-resolve ja "hectogram" -> hectogram
-resolve ja "hectoliter" -> hectoliter
-resolve ja "hectometer" -> hectometer
-resolve ja "hour" -> hour
-resolve ja "imperial fluid ounce" -> imperial fluid ounce
-resolve ja "imperial gallon" -> imperial gallon
-resolve ja "imperial pint" -> imperial pint
-resolve ja "imperial quart" -> imperial quart
 resolve ja "in" -> inch
-resolve ja "inch" -> inch
-resolve ja "japanese cup" -> japanese cup
 resolve ja "kg" -> kilogram
-resolve ja "kilogram" -> kilogram
-resolve ja "kiloliter" -> kiloliter
-resolve ja "kilometer" -> kilometer
 resolve ja "l" -> liter
 resolve ja "lb" -> pound
-resolve ja "liter" -> liter
 resolve ja "m" -> meter
 resolve ja "mc" -> metric cup
-resolve ja "meter" -> meter
-resolve ja "metric cup" -> metric cup
-resolve ja "metric dessert spoon" -> metric dessert spoon
-resolve ja "metric tablespoon" -> metric tablespoon
-resolve ja "metric teaspoon" -> metric teaspoon
-resolve ja "milligram" -> milligram
-resolve ja "milliliter" -> milliliter
-resolve ja "millimeter" -> millimeter
-resolve ja "minute" -> minute
 resolve ja "ml" -> milliliter
 resolve ja "mm" -> millimeter
-resolve ja "nordic spice measure" -> nordic spice measure
-resolve ja "ounce" -> ounce
 resolve ja "oz" -> ounce
-resolve ja "pound" -> pound
-resolve ja "second" -> second
 resolve ja "tbsp" -> metric tablespoon
 resolve ja "tsp" -> metric teaspoon
-resolve ja "us cup" -> us cup
-resolve ja "us fluid ounce" -> us fluid ounce
-resolve ja "us gallon" -> us gallon
-resolve ja "us legal cup" -> us legal cup
-resolve ja "us pint" -> us pint
-resolve ja "us quart" -> us quart
-resolve ja "us tablespoon" -> us tablespoon
-resolve ja "us teaspoon" -> us teaspoon
 resolve ja "°C" -> celsius
 resolve ja "°F" -> fahrenheit
-resolve ja "ºC" -> celsius
-resolve ja "ºF" -> fahrenheit
-resolve ja "℃" -> celsius
-resolve ja "℉" -> fahrenheit
 resolve ja "インチ" -> inch
 resolve ja "オンス" -> ounce
 resolve ja "カップ" -> japanese cup
@@ -8766,77 +7535,19 @@ long-written ja fahrenheit 1.5 -> "華氏 1.5 度"
 long-written ja fahrenheit 0 -> "華氏 0 度"
 long-written ja fahrenheit 12 -> "華氏 12 度"
 long-written ja fahrenheit 14 -> "華氏 14 度"
-resolve ko "C" -> celsius
-resolve ko "F" -> fahrenheit
 resolve ko "L" -> liter
-resolve ko "australian tablespoon" -> australian tablespoon
 resolve ko "cL" -> centiliter
-resolve ko "celsius" -> celsius
-resolve ko "centigram" -> centigram
-resolve ko "centiliter" -> centiliter
-resolve ko "centimeter" -> centimeter
 resolve ko "cm" -> centimeter
-resolve ko "colombian libra" -> colombian libra
 resolve ko "dL" -> deciliter
-resolve ko "danish knife point" -> danish knife point
-resolve ko "day" -> day
-resolve ko "decagram" -> decagram
-resolve ko "decaliter" -> decaliter
-resolve ko "decameter" -> decameter
-resolve ko "decigram" -> decigram
-resolve ko "deciliter" -> deciliter
-resolve ko "decimeter" -> decimeter
-resolve ko "fahrenheit" -> fahrenheit
-resolve ko "foot" -> foot
 resolve ko "ft" -> foot
 resolve ko "g" -> gram
-resolve ko "gram" -> gram
-resolve ko "hectogram" -> hectogram
-resolve ko "hectoliter" -> hectoliter
-resolve ko "hectometer" -> hectometer
-resolve ko "hour" -> hour
-resolve ko "imperial fluid ounce" -> imperial fluid ounce
-resolve ko "imperial gallon" -> imperial gallon
-resolve ko "imperial pint" -> imperial pint
-resolve ko "imperial quart" -> imperial quart
 resolve ko "in" -> inch
-resolve ko "inch" -> inch
-resolve ko "japanese cup" -> japanese cup
 resolve ko "kg" -> kilogram
-resolve ko "kilogram" -> kilogram
-resolve ko "kiloliter" -> kiloliter
-resolve ko "kilometer" -> kilometer
-resolve ko "liter" -> liter
 resolve ko "m" -> meter
 resolve ko "mL" -> milliliter
-resolve ko "meter" -> meter
-resolve ko "metric cup" -> metric cup
-resolve ko "metric dessert spoon" -> metric dessert spoon
-resolve ko "metric tablespoon" -> metric tablespoon
-resolve ko "metric teaspoon" -> metric teaspoon
-resolve ko "milligram" -> milligram
-resolve ko "milliliter" -> milliliter
-resolve ko "millimeter" -> millimeter
-resolve ko "minute" -> minute
 resolve ko "mm" -> millimeter
-resolve ko "nordic spice measure" -> nordic spice measure
-resolve ko "ounce" -> ounce
-resolve ko "pound" -> pound
-resolve ko "second" -> second
-resolve ko "us cup" -> us cup
-resolve ko "us fluid ounce" -> us fluid ounce
-resolve ko "us gallon" -> us gallon
-resolve ko "us legal cup" -> us legal cup
-resolve ko "us pint" -> us pint
-resolve ko "us quart" -> us quart
-resolve ko "us tablespoon" -> us tablespoon
-resolve ko "us teaspoon" -> us teaspoon
 resolve ko "°C" -> celsius
 resolve ko "°F" -> fahrenheit
-resolve ko "ºC" -> celsius
-resolve ko "ºF" -> fahrenheit
-resolve ko "℃" -> celsius
-resolve ko "℉" -> fahrenheit
 resolve ko "그램" -> gram
 resolve ko "데시리터" -> deciliter
 resolve ko "리터" -> liter
@@ -9069,92 +7780,38 @@ long-written ko fahrenheit 1.5 -> "화씨 1.5도"
 long-written ko fahrenheit 0 -> "화씨 0도"
 long-written ko fahrenheit 12 -> "화씨 12도"
 long-written ko fahrenheit 14 -> "화씨 14도"
-resolve ms "C" -> celsius
-resolve ms "F" -> fahrenheit
-resolve ms "australian tablespoon" -> australian tablespoon
 resolve ms "cL" -> centiliter
-resolve ms "celsius" -> celsius
-resolve ms "centigram" -> centigram
-resolve ms "centiliter" -> centiliter
-resolve ms "centimeter" -> centimeter
 resolve ms "cm" -> centimeter
-resolve ms "colombian libra" -> colombian libra
 resolve ms "dL" -> deciliter
-resolve ms "danish knife point" -> danish knife point
 resolve ms "darjah Celsius" -> celsius
 resolve ms "darjah Fahrenheit" -> fahrenheit
-resolve ms "day" -> day
-resolve ms "decagram" -> decagram
-resolve ms "decaliter" -> decaliter
-resolve ms "decameter" -> decameter
-resolve ms "decigram" -> decigram
-resolve ms "deciliter" -> deciliter
-resolve ms "decimeter" -> decimeter
 resolve ms "desiliter" -> deciliter
-resolve ms "fahrenheit" -> fahrenheit
-resolve ms "foot" -> foot
 resolve ms "g" -> gram
 resolve ms "gram" -> gram
 resolve ms "hari" -> day
-resolve ms "hectogram" -> hectogram
-resolve ms "hectoliter" -> hectoliter
-resolve ms "hectometer" -> hectometer
-resolve ms "hour" -> hour
-resolve ms "imperial fluid ounce" -> imperial fluid ounce
-resolve ms "imperial gallon" -> imperial gallon
-resolve ms "imperial pint" -> imperial pint
-resolve ms "imperial quart" -> imperial quart
 resolve ms "in" -> inch
-resolve ms "inch" -> inch
 resolve ms "inci" -> inch
 resolve ms "j" -> hour
 resolve ms "jam" -> hour
-resolve ms "japanese cup" -> japanese cup
 resolve ms "ka" -> foot
 resolve ms "kaki" -> foot
 resolve ms "kg" -> kilogram
 resolve ms "kilogram" -> kilogram
-resolve ms "kiloliter" -> kiloliter
-resolve ms "kilometer" -> kilometer
 resolve ms "l" -> liter
 resolve ms "liter" -> liter
 resolve ms "m" -> meter
 resolve ms "mL" -> milliliter
 resolve ms "meter" -> meter
-resolve ms "metric cup" -> metric cup
-resolve ms "metric dessert spoon" -> metric dessert spoon
-resolve ms "metric tablespoon" -> metric tablespoon
-resolve ms "metric teaspoon" -> metric teaspoon
 resolve ms "mililiter" -> milliliter
 resolve ms "milimeter" -> millimeter
-resolve ms "milligram" -> milligram
-resolve ms "milliliter" -> milliliter
-resolve ms "millimeter" -> millimeter
 resolve ms "min" -> minute
 resolve ms "minit" -> minute
-resolve ms "minute" -> minute
 resolve ms "mm" -> millimeter
-resolve ms "nordic spice measure" -> nordic spice measure
-resolve ms "ounce" -> ounce
-resolve ms "pound" -> pound
 resolve ms "saat" -> second
-resolve ms "second" -> second
 resolve ms "sentiliter" -> centiliter
 resolve ms "sentimeter" -> centimeter
-resolve ms "us cup" -> us cup
-resolve ms "us fluid ounce" -> us fluid ounce
-resolve ms "us gallon" -> us gallon
-resolve ms "us legal cup" -> us legal cup
-resolve ms "us pint" -> us pint
-resolve ms "us quart" -> us quart
-resolve ms "us tablespoon" -> us tablespoon
-resolve ms "us teaspoon" -> us teaspoon
 resolve ms "°C" -> celsius
 resolve ms "°F" -> fahrenheit
-resolve ms "ºC" -> celsius
-resolve ms "ºF" -> fahrenheit
-resolve ms "℃" -> celsius
-resolve ms "℉" -> fahrenheit
 written ms kiloliter -> "kiloliter"
 written ms hectoliter -> "hectoliter"
 written ms decaliter -> "decaliter"
@@ -9360,29 +8017,14 @@ long-written ms fahrenheit 1.5 -> "1.5 darjah Fahrenheit"
 long-written ms fahrenheit 0 -> "0 darjah Fahrenheit"
 long-written ms fahrenheit 12 -> "12 darjah Fahrenheit"
 long-written ms fahrenheit 14 -> "14 darjah Fahrenheit"
-resolve nl "C" -> celsius
-resolve nl "F" -> fahrenheit
-resolve nl "australian tablespoon" -> australian tablespoon
-resolve nl "celsius" -> celsius
-resolve nl "centigram" -> centigram
 resolve nl "centiliter" -> centiliter
 resolve nl "centimeter" -> centimeter
 resolve nl "cl" -> centiliter
 resolve nl "cm" -> centimeter
-resolve nl "colombian libra" -> colombian libra
 resolve nl "dag" -> day
 resolve nl "dagen" -> day
-resolve nl "danish knife point" -> danish knife point
-resolve nl "day" -> day
-resolve nl "decagram" -> decagram
-resolve nl "decaliter" -> decaliter
-resolve nl "decameter" -> decameter
-resolve nl "decigram" -> decigram
 resolve nl "deciliter" -> deciliter
-resolve nl "decimeter" -> decimeter
 resolve nl "dl" -> deciliter
-resolve nl "fahrenheit" -> fahrenheit
-resolve nl "foot" -> foot
 resolve nl "ft" -> foot
 resolve nl "g" -> gram
 resolve nl "graad Celsius" -> celsius
@@ -9390,64 +8032,31 @@ resolve nl "graad Fahrenheit" -> fahrenheit
 resolve nl "graden Celsius" -> celsius
 resolve nl "graden Fahrenheit" -> fahrenheit
 resolve nl "gram" -> gram
-resolve nl "hectogram" -> hectogram
-resolve nl "hectoliter" -> hectoliter
-resolve nl "hectometer" -> hectometer
 resolve nl "hg" -> hectogram
-resolve nl "hour" -> hour
-resolve nl "imperial fluid ounce" -> imperial fluid ounce
-resolve nl "imperial gallon" -> imperial gallon
-resolve nl "imperial pint" -> imperial pint
-resolve nl "imperial quart" -> imperial quart
 resolve nl "in" -> inch
 resolve nl "inch" -> inch
 resolve nl "inches" -> inch
-resolve nl "japanese cup" -> japanese cup
 resolve nl "kg" -> kilogram
 resolve nl "kilogram" -> kilogram
-resolve nl "kiloliter" -> kiloliter
-resolve nl "kilometer" -> kilometer
 resolve nl "l" -> liter
 resolve nl "liter" -> liter
 resolve nl "m" -> meter
 resolve nl "meter" -> meter
-resolve nl "metric cup" -> metric cup
-resolve nl "metric dessert spoon" -> metric dessert spoon
-resolve nl "metric tablespoon" -> metric tablespoon
-resolve nl "metric teaspoon" -> metric teaspoon
-resolve nl "milligram" -> milligram
 resolve nl "milliliter" -> milliliter
 resolve nl "millimeter" -> millimeter
 resolve nl "min" -> minute
-resolve nl "minute" -> minute
 resolve nl "minuten" -> minute
 resolve nl "minuut" -> minute
 resolve nl "ml" -> milliliter
 resolve nl "mm" -> millimeter
-resolve nl "nordic spice measure" -> nordic spice measure
 resolve nl "ons" -> hectogram
-resolve nl "ounce" -> ounce
-resolve nl "pound" -> pound
 resolve nl "sec" -> second
-resolve nl "second" -> second
 resolve nl "seconde" -> second
 resolve nl "seconden" -> second
-resolve nl "us cup" -> us cup
-resolve nl "us fluid ounce" -> us fluid ounce
-resolve nl "us gallon" -> us gallon
-resolve nl "us legal cup" -> us legal cup
-resolve nl "us pint" -> us pint
-resolve nl "us quart" -> us quart
-resolve nl "us tablespoon" -> us tablespoon
-resolve nl "us teaspoon" -> us teaspoon
 resolve nl "uur" -> hour
 resolve nl "voet" -> foot
 resolve nl "°C" -> celsius
 resolve nl "°F" -> fahrenheit
-resolve nl "ºC" -> celsius
-resolve nl "ºF" -> fahrenheit
-resolve nl "℃" -> celsius
-resolve nl "℉" -> fahrenheit
 written nl kiloliter -> "kiloliter"
 written nl hectoliter -> "hectoliter"
 written nl decaliter -> "decaliter"
@@ -9670,33 +8279,17 @@ long-written nl fahrenheit 1.5 -> "1.5 graden Fahrenheit"
 long-written nl fahrenheit 0 -> "0 graden Fahrenheit"
 long-written nl fahrenheit 12 -> "12 graden Fahrenheit"
 long-written nl fahrenheit 14 -> "14 graden Fahrenheit"
-resolve no "C" -> celsius
-resolve no "F" -> fahrenheit
-resolve no "australian tablespoon" -> australian tablespoon
 resolve no "barneskje" -> metric dessert spoon
 resolve no "barneskjeer" -> metric dessert spoon
 resolve no "bs" -> metric dessert spoon
-resolve no "celsius" -> celsius
-resolve no "centigram" -> centigram
 resolve no "centiliter" -> centiliter
 resolve no "centimeter" -> centimeter
 resolve no "cl" -> centiliter
 resolve no "cm" -> centimeter
-resolve no "colombian libra" -> colombian libra
 resolve no "d" -> day
-resolve no "danish knife point" -> danish knife point
-resolve no "day" -> day
-resolve no "decagram" -> decagram
-resolve no "decaliter" -> decaliter
-resolve no "decameter" -> decameter
-resolve no "decigram" -> decigram
-resolve no "deciliter" -> deciliter
-resolve no "decimeter" -> decimeter
 resolve no "desiliter" -> deciliter
 resolve no "dl" -> deciliter
 resolve no "døgn" -> day
-resolve no "fahrenheit" -> fahrenheit
-resolve no "foot" -> foot
 resolve no "fot" -> foot
 resolve no "g" -> gram
 resolve no "grad celsius" -> celsius
@@ -9704,45 +8297,23 @@ resolve no "grad fahrenheit" -> fahrenheit
 resolve no "grader celsius" -> celsius
 resolve no "grader fahrenheit" -> fahrenheit
 resolve no "gram" -> gram
-resolve no "hectogram" -> hectogram
-resolve no "hectoliter" -> hectoliter
-resolve no "hectometer" -> hectometer
 resolve no "hekto" -> hectogram
 resolve no "hg" -> hectogram
-resolve no "hour" -> hour
-resolve no "imperial fluid ounce" -> imperial fluid ounce
-resolve no "imperial gallon" -> imperial gallon
-resolve no "imperial pint" -> imperial pint
-resolve no "imperial quart" -> imperial quart
-resolve no "inch" -> inch
-resolve no "japanese cup" -> japanese cup
 resolve no "kg" -> kilogram
 resolve no "kilogram" -> kilogram
-resolve no "kiloliter" -> kiloliter
-resolve no "kilometer" -> kilometer
 resolve no "krm" -> nordic spice measure
 resolve no "kryddermål" -> nordic spice measure
 resolve no "l" -> liter
 resolve no "liter" -> liter
 resolve no "m" -> meter
 resolve no "meter" -> meter
-resolve no "metric cup" -> metric cup
-resolve no "metric dessert spoon" -> metric dessert spoon
-resolve no "metric tablespoon" -> metric tablespoon
-resolve no "metric teaspoon" -> metric teaspoon
-resolve no "milligram" -> milligram
 resolve no "milliliter" -> milliliter
 resolve no "millimeter" -> millimeter
 resolve no "min" -> minute
-resolve no "minute" -> minute
 resolve no "minutt" -> minute
 resolve no "minutter" -> minute
 resolve no "ml" -> milliliter
 resolve no "mm" -> millimeter
-resolve no "nordic spice measure" -> nordic spice measure
-resolve no "ounce" -> ounce
-resolve no "pound" -> pound
-resolve no "second" -> second
 resolve no "sek" -> second
 resolve no "sekund" -> second
 resolve no "sekunder" -> second
@@ -9757,20 +8328,8 @@ resolve no "timer" -> hour
 resolve no "tomme" -> inch
 resolve no "tommer" -> inch
 resolve no "ts" -> metric teaspoon
-resolve no "us cup" -> us cup
-resolve no "us fluid ounce" -> us fluid ounce
-resolve no "us gallon" -> us gallon
-resolve no "us legal cup" -> us legal cup
-resolve no "us pint" -> us pint
-resolve no "us quart" -> us quart
-resolve no "us tablespoon" -> us tablespoon
-resolve no "us teaspoon" -> us teaspoon
 resolve no "°C" -> celsius
 resolve no "°F" -> fahrenheit
-resolve no "ºC" -> celsius
-resolve no "ºF" -> fahrenheit
-resolve no "℃" -> celsius
-resolve no "℉" -> fahrenheit
 written no kiloliter -> "kiloliter"
 written no hectoliter -> "hectoliter"
 written no decaliter -> "decaliter"
@@ -10033,13 +8592,6 @@ long-written no fahrenheit 1.5 -> "1.5 grader fahrenheit"
 long-written no fahrenheit 0 -> "0 grader fahrenheit"
 long-written no fahrenheit 12 -> "12 grader fahrenheit"
 long-written no fahrenheit 14 -> "14 grader fahrenheit"
-resolve pl "C" -> celsius
-resolve pl "F" -> fahrenheit
-resolve pl "australian tablespoon" -> australian tablespoon
-resolve pl "celsius" -> celsius
-resolve pl "centigram" -> centigram
-resolve pl "centiliter" -> centiliter
-resolve pl "centimeter" -> centimeter
 resolve pl "centylitr" -> centiliter
 resolve pl "centylitra" -> centiliter
 resolve pl "centylitry" -> centiliter
@@ -10050,17 +8602,8 @@ resolve pl "centymetry" -> centimeter
 resolve pl "centymetrów" -> centimeter
 resolve pl "cl" -> centiliter
 resolve pl "cm" -> centimeter
-resolve pl "colombian libra" -> colombian libra
 resolve pl "d" -> day
 resolve pl "dag" -> decagram
-resolve pl "danish knife point" -> danish knife point
-resolve pl "day" -> day
-resolve pl "decagram" -> decagram
-resolve pl "decaliter" -> decaliter
-resolve pl "decameter" -> decameter
-resolve pl "decigram" -> decigram
-resolve pl "deciliter" -> deciliter
-resolve pl "decimeter" -> decimeter
 resolve pl "decylitr" -> deciliter
 resolve pl "decylitra" -> deciliter
 resolve pl "decylitry" -> deciliter
@@ -10072,8 +8615,6 @@ resolve pl "dl" -> deciliter
 resolve pl "dni" -> day
 resolve pl "dnia" -> day
 resolve pl "dzień" -> day
-resolve pl "fahrenheit" -> fahrenheit
-resolve pl "foot" -> foot
 resolve pl "g" -> gram
 resolve pl "godz." -> hour
 resolve pl "godzin" -> hour
@@ -10084,37 +8625,19 @@ resolve pl "grama" -> gram
 resolve pl "gramy" -> gram
 resolve pl "gramów" -> gram
 resolve pl "h" -> hour
-resolve pl "hectogram" -> hectogram
-resolve pl "hectoliter" -> hectoliter
-resolve pl "hectometer" -> hectometer
-resolve pl "hour" -> hour
-resolve pl "imperial fluid ounce" -> imperial fluid ounce
-resolve pl "imperial gallon" -> imperial gallon
-resolve pl "imperial pint" -> imperial pint
-resolve pl "imperial quart" -> imperial quart
-resolve pl "inch" -> inch
-resolve pl "japanese cup" -> japanese cup
 resolve pl "kg" -> kilogram
 resolve pl "kilogram" -> kilogram
 resolve pl "kilograma" -> kilogram
 resolve pl "kilogramy" -> kilogram
 resolve pl "kilogramów" -> kilogram
-resolve pl "kiloliter" -> kiloliter
-resolve pl "kilometer" -> kilometer
 resolve pl "l" -> liter
-resolve pl "liter" -> liter
 resolve pl "litr" -> liter
 resolve pl "litra" -> liter
 resolve pl "litry" -> liter
 resolve pl "litrów" -> liter
 resolve pl "m" -> meter
-resolve pl "meter" -> meter
 resolve pl "metr" -> meter
 resolve pl "metra" -> meter
-resolve pl "metric cup" -> metric cup
-resolve pl "metric dessert spoon" -> metric dessert spoon
-resolve pl "metric tablespoon" -> metric tablespoon
-resolve pl "metric teaspoon" -> metric teaspoon
 resolve pl "metry" -> meter
 resolve pl "metrów" -> meter
 resolve pl "mililitr" -> milliliter
@@ -10125,21 +8648,13 @@ resolve pl "milimetr" -> millimeter
 resolve pl "milimetra" -> millimeter
 resolve pl "milimetry" -> millimeter
 resolve pl "milimetrów" -> millimeter
-resolve pl "milligram" -> milligram
-resolve pl "milliliter" -> milliliter
-resolve pl "millimeter" -> millimeter
 resolve pl "min" -> minute
 resolve pl "minut" -> minute
 resolve pl "minuta" -> minute
-resolve pl "minute" -> minute
 resolve pl "minuty" -> minute
 resolve pl "ml" -> milliliter
 resolve pl "mm" -> millimeter
-resolve pl "nordic spice measure" -> nordic spice measure
-resolve pl "ounce" -> ounce
-resolve pl "pound" -> pound
 resolve pl "s" -> second
-resolve pl "second" -> second
 resolve pl "sek." -> second
 resolve pl "sekund" -> second
 resolve pl "sekunda" -> second
@@ -10156,18 +8671,8 @@ resolve pl "stopnie Fahrenheita" -> fahrenheit
 resolve pl "szklanek" -> metric cup
 resolve pl "szklanka" -> metric cup
 resolve pl "szklanki" -> metric cup
-resolve pl "us cup" -> us cup
-resolve pl "us fluid ounce" -> us fluid ounce
-resolve pl "us gallon" -> us gallon
-resolve pl "us legal cup" -> us legal cup
-resolve pl "us pint" -> us pint
-resolve pl "us quart" -> us quart
-resolve pl "us tablespoon" -> us tablespoon
-resolve pl "us teaspoon" -> us teaspoon
 resolve pl "°C" -> celsius
 resolve pl "°F" -> fahrenheit
-resolve pl "ºC" -> celsius
-resolve pl "ºF" -> fahrenheit
 resolve pl "ł. cz." -> metric teaspoon
 resolve pl "ł. st." -> metric tablespoon
 resolve pl "łyżeczek" -> metric teaspoon
@@ -10177,8 +8682,6 @@ resolve pl "łyżek stołowych" -> metric tablespoon
 resolve pl "łyżka stołowa" -> metric tablespoon
 resolve pl "łyżki stołowe" -> metric tablespoon
 resolve pl "łyżki stołowej" -> metric tablespoon
-resolve pl "℃" -> celsius
-resolve pl "℉" -> fahrenheit
 written pl kiloliter -> "kiloliter"
 written pl hectoliter -> "hectoliter"
 written pl decaliter -> "decaliter"
@@ -10459,17 +8962,10 @@ long-written pl fahrenheit 1.5 -> "1.5 stopnia Fahrenheita"
 long-written pl fahrenheit 0 -> "0 stopni Fahrenheita"
 long-written pl fahrenheit 12 -> "12 stopni Fahrenheita"
 long-written pl fahrenheit 14 -> "14 stopni Fahrenheita"
-resolve pt "C" -> celsius
-resolve pt "F" -> fahrenheit
-resolve pt "australian tablespoon" -> australian tablespoon
 resolve pt "c. chá" -> metric teaspoon
 resolve pt "c. sopa" -> metric tablespoon
-resolve pt "celsius" -> celsius
-resolve pt "centigram" -> centigram
-resolve pt "centiliter" -> centiliter
 resolve pt "centilitro" -> centiliter
 resolve pt "centilitros" -> centiliter
-resolve pt "centimeter" -> centimeter
 resolve pt "centímetro" -> centimeter
 resolve pt "centímetros" -> centimeter
 resolve pt "cl" -> centiliter
@@ -10478,25 +8974,13 @@ resolve pt "colher de chá" -> metric teaspoon
 resolve pt "colher de sopa" -> metric tablespoon
 resolve pt "colheres de chá" -> metric teaspoon
 resolve pt "colheres de sopa" -> metric tablespoon
-resolve pt "colombian libra" -> colombian libra
-resolve pt "danish knife point" -> danish knife point
-resolve pt "day" -> day
-resolve pt "decagram" -> decagram
-resolve pt "decaliter" -> decaliter
-resolve pt "decameter" -> decameter
-resolve pt "decigram" -> decigram
-resolve pt "deciliter" -> deciliter
 resolve pt "decilitro" -> deciliter
 resolve pt "decilitros" -> deciliter
-resolve pt "decimeter" -> decimeter
 resolve pt "dia" -> day
 resolve pt "dias" -> day
 resolve pt "dl" -> deciliter
-resolve pt "fahrenheit" -> fahrenheit
-resolve pt "foot" -> foot
 resolve pt "ft" -> foot
 resolve pt "g" -> gram
-resolve pt "gram" -> gram
 resolve pt "grama" -> gram
 resolve pt "gramas" -> gram
 resolve pt "grau Celsius" -> celsius
@@ -10504,78 +8988,39 @@ resolve pt "grau Fahrenheit" -> fahrenheit
 resolve pt "graus Celsius" -> celsius
 resolve pt "graus Fahrenheit" -> fahrenheit
 resolve pt "h" -> hour
-resolve pt "hectogram" -> hectogram
-resolve pt "hectoliter" -> hectoliter
-resolve pt "hectometer" -> hectometer
 resolve pt "hora" -> hour
 resolve pt "horas" -> hour
-resolve pt "hour" -> hour
-resolve pt "imperial fluid ounce" -> imperial fluid ounce
-resolve pt "imperial gallon" -> imperial gallon
-resolve pt "imperial pint" -> imperial pint
-resolve pt "imperial quart" -> imperial quart
-resolve pt "inch" -> inch
-resolve pt "japanese cup" -> japanese cup
 resolve pt "kg" -> kilogram
-resolve pt "kilogram" -> kilogram
-resolve pt "kiloliter" -> kiloliter
-resolve pt "kilometer" -> kilometer
 resolve pt "l" -> liter
-resolve pt "liter" -> liter
 resolve pt "litro" -> liter
 resolve pt "litros" -> liter
 resolve pt "m" -> meter
-resolve pt "meter" -> meter
-resolve pt "metric cup" -> metric cup
-resolve pt "metric dessert spoon" -> metric dessert spoon
-resolve pt "metric tablespoon" -> metric tablespoon
-resolve pt "metric teaspoon" -> metric teaspoon
 resolve pt "metro" -> meter
 resolve pt "metros" -> meter
 resolve pt "mililitro" -> milliliter
 resolve pt "mililitros" -> milliliter
-resolve pt "milligram" -> milligram
-resolve pt "milliliter" -> milliliter
-resolve pt "millimeter" -> millimeter
 resolve pt "milímetro" -> millimeter
 resolve pt "milímetros" -> millimeter
 resolve pt "min" -> minute
-resolve pt "minute" -> minute
 resolve pt "minuto" -> minute
 resolve pt "minutos" -> minute
 resolve pt "ml" -> milliliter
 resolve pt "mm" -> millimeter
-resolve pt "nordic spice measure" -> nordic spice measure
-resolve pt "ounce" -> ounce
 resolve pt "pol." -> inch
 resolve pt "polegada" -> inch
 resolve pt "polegadas" -> inch
-resolve pt "pound" -> pound
 resolve pt "pé" -> foot
 resolve pt "pés" -> foot
 resolve pt "quilograma" -> kilogram
 resolve pt "quilogramas" -> kilogram
 resolve pt "s" -> second
-resolve pt "second" -> second
 resolve pt "segundo" -> second
 resolve pt "segundos" -> second
-resolve pt "us cup" -> us cup
-resolve pt "us fluid ounce" -> us fluid ounce
-resolve pt "us gallon" -> us gallon
-resolve pt "us legal cup" -> us legal cup
-resolve pt "us pint" -> us pint
-resolve pt "us quart" -> us quart
-resolve pt "us tablespoon" -> us tablespoon
-resolve pt "us teaspoon" -> us teaspoon
 resolve pt "xíc." -> us legal cup
 resolve pt "xícara" -> us legal cup
 resolve pt "xícaras" -> us legal cup
 resolve pt "°C" -> celsius
 resolve pt "°F" -> fahrenheit
-resolve pt "ºC" -> celsius
-resolve pt "ºF" -> fahrenheit
-resolve pt "℃" -> celsius
-resolve pt "℉" -> fahrenheit
 written pt kiloliter -> "kiloliter"
 written pt hectoliter -> "hectoliter"
 written pt decaliter -> "decaliter"
@@ -10828,38 +9273,19 @@ long-written pt fahrenheit 1.5 -> "1.5 grau Fahrenheit"
 long-written pt fahrenheit 0 -> "0 grau Fahrenheit"
 long-written pt fahrenheit 12 -> "12 graus Fahrenheit"
 long-written pt fahrenheit 14 -> "14 graus Fahrenheit"
-resolve pt-PT "C" -> celsius
-resolve pt-PT "F" -> fahrenheit
-resolve pt-PT "australian tablespoon" -> australian tablespoon
-resolve pt-PT "celsius" -> celsius
-resolve pt-PT "centigram" -> centigram
-resolve pt-PT "centiliter" -> centiliter
 resolve pt-PT "centilitro" -> centiliter
 resolve pt-PT "centilitros" -> centiliter
-resolve pt-PT "centimeter" -> centimeter
 resolve pt-PT "centímetro" -> centimeter
 resolve pt-PT "centímetros" -> centimeter
 resolve pt-PT "cl" -> centiliter
 resolve pt-PT "cm" -> centimeter
-resolve pt-PT "colombian libra" -> colombian libra
-resolve pt-PT "danish knife point" -> danish knife point
-resolve pt-PT "day" -> day
-resolve pt-PT "decagram" -> decagram
-resolve pt-PT "decaliter" -> decaliter
-resolve pt-PT "decameter" -> decameter
-resolve pt-PT "decigram" -> decigram
-resolve pt-PT "deciliter" -> deciliter
 resolve pt-PT "decilitro" -> deciliter
 resolve pt-PT "decilitros" -> deciliter
-resolve pt-PT "decimeter" -> decimeter
 resolve pt-PT "dia" -> day
 resolve pt-PT "dias" -> day
 resolve pt-PT "dl" -> deciliter
-resolve pt-PT "fahrenheit" -> fahrenheit
-resolve pt-PT "foot" -> foot
 resolve pt-PT "ft" -> foot
 resolve pt-PT "g" -> gram
-resolve pt-PT "gram" -> gram
 resolve pt-PT "grama" -> gram
 resolve pt-PT "gramas" -> gram
 resolve pt-PT "grau Celsius" -> celsius
@@ -10867,75 +9293,36 @@ resolve pt-PT "grau Fahrenheit" -> fahrenheit
 resolve pt-PT "graus Celsius" -> celsius
 resolve pt-PT "graus Fahrenheit" -> fahrenheit
 resolve pt-PT "h" -> hour
-resolve pt-PT "hectogram" -> hectogram
-resolve pt-PT "hectoliter" -> hectoliter
-resolve pt-PT "hectometer" -> hectometer
 resolve pt-PT "hora" -> hour
 resolve pt-PT "horas" -> hour
-resolve pt-PT "hour" -> hour
-resolve pt-PT "imperial fluid ounce" -> imperial fluid ounce
-resolve pt-PT "imperial gallon" -> imperial gallon
-resolve pt-PT "imperial pint" -> imperial pint
-resolve pt-PT "imperial quart" -> imperial quart
-resolve pt-PT "inch" -> inch
-resolve pt-PT "japanese cup" -> japanese cup
 resolve pt-PT "kg" -> kilogram
-resolve pt-PT "kilogram" -> kilogram
-resolve pt-PT "kiloliter" -> kiloliter
-resolve pt-PT "kilometer" -> kilometer
 resolve pt-PT "l" -> liter
-resolve pt-PT "liter" -> liter
 resolve pt-PT "litro" -> liter
 resolve pt-PT "litros" -> liter
 resolve pt-PT "m" -> meter
-resolve pt-PT "meter" -> meter
-resolve pt-PT "metric cup" -> metric cup
-resolve pt-PT "metric dessert spoon" -> metric dessert spoon
-resolve pt-PT "metric tablespoon" -> metric tablespoon
-resolve pt-PT "metric teaspoon" -> metric teaspoon
 resolve pt-PT "metro" -> meter
 resolve pt-PT "metros" -> meter
 resolve pt-PT "mililitro" -> milliliter
 resolve pt-PT "mililitros" -> milliliter
-resolve pt-PT "milligram" -> milligram
-resolve pt-PT "milliliter" -> milliliter
-resolve pt-PT "millimeter" -> millimeter
 resolve pt-PT "milímetro" -> millimeter
 resolve pt-PT "milímetros" -> millimeter
 resolve pt-PT "min" -> minute
-resolve pt-PT "minute" -> minute
 resolve pt-PT "minuto" -> minute
 resolve pt-PT "minutos" -> minute
 resolve pt-PT "ml" -> milliliter
 resolve pt-PT "mm" -> millimeter
-resolve pt-PT "nordic spice measure" -> nordic spice measure
-resolve pt-PT "ounce" -> ounce
 resolve pt-PT "pol." -> inch
 resolve pt-PT "polegada" -> inch
 resolve pt-PT "polegadas" -> inch
-resolve pt-PT "pound" -> pound
 resolve pt-PT "pé" -> foot
 resolve pt-PT "pés" -> foot
 resolve pt-PT "quilograma" -> kilogram
 resolve pt-PT "quilogramas" -> kilogram
 resolve pt-PT "s" -> second
-resolve pt-PT "second" -> second
 resolve pt-PT "segundo" -> second
 resolve pt-PT "segundos" -> second
-resolve pt-PT "us cup" -> us cup
-resolve pt-PT "us fluid ounce" -> us fluid ounce
-resolve pt-PT "us gallon" -> us gallon
-resolve pt-PT "us legal cup" -> us legal cup
-resolve pt-PT "us pint" -> us pint
-resolve pt-PT "us quart" -> us quart
-resolve pt-PT "us tablespoon" -> us tablespoon
-resolve pt-PT "us teaspoon" -> us teaspoon
 resolve pt-PT "°C" -> celsius
 resolve pt-PT "°F" -> fahrenheit
-resolve pt-PT "ºC" -> celsius
-resolve pt-PT "ºF" -> fahrenheit
-resolve pt-PT "℃" -> celsius
-resolve pt-PT "℉" -> fahrenheit
 written pt-PT kiloliter -> "kiloliter"
 written pt-PT hectoliter -> "hectoliter"
 written pt-PT decaliter -> "decaliter"
@@ -11158,22 +9545,12 @@ long-written pt-PT fahrenheit 1.5 -> "1.5 graus Fahrenheit"
 long-written pt-PT fahrenheit 0 -> "0 graus Fahrenheit"
 long-written pt-PT fahrenheit 12 -> "12 graus Fahrenheit"
 long-written pt-PT fahrenheit 14 -> "14 graus Fahrenheit"
-resolve ro "C" -> celsius
-resolve ro "F" -> fahrenheit
-resolve ro "australian tablespoon" -> australian tablespoon
-resolve ro "celsius" -> celsius
-resolve ro "centigram" -> centigram
-resolve ro "centiliter" -> centiliter
 resolve ro "centilitri" -> centiliter
 resolve ro "centilitru" -> centiliter
-resolve ro "centimeter" -> centimeter
 resolve ro "centimetri" -> centimeter
 resolve ro "centimetru" -> centimeter
 resolve ro "cl" -> centiliter
 resolve ro "cm" -> centimeter
-resolve ro "colombian libra" -> colombian libra
-resolve ro "danish knife point" -> danish knife point
-resolve ro "day" -> day
 resolve ro "de centilitri" -> centiliter
 resolve ro "de centimetri" -> centimeter
 resolve ro "de decilitri" -> deciliter
@@ -11191,17 +9568,9 @@ resolve ro "de ore" -> hour
 resolve ro "de picioare" -> foot
 resolve ro "de secunde" -> second
 resolve ro "de zile" -> day
-resolve ro "decagram" -> decagram
-resolve ro "decaliter" -> decaliter
-resolve ro "decameter" -> decameter
-resolve ro "decigram" -> decigram
-resolve ro "deciliter" -> deciliter
 resolve ro "decilitri" -> deciliter
 resolve ro "decilitru" -> deciliter
-resolve ro "decimeter" -> decimeter
 resolve ro "dl" -> deciliter
-resolve ro "fahrenheit" -> fahrenheit
-resolve ro "foot" -> foot
 resolve ro "ft" -> foot
 resolve ro "g" -> gram
 resolve ro "grad Celsius" -> celsius
@@ -11210,74 +9579,38 @@ resolve ro "grade Celsius" -> celsius
 resolve ro "grade Fahrenheit" -> fahrenheit
 resolve ro "gram" -> gram
 resolve ro "grame" -> gram
-resolve ro "hectogram" -> hectogram
-resolve ro "hectoliter" -> hectoliter
-resolve ro "hectometer" -> hectometer
-resolve ro "hour" -> hour
-resolve ro "imperial fluid ounce" -> imperial fluid ounce
-resolve ro "imperial gallon" -> imperial gallon
-resolve ro "imperial pint" -> imperial pint
-resolve ro "imperial quart" -> imperial quart
 resolve ro "in" -> inch
 resolve ro "inch" -> inch
 resolve ro "inchi" -> inch
-resolve ro "japanese cup" -> japanese cup
 resolve ro "kg" -> kilogram
 resolve ro "kilogram" -> kilogram
 resolve ro "kilograme" -> kilogram
-resolve ro "kiloliter" -> kiloliter
-resolve ro "kilometer" -> kilometer
 resolve ro "l" -> liter
-resolve ro "liter" -> liter
 resolve ro "litri" -> liter
 resolve ro "litru" -> liter
 resolve ro "m" -> meter
-resolve ro "meter" -> meter
 resolve ro "metri" -> meter
-resolve ro "metric cup" -> metric cup
-resolve ro "metric dessert spoon" -> metric dessert spoon
-resolve ro "metric tablespoon" -> metric tablespoon
-resolve ro "metric teaspoon" -> metric teaspoon
 resolve ro "metru" -> meter
 resolve ro "mililitri" -> milliliter
 resolve ro "mililitru" -> milliliter
 resolve ro "milimetri" -> millimeter
 resolve ro "milimetru" -> millimeter
-resolve ro "milligram" -> milligram
-resolve ro "milliliter" -> milliliter
-resolve ro "millimeter" -> millimeter
 resolve ro "min." -> minute
 resolve ro "minut" -> minute
 resolve ro "minute" -> minute
 resolve ro "ml" -> milliliter
 resolve ro "mm" -> millimeter
-resolve ro "nordic spice measure" -> nordic spice measure
 resolve ro "ore" -> hour
 resolve ro "oră" -> hour
-resolve ro "ounce" -> ounce
 resolve ro "picioare" -> foot
 resolve ro "picior" -> foot
-resolve ro "pound" -> pound
 resolve ro "s" -> second
-resolve ro "second" -> second
 resolve ro "secunde" -> second
 resolve ro "secundă" -> second
-resolve ro "us cup" -> us cup
-resolve ro "us fluid ounce" -> us fluid ounce
-resolve ro "us gallon" -> us gallon
-resolve ro "us legal cup" -> us legal cup
-resolve ro "us pint" -> us pint
-resolve ro "us quart" -> us quart
-resolve ro "us tablespoon" -> us tablespoon
-resolve ro "us teaspoon" -> us teaspoon
 resolve ro "zi" -> day
 resolve ro "zile" -> day
 resolve ro "°C" -> celsius
 resolve ro "°F" -> fahrenheit
-resolve ro "ºC" -> celsius
-resolve ro "ºF" -> fahrenheit
-resolve ro "℃" -> celsius
-resolve ro "℉" -> fahrenheit
 written ro kiloliter -> "kiloliter"
 written ro hectoliter -> "hectoliter"
 written ro decaliter -> "decaliter"
@@ -11517,64 +9850,8 @@ long-written ro fahrenheit 1.5 -> "1.5 grade Fahrenheit"
 long-written ro fahrenheit 0 -> "0 grade Fahrenheit"
 long-written ro fahrenheit 12 -> "12 grade Fahrenheit"
 long-written ro fahrenheit 14 -> "14 grade Fahrenheit"
-resolve ru "C" -> celsius
-resolve ru "F" -> fahrenheit
-resolve ru "australian tablespoon" -> australian tablespoon
-resolve ru "celsius" -> celsius
-resolve ru "centigram" -> centigram
-resolve ru "centiliter" -> centiliter
-resolve ru "centimeter" -> centimeter
-resolve ru "colombian libra" -> colombian libra
-resolve ru "danish knife point" -> danish knife point
-resolve ru "day" -> day
-resolve ru "decagram" -> decagram
-resolve ru "decaliter" -> decaliter
-resolve ru "decameter" -> decameter
-resolve ru "decigram" -> decigram
-resolve ru "deciliter" -> deciliter
-resolve ru "decimeter" -> decimeter
-resolve ru "fahrenheit" -> fahrenheit
-resolve ru "foot" -> foot
-resolve ru "gram" -> gram
-resolve ru "hectogram" -> hectogram
-resolve ru "hectoliter" -> hectoliter
-resolve ru "hectometer" -> hectometer
-resolve ru "hour" -> hour
-resolve ru "imperial fluid ounce" -> imperial fluid ounce
-resolve ru "imperial gallon" -> imperial gallon
-resolve ru "imperial pint" -> imperial pint
-resolve ru "imperial quart" -> imperial quart
-resolve ru "inch" -> inch
-resolve ru "japanese cup" -> japanese cup
-resolve ru "kilogram" -> kilogram
-resolve ru "kiloliter" -> kiloliter
-resolve ru "kilometer" -> kilometer
-resolve ru "liter" -> liter
-resolve ru "meter" -> meter
-resolve ru "metric cup" -> metric cup
-resolve ru "metric dessert spoon" -> metric dessert spoon
-resolve ru "metric tablespoon" -> metric tablespoon
-resolve ru "metric teaspoon" -> metric teaspoon
-resolve ru "milligram" -> milligram
-resolve ru "milliliter" -> milliliter
-resolve ru "millimeter" -> millimeter
-resolve ru "minute" -> minute
-resolve ru "nordic spice measure" -> nordic spice measure
-resolve ru "ounce" -> ounce
-resolve ru "pound" -> pound
-resolve ru "second" -> second
-resolve ru "us cup" -> us cup
-resolve ru "us fluid ounce" -> us fluid ounce
-resolve ru "us gallon" -> us gallon
-resolve ru "us legal cup" -> us legal cup
-resolve ru "us pint" -> us pint
-resolve ru "us quart" -> us quart
-resolve ru "us tablespoon" -> us tablespoon
-resolve ru "us teaspoon" -> us teaspoon
 resolve ru "°C" -> celsius
 resolve ru "°F" -> fahrenheit
-resolve ru "ºC" -> celsius
-resolve ru "ºF" -> fahrenheit
 resolve ru "г" -> gram
 resolve ru "градус Фаренгейта" -> fahrenheit
 resolve ru "градус Цельсия" -> celsius
@@ -11654,8 +9931,6 @@ resolve ru "час" -> hour
 resolve ru "часа" -> hour
 resolve ru "часов" -> hour
 resolve ru "часы" -> hour
-resolve ru "℃" -> celsius
-resolve ru "℉" -> fahrenheit
 written ru kiloliter -> "kiloliter"
 written ru hectoliter -> "hectoliter"
 written ru decaliter -> "decaliter"
@@ -11912,29 +10187,14 @@ long-written ru fahrenheit 1.5 -> "1.5 градуса Фаренгейта"
 long-written ru fahrenheit 0 -> "0 градусов Фаренгейта"
 long-written ru fahrenheit 12 -> "12 градусов Фаренгейта"
 long-written ru fahrenheit 14 -> "14 градусов Фаренгейта"
-resolve sv "C" -> celsius
-resolve sv "F" -> fahrenheit
-resolve sv "australian tablespoon" -> australian tablespoon
-resolve sv "celsius" -> celsius
-resolve sv "centigram" -> centigram
 resolve sv "centiliter" -> centiliter
 resolve sv "centimeter" -> centimeter
 resolve sv "cl" -> centiliter
 resolve sv "cm" -> centimeter
-resolve sv "colombian libra" -> colombian libra
 resolve sv "d" -> day
-resolve sv "danish knife point" -> danish knife point
-resolve sv "day" -> day
-resolve sv "decagram" -> decagram
-resolve sv "decaliter" -> decaliter
-resolve sv "decameter" -> decameter
-resolve sv "decigram" -> decigram
 resolve sv "deciliter" -> deciliter
-resolve sv "decimeter" -> decimeter
 resolve sv "dl" -> deciliter
 resolve sv "dygn" -> day
-resolve sv "fahrenheit" -> fahrenheit
-resolve sv "foot" -> foot
 resolve sv "g" -> gram
 resolve sv "grad Celsius" -> celsius
 resolve sv "grad Fahrenheit" -> fahrenheit
@@ -11942,23 +10202,11 @@ resolve sv "grader Celsius" -> celsius
 resolve sv "grader Fahrenheit" -> fahrenheit
 resolve sv "gram" -> gram
 resolve sv "h" -> hour
-resolve sv "hectogram" -> hectogram
-resolve sv "hectoliter" -> hectoliter
-resolve sv "hectometer" -> hectometer
 resolve sv "hekto" -> hectogram
 resolve sv "hektogram" -> hectogram
 resolve sv "hg" -> hectogram
-resolve sv "hour" -> hour
-resolve sv "imperial fluid ounce" -> imperial fluid ounce
-resolve sv "imperial gallon" -> imperial gallon
-resolve sv "imperial pint" -> imperial pint
-resolve sv "imperial quart" -> imperial quart
-resolve sv "inch" -> inch
-resolve sv "japanese cup" -> japanese cup
 resolve sv "kg" -> kilogram
 resolve sv "kilogram" -> kilogram
-resolve sv "kiloliter" -> kiloliter
-resolve sv "kilometer" -> kilometer
 resolve sv "krm" -> nordic spice measure
 resolve sv "kryddmått" -> nordic spice measure
 resolve sv "l" -> liter
@@ -11967,25 +10215,15 @@ resolve sv "m" -> meter
 resolve sv "matsked" -> metric tablespoon
 resolve sv "matskedar" -> metric tablespoon
 resolve sv "meter" -> meter
-resolve sv "metric cup" -> metric cup
-resolve sv "metric dessert spoon" -> metric dessert spoon
-resolve sv "metric tablespoon" -> metric tablespoon
-resolve sv "metric teaspoon" -> metric teaspoon
-resolve sv "milligram" -> milligram
 resolve sv "milliliter" -> milliliter
 resolve sv "millimeter" -> millimeter
 resolve sv "min" -> minute
 resolve sv "minut" -> minute
-resolve sv "minute" -> minute
 resolve sv "minuter" -> minute
 resolve sv "ml" -> milliliter
 resolve sv "mm" -> millimeter
 resolve sv "msk" -> metric tablespoon
-resolve sv "nordic spice measure" -> nordic spice measure
-resolve sv "ounce" -> ounce
-resolve sv "pound" -> pound
 resolve sv "s" -> second
-resolve sv "second" -> second
 resolve sv "sekund" -> second
 resolve sv "sekunder" -> second
 resolve sv "tesked" -> metric teaspoon
@@ -11994,20 +10232,8 @@ resolve sv "tim" -> hour
 resolve sv "timmar" -> hour
 resolve sv "timme" -> hour
 resolve sv "tsk" -> metric teaspoon
-resolve sv "us cup" -> us cup
-resolve sv "us fluid ounce" -> us fluid ounce
-resolve sv "us gallon" -> us gallon
-resolve sv "us legal cup" -> us legal cup
-resolve sv "us pint" -> us pint
-resolve sv "us quart" -> us quart
-resolve sv "us tablespoon" -> us tablespoon
-resolve sv "us teaspoon" -> us teaspoon
 resolve sv "°C" -> celsius
 resolve sv "°F" -> fahrenheit
-resolve sv "ºC" -> celsius
-resolve sv "ºF" -> fahrenheit
-resolve sv "℃" -> celsius
-resolve sv "℉" -> fahrenheit
 written sv kiloliter -> "kiloliter"
 written sv hectoliter -> "hectoliter"
 written sv decaliter -> "decaliter"
@@ -12240,64 +10466,8 @@ long-written sv fahrenheit 1.5 -> "1.5 grader Fahrenheit"
 long-written sv fahrenheit 0 -> "0 grader Fahrenheit"
 long-written sv fahrenheit 12 -> "12 grader Fahrenheit"
 long-written sv fahrenheit 14 -> "14 grader Fahrenheit"
-resolve th "C" -> celsius
-resolve th "F" -> fahrenheit
-resolve th "australian tablespoon" -> australian tablespoon
-resolve th "celsius" -> celsius
-resolve th "centigram" -> centigram
-resolve th "centiliter" -> centiliter
-resolve th "centimeter" -> centimeter
-resolve th "colombian libra" -> colombian libra
-resolve th "danish knife point" -> danish knife point
-resolve th "day" -> day
-resolve th "decagram" -> decagram
-resolve th "decaliter" -> decaliter
-resolve th "decameter" -> decameter
-resolve th "decigram" -> decigram
-resolve th "deciliter" -> deciliter
-resolve th "decimeter" -> decimeter
-resolve th "fahrenheit" -> fahrenheit
-resolve th "foot" -> foot
-resolve th "gram" -> gram
-resolve th "hectogram" -> hectogram
-resolve th "hectoliter" -> hectoliter
-resolve th "hectometer" -> hectometer
-resolve th "hour" -> hour
-resolve th "imperial fluid ounce" -> imperial fluid ounce
-resolve th "imperial gallon" -> imperial gallon
-resolve th "imperial pint" -> imperial pint
-resolve th "imperial quart" -> imperial quart
-resolve th "inch" -> inch
-resolve th "japanese cup" -> japanese cup
-resolve th "kilogram" -> kilogram
-resolve th "kiloliter" -> kiloliter
-resolve th "kilometer" -> kilometer
-resolve th "liter" -> liter
-resolve th "meter" -> meter
-resolve th "metric cup" -> metric cup
-resolve th "metric dessert spoon" -> metric dessert spoon
-resolve th "metric tablespoon" -> metric tablespoon
-resolve th "metric teaspoon" -> metric teaspoon
-resolve th "milligram" -> milligram
-resolve th "milliliter" -> milliliter
-resolve th "millimeter" -> millimeter
-resolve th "minute" -> minute
-resolve th "nordic spice measure" -> nordic spice measure
-resolve th "ounce" -> ounce
-resolve th "pound" -> pound
-resolve th "second" -> second
-resolve th "us cup" -> us cup
-resolve th "us fluid ounce" -> us fluid ounce
-resolve th "us gallon" -> us gallon
-resolve th "us legal cup" -> us legal cup
-resolve th "us pint" -> us pint
-resolve th "us quart" -> us quart
-resolve th "us tablespoon" -> us tablespoon
-resolve th "us teaspoon" -> us teaspoon
 resolve th "°C" -> celsius
 resolve th "°F" -> fahrenheit
-resolve th "ºC" -> celsius
-resolve th "ºF" -> fahrenheit
 resolve th "ก." -> gram
 resolve th "กก." -> kilogram
 resolve th "กร\u{e31}ม" -> gram
@@ -12326,8 +10496,6 @@ resolve th "เซนต\u{e34}ล\u{e34}ตร" -> centiliter
 resolve th "เซนต\u{e34}เมตร" -> centimeter
 resolve th "เดซ\u{e34}ล\u{e34}ตร" -> deciliter
 resolve th "เมตร" -> meter
-resolve th "℃" -> celsius
-resolve th "℉" -> fahrenheit
 written th kiloliter -> "kiloliter"
 written th hectoliter -> "hectoliter"
 written th decaliter -> "decaliter"
@@ -12533,93 +10701,37 @@ long-written th fahrenheit 1.5 -> "1.5 องศาฟาเรนไฮต\u{e4
 long-written th fahrenheit 0 -> "0 องศาฟาเรนไฮต\u{e4c}"
 long-written th fahrenheit 12 -> "12 องศาฟาเรนไฮต\u{e4c}"
 long-written th fahrenheit 14 -> "14 องศาฟาเรนไฮต\u{e4c}"
-resolve tr "C" -> celsius
-resolve tr "F" -> fahrenheit
-resolve tr "australian tablespoon" -> australian tablespoon
-resolve tr "celsius" -> celsius
-resolve tr "centigram" -> centigram
-resolve tr "centiliter" -> centiliter
-resolve tr "centimeter" -> centimeter
 resolve tr "cl" -> centiliter
 resolve tr "cm" -> centimeter
-resolve tr "colombian libra" -> colombian libra
 resolve tr "dakika" -> minute
-resolve tr "danish knife point" -> danish knife point
-resolve tr "day" -> day
-resolve tr "decagram" -> decagram
-resolve tr "decaliter" -> decaliter
-resolve tr "decameter" -> decameter
-resolve tr "decigram" -> decigram
-resolve tr "deciliter" -> deciliter
-resolve tr "decimeter" -> decimeter
 resolve tr "desilitre" -> deciliter
 resolve tr "dk." -> minute
 resolve tr "dl" -> deciliter
 resolve tr "fahrenhayt derece" -> fahrenheit
-resolve tr "fahrenheit" -> fahrenheit
 resolve tr "fit" -> foot
-resolve tr "foot" -> foot
 resolve tr "g" -> gram
 resolve tr "gram" -> gram
 resolve tr "gün" -> day
-resolve tr "hectogram" -> hectogram
-resolve tr "hectoliter" -> hectoliter
-resolve tr "hectometer" -> hectometer
-resolve tr "hour" -> hour
-resolve tr "imperial fluid ounce" -> imperial fluid ounce
-resolve tr "imperial gallon" -> imperial gallon
-resolve tr "imperial pint" -> imperial pint
-resolve tr "imperial quart" -> imperial quart
-resolve tr "inch" -> inch
 resolve tr "inç" -> inch
-resolve tr "japanese cup" -> japanese cup
 resolve tr "kg" -> kilogram
 resolve tr "kilogram" -> kilogram
-resolve tr "kiloliter" -> kiloliter
-resolve tr "kilometer" -> kilometer
 resolve tr "l" -> liter
-resolve tr "liter" -> liter
 resolve tr "litre" -> liter
 resolve tr "m" -> meter
-resolve tr "meter" -> meter
 resolve tr "metre" -> meter
-resolve tr "metric cup" -> metric cup
-resolve tr "metric dessert spoon" -> metric dessert spoon
-resolve tr "metric tablespoon" -> metric tablespoon
-resolve tr "metric teaspoon" -> metric teaspoon
 resolve tr "mililitre" -> milliliter
 resolve tr "milimetre" -> millimeter
-resolve tr "milligram" -> milligram
-resolve tr "milliliter" -> milliliter
-resolve tr "millimeter" -> millimeter
-resolve tr "minute" -> minute
 resolve tr "ml" -> milliliter
 resolve tr "mm" -> millimeter
-resolve tr "nordic spice measure" -> nordic spice measure
-resolve tr "ounce" -> ounce
-resolve tr "pound" -> pound
 resolve tr "sa." -> hour
 resolve tr "saat" -> hour
 resolve tr "saniye" -> second
 resolve tr "santigrat derece" -> celsius
 resolve tr "santilitre" -> centiliter
 resolve tr "santimetre" -> centimeter
-resolve tr "second" -> second
 resolve tr "sn." -> second
-resolve tr "us cup" -> us cup
-resolve tr "us fluid ounce" -> us fluid ounce
-resolve tr "us gallon" -> us gallon
-resolve tr "us legal cup" -> us legal cup
-resolve tr "us pint" -> us pint
-resolve tr "us quart" -> us quart
-resolve tr "us tablespoon" -> us tablespoon
-resolve tr "us teaspoon" -> us teaspoon
 resolve tr "°C" -> celsius
 resolve tr "°F" -> fahrenheit
-resolve tr "ºC" -> celsius
-resolve tr "ºF" -> fahrenheit
-resolve tr "℃" -> celsius
-resolve tr "℉" -> fahrenheit
 written tr kiloliter -> "kiloliter"
 written tr hectoliter -> "hectoliter"
 written tr decaliter -> "decaliter"
@@ -12842,64 +10954,8 @@ long-written tr fahrenheit 1.5 -> "1.5 fahrenhayt derece"
 long-written tr fahrenheit 0 -> "0 fahrenhayt derece"
 long-written tr fahrenheit 12 -> "12 fahrenhayt derece"
 long-written tr fahrenheit 14 -> "14 fahrenhayt derece"
-resolve uk "C" -> celsius
-resolve uk "F" -> fahrenheit
-resolve uk "australian tablespoon" -> australian tablespoon
-resolve uk "celsius" -> celsius
-resolve uk "centigram" -> centigram
-resolve uk "centiliter" -> centiliter
-resolve uk "centimeter" -> centimeter
-resolve uk "colombian libra" -> colombian libra
-resolve uk "danish knife point" -> danish knife point
-resolve uk "day" -> day
-resolve uk "decagram" -> decagram
-resolve uk "decaliter" -> decaliter
-resolve uk "decameter" -> decameter
-resolve uk "decigram" -> decigram
-resolve uk "deciliter" -> deciliter
-resolve uk "decimeter" -> decimeter
-resolve uk "fahrenheit" -> fahrenheit
-resolve uk "foot" -> foot
-resolve uk "gram" -> gram
-resolve uk "hectogram" -> hectogram
-resolve uk "hectoliter" -> hectoliter
-resolve uk "hectometer" -> hectometer
-resolve uk "hour" -> hour
-resolve uk "imperial fluid ounce" -> imperial fluid ounce
-resolve uk "imperial gallon" -> imperial gallon
-resolve uk "imperial pint" -> imperial pint
-resolve uk "imperial quart" -> imperial quart
-resolve uk "inch" -> inch
-resolve uk "japanese cup" -> japanese cup
-resolve uk "kilogram" -> kilogram
-resolve uk "kiloliter" -> kiloliter
-resolve uk "kilometer" -> kilometer
-resolve uk "liter" -> liter
-resolve uk "meter" -> meter
-resolve uk "metric cup" -> metric cup
-resolve uk "metric dessert spoon" -> metric dessert spoon
-resolve uk "metric tablespoon" -> metric tablespoon
-resolve uk "metric teaspoon" -> metric teaspoon
-resolve uk "milligram" -> milligram
-resolve uk "milliliter" -> milliliter
-resolve uk "millimeter" -> millimeter
-resolve uk "minute" -> minute
-resolve uk "nordic spice measure" -> nordic spice measure
-resolve uk "ounce" -> ounce
-resolve uk "pound" -> pound
-resolve uk "second" -> second
-resolve uk "us cup" -> us cup
-resolve uk "us fluid ounce" -> us fluid ounce
-resolve uk "us gallon" -> us gallon
-resolve uk "us legal cup" -> us legal cup
-resolve uk "us pint" -> us pint
-resolve uk "us quart" -> us quart
-resolve uk "us tablespoon" -> us tablespoon
-resolve uk "us teaspoon" -> us teaspoon
 resolve uk "°C" -> celsius
 resolve uk "°F" -> fahrenheit
-resolve uk "ºC" -> celsius
-resolve uk "ºF" -> fahrenheit
 resolve uk "г" -> gram
 resolve uk "год" -> hour
 resolve uk "годин" -> hour
@@ -12979,8 +11035,6 @@ resolve uk "хв" -> minute
 resolve uk "хвилин" -> minute
 resolve uk "хвилина" -> minute
 resolve uk "хвилини" -> minute
-resolve uk "℃" -> celsius
-resolve uk "℉" -> fahrenheit
 written uk kiloliter -> "kiloliter"
 written uk hectoliter -> "hectoliter"
 written uk decaliter -> "decaliter"
@@ -13237,92 +11291,35 @@ long-written uk fahrenheit 1.5 -> "1.5 градуса Фаренгейта"
 long-written uk fahrenheit 0 -> "0 градусів Фаренгейта"
 long-written uk fahrenheit 12 -> "12 градусів Фаренгейта"
 long-written uk fahrenheit 14 -> "14 градусів Фаренгейта"
-resolve vi "C" -> celsius
-resolve vi "F" -> fahrenheit
 resolve vi "L" -> liter
-resolve vi "australian tablespoon" -> australian tablespoon
 resolve vi "cL" -> centiliter
-resolve vi "celsius" -> celsius
-resolve vi "centigram" -> centigram
-resolve vi "centiliter" -> centiliter
-resolve vi "centimeter" -> centimeter
 resolve vi "cm" -> centimeter
-resolve vi "colombian libra" -> colombian libra
 resolve vi "dL" -> deciliter
-resolve vi "danish knife point" -> danish knife point
-resolve vi "day" -> day
-resolve vi "decagram" -> decagram
-resolve vi "decaliter" -> decaliter
-resolve vi "decameter" -> decameter
-resolve vi "decigram" -> decigram
-resolve vi "deciliter" -> deciliter
-resolve vi "decimeter" -> decimeter
-resolve vi "fahrenheit" -> fahrenheit
 resolve vi "feet" -> foot
-resolve vi "foot" -> foot
 resolve vi "ft" -> foot
 resolve vi "g" -> gram
 resolve vi "gam" -> gram
 resolve vi "giây" -> second
 resolve vi "giờ" -> hour
-resolve vi "gram" -> gram
-resolve vi "hectogram" -> hectogram
-resolve vi "hectoliter" -> hectoliter
-resolve vi "hectometer" -> hectometer
-resolve vi "hour" -> hour
-resolve vi "imperial fluid ounce" -> imperial fluid ounce
-resolve vi "imperial gallon" -> imperial gallon
-resolve vi "imperial pint" -> imperial pint
-resolve vi "imperial quart" -> imperial quart
 resolve vi "inch" -> inch
-resolve vi "japanese cup" -> japanese cup
 resolve vi "kg" -> kilogram
-resolve vi "kilogram" -> kilogram
-resolve vi "kiloliter" -> kiloliter
-resolve vi "kilometer" -> kilometer
 resolve vi "kilôgam" -> kilogram
-resolve vi "liter" -> liter
 resolve vi "lít" -> liter
 resolve vi "m" -> meter
 resolve vi "mL" -> milliliter
-resolve vi "meter" -> meter
-resolve vi "metric cup" -> metric cup
-resolve vi "metric dessert spoon" -> metric dessert spoon
-resolve vi "metric tablespoon" -> metric tablespoon
-resolve vi "metric teaspoon" -> metric teaspoon
 resolve vi "mililít" -> milliliter
 resolve vi "milimét" -> millimeter
-resolve vi "milligram" -> milligram
-resolve vi "milliliter" -> milliliter
-resolve vi "millimeter" -> millimeter
-resolve vi "minute" -> minute
 resolve vi "mm" -> millimeter
 resolve vi "mét" -> meter
 resolve vi "ngày" -> day
-resolve vi "nordic spice measure" -> nordic spice measure
-resolve vi "ounce" -> ounce
 resolve vi "phút" -> minute
-resolve vi "pound" -> pound
-resolve vi "second" -> second
-resolve vi "us cup" -> us cup
-resolve vi "us fluid ounce" -> us fluid ounce
-resolve vi "us gallon" -> us gallon
-resolve vi "us legal cup" -> us legal cup
-resolve vi "us pint" -> us pint
-resolve vi "us quart" -> us quart
-resolve vi "us tablespoon" -> us tablespoon
-resolve vi "us teaspoon" -> us teaspoon
 resolve vi "xentilít" -> centiliter
 resolve vi "xentimét" -> centimeter
 resolve vi "°C" -> celsius
 resolve vi "°F" -> fahrenheit
-resolve vi "ºC" -> celsius
-resolve vi "ºF" -> fahrenheit
 resolve vi "đềxilít" -> deciliter
 resolve vi "độ C" -> celsius
 resolve vi "độ F" -> fahrenheit
-resolve vi "℃" -> celsius
-resolve vi "℉" -> fahrenheit
 written vi kiloliter -> "kiloliter"
 written vi hectoliter -> "hectoliter"
 written vi decaliter -> "decaliter"
@@ -13528,68 +11525,10 @@ long-written vi fahrenheit 1.5 -> "1.5 độ F"
 long-written vi fahrenheit 0 -> "0 độ F"
 long-written vi fahrenheit 12 -> "12 độ F"
 long-written vi fahrenheit 14 -> "14 độ F"
-resolve zh "C" -> celsius
-resolve zh "F" -> fahrenheit
-resolve zh "australian tablespoon" -> australian tablespoon
-resolve zh "celsius" -> celsius
-resolve zh "centigram" -> centigram
-resolve zh "centiliter" -> centiliter
-resolve zh "centimeter" -> centimeter
-resolve zh "colombian libra" -> colombian libra
-resolve zh "danish knife point" -> danish knife point
-resolve zh "day" -> day
-resolve zh "decagram" -> decagram
-resolve zh "decaliter" -> decaliter
-resolve zh "decameter" -> decameter
-resolve zh "decigram" -> decigram
-resolve zh "deciliter" -> deciliter
-resolve zh "decimeter" -> decimeter
-resolve zh "fahrenheit" -> fahrenheit
-resolve zh "foot" -> foot
 resolve zh "g" -> gram
-resolve zh "gram" -> gram
-resolve zh "hectogram" -> hectogram
-resolve zh "hectoliter" -> hectoliter
-resolve zh "hectometer" -> hectometer
-resolve zh "hour" -> hour
-resolve zh "imperial fluid ounce" -> imperial fluid ounce
-resolve zh "imperial gallon" -> imperial gallon
-resolve zh "imperial pint" -> imperial pint
-resolve zh "imperial quart" -> imperial quart
-resolve zh "inch" -> inch
-resolve zh "japanese cup" -> japanese cup
 resolve zh "kg" -> kilogram
-resolve zh "kilogram" -> kilogram
-resolve zh "kiloliter" -> kiloliter
-resolve zh "kilometer" -> kilometer
-resolve zh "liter" -> liter
-resolve zh "meter" -> meter
-resolve zh "metric cup" -> metric cup
-resolve zh "metric dessert spoon" -> metric dessert spoon
-resolve zh "metric tablespoon" -> metric tablespoon
-resolve zh "metric teaspoon" -> metric teaspoon
-resolve zh "milligram" -> milligram
-resolve zh "milliliter" -> milliliter
-resolve zh "millimeter" -> millimeter
-resolve zh "minute" -> minute
-resolve zh "nordic spice measure" -> nordic spice measure
-resolve zh "ounce" -> ounce
-resolve zh "pound" -> pound
-resolve zh "second" -> second
-resolve zh "us cup" -> us cup
-resolve zh "us fluid ounce" -> us fluid ounce
-resolve zh "us gallon" -> us gallon
-resolve zh "us legal cup" -> us legal cup
-resolve zh "us pint" -> us pint
-resolve zh "us quart" -> us quart
-resolve zh "us tablespoon" -> us tablespoon
-resolve zh "us teaspoon" -> us teaspoon
 resolve zh "°C" -> celsius
 resolve zh "°F" -> fahrenheit
-resolve zh "ºC" -> celsius
-resolve zh "ºF" -> fahrenheit
-resolve zh "℃" -> celsius
-resolve zh "℉" -> fahrenheit
 resolve zh "克" -> gram
 resolve zh "分升" -> deciliter
 resolve zh "分钟" -> minute
@@ -13813,66 +11752,8 @@ long-written zh fahrenheit 1.5 -> "1.5华氏度"
 long-written zh fahrenheit 0 -> "0华氏度"
 long-written zh fahrenheit 12 -> "12华氏度"
 long-written zh fahrenheit 14 -> "14华氏度"
-resolve zh-Hant "C" -> celsius
-resolve zh-Hant "F" -> fahrenheit
-resolve zh-Hant "australian tablespoon" -> australian tablespoon
-resolve zh-Hant "celsius" -> celsius
-resolve zh-Hant "centigram" -> centigram
-resolve zh-Hant "centiliter" -> centiliter
-resolve zh-Hant "centimeter" -> centimeter
-resolve zh-Hant "colombian libra" -> colombian libra
-resolve zh-Hant "danish knife point" -> danish knife point
-resolve zh-Hant "day" -> day
-resolve zh-Hant "decagram" -> decagram
-resolve zh-Hant "decaliter" -> decaliter
-resolve zh-Hant "decameter" -> decameter
-resolve zh-Hant "decigram" -> decigram
-resolve zh-Hant "deciliter" -> deciliter
-resolve zh-Hant "decimeter" -> decimeter
-resolve zh-Hant "fahrenheit" -> fahrenheit
-resolve zh-Hant "foot" -> foot
-resolve zh-Hant "gram" -> gram
-resolve zh-Hant "hectogram" -> hectogram
-resolve zh-Hant "hectoliter" -> hectoliter
-resolve zh-Hant "hectometer" -> hectometer
-resolve zh-Hant "hour" -> hour
-resolve zh-Hant "imperial fluid ounce" -> imperial fluid ounce
-resolve zh-Hant "imperial gallon" -> imperial gallon
-resolve zh-Hant "imperial pint" -> imperial pint
-resolve zh-Hant "imperial quart" -> imperial quart
-resolve zh-Hant "inch" -> inch
-resolve zh-Hant "japanese cup" -> japanese cup
-resolve zh-Hant "kilogram" -> kilogram
-resolve zh-Hant "kiloliter" -> kiloliter
-resolve zh-Hant "kilometer" -> kilometer
-resolve zh-Hant "liter" -> liter
-resolve zh-Hant "meter" -> meter
-resolve zh-Hant "metric cup" -> metric cup
-resolve zh-Hant "metric dessert spoon" -> metric dessert spoon
-resolve zh-Hant "metric tablespoon" -> metric tablespoon
-resolve zh-Hant "metric teaspoon" -> metric teaspoon
-resolve zh-Hant "milligram" -> milligram
-resolve zh-Hant "milliliter" -> milliliter
-resolve zh-Hant "millimeter" -> millimeter
-resolve zh-Hant "minute" -> minute
-resolve zh-Hant "nordic spice measure" -> nordic spice measure
-resolve zh-Hant "ounce" -> ounce
-resolve zh-Hant "pound" -> pound
-resolve zh-Hant "second" -> second
-resolve zh-Hant "us cup" -> us cup
-resolve zh-Hant "us fluid ounce" -> us fluid ounce
-resolve zh-Hant "us gallon" -> us gallon
-resolve zh-Hant "us legal cup" -> us legal cup
-resolve zh-Hant "us pint" -> us pint
-resolve zh-Hant "us quart" -> us quart
-resolve zh-Hant "us tablespoon" -> us tablespoon
-resolve zh-Hant "us teaspoon" -> us teaspoon
 resolve zh-Hant "°C" -> celsius
 resolve zh-Hant "°F" -> fahrenheit
-resolve zh-Hant "ºC" -> celsius
-resolve zh-Hant "ºF" -> fahrenheit
-resolve zh-Hant "℃" -> celsius
-resolve zh-Hant "℉" -> fahrenheit
 resolve zh-Hant "克" -> gram
 resolve zh-Hant "公分" -> centimeter
 resolve zh-Hant "公升" -> liter

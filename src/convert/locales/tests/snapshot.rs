@@ -8,6 +8,10 @@
 //! `show-locale-as-md` pages. The test fails when a committed copy differs or
 //! a file is left behind that is no longer generated; `UPDATE_UNITS_DOC=1
 //! cargo test` rewrites them, and the diff is the review.
+//!
+//! What a rule implies is not repeated here: an identifier resolving to itself, a universal alias, an unnamed unit
+//! written by its identifier. Each such rule has a unit test in `tests/mod.rs`, and pinning its consequences per
+//! locale would only multiply the diff when the rule changed.
 
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -15,7 +19,7 @@ use std::fmt::Write;
 use icu_locale_core::subtags::{region, Region};
 
 use crate::convert::locales::legacy::{legacy_locale, LEGACY_PREFERENCES};
-use crate::convert::locales::locale::{Locale, UNIVERSAL_ALIASES};
+use crate::convert::locales::locale::Locale;
 use crate::convert::locales::preference::{
     best_amount, best_unit, official_system, Audience, Row, System, Units, PREFERENCES,
     REGION_PREFERENCES,
@@ -137,16 +141,10 @@ fn audience_name(audience: Audience) -> String {
 fn render_decisions(out: &mut String, tag: &str, locale: &Locale) {
     let mut inputs: Vec<(String, &'static str)> = Unit::all()
         .flat_map(|unit| {
-            let own = locale
+            locale
                 .names(unit)
                 .into_iter()
-                .flat_map(|names| names.symbol.iter().chain(&names.aliases).cloned());
-            let universal = UNIVERSAL_ALIASES
-                .iter()
-                .filter(move |(id, _)| *id == unit.id())
-                .flat_map(|(_, aliases)| aliases.iter().map(|a| (*a).to_string()));
-            own.chain(std::iter::once(unit.id().to_string()))
-                .chain(universal)
+                .flat_map(|names| names.symbol.iter().chain(&names.aliases).cloned())
                 .map(move |s| (s, unit.id()))
         })
         .collect();

@@ -78,6 +78,12 @@ fn the_identifier_resolves_in_every_locale() {
     for unit in Unit::all() {
         assert_eq!(empty.resolve(empty.written(unit)), Some(unit), "{unit:?}");
     }
+    for tag in vendored_tags() {
+        let locale = vendored_locale(tag).unwrap();
+        for unit in Unit::all() {
+            assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {}", unit.id());
+        }
+    }
 }
 
 #[test]
