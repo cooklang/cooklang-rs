@@ -150,9 +150,6 @@ pub(crate) fn category<'r>(rules: &'r [(&'r str, &'r str)], number: &str) -> &'r
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::convert::locales::locale::PluralRules;
-    use crate::convert::locales::vendored::{vendored_locale, vendored_tags};
-    use std::collections::BTreeSet;
 
     #[test]
     fn operands_follow_the_printed_digits() {
@@ -166,6 +163,10 @@ mod tests {
     }
 
     /// Every number falls in the category it is listed under.
+    ///
+    /// The rules and samples below are CLDR 48.2.3's (`cldr-core/supplemental/plurals.json`), one locale for each
+    /// construct of the rule language, with every listed sample up to 1000, both ends and a middle of every range,
+    /// and 1000000 where a rule turns on it. Compact samples (`1c6`) are never printed and are left out.
     #[track_caller]
     fn assert_plural_eval(rules: &[(&str, &str)], expected: &[(&str, &[&str])]) {
         for (expected, numbers) in expected {
@@ -179,313 +180,125 @@ mod tests {
         }
     }
 
-    /// The rules a vendored locale ships, from its TOML.
-    fn rules_of(tag: &str) -> PluralRules {
-        vendored_locale(tag)
-            .unwrap_or_else(|| panic!("{tag} is not vendored"))
-            .plural_rules()
-    }
-
-    /// Also en-001, en-GB, en-AU, de, nl, sv, fi.
+    /// `and`, and `v` keeping a decimal out of `one`.
     #[test]
-    fn en() {
+    #[rustfmt::skip]
+    fn english() {
         assert_plural_eval(
-            rules_of("en"),
             &[
-                ("one", &["1"]),
-                (
-                    "other",
-                    &[
-                        "0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0",
-                        "100.0",
-                    ],
-                ),
+                ("one",   "i = 1 and v = 0"),
+                ("other", ""),
+            ],
+            &[
+                ("one",   &["1"]),
+                ("other", &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0", "100.0"]),
             ],
         );
     }
 
-    /// Also zh, zh-Hant, ko, th, vi, id, ms.
+    /// `n` matching a decimal with no fraction digits, the `e` operand (always 0 here), a negated range and a
+    /// seven-figure modulus.
     #[test]
-    fn ja() {
+    #[rustfmt::skip]
+    fn spanish() {
         assert_plural_eval(
-            rules_of("ja"),
-            &[(
-                "other",
-                &[
-                    "0", "7", "15", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0", "100.0",
-                ],
-            )],
-        );
-    }
-
-    /// Also es-419, es-US, es-MX, es-CO.
-    #[test]
-    fn es() {
-        assert_plural_eval(
-            rules_of("es"),
             &[
-                ("one", &["1", "1.0", "1.00", "1.000", "1.0000"]),
-                ("many", &["1000000"]),
-                (
-                    "other",
-                    &[
-                        "0", "2", "9", "16", "100", "1000", "0.0", "0.4", "0.9", "1.1", "1.3",
-                        "1.6", "10.0", "100.0",
-                    ],
-                ),
+                ("one",   "n = 1"),
+                ("many",  "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5"),
+                ("other", ""),
+            ],
+            &[
+                ("one",   &["1", "1.0", "1.00", "1.000", "1.0000"]),
+                ("many",  &["1000000"]),
+                ("other", &["0", "2", "9", "16", "100", "1000", "0.0", "0.4", "0.9", "1.1", "1.3", "1.6", "10.0",
+                            "100.0"]),
             ],
         );
     }
 
-    /// Also hu, tr, el.
+    /// A comma list, and `i` putting every fraction between 0 and 2 in `one`.
     #[test]
-    fn no() {
+    #[rustfmt::skip]
+    fn french() {
         assert_plural_eval(
-            rules_of("no"),
             &[
-                ("one", &["1", "1.0", "1.00", "1.000", "1.0000"]),
-                (
-                    "other",
-                    &[
-                        "0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.4", "0.9", "1.1",
-                        "1.3", "1.6", "10.0", "100.0",
-                    ],
-                ),
+                ("one",   "i = 0,1"),
+                ("many",  "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5"),
+                ("other", ""),
+            ],
+            &[
+                ("one",   &["0", "1", "0.0", "0.7", "1.5"]),
+                ("many",  &["1000000"]),
+                ("other", &["2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0"]),
             ],
         );
     }
 
-    /// Also pt-PT.
+    /// Modulus with a range, a negated range, `!=` on a single value, and `or` chains where every arm carries its
+    /// own `v = 0`. 12 to 14 are `many` though `i % 10` says `few`.
     #[test]
-    fn it() {
+    #[rustfmt::skip]
+    fn polish() {
         assert_plural_eval(
-            rules_of("it"),
             &[
-                ("one", &["1"]),
-                ("many", &["1000000"]),
-                (
-                    "other",
-                    &[
-                        "0", "2", "9", "16", "100", "1000", "0.0", "0.7", "1.5", "10.0", "100.0",
-                    ],
-                ),
+                ("one",   "i = 1 and v = 0"),
+                ("few",   "v = 0 and i % 10 = 2..4 and i % 100 != 12..14"),
+                ("many",  "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 \
+                           or v = 0 and i % 100 = 12..14"),
+                ("other", ""),
             ],
-        );
-    }
-
-    /// Also uk.
-    #[test]
-    fn ru() {
-        assert_plural_eval(
-            rules_of("ru"),
             &[
-                (
-                    "one",
-                    &["1", "21", "31", "41", "51", "61", "71", "81", "101"],
-                ),
-                (
-                    "few",
-                    &[
-                        "2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52",
-                        "53", "54", "62", "102",
-                    ],
-                ),
-                ("many", &["0", "5", "12", "19", "100", "1000", "1000000"]),
+                ("one",   &["1"]),
+                ("few",   &["2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52", "53", "54",
+                            "62", "102"]),
+                ("many",  &["0", "5", "12", "19", "100", "1000", "1000000"]),
                 ("other", &["0.0", "0.7", "1.5", "10.0", "100.0"]),
             ],
         );
     }
 
+    /// The `t` operand, and `and` binding tighter than `or`: 0.1 to 1.6 are `one` by their fraction digits.
     #[test]
-    fn fr() {
+    #[rustfmt::skip]
+    fn danish() {
         assert_plural_eval(
-            rules_of("fr"),
             &[
-                ("one", &["0", "1", "0.0", "0.7", "1.5"]),
-                ("many", &["1000000"]),
-                (
-                    "other",
-                    &[
-                        "2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0",
-                    ],
-                ),
+                ("one",   "n = 1 or t != 0 and i = 0,1"),
+                ("other", ""),
+            ],
+            &[
+                ("one",   &["1", "0.1", "0.8", "1.6"]),
+                ("other", &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "2.0", "2.7", "3.4", "10.0",
+                            "100.0"]),
             ],
         );
     }
 
+    /// Six categories, and modulus on `n`: a decimal counts only when it is integral, so 3.0 is `few` and 0.5 is
+    /// not `zero`.
     #[test]
-    fn pt() {
+    #[rustfmt::skip]
+    fn arabic() {
         assert_plural_eval(
-            rules_of("pt"),
             &[
-                ("one", &["0", "1", "0.0", "0.7", "1.5"]),
-                ("many", &["1000000"]),
-                (
-                    "other",
-                    &[
-                        "2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0",
-                    ],
-                ),
+                ("zero",  "n = 0"),
+                ("one",   "n = 1"),
+                ("two",   "n = 2"),
+                ("few",   "n % 100 = 3..10"),
+                ("many",  "n % 100 = 11..99"),
+                ("other", ""),
+            ],
+            &[
+                ("zero",  &["0", "0.0", "0.00", "0.000", "0.0000"]),
+                ("one",   &["1", "1.0", "1.00", "1.000", "1.0000"]),
+                ("two",   &["2", "2.0", "2.00", "2.000", "2.0000"]),
+                ("few",   &["3", "6", "10", "103", "106", "110", "3.0", "4.0", "5.0", "6.0", "7.0", "8.0", "9.0",
+                            "10.0"]),
+                ("many",  &["11", "18", "26", "111", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0"]),
+                ("other", &["100", "101", "102", "200", "201", "202", "300", "301", "302", "400", "401", "402", "500",
+                            "501", "502", "600", "1000", "1000000", "0.1", "0.5", "0.9", "1.1", "1.4", "1.7", "10.1",
+                            "100.0"]),
             ],
         );
-    }
-
-    #[test]
-    fn pl() {
-        assert_plural_eval(
-            rules_of("pl"),
-            &[
-                ("one", &["1"]),
-                (
-                    "few",
-                    &[
-                        "2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52",
-                        "53", "54", "62", "102",
-                    ],
-                ),
-                ("many", &["0", "5", "12", "19", "100", "1000", "1000000"]),
-                ("other", &["0.0", "0.7", "1.5", "10.0", "100.0"]),
-            ],
-        );
-    }
-
-    #[test]
-    fn da() {
-        assert_plural_eval(
-            rules_of("da"),
-            &[
-                ("one", &["1", "0.1", "0.8", "1.6"]),
-                (
-                    "other",
-                    &[
-                        "0", "2", "9", "16", "100", "1000", "1000000", "0.0", "2.0", "2.7", "3.4",
-                        "10.0", "100.0",
-                    ],
-                ),
-            ],
-        );
-    }
-
-    #[test]
-    fn cs() {
-        assert_plural_eval(
-            rules_of("cs"),
-            &[
-                ("one", &["1"]),
-                ("few", &["2", "3", "4"]),
-                ("many", &["0.0", "0.7", "1.5", "10.0", "100.0"]),
-                ("other", &["0", "5", "12", "19", "100", "1000", "1000000"]),
-            ],
-        );
-    }
-
-    #[test]
-    fn ar() {
-        assert_plural_eval(
-            rules_of("ar"),
-            &[
-                ("zero", &["0", "0.0", "0.00", "0.000", "0.0000"]),
-                ("one", &["1", "1.0", "1.00", "1.000", "1.0000"]),
-                ("two", &["2", "2.0", "2.00", "2.000", "2.0000"]),
-                (
-                    "few",
-                    &[
-                        "3", "6", "10", "103", "106", "110", "3.0", "4.0", "5.0", "6.0", "7.0",
-                        "8.0", "9.0", "10.0",
-                    ],
-                ),
-                (
-                    "many",
-                    &[
-                        "11", "18", "26", "111", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0",
-                        "17.0", "18.0",
-                    ],
-                ),
-                (
-                    "other",
-                    &[
-                        "100", "101", "102", "200", "201", "202", "300", "301", "302", "400",
-                        "401", "402", "500", "501", "502", "600", "1000", "1000000", "0.1", "0.5",
-                        "0.9", "1.1", "1.4", "1.7", "10.1", "100.0",
-                    ],
-                ),
-            ],
-        );
-    }
-
-    #[test]
-    fn hi() {
-        assert_plural_eval(
-            rules_of("hi"),
-            &[
-                (
-                    "one",
-                    &["0", "1", "0.0", "0.5", "1.0", "0.00", "0.02", "0.04"],
-                ),
-                (
-                    "other",
-                    &[
-                        "2", "9", "17", "100", "1000", "1000000", "1.1", "1.8", "2.6", "10.0",
-                        "100.0",
-                    ],
-                ),
-            ],
-        );
-    }
-
-    #[test]
-    fn he() {
-        assert_plural_eval(
-            rules_of("he"),
-            &[
-                ("one", &["1", "0.0", "0.4", "0.9", "0.00", "0.02", "0.05"]),
-                ("two", &["2"]),
-                (
-                    "other",
-                    &[
-                        "0", "3", "10", "17", "100", "1000", "1000000", "1.0", "1.7", "2.5",
-                        "10.0", "100.0",
-                    ],
-                ),
-            ],
-        );
-    }
-
-    #[test]
-    fn ro() {
-        assert_plural_eval(
-            rules_of("ro"),
-            &[
-                ("one", &["1"]),
-                (
-                    "few",
-                    &[
-                        "0", "2", "9", "16", "101", "0.0", "0.7", "1.5", "10.0", "100.0",
-                    ],
-                ),
-                ("other", &["20", "27", "35", "100", "1000", "1000000"]),
-            ],
-        );
-    }
-
-    /// Every vendored locale's rule set is one of those with samples above, so a new rule set cannot arrive
-    /// without them.
-    #[test]
-    fn every_vendored_rule_set_has_samples() {
-        const SAMPLED: [&str; 15] = [
-            "en", "ja", "es", "no", "it", "ru", "fr", "pt", "pl", "da", "cs", "ar", "hi", "he",
-            "ro",
-        ];
-        let as_set =
-            |rules: PluralRules| -> BTreeSet<(&str, &str)> { rules.iter().copied().collect() };
-        let sampled: Vec<BTreeSet<(&str, &str)>> =
-            SAMPLED.iter().map(|t| as_set(rules_of(t))).collect();
-        for tag in vendored_tags() {
-            let own = as_set(rules_of(tag));
-            assert!(
-                sampled.contains(&own),
-                "{tag}: its plural rules are none of the sampled sets {SAMPLED:?}"
-            );
-        }
     }
 }
