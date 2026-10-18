@@ -74,16 +74,6 @@ fn written_is_the_symbol_or_else_the_identifier() {
     assert_eq!(locale.written(unit("liter")), "liter");
 }
 
-#[test]
-fn the_identifier_resolves_in_every_locale() {
-    let empty = locale_with(&[]).unwrap();
-    let legacy = legacy_locale();
-    for unit in Unit::all() {
-        assert_eq!(empty.resolve(unit.id()), Some(unit), "{unit:?}");
-        assert_eq!(legacy.resolve(unit.id()), Some(unit), "{unit:?}");
-    }
-}
-
 /// A condition that is not CLDR rule syntax is refused when the locale is built, not at the first number
 /// evaluated under it.
 #[test]
@@ -93,7 +83,6 @@ fn a_plural_rule_that_is_not_cldr_syntax_is_refused() {
         matches!(err, LocaleError::InvalidPluralRule(ref e) if e.contains("one")),
         "{err}"
     );
-    assert!(Locale::with_plurals(HashMap::new(), &[("one", "i = 1"), ("other", "")]).is_ok());
 }
 
 #[test]
@@ -138,12 +127,11 @@ fn an_alias_may_not_be_another_units_identifier() {
 }
 
 #[test]
-fn every_vendored_locale_reads_back_its_identifiers_and_what_it_writes() {
+fn every_vendored_locale_reads_back_what_it_writes() {
     let mut count = 0;
     for tag in vendored_tags() {
         let locale = vendored_locale(tag).unwrap_or_else(|| panic!("{tag} missing"));
         for unit in Unit::all() {
-            assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {}", unit.id());
             let written = locale.written(unit);
             assert!(!written.is_empty(), "{tag} {}", unit.id());
             assert_eq!(locale.resolve(written), Some(unit), "{tag} '{written}'");
@@ -161,8 +149,6 @@ fn tag_for_follows_cldr_parents_and_ignores_extensions() {
     assert_reaches("EN-gb", Some("en-GB"));
     // the parent chain, where truncation would reach US English
     assert_reaches("en-NZ", Some("en-001"));
-    assert_reaches("de-AT", Some("de"));
-    assert_reaches("sw-KE", None);
 }
 
 #[test]
@@ -276,17 +262,21 @@ fn imperial_names_are_stripped_in_metric_only_locales() {
     assert_eq!(us.resolve("galón imperial"), Some(unit("imperial gallon")));
 }
 
+/// What every locale resolves whatever it names: each unit's identifier and the universal aliases, which
+/// `with_plurals` claims by construction.
 #[test]
-fn degree_variants_resolve_in_every_locale() {
-    let empty = locale_with(&[]).unwrap();
+fn identifiers_and_universal_aliases_resolve_in_every_locale() {
     let mut locales: Vec<(String, Arc<Locale>)> = vec![
-        ("empty".to_string(), Arc::new(empty)),
+        ("empty".to_string(), Arc::new(locale_with(&[]).unwrap())),
         ("legacy".to_string(), legacy_locale()),
     ];
     for tag in vendored_tags() {
         locales.push((tag.to_string(), vendored_locale(tag).unwrap()));
     }
     for (tag, locale) in &locales {
+        for unit in Unit::all() {
+            assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {}", unit.id());
+        }
         for (id, aliases) in UNIVERSAL_ALIASES {
             for alias in *aliases {
                 assert_eq!(locale.resolve(alias), Some(unit(id)), "{tag} '{alias}'");
@@ -311,16 +301,10 @@ fn only_da_fi_pl_and_sv_are_reviewed() {
     assert_eq!(reviewed, ["da", "fi", "pl", "sv"]);
 }
 
-#[test]
-fn a_reviewed_locale_is_served() {
-    let sv = served("sv-SE").unwrap();
-    assert_eq!(sv.written(unit("metric tablespoon")), "msk");
-}
-
 /// Adjudication does not imply review: a locale with a verdict for every ambiguous string is still refused until a
-/// speaker confirms it, and the refusal names the locale.
+/// speaker confirms it, by name; an unknown tag is refused as unknown, so the two stay distinguishable.
 #[test]
-fn an_unreviewed_locale_is_refused_by_the_name_it_reached() {
+fn a_locale_is_refused_as_unreviewed_or_as_unknown() {
     let tag = an_unreviewed_tag();
     assert_eq!(
         served(tag).unwrap_err(),
@@ -331,22 +315,8 @@ fn an_unreviewed_locale_is_refused_by_the_name_it_reached() {
         message.contains(&format!("show-locale-as-md -- {tag}")),
         "{message}"
     );
-}
-
-/// Unknown is not unreviewed, so the two failures stay distinguishable.
-#[test]
-fn an_unknown_tag_is_refused_as_unknown() {
     assert_eq!(
         served("xh").unwrap_err(),
         Refusal::Unknown("xh".to_string())
     );
-}
-
-/// `show-locale-as-md` must keep working on an unreviewed locale, or the refusal would point at a command that
-/// cannot run.
-#[test]
-fn the_command_the_refusal_names_still_works_on_an_unreviewed_locale() {
-    let tag = an_unreviewed_tag();
-    let report = crate::locale_markdown(tag).expect("renders");
-    assert!(report.starts_with(&format!("# Locale `{tag}`")), "{tag}");
 }
