@@ -382,10 +382,7 @@ fn generate_bundled() {
 /// adding a name means adding a line and refusing one means not having it.
 /// Names a locale must *not* resolve are a comment at the foot of its file --
 /// prose, because that is all they ever were.
-///
-/// Returns the tags, which `generate_preferences` does not need but the
-/// caller does.
-fn generate_locales() -> Vec<String> {
+fn generate_locales() {
     use std::collections::BTreeMap;
 
     #[derive(serde::Deserialize)]
@@ -429,13 +426,13 @@ fn generate_locales() -> Vec<String> {
         sources: Vec<String>,
     }
 
-    // every locales/*.toml except the two that are not locales
+    // every locales/*.toml but the parent chain; preferences/ is a directory
     let mut files: Vec<String> = std::fs::read_dir("locales")
         .expect("locales/ exists")
         .filter_map(|entry| {
             let name = entry.unwrap().file_name().to_string_lossy().to_string();
             let stem = name.strip_suffix(".toml")?.to_string();
-            (!matches!(stem.as_str(), "preferences" | "parent-locales")).then_some(stem)
+            (stem != "parent-locales").then_some(stem)
         })
         .collect();
     files.sort();
@@ -522,8 +519,6 @@ fn generate_locales() -> Vec<String> {
 
     let dest = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("cldr_locales.rs");
     std::fs::write(dest, meta + "\n" + &built).unwrap();
-
-    files
 }
 
 /// Emits CLDR's explicit parent chain, so that `en-NZ` reaches `en-001` and
