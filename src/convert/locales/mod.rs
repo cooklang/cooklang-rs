@@ -11,4 +11,4 @@ pub(crate) mod tag;
 pub(crate) mod vendored;
 
 #[cfg(test)]
-mod tests;
+mod snapshot;

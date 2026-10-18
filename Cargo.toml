@@ -13,7 +13,7 @@ readme = "README.md"
 # Test fixtures and dev tooling a consumer never needs. The snapshots alone are
 # ~700 KB; `.direnv` is a Nix symlink farm.
 exclude = [
-    "src/convert/locales/tests/snapshots/**",
+    "src/convert/locales/snapshots/**",
     ".direnv/**",
     "playground/**",
     "docs/**",
