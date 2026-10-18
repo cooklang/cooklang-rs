@@ -227,17 +227,21 @@ mod tests {
         assert!(LocaleTag::parse("").is_err());
     }
 
+    #[track_caller]
+    fn assert_identifier(tag: &str, expected: &str) {
+        assert_eq!(
+            LocaleTag::parse(tag).unwrap().language_identifier(),
+            expected
+        );
+    }
+
     #[test]
     fn the_language_identifier_drops_extensions() {
         // this is what locale data is keyed by; truncation would reach the same place for these, but only by
         // accident
-        for (tag, id) in [
-            ("en-GB-u-ms-metric", "en-GB"),
-            ("es-MX-u-rg-uszzzz", "es-MX"),
-            ("en-u-ms-uksystem", "en"),
-            ("EN-gb", "en-GB"),
-        ] {
-            assert_eq!(LocaleTag::parse(tag).unwrap().language_identifier(), id);
-        }
+        assert_identifier("en-GB-u-ms-metric", "en-GB");
+        assert_identifier("es-MX-u-rg-uszzzz", "es-MX");
+        assert_identifier("en-u-ms-uksystem", "en");
+        assert_identifier("EN-gb", "en-GB");
     }
 }
