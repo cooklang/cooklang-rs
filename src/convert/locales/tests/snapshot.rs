@@ -279,7 +279,12 @@ fn render_derived(out: &mut String, tags: &[&str]) {
         )
         .unwrap();
     }
-    for audience in audiences() {
+    // `-u-mu-` overrides temperature only: both directions, the other quantities as witnesses that nothing else moves
+    let overrides = [
+        Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit),
+        Audience::system(System::UsCustomary).with_temperature(TemperatureUnit::Celsius),
+    ];
+    for audience in audiences().into_iter().chain(overrides) {
         for (unit, value) in sweep() {
             let chosen = best_unit(value, unit, audience);
             writeln!(
@@ -308,24 +313,6 @@ fn render_derived(out: &mut String, tags: &[&str]) {
                 )
                 .unwrap();
             }
-        }
-    }
-    // `-u-mu-` overrides temperature only: both directions, the other quantities as witnesses that nothing else moves
-    let overrides = [
-        Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit),
-        Audience::system(System::UsCustomary).with_temperature(TemperatureUnit::Celsius),
-    ];
-    for audience in overrides {
-        for (unit, value) in sweep() {
-            let chosen = best_unit(value, unit, audience);
-            writeln!(
-                out,
-                "best {} {value} {} -> {}",
-                audience_name(audience),
-                unit.id(),
-                chosen.id()
-            )
-            .unwrap();
         }
     }
 }

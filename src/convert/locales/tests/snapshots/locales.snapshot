@@ -7021,6 +7021,124 @@ best region:CO 1 celsius -> celsius
 best region:CO 100 celsius -> celsius
 best region:CO 180 celsius -> celsius
 best region:CO 350 celsius -> celsius
+best region:CA+mu:Fahrenheit 0.25 milliliter -> metric teaspoon
+best region:CA+mu:Fahrenheit 0.5 milliliter -> metric teaspoon
+best region:CA+mu:Fahrenheit 1 milliliter -> metric teaspoon
+best region:CA+mu:Fahrenheit 2.5 milliliter -> metric teaspoon
+best region:CA+mu:Fahrenheit 5 milliliter -> metric teaspoon
+best region:CA+mu:Fahrenheit 10 milliliter -> metric teaspoon
+best region:CA+mu:Fahrenheit 15 milliliter -> metric tablespoon
+best region:CA+mu:Fahrenheit 20 milliliter -> metric tablespoon
+best region:CA+mu:Fahrenheit 30 milliliter -> metric tablespoon
+best region:CA+mu:Fahrenheit 50 milliliter -> metric tablespoon
+best region:CA+mu:Fahrenheit 60 milliliter -> metric tablespoon
+best region:CA+mu:Fahrenheit 100 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 150 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 250 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 300 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 500 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 600 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 1000 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 2500 milliliter -> metric cup
+best region:CA+mu:Fahrenheit 0.5 gram -> milligram
+best region:CA+mu:Fahrenheit 1 gram -> gram
+best region:CA+mu:Fahrenheit 5 gram -> gram
+best region:CA+mu:Fahrenheit 10 gram -> gram
+best region:CA+mu:Fahrenheit 28 gram -> gram
+best region:CA+mu:Fahrenheit 100 gram -> gram
+best region:CA+mu:Fahrenheit 125 gram -> gram
+best region:CA+mu:Fahrenheit 250 gram -> gram
+best region:CA+mu:Fahrenheit 450 gram -> gram
+best region:CA+mu:Fahrenheit 500 gram -> gram
+best region:CA+mu:Fahrenheit 1000 gram -> kilogram
+best region:CA+mu:Fahrenheit 2500 gram -> kilogram
+best region:CA+mu:Fahrenheit 0.5 millimeter -> millimeter
+best region:CA+mu:Fahrenheit 1 millimeter -> millimeter
+best region:CA+mu:Fahrenheit 5 millimeter -> millimeter
+best region:CA+mu:Fahrenheit 10 millimeter -> centimeter
+best region:CA+mu:Fahrenheit 25.4 millimeter -> centimeter
+best region:CA+mu:Fahrenheit 100 millimeter -> centimeter
+best region:CA+mu:Fahrenheit 254 millimeter -> centimeter
+best region:CA+mu:Fahrenheit 304.8 millimeter -> centimeter
+best region:CA+mu:Fahrenheit 1000 millimeter -> meter
+best region:CA+mu:Fahrenheit 2000 millimeter -> meter
+best region:CA+mu:Fahrenheit 0.5 second -> second
+best region:CA+mu:Fahrenheit 1 second -> second
+best region:CA+mu:Fahrenheit 30 second -> second
+best region:CA+mu:Fahrenheit 59 second -> second
+best region:CA+mu:Fahrenheit 60 second -> minute
+best region:CA+mu:Fahrenheit 90 second -> minute
+best region:CA+mu:Fahrenheit 3599 second -> minute
+best region:CA+mu:Fahrenheit 3600 second -> hour
+best region:CA+mu:Fahrenheit 5400 second -> hour
+best region:CA+mu:Fahrenheit 86400 second -> day
+best region:CA+mu:Fahrenheit 172800 second -> day
+best region:CA+mu:Fahrenheit -18 celsius -> fahrenheit
+best region:CA+mu:Fahrenheit 0 celsius -> fahrenheit
+best region:CA+mu:Fahrenheit 0.5 celsius -> fahrenheit
+best region:CA+mu:Fahrenheit 1 celsius -> fahrenheit
+best region:CA+mu:Fahrenheit 100 celsius -> fahrenheit
+best region:CA+mu:Fahrenheit 180 celsius -> fahrenheit
+best region:CA+mu:Fahrenheit 350 celsius -> fahrenheit
+best system:UsCustomary+mu:Celsius 0.25 milliliter -> us teaspoon
+best system:UsCustomary+mu:Celsius 0.5 milliliter -> us teaspoon
+best system:UsCustomary+mu:Celsius 1 milliliter -> us teaspoon
+best system:UsCustomary+mu:Celsius 2.5 milliliter -> us teaspoon
+best system:UsCustomary+mu:Celsius 5 milliliter -> us teaspoon
+best system:UsCustomary+mu:Celsius 10 milliliter -> us teaspoon
+best system:UsCustomary+mu:Celsius 15 milliliter -> us tablespoon
+best system:UsCustomary+mu:Celsius 20 milliliter -> us tablespoon
+best system:UsCustomary+mu:Celsius 30 milliliter -> us fluid ounce
+best system:UsCustomary+mu:Celsius 50 milliliter -> us fluid ounce
+best system:UsCustomary+mu:Celsius 60 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 100 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 150 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 250 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 300 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 500 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 600 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 1000 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 2500 milliliter -> us cup
+best system:UsCustomary+mu:Celsius 0.5 gram -> ounce
+best system:UsCustomary+mu:Celsius 1 gram -> ounce
+best system:UsCustomary+mu:Celsius 5 gram -> ounce
+best system:UsCustomary+mu:Celsius 10 gram -> ounce
+best system:UsCustomary+mu:Celsius 28 gram -> ounce
+best system:UsCustomary+mu:Celsius 100 gram -> ounce
+best system:UsCustomary+mu:Celsius 125 gram -> ounce
+best system:UsCustomary+mu:Celsius 250 gram -> ounce
+best system:UsCustomary+mu:Celsius 450 gram -> ounce
+best system:UsCustomary+mu:Celsius 500 gram -> pound
+best system:UsCustomary+mu:Celsius 1000 gram -> pound
+best system:UsCustomary+mu:Celsius 2500 gram -> pound
+best system:UsCustomary+mu:Celsius 0.5 millimeter -> inch
+best system:UsCustomary+mu:Celsius 1 millimeter -> inch
+best system:UsCustomary+mu:Celsius 5 millimeter -> inch
+best system:UsCustomary+mu:Celsius 10 millimeter -> inch
+best system:UsCustomary+mu:Celsius 25.4 millimeter -> inch
+best system:UsCustomary+mu:Celsius 100 millimeter -> inch
+best system:UsCustomary+mu:Celsius 254 millimeter -> inch
+best system:UsCustomary+mu:Celsius 304.8 millimeter -> foot
+best system:UsCustomary+mu:Celsius 1000 millimeter -> foot
+best system:UsCustomary+mu:Celsius 2000 millimeter -> foot
+best system:UsCustomary+mu:Celsius 0.5 second -> second
+best system:UsCustomary+mu:Celsius 1 second -> second
+best system:UsCustomary+mu:Celsius 30 second -> second
+best system:UsCustomary+mu:Celsius 59 second -> second
+best system:UsCustomary+mu:Celsius 60 second -> minute
+best system:UsCustomary+mu:Celsius 90 second -> minute
+best system:UsCustomary+mu:Celsius 3599 second -> minute
+best system:UsCustomary+mu:Celsius 3600 second -> hour
+best system:UsCustomary+mu:Celsius 5400 second -> hour
+best system:UsCustomary+mu:Celsius 86400 second -> day
+best system:UsCustomary+mu:Celsius 172800 second -> day
+best system:UsCustomary+mu:Celsius -18 celsius -> celsius
+best system:UsCustomary+mu:Celsius 0 celsius -> celsius
+best system:UsCustomary+mu:Celsius 0.5 celsius -> celsius
+best system:UsCustomary+mu:Celsius 1 celsius -> celsius
+best system:UsCustomary+mu:Celsius 100 celsius -> celsius
+best system:UsCustomary+mu:Celsius 180 celsius -> celsius
+best system:UsCustomary+mu:Celsius 350 celsius -> celsius
 amount system:Metric 0.3 milliliter -> 0.3 milliliter
 amount system:Metric 0.5 milliliter -> 0.5 milliliter
 amount system:Metric 0.75 milliliter -> 0.75 milliliter
@@ -8125,121 +8243,3 @@ amount region:CO 3 celsius -> 3 celsius
 amount region:CO 7 celsius -> 7 celsius
 amount region:CO 100 celsius -> 100 celsius
 amount region:CO 2500 celsius -> 2500 celsius
-best region:CA+mu:Fahrenheit 0.25 milliliter -> metric teaspoon
-best region:CA+mu:Fahrenheit 0.5 milliliter -> metric teaspoon
-best region:CA+mu:Fahrenheit 1 milliliter -> metric teaspoon
-best region:CA+mu:Fahrenheit 2.5 milliliter -> metric teaspoon
-best region:CA+mu:Fahrenheit 5 milliliter -> metric teaspoon
-best region:CA+mu:Fahrenheit 10 milliliter -> metric teaspoon
-best region:CA+mu:Fahrenheit 15 milliliter -> metric tablespoon
-best region:CA+mu:Fahrenheit 20 milliliter -> metric tablespoon
-best region:CA+mu:Fahrenheit 30 milliliter -> metric tablespoon
-best region:CA+mu:Fahrenheit 50 milliliter -> metric tablespoon
-best region:CA+mu:Fahrenheit 60 milliliter -> metric tablespoon
-best region:CA+mu:Fahrenheit 100 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 150 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 250 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 300 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 500 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 600 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 1000 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 2500 milliliter -> metric cup
-best region:CA+mu:Fahrenheit 0.5 gram -> milligram
-best region:CA+mu:Fahrenheit 1 gram -> gram
-best region:CA+mu:Fahrenheit 5 gram -> gram
-best region:CA+mu:Fahrenheit 10 gram -> gram
-best region:CA+mu:Fahrenheit 28 gram -> gram
-best region:CA+mu:Fahrenheit 100 gram -> gram
-best region:CA+mu:Fahrenheit 125 gram -> gram
-best region:CA+mu:Fahrenheit 250 gram -> gram
-best region:CA+mu:Fahrenheit 450 gram -> gram
-best region:CA+mu:Fahrenheit 500 gram -> gram
-best region:CA+mu:Fahrenheit 1000 gram -> kilogram
-best region:CA+mu:Fahrenheit 2500 gram -> kilogram
-best region:CA+mu:Fahrenheit 0.5 millimeter -> millimeter
-best region:CA+mu:Fahrenheit 1 millimeter -> millimeter
-best region:CA+mu:Fahrenheit 5 millimeter -> millimeter
-best region:CA+mu:Fahrenheit 10 millimeter -> centimeter
-best region:CA+mu:Fahrenheit 25.4 millimeter -> centimeter
-best region:CA+mu:Fahrenheit 100 millimeter -> centimeter
-best region:CA+mu:Fahrenheit 254 millimeter -> centimeter
-best region:CA+mu:Fahrenheit 304.8 millimeter -> centimeter
-best region:CA+mu:Fahrenheit 1000 millimeter -> meter
-best region:CA+mu:Fahrenheit 2000 millimeter -> meter
-best region:CA+mu:Fahrenheit 0.5 second -> second
-best region:CA+mu:Fahrenheit 1 second -> second
-best region:CA+mu:Fahrenheit 30 second -> second
-best region:CA+mu:Fahrenheit 59 second -> second
-best region:CA+mu:Fahrenheit 60 second -> minute
-best region:CA+mu:Fahrenheit 90 second -> minute
-best region:CA+mu:Fahrenheit 3599 second -> minute
-best region:CA+mu:Fahrenheit 3600 second -> hour
-best region:CA+mu:Fahrenheit 5400 second -> hour
-best region:CA+mu:Fahrenheit 86400 second -> day
-best region:CA+mu:Fahrenheit 172800 second -> day
-best region:CA+mu:Fahrenheit -18 celsius -> fahrenheit
-best region:CA+mu:Fahrenheit 0 celsius -> fahrenheit
-best region:CA+mu:Fahrenheit 0.5 celsius -> fahrenheit
-best region:CA+mu:Fahrenheit 1 celsius -> fahrenheit
-best region:CA+mu:Fahrenheit 100 celsius -> fahrenheit
-best region:CA+mu:Fahrenheit 180 celsius -> fahrenheit
-best region:CA+mu:Fahrenheit 350 celsius -> fahrenheit
-best system:UsCustomary+mu:Celsius 0.25 milliliter -> us teaspoon
-best system:UsCustomary+mu:Celsius 0.5 milliliter -> us teaspoon
-best system:UsCustomary+mu:Celsius 1 milliliter -> us teaspoon
-best system:UsCustomary+mu:Celsius 2.5 milliliter -> us teaspoon
-best system:UsCustomary+mu:Celsius 5 milliliter -> us teaspoon
-best system:UsCustomary+mu:Celsius 10 milliliter -> us teaspoon
-best system:UsCustomary+mu:Celsius 15 milliliter -> us tablespoon
-best system:UsCustomary+mu:Celsius 20 milliliter -> us tablespoon
-best system:UsCustomary+mu:Celsius 30 milliliter -> us fluid ounce
-best system:UsCustomary+mu:Celsius 50 milliliter -> us fluid ounce
-best system:UsCustomary+mu:Celsius 60 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 100 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 150 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 250 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 300 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 500 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 600 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 1000 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 2500 milliliter -> us cup
-best system:UsCustomary+mu:Celsius 0.5 gram -> ounce
-best system:UsCustomary+mu:Celsius 1 gram -> ounce
-best system:UsCustomary+mu:Celsius 5 gram -> ounce
-best system:UsCustomary+mu:Celsius 10 gram -> ounce
-best system:UsCustomary+mu:Celsius 28 gram -> ounce
-best system:UsCustomary+mu:Celsius 100 gram -> ounce
-best system:UsCustomary+mu:Celsius 125 gram -> ounce
-best system:UsCustomary+mu:Celsius 250 gram -> ounce
-best system:UsCustomary+mu:Celsius 450 gram -> ounce
-best system:UsCustomary+mu:Celsius 500 gram -> pound
-best system:UsCustomary+mu:Celsius 1000 gram -> pound
-best system:UsCustomary+mu:Celsius 2500 gram -> pound
-best system:UsCustomary+mu:Celsius 0.5 millimeter -> inch
-best system:UsCustomary+mu:Celsius 1 millimeter -> inch
-best system:UsCustomary+mu:Celsius 5 millimeter -> inch
-best system:UsCustomary+mu:Celsius 10 millimeter -> inch
-best system:UsCustomary+mu:Celsius 25.4 millimeter -> inch
-best system:UsCustomary+mu:Celsius 100 millimeter -> inch
-best system:UsCustomary+mu:Celsius 254 millimeter -> inch
-best system:UsCustomary+mu:Celsius 304.8 millimeter -> foot
-best system:UsCustomary+mu:Celsius 1000 millimeter -> foot
-best system:UsCustomary+mu:Celsius 2000 millimeter -> foot
-best system:UsCustomary+mu:Celsius 0.5 second -> second
-best system:UsCustomary+mu:Celsius 1 second -> second
-best system:UsCustomary+mu:Celsius 30 second -> second
-best system:UsCustomary+mu:Celsius 59 second -> second
-best system:UsCustomary+mu:Celsius 60 second -> minute
-best system:UsCustomary+mu:Celsius 90 second -> minute
-best system:UsCustomary+mu:Celsius 3599 second -> minute
-best system:UsCustomary+mu:Celsius 3600 second -> hour
-best system:UsCustomary+mu:Celsius 5400 second -> hour
-best system:UsCustomary+mu:Celsius 86400 second -> day
-best system:UsCustomary+mu:Celsius 172800 second -> day
-best system:UsCustomary+mu:Celsius -18 celsius -> celsius
-best system:UsCustomary+mu:Celsius 0 celsius -> celsius
-best system:UsCustomary+mu:Celsius 0.5 celsius -> celsius
-best system:UsCustomary+mu:Celsius 1 celsius -> celsius
-best system:UsCustomary+mu:Celsius 100 celsius -> celsius
-best system:UsCustomary+mu:Celsius 180 celsius -> celsius
-best system:UsCustomary+mu:Celsius 350 celsius -> celsius
