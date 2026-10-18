@@ -155,16 +155,18 @@ pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'stat
 }
 
 fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
-    const fn only(unit: TemperatureUnit) -> [Row; 1] {
-        [Row {
-            unit: Unit::Temperature(unit),
-            at_least: 1.0,
-            fractions: None,
-            or_decimal: false,
-        }]
-    }
-    const CELSIUS: [Row; 1] = only(TemperatureUnit::Celsius);
-    const FAHRENHEIT: [Row; 1] = only(TemperatureUnit::Fahrenheit);
+    const CELSIUS: [Row; 1] = [Row::new(
+        Unit::Temperature(TemperatureUnit::Celsius),
+        1.0,
+        None,
+        false,
+    )];
+    const FAHRENHEIT: [Row; 1] = [Row::new(
+        Unit::Temperature(TemperatureUnit::Fahrenheit),
+        1.0,
+        None,
+        false,
+    )];
     match unit {
         TemperatureUnit::Celsius => &CELSIUS,
         TemperatureUnit::Fahrenheit => &FAHRENHEIT,
