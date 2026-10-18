@@ -224,6 +224,8 @@ fn fraction_in(rows: &[Row], amount: f64, unit: Unit) -> Number {
 /// fraction; zero and negatives are written as they are.
 fn fraction(amount: f64, row: &Row) -> Option<Number> {
     match row.fractions {
+        // no cap on the whole part: bundled capped it per unit, at four tablespoons and five teaspoons, which is the
+        // `4 2/3 tbsp` -> `5 tbsp` divergence ADR 9 records
         Some(den) if amount > 0.0 => Number::new_approx(amount, FRACTION_TOLERANCE, den, u32::MAX),
         _ => Some(Number::Regular(amount)),
     }
