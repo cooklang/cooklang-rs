@@ -59,6 +59,7 @@ impl LocaleTag {
             None => None,
             Some(value) => match value.to_string().as_str() {
                 "celsius" => Some(TemperatureUnit::Celsius),
+                // CLDR's registered value, not a typo: an extension value is at most eight characters (UTS #35)
                 "fahrenhe" => Some(TemperatureUnit::Fahrenheit),
                 other => {
                     return Err(RegionError::UnsupportedTemperatureUnit {
