@@ -347,50 +347,48 @@ fn the_samples_reach_every_unit_a_row_can_choose() {
     );
 }
 
+/// Writes `body` to `path` under `UPDATE_UNITS_DOC`; otherwise says where the committed copy first differs.
+fn pin(path: &str, body: &str) -> Result<(), String> {
+    if std::env::var_os("UPDATE_UNITS_DOC").is_some() {
+        std::fs::write(path, body).expect("writable");
+        return Ok(());
+    }
+    let committed = std::fs::read_to_string(path).unwrap_or_default();
+    if committed == body {
+        return Ok(());
+    }
+    // a full assert_eq! would print two multi-hundred-line strings
+    Err(committed
+        .lines()
+        .zip(body.lines())
+        .position(|(a, b)| a != b)
+        .map_or_else(|| "length".to_string(), |i| format!("line {}", i + 1)))
+}
+
 #[test]
 fn the_committed_snapshots_are_current() {
     let files = files();
-
-    if std::env::var_os("UPDATE_UNITS_DOC").is_some() {
-        std::fs::create_dir_all(DIR).expect("writable");
-        for (name, body) in &files {
-            std::fs::write(format!("{DIR}/{name}"), body).expect("writable");
-        }
-        // a locale dropped from the vendored set must take its file with it,
-        // or a stale one lingers looking current
-        for entry in std::fs::read_dir(DIR).expect("readable") {
-            let name = entry.unwrap().file_name().to_string_lossy().to_string();
-            if !files.iter().any(|(n, _)| *n == name) {
+    std::fs::create_dir_all(DIR).expect("writable");
+    let stale: Vec<String> = files
+        .iter()
+        .filter_map(|(name, body)| {
+            pin(&format!("{DIR}/{name}"), body)
+                .err()
+                .map(|at| format!("{name} ({at})"))
+        })
+        .collect();
+    // a locale dropped from the vendored set must take its file with it, or a stale one lingers looking current
+    let mut extra = Vec::new();
+    for entry in std::fs::read_dir(DIR).expect("readable") {
+        let name = entry.unwrap().file_name().to_string_lossy().to_string();
+        if !files.iter().any(|(n, _)| *n == name) {
+            if std::env::var_os("UPDATE_UNITS_DOC").is_some() {
                 std::fs::remove_file(format!("{DIR}/{name}")).expect("removable");
+            } else {
+                extra.push(name);
             }
         }
-        return;
     }
-
-    let mut stale = Vec::new();
-    for (name, body) in &files {
-        let committed = std::fs::read_to_string(format!("{DIR}/{name}")).unwrap_or_default();
-        if &committed != body {
-            // a full assert_eq! would print two multi-hundred-line strings
-            let where_ = committed
-                .lines()
-                .zip(body.lines())
-                .position(|(a, b)| a != b)
-                .map(|i| format!("line {}", i + 1))
-                .unwrap_or_else(|| "length".to_string());
-            stale.push(format!("{name} ({where_})"));
-        }
-    }
-    let extra: Vec<String> = std::fs::read_dir(DIR)
-        .map(|dir| {
-            dir.filter_map(|e| {
-                let name = e.ok()?.file_name().to_string_lossy().to_string();
-                (!files.iter().any(|(n, _)| *n == name)).then_some(name)
-            })
-            .collect()
-        })
-        .unwrap_or_default();
-
     assert!(
         stale.is_empty() && extra.is_empty(),
         "src/convert/locales/tests/snapshots is stale; rerun with UPDATE_UNITS_DOC=1\n  \
@@ -489,16 +487,7 @@ fn render_units_doc() -> String {
 #[test]
 fn the_committed_reference_is_current() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/units.md");
-    let rendered = render_units_doc();
-
-    if std::env::var_os("UPDATE_UNITS_DOC").is_some() {
-        std::fs::write(path, &rendered).expect("writable");
-        return;
+    if let Err(at) = pin(path, &render_units_doc()) {
+        panic!("docs/units.md is stale at {at}; rerun with UPDATE_UNITS_DOC=1");
     }
-
-    let committed = std::fs::read_to_string(path).unwrap_or_default();
-    assert_eq!(
-        committed, rendered,
-        "docs/units.md is stale; rerun with UPDATE_UNITS_DOC=1"
-    );
 }
