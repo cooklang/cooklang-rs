@@ -520,7 +520,6 @@ fn render_units_doc() -> String {
     out
 }
 
-#[cfg(feature = "bundled_units")]
 #[test]
 fn the_committed_reference_is_current() {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/docs/units.md");

@@ -46,18 +46,12 @@ fn resolve_matches_symbols_and_aliases_exactly() {
 }
 
 #[test]
-fn the_symbol_is_written_back_when_there_is_one() {
+fn written_is_the_symbol_or_else_the_identifier() {
     let locale = locale_with(&[("us cup", names("c", &["cup"]))]).unwrap();
     assert_eq!(locale.symbol(unit("us cup")), Some("c"));
     assert_eq!(locale.written(unit("us cup")), "c");
-}
-
-#[test]
-fn an_unnamed_unit_is_written_as_its_identifier() {
-    let locale = locale_with(&[]).unwrap();
-    assert_eq!(locale.symbol(unit("us cup")), None);
-    assert_eq!(locale.names(unit("us cup")), None);
-    assert_eq!(locale.written(unit("us cup")), "us cup");
+    assert_eq!(locale.names(unit("liter")), None);
+    assert_eq!(locale.symbol(unit("liter")), None);
     assert_eq!(locale.written(unit("liter")), "liter");
 }
 
@@ -77,12 +71,6 @@ fn the_identifier_resolves_in_every_locale() {
     // what a locale writes, it can read back, named or not
     for unit in Unit::all() {
         assert_eq!(empty.resolve(empty.written(unit)), Some(unit), "{unit:?}");
-    }
-    for tag in vendored_tags() {
-        let locale = vendored_locale(tag).unwrap();
-        for unit in Unit::all() {
-            assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {}", unit.id());
-        }
     }
 }
 
@@ -115,60 +103,44 @@ fn a_string_may_name_only_one_unit() {
     assert!(locale_with(&[("us cup", names("c", &["c", "cup", "cup"]))]).is_ok());
 }
 
-/// Which unit the build reaches first comes out of a `HashMap`, so a clash over an identifier has to name the borrower
-/// and the owner the same way whichever order it is found in.
+/// `us cup` must always mean the US cup, so no locale may hand it to another unit; a unit's own identifier is fine as
+/// its alias. Which unit the build reaches first comes out of a `HashMap`, so the clash names the borrower and the
+/// owner the same way whichever order it is found in.
 #[test]
-fn a_clash_over_an_identifier_is_reported_the_same_way_either_way_round() {
+fn an_alias_may_not_be_another_units_identifier() {
+    let borrowed = LocaleError::AliasIsAnIdentifier {
+        alias: "us cup".to_string(),
+        unit: unit("celsius"),
+        of: unit("us cup"),
+    };
+    let err = locale_with(&[("celsius", names("°C", &["us cup"]))]).unwrap_err();
+    assert_eq!(err, borrowed);
     let err = locale_with(&[
         ("us cup", names("c", &["us cup"])),
-        ("celsius", names("\u{b0}C", &["us cup"])),
+        ("celsius", names("°C", &["us cup"])),
     ])
     .unwrap_err();
-    assert_eq!(
-        err,
-        LocaleError::AliasIsAnIdentifier {
-            alias: "us cup".to_string(),
-            unit: unit("celsius"),
-            of: unit("us cup"),
-        }
-    );
-}
-
-#[test]
-fn an_alias_may_not_be_another_units_spaced_identifier() {
-    // `us cup` must always mean the US cup, so no locale may hand it to
-    // another unit; a unit's own spaced identifier is fine as its alias
-    let err = locale_with(&[("celsius", names("°C", &["us cup"]))]).unwrap_err();
-    assert!(matches!(
-        err,
-        LocaleError::AliasIsAnIdentifier { ref alias, unit: u, of }
-            if alias == "us cup" && u == unit("celsius") && of == unit("us cup")
-    ));
+    assert_eq!(err, borrowed);
     assert!(locale_with(&[("us cup", names("c", &["us cup"]))]).is_ok());
 }
 
-#[cfg(feature = "bundled_units")]
-mod vendored {
-    use super::*;
-
-    #[test]
-    fn every_vendored_locale_builds_and_reads_back_what_it_writes() {
-        let mut count = 0;
-        for tag in vendored_tags() {
-            let locale = vendored_locale(tag).unwrap_or_else(|| panic!("{tag} missing"));
-            for unit in Unit::all() {
-                let written = locale.written(unit);
-                assert!(!written.is_empty(), "{tag} {}", unit.id());
-                assert_eq!(locale.resolve(written), Some(unit), "{tag} '{written}'");
-            }
-            count += 1;
+#[test]
+fn every_vendored_locale_reads_back_its_identifiers_and_what_it_writes() {
+    let mut count = 0;
+    for tag in vendored_tags() {
+        let locale = vendored_locale(tag).unwrap_or_else(|| panic!("{tag} missing"));
+        for unit in Unit::all() {
+            assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {}", unit.id());
+            let written = locale.written(unit);
+            assert!(!written.is_empty(), "{tag} {}", unit.id());
+            assert_eq!(locale.resolve(written), Some(unit), "{tag} '{written}'");
         }
-        assert!(count >= 34, "only {count} locales");
-        assert!(vendored_locale("sw").is_none(), "sw is not vendored");
+        count += 1;
     }
+    assert!(count >= 34, "only {count} locales");
+    assert!(vendored_locale("sw").is_none(), "sw is not vendored");
 }
 
-#[cfg(feature = "bundled_units")]
 mod fallback {
     use super::*;
     use crate::convert::locales::tag::LocaleTag;
@@ -193,7 +165,6 @@ mod fallback {
 }
 
 /// Long forms: the unit spelled out with the plural the number calls for.
-#[cfg(feature = "bundled_units")]
 mod long_forms {
     use super::*;
 
@@ -251,7 +222,6 @@ mod markdown {
 /// ADR 3: outside US customary locales, an unmarked word for a US unit is refused. CLDR marks only the imperial side of
 /// each pair (`brittiska quarts`, `Imp. Gallonen`) and leaves the US side bare, which is CLDR's layout, not evidence
 /// that a Swedish or German kitchen means 3.79 l by `gallon`; the readings differ by 20% (4% for the fluid ounce).
-#[cfg(feature = "bundled_units")]
 mod unmarked_us_words {
     use super::*;
 
