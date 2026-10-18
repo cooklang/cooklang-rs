@@ -113,24 +113,14 @@ pub(crate) struct Row {
 // which of the three applies.
 include!(concat!(env!("OUT_DIR"), "/preferences.rs"));
 
-fn rows(system: System, quantity: PhysicalQuantity) -> Option<&'static [Row]> {
-    PREFERENCES
+fn rows_in<K: PartialEq>(
+    table: &'static [(K, PhysicalQuantity, &'static [Row])],
+    key: K,
+    quantity: PhysicalQuantity,
+) -> Option<&'static [Row]> {
+    table
         .iter()
-        .find(|(s, q, _)| *s == system && *q == quantity)
-        .map(|(_, _, rows)| *rows)
-}
-
-fn legacy_rows(system: System, quantity: PhysicalQuantity) -> Option<&'static [Row]> {
-    LEGACY_PREFERENCES
-        .iter()
-        .find(|(s, q, _)| *s == system && *q == quantity)
-        .map(|(_, _, rows)| *rows)
-}
-
-fn region_rows(region: Region, quantity: PhysicalQuantity) -> Option<&'static [Row]> {
-    REGION_PREFERENCES
-        .iter()
-        .find(|(r, q, _)| *r == region && *q == quantity)
+        .find(|(k, q, _)| *k == key && *q == quantity)
         .map(|(_, _, rows)| *rows)
 }
 
@@ -143,33 +133,33 @@ pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'stat
         }
     }
     let own = match audience.units {
-        Units::Region(region) => region_rows(region, quantity),
+        Units::Region(region) => rows_in(REGION_PREFERENCES, region, quantity),
         Units::System(_) => None,
         Units::Legacy(system) => {
-            return legacy_rows(system, quantity)
-                .or_else(|| legacy_rows(System::Metric, quantity))
+            return rows_in(LEGACY_PREFERENCES, system, quantity)
+                .or_else(|| rows_in(LEGACY_PREFERENCES, System::Metric, quantity))
                 .expect("every quantity has legacy metric rows");
         }
     };
-    own.or_else(|| rows(audience.official(), quantity))
-        .or_else(|| rows(System::Metric, quantity))
+    own.or_else(|| rows_in(PREFERENCES, audience.official(), quantity))
+        .or_else(|| rows_in(PREFERENCES, System::Metric, quantity))
         .expect("every quantity has metric rows")
 }
 
 fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
+    const fn only(unit: TemperatureUnit) -> [Row; 1] {
+        [Row {
+            unit: Unit::Temperature(unit),
+            at_least: 1.0,
+            fractions: None,
+            or_decimal: false,
+        }]
+    }
+    const CELSIUS: [Row; 1] = only(TemperatureUnit::Celsius);
+    const FAHRENHEIT: [Row; 1] = only(TemperatureUnit::Fahrenheit);
     match unit {
-        TemperatureUnit::Celsius => &[Row {
-            unit: Unit::Temperature(TemperatureUnit::Celsius),
-            at_least: 1.0,
-            fractions: None,
-            or_decimal: false,
-        }],
-        TemperatureUnit::Fahrenheit => &[Row {
-            unit: Unit::Temperature(TemperatureUnit::Fahrenheit),
-            at_least: 1.0,
-            fractions: None,
-            or_decimal: false,
-        }],
+        TemperatureUnit::Celsius => &CELSIUS,
+        TemperatureUnit::Fahrenheit => &FAHRENHEIT,
     }
 }
 
@@ -495,10 +485,13 @@ mod tests {
         ];
         for system in [System::Metric, System::UsCustomary, System::Imperial] {
             for quantity in quantities {
-                assert!(rows(system, quantity).is_some(), "{system:?} {quantity:?}");
+                assert!(
+                    rows_in(PREFERENCES, system, quantity).is_some(),
+                    "{system:?} {quantity:?}"
+                );
             }
             assert_eq!(
-                rows(system, PhysicalQuantity::Time).is_some(),
+                rows_in(PREFERENCES, system, PhysicalQuantity::Time).is_some(),
                 system == System::Metric,
                 "{system:?} time"
             );
