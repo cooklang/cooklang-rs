@@ -1,10 +1,9 @@
 //! Which locale a caller is asking for.
 //!
-//! A [`LocaleTag`] is a BCP 47 tag such as `es-MX`. Its *language* selects how
-//! units are written; its *region* selects which units are preferred. The two
-//! are independent: `es` is enough to name a tablespoon `cucharada`, but not
-//! enough to decide between a 240 ml and a 250 ml cup. So a tag with no region
-//! parses happily and only fails when a region is actually needed.
+//! A [`LocaleTag`] is a BCP 47 tag such as `es-MX`. Its *language* selects how units are written; its *region* selects
+//! which units are preferred. The two are independent: `es` is enough to name a tablespoon `cucharada`, but not enough
+//! to decide between a 240 ml and a 250 ml cup. So a tag with no region parses happily and only fails when a region is
+//! actually needed.
 
 use icu_locale_core::extensions::unicode::key;
 use icu_locale_core::subtags::Region;
@@ -41,8 +40,7 @@ impl LocaleTag {
             .map_err(|_| InvalidTag(text.to_string()))
     }
 
-    /// the language-script-region part, without extensions. This is what
-    /// CLDR keys its locale data by.
+    /// the language-script-region part, without extensions. This is what CLDR keys its locale data by.
     pub(crate) fn language_identifier(&self) -> String {
         self.0.id.to_string()
     }
@@ -50,9 +48,7 @@ impl LocaleTag {
     /// Who converted values are written for.
     ///
     /// Precedence, most specific first: `-u-ms-` names a measurement system outright, `-u-rg-` overrides the region,
-    /// then the tag's own region, so `en-GB` is metric and only `en-GB-u-ms-uksystem` is imperial (ADR 5). `-u-mu-`
-    /// then names a temperature unit outright, for temperature only; it never supplies a region. A value we have no
-    /// rows for is an error, not a guess.
+    /// then the tag's own region, `-u-mu-` then names a temperature unit outright, for temperature only.
     pub fn audience(&self) -> Result<Audience, RegionError> {
         let units = self.units()?;
         let temperature = match self.0.extensions.unicode.keywords.get(&key!("mu")) {
