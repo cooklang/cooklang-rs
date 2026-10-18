@@ -164,9 +164,9 @@ mod tests {
 
     /// Every number falls in the category it is listed under.
     ///
-    /// The rules and samples below are CLDR 48.2.3's (`cldr-core/supplemental/plurals.json`), one locale for each
-    /// construct of the rule language, with every listed sample up to 1000, both ends and a middle of every range,
-    /// and 1000000 where a rule turns on it. Compact samples (`1c6`) are never printed and are left out.
+    /// The rules below are CLDR 48.2.3's (`cldr-core/supplemental/plurals.json`), one locale for each construct of
+    /// the rule language, and the samples are drawn from CLDR's: one for each way a number can satisfy or miss a
+    /// rule, so a sample that fails points at the construct.
     struct Eval<'a> {
         rules: &'a [(&'a str, &'a str)],
         expected: &'a [(&'a str, &'a [&'a str])],
@@ -185,7 +185,7 @@ mod tests {
         }
     }
 
-    /// `and`, and `v` keeping a decimal out of `one`.
+    /// `and`, and `v` keeping a decimal out of `one`: 1.0 has `i = 1` and is still `other`.
     #[test]
     #[rustfmt::skip]
     fn english() {
@@ -196,13 +196,13 @@ mod tests {
             ],
             expected: &[
                 ("one",   &["1"]),
-                ("other", &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0", "100.0"]),
+                ("other", &["0", "2", "1.0"]),
             ],
         });
     }
 
     /// `n` matching a decimal with no fraction digits, the `e` operand (always 0 here), a negated range and a
-    /// seven-figure modulus.
+    /// seven-figure modulus that 1000 does not reach.
     #[test]
     #[rustfmt::skip]
     fn spanish() {
@@ -213,14 +213,14 @@ mod tests {
                 ("other", ""),
             ],
             expected: &[
-                ("one",   &["1", "1.0", "1.00", "1.000", "1.0000"]),
+                ("one",   &["1", "1.0"]),
                 ("many",  &["1000000"]),
-                ("other", &["0", "2", "9", "16", "100", "1000", "0.0", "0.4", "0.9", "1.1", "1.3", "1.6", "10.0", "100.0"]),
+                ("other", &["0", "2", "1000", "1.1"]),
             ],
         });
     }
 
-    /// A comma list, and `i` putting every fraction between 0 and 2 in `one`.
+    /// A comma list, and `i` rather than `n`: 0.7 and 1.5 are `one`, 2.0 is not.
     #[test]
     #[rustfmt::skip]
     fn french() {
@@ -231,15 +231,16 @@ mod tests {
                 ("other", ""),
             ],
             expected: &[
-                ("one",   &["0", "1", "0.0", "0.7", "1.5"]),
+                ("one",   &["0", "1", "0.7", "1.5"]),
                 ("many",  &["1000000"]),
-                ("other", &["2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0"]),
+                ("other", &["2", "2.0", "1000"]),
             ],
         });
     }
 
-    /// Modulus with a range, a negated range, `!=` on a single value, and `or` chains where every arm carries its
-    /// own `v = 0`. 12 to 14 are `many` though `i % 10` says `few`.
+    /// Modulus with a range, a negated range on `% 100` overriding `% 10` (12 to 14), `!=` on a single value, and
+    /// `and` binding tighter than `or`: 5 is `many` by the second arm alone. Every arm carries `v = 0`, so a
+    /// decimal is `other` whatever its integer part.
     #[test]
     #[rustfmt::skip]
     fn polish() {
@@ -247,20 +248,20 @@ mod tests {
             rules: &[
                 ("one",   "i = 1 and v = 0"),
                 ("few",   "v = 0 and i % 10 = 2..4 and i % 100 != 12..14"),
-                ("many",  "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 \
-                           or v = 0 and i % 100 = 12..14"),
+                ("many",  "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 12..14"),
                 ("other", ""),
             ],
             expected: &[
                 ("one",   &["1"]),
-                ("few",   &["2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52", "53", "54", "62", "102"]),
-                ("many",  &["0", "5", "12", "19", "100", "1000", "1000000"]),
-                ("other", &["0.0", "0.7", "1.5", "10.0", "100.0"]),
+                ("few",   &["2", "4", "22", "102"]),
+                ("many",  &["0", "5", "9", "11", "12", "14"]),
+                ("other", &["0.0", "1.5"]),
             ],
         });
     }
 
-    /// The `t` operand, and `and` binding tighter than `or`: 0.1 to 1.6 are `one` by their fraction digits.
+    /// The `t` operand: trailing zeros are stripped first, so 0.0 is `other` where `v != 0` would have made it
+    /// `one`, and 0.1 is `one`.
     #[test]
     #[rustfmt::skip]
     fn danish() {
@@ -270,14 +271,14 @@ mod tests {
                 ("other", ""),
             ],
             expected: &[
-                ("one",   &["1", "0.1", "0.8", "1.6"]),
-                ("other", &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "2.0", "2.7", "3.4", "10.0", "100.0"]),
+                ("one",   &["1", "0.1", "1.6"]),
+                ("other", &["0", "0.0", "2.7"]),
             ],
         });
     }
 
-    /// Six categories, and modulus on `n`: a decimal counts only when it is integral, so 3.0 is `few` and 0.5 is
-    /// not `zero`.
+    /// Six categories, and modulus on `n`: a decimal counts only when it is integral, so 3.0 is `few` and 10.1
+    /// is `other`; 100 to 102 are the residues below `few`.
     #[test]
     #[rustfmt::skip]
     fn arabic() {
@@ -291,11 +292,11 @@ mod tests {
                 ("other", ""),
             ],
             expected: &[
-                ("zero",  &["0", "0.0", "0.00", "0.000", "0.0000"]),
-                ("one",   &["1", "1.0", "1.00", "1.000", "1.0000"]),
-                ("two",   &["2", "2.0", "2.00", "2.000", "2.0000"]),
-                ("few",   &["3", "6", "10", "103", "106", "110", "3.0", "4.0", "5.0", "6.0", "7.0", "8.0", "9.0", "10.0"]),
-                ("many",  &["11", "18", "26", "111", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0"]),
+                ("zero",  &["0", "0.0"]),
+                ("one",   &["1", "1.0"]),
+                ("two",   &["2", "2.0"]),
+                ("few",   &["3", "10", "103", "3.0"]),
+                ("many",  &["11", "26", "111", "11.0"]),
                 ("other", &["100", "101", "102", "0.1", "1.1", "10.1", "100.0"]),
             ],
         });
