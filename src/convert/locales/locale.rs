@@ -1,9 +1,4 @@
-//! How units are written in one language: the symbol a conversion writes back, and every alias a recipe may use for the
-//! unit.
-//!
-//! A locale names only the units it has a safe name for. A unit it does not name is written as its identifier with
-//! spaces (`imperial pint`), and that spaced form resolves in every locale, so what is written can always be read back.
-//! See `docs/adr/locale-aware-units.md` (decision 4).
+//! How units are written in one language
 
 use std::collections::HashMap;
 
@@ -26,11 +21,6 @@ pub(crate) struct UnitNames {
 pub(crate) type PluralRules = &'static [(&'static str, &'static str)];
 
 /// Spellings that resolve in every locale, whatever it names.
-///
-/// The degree symbols in other encodings (`℃`, `℉`) and with the ordinal indicator typed for the degree sign (`ºC`,
-/// `ºF`) are the same symbol, not a language's word, so no locale owns them. The bare `C` and `F` are safe only because
-/// [`Locale`] looks up case-sensitively: `c` is a cup in `en`, `en-001`, `en-AU` and `en-GB`, so folding case would
-/// turn `180 C` into 180 cups.
 pub(crate) const UNIVERSAL_ALIASES: &[(&str, &[&str])] = &[
     ("celsius", &["℃", "ºC", "C"]),
     ("fahrenheit", &["℉", "ºF", "F"]),
@@ -44,8 +34,7 @@ pub(crate) enum LocaleError {
     AliasIsAnIdentifier { alias: String, unit: Unit, of: Unit },
 }
 
-/// Names for the units one language has names for. Lookup is exact and case-sensitive: `c` and `C` are different
-/// strings.
+/// Names for the units one language has names for.
 #[derive(Debug, Clone)]
 pub(crate) struct Locale {
     names: HashMap<Unit, UnitNames>,
@@ -112,8 +101,7 @@ impl Locale {
     }
 
     /// `value` with `unit` spelled out in the locale's long form, with the plural the number calls for: `1 łyżeczka`,
-    /// `5 łyżeczek`, `小さじ 2`.  A locale with no accepted long form for the unit writes the number followed by
-    /// [`Locale::written`].
+    /// `5 łyżeczek`, etc.
     pub(crate) fn written_long(&self, value: f64, unit: Unit) -> String {
         let number = format!("{value}");
         let long = self.names(unit).map_or(&[][..], |n| n.long.as_slice());
@@ -129,12 +117,6 @@ impl Locale {
     }
 }
 
-/// Indexes `text` as `unit`. The same unit claiming a string twice is not a conflict; another unit already having it
-/// is.
-///
-/// A clash over an identifier is reported as that rather than as a duplicate, because the fix differs: an identifier
-/// resolves in every locale, so the string has to come off whichever unit borrowed it. Either side of the clash may be
-/// the owner, since which unit is reached first comes out of a `HashMap`.
 fn claim(index: &mut HashMap<String, Unit>, text: &str, unit: Unit) -> Result<(), LocaleError> {
     let borrowed_identifier = |unit, of| {
         Err(LocaleError::AliasIsAnIdentifier {

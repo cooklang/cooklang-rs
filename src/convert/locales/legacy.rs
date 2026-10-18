@@ -1,10 +1,3 @@
-//! The locale an untagged recipe reads its units through: the names `units.toml` gives the bundled units, and nothing
-//! else. Frozen, so that what an untagged recipe does stays what it always did (ADR 7).
-//!
-//! Written out rather than generated: `units.toml` derived the prefixed SI units from a base and a prefix list, but
-//! what is frozen is the result, and a table shows a change where a loop would hide it. The tests against the old
-//! converter in `locales/tests/mod.rs` hold the two to the same names while that converter still exists.
-
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
@@ -17,6 +10,8 @@ use crate::convert::units::{LengthUnit, MassUnit, TemperatureUnit, TimeUnit, Uni
 /// Identifier, the system `units.toml` filed it under, the symbol a conversion writes back, every other spelling.
 type Names = (&'static str, System, &'static str, &'static [&'static str]);
 
+
+// The units.toml locale frozen here for compatibility.
 #[rustfmt::skip]
 const LEGACY_UNITS: &[Names] = &[
     // volume
@@ -64,8 +59,8 @@ const LEGACY_UNITS: &[Names] = &[
     ("fahrenheit",     UsCustomary, "°F",    &["fahrenheit"]),
 ];
 
-/// The system `units.toml` filed `unit` under, which is what an untagged recipe is fitted within. A unit it never
-/// knew, reached by its identifier, is US customary: `units.toml` filed everything that was not SI, time or Celsius as
+/// The system `units.toml` filed `unit` under, which is what an untagged recipe is fitted within. A unit it never knew,
+/// reached by its identifier, is US customary: `units.toml` filed everything that was not SI, time or Celsius as
 /// "imperial", and that rule is frozen with the rest.
 pub(crate) fn legacy_system(unit: Unit) -> System {
     LEGACY_UNITS
@@ -83,18 +78,7 @@ const fn row(unit: Unit, at_least: f64, fractions: Option<u8>, or_decimal: bool)
     }
 }
 
-/// What an untagged recipe is fitted with: `units.toml`'s `best` lists and fraction config, frozen (ADR 7).
-///
-/// On the metric side bundled chose the largest unit the amount reached a whole one of, so `at_least` is 1, and
-/// wrote decimals. On its "imperial" side, which is US customary, bundled first looked for a fraction in any best
-/// unit, with per-unit denominators (tsp 8, tbsp 3, lb 8, else 4), so a unit was kept below one of it when a
-/// fraction fitted: `1/2 c`, `1/3 lb`. The thresholds below one reproduce that. When no fraction fitted anywhere,
-/// bundled wrote a decimal in the unit its threshold chose, `1.125 c`; the rows at one cup and two tablespoons are
-/// marked `or_decimal` to do the same instead of falling through as ADR 6 otherwise has it. Two tablespoons, not
-/// one, because up to two bundled still found a teaspoon fraction (`3 1/2 tsp`); beyond that the teaspoon's cap of
-/// five wholes ruled it out. Bundled's preference for a whole number in the smaller unit over a fraction in the
-/// larger (`4 tsp`, not `1 1/3 tbsp`; `24 oz`, not `1 1/2 lb`) is the search ADR 6 does not port, and
-/// `tests/differential.rs` lists what that changes. Never fractions for time or temperature.
+// The units.toml preferences frozen here for compatibility
 #[rustfmt::skip]
 pub(crate) static LEGACY_PREFERENCES: &[(System, PhysicalQuantity, &[Row])] = &[
     // `best.metric = ["ml", "l"]`, `fractions.metric = false`
