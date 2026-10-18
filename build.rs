@@ -549,10 +549,15 @@ fn generate_parent_locales() {
 /// paths, so a unit that is not in `definitions.rs` fails to compile rather
 /// than at the first lookup.
 fn generate_preferences() {
-    #[derive(serde::Deserialize, Default)]
-    #[serde(default)]
-    struct Preferences {
+    // a row in the wrong file is an unknown field
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct SystemFile {
         system: Vec<SystemRows>,
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct RegionFile {
         region: Vec<RegionRows>,
     }
     #[derive(serde::Deserialize)]
@@ -585,7 +590,8 @@ fn generate_preferences() {
         or_decimal: bool,
     }
 
-    // `metric tablespoon` -> `MetricTablespoon`: every identifier is the variant name as lowercase words (ADR 2)
+    // `metric tablespoon` -> `MetricTablespoon`: every identifier is the variant name as lowercase words (ADR 2), and
+    // every quantity's unit enum is `<Quantity>Unit`
     fn variant(id: &str) -> String {
         id.split(' ')
             .map(|word| {
@@ -597,13 +603,13 @@ fn generate_preferences() {
             })
             .collect()
     }
-    fn quantity(name: &str) -> (&'static str, &'static str) {
+    fn quantity(name: &str) -> &'static str {
         match name {
-            "volume" => ("Volume", "VolumeUnit"),
-            "mass" => ("Mass", "MassUnit"),
-            "length" => ("Length", "LengthUnit"),
-            "time" => ("Time", "TimeUnit"),
-            "temperature" => ("Temperature", "TemperatureUnit"),
+            "volume" => "Volume",
+            "mass" => "Mass",
+            "length" => "Length",
+            "time" => "Time",
+            "temperature" => "Temperature",
             other => panic!("locales/preferences: unknown quantity '{other}'"),
         }
     }
@@ -611,7 +617,7 @@ fn generate_preferences() {
     // larger row would panic on the first conversion that reaches it instead of failing here
     const MAX_FRACTION_DENOMINATOR: u8 = 64;
     fn rows(quantity_name: &str, rows: &[Threshold]) -> String {
-        let (q, enum_name) = quantity(quantity_name);
+        let q = quantity(quantity_name);
         rows.iter()
             .map(|t| {
                 if let Some(den) = t.fractions {
@@ -623,7 +629,7 @@ fn generate_preferences() {
                     );
                 }
                 format!(
-                    "Row {{ unit: Unit::{q}({enum_name}::{}), at_least: {:?}, fractions: {:?}, or_decimal: {} }}",
+                    "Row {{ unit: Unit::{q}({q}Unit::{}), at_least: {:?}, fractions: {:?}, or_decimal: {} }}",
                     variant(&t.unit),
                     t.at_least,
                     t.fractions,
@@ -634,63 +640,40 @@ fn generate_preferences() {
             .join(", ")
     }
 
-    // the rows are split by what they key on, and each file is registered by name as the locale
-    // files are; the frozen legacy rows are a table in locales/legacy.rs
-    let mut prefs = Preferences::default();
-    for (name, file) in [
-        ("system", "locales/preferences/system.toml"),
-        ("region", "locales/preferences/region.toml"),
-    ] {
+    // the rows are split by what they key on; the frozen legacy rows are a table in
+    // src/convert/locales/legacy.rs
+    fn read<T: serde::de::DeserializeOwned>(file: &str) -> T {
         println!("cargo::rerun-if-changed={file}");
         let text = std::fs::read_to_string(file).unwrap_or_else(|e| panic!("{file}: {e}"));
-        let read: Preferences = toml::from_str(&text).unwrap_or_else(|e| panic!("{file}: {e}"));
-        match name {
-            "system" => {
-                assert!(
-                    read.region.is_empty(),
-                    "{file}: region rows belong in region.toml"
-                );
-                prefs.system = read.system;
-            }
-            _ => {
-                assert!(
-                    read.system.is_empty(),
-                    "{file}: system rows belong in system.toml"
-                );
-                prefs.region = read.region;
-            }
-        }
+        toml::from_str(&text).unwrap_or_else(|e| panic!("{file}: {e}"))
     }
+    let systems: SystemFile = read("locales/preferences/system.toml");
+    let regions: RegionFile = read("locales/preferences/region.toml");
 
-    fn system_table(name: &str, entries: &[SystemRows]) -> String {
-        let mut out =
-            format!("pub(crate) static {name}: &[(System, PhysicalQuantity, &[Row])] = &[\n");
-        for s in entries {
-            let system = match s.system.as_str() {
-                "metric" => "Metric",
-                "us-customary" => "UsCustomary",
-                "imperial" => "Imperial",
-                other => panic!("locales/preferences: unknown system '{other}'"),
-            };
-            let (q, _) = quantity(&s.quantity);
-            out.push_str(&format!(
-                "    (System::{system}, PhysicalQuantity::{q}, &[{}]),\n",
-                rows(&s.quantity, &s.rows)
-            ));
-        }
-        out.push_str("];\n");
-        out
+    let mut out =
+        String::from("pub(crate) static PREFERENCES: &[(System, PhysicalQuantity, &[Row])] = &[\n");
+    for s in &systems.system {
+        let system = match s.system.as_str() {
+            "metric" => "Metric",
+            "us-customary" => "UsCustomary",
+            "imperial" => "Imperial",
+            other => panic!("locales/preferences: unknown system '{other}'"),
+        };
+        out.push_str(&format!(
+            "    (System::{system}, PhysicalQuantity::{}, &[{}]),\n",
+            quantity(&s.quantity),
+            rows(&s.quantity, &s.rows)
+        ));
     }
-
-    let mut out = system_table("PREFERENCES", &prefs.system);
+    out.push_str("];\n");
     out.push_str(
         "pub(crate) static REGION_PREFERENCES: &[(Region, PhysicalQuantity, &[Row])] = &[\n",
     );
-    for r in &prefs.region {
-        let (q, _) = quantity(&r.quantity);
+    for r in &regions.region {
         out.push_str(&format!(
-            "    (region!({:?}), PhysicalQuantity::{q}, &[{}]),\n",
+            "    (region!({:?}), PhysicalQuantity::{}, &[{}]),\n",
             r.region,
+            quantity(&r.quantity),
             rows(&r.quantity, &r.rows)
         ));
     }
