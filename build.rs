@@ -444,9 +444,8 @@ fn generate_locales() -> Vec<String> {
     // the metadata is borrowed and always read: `tag_for` walks the fallback chain and the review
     // gate checks `reviewed`, neither of which needs a locale built
     let mut meta = String::from("pub(crate) static LOCALE_META: &[(&str, &str, bool)] = &[\n");
-    let mut built = String::from(
-        "pub(crate) static VENDORED: LazyLock<Vec<Arc<Locale>>> = LazyLock::new(|| {\n    vec![\n",
-    );
+    // one builder per locale, so asking for one does not build the other 37
+    let mut built = String::from("pub(crate) static BUILDERS: &[fn() -> Arc<Locale>] = &[\n");
 
     for tag in &files {
         let path = format!("locales/{tag}.toml");
@@ -492,7 +491,7 @@ fn generate_locales() -> Vec<String> {
             "    ({tag:?}, {:?}, {reviewed}),\n",
             locale.cldr_version
         ));
-        built.push_str(&format!("        locale({tag:?}, &[{rules}], vec![\n"));
+        built.push_str(&format!("    || locale({tag:?}, &[{rules}], vec![\n"));
         for (id, unit) in table {
             let symbol = match &unit.symbol {
                 Some(s) => format!("Some({s:?})"),
@@ -513,13 +512,13 @@ fn generate_locales() -> Vec<String> {
                 .collect::<Vec<_>>()
                 .join(", ");
             built.push_str(&format!(
-                "            unit({id:?}, {symbol}, &[{aliases}], &[{longs}]),\n"
+                "        unit({id:?}, {symbol}, &[{aliases}], &[{longs}]),\n"
             ));
         }
-        built.push_str("        ]),\n");
+        built.push_str("    ]),\n");
     }
     meta.push_str("];\n");
-    built.push_str("    ]\n});\n");
+    built.push_str("];\n");
 
     let dest = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("cldr_locales.rs");
     std::fs::write(dest, meta + "\n" + &built).unwrap();

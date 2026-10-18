@@ -1,17 +1,21 @@
 //! The locales `build.rs` generates from `locales/<tag>.toml`: loading one, finding which one a tag reaches, and the
 //! review gate that decides whether it may be served to a reader.
 
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 
 use super::locale::{Locale, PluralRules, UnitNames};
 use super::tag::{LocaleTag, RegionError};
 use crate::convert::units::Unit;
 
 // `LOCALE_META` is the tag, the CLDR release the names were seeded from and whether a speaker has
-// confirmed them, for each locale; `VENDORED` is the locales themselves, in the same order, built
-// on first use through the two constructors below. The release is per locale because locales are
-// seeded when someone comes to review them, so they will not share one.
+// confirmed them, for each locale; `BUILDERS` constructs the locales themselves, in the same order,
+// through the two constructors below. The release is per locale because locales are seeded when
+// someone comes to review them, so they will not share one.
 include!(concat!(env!("OUT_DIR"), "/cldr_locales.rs"));
+
+/// Each locale, built the first time it is asked for and shared from then on.
+static BUILT: LazyLock<Vec<OnceLock<Arc<Locale>>>> =
+    LazyLock::new(|| BUILDERS.iter().map(|_| OnceLock::new()).collect());
 
 /// One unit's names, as `build.rs` emits them. `build.rs` refuses a unit that names nothing, so a
 /// name here is always one the locale resolves.
@@ -59,7 +63,8 @@ pub(crate) fn cldr_version(tag: &str) -> Option<&'static str> {
 
 /// The CLDR-derived locale for `tag`, if it was vendored.
 pub(crate) fn vendored_locale(tag: &str) -> Option<Arc<Locale>> {
-    Some(VENDORED[meta_index(tag)?].clone())
+    let i = meta_index(tag)?;
+    Some(BUILT[i].get_or_init(BUILDERS[i]).clone())
 }
 
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
