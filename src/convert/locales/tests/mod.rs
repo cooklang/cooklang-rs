@@ -352,19 +352,19 @@ fn a_reviewed_locale_is_served() {
 }
 
 /// Adjudication does not imply review: a locale with a verdict for every ambiguous string is still refused until a
-/// speaker confirms it. The refusal names the locale reached, not the tag asked for, since that is the one needing
-/// an entry: `en-NZ` reaches `en-001`.
+/// speaker confirms it, and the refusal names the locale.
 #[test]
 fn an_unreviewed_locale_is_refused_by_the_name_it_reached() {
-    if names_reviewed("en-001") {
-        return;
-    }
+    let tag = an_unreviewed_tag();
     assert_eq!(
-        served("en-NZ").unwrap_err(),
-        Refusal::Unreviewed("en-001".to_string())
+        served(tag).unwrap_err(),
+        Refusal::Unreviewed(tag.to_string())
     );
-    let message = served("en-NZ").unwrap_err().to_string();
-    assert!(message.contains("show-locale-as-md -- en-001"), "{message}");
+    let message = served(tag).unwrap_err().to_string();
+    assert!(
+        message.contains(&format!("show-locale-as-md -- {tag}")),
+        "{message}"
+    );
 }
 
 /// Unknown is not unreviewed, so the two failures stay distinguishable.
