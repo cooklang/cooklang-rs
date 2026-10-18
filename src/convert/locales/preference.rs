@@ -1,10 +1,4 @@
 //! Which unit to display a value in, for a reader in a region or asking for a measurement system outright.
-//!
-//! How a locale *names* units is a separate matter (`en-GB` reads `pint` as the imperial pint); this module only
-//! decides what a converted value is written in. Which system a region gets is [`official_system`]'s to say.
-//!
-//! The schema is CLDR's — rows ordered largest first, each with a threshold the value must reach — but the rows are
-//! ours, because CLDR has no cooking usage.
 
 use icu_locale_core::subtags::{region, Region};
 
@@ -81,8 +75,7 @@ impl Audience {
     }
 }
 
-/// The measurement system a region's law prescribes, which is what its readers are shown: only the United States is US
-/// customary, everyone else is metric.
+/// The measurement system a region's law prescribes: only the United States is US customary, everyone else is metric.
 pub(crate) fn official_system(region: Region) -> System {
     if region == region!("US") {
         System::UsCustomary
@@ -98,14 +91,12 @@ pub(crate) struct Row {
     pub unit: Unit,
     pub at_least: f64,
     pub fractions: Option<u8>,
-    /// When no fraction fits, write a decimal in this unit rather than trying the next row. The legacy rows need it:
-    /// bundled fell back to a decimal in the unit its threshold chose (ADR 7).
     pub or_decimal: bool,
 }
 
 impl Row {
-    /// Every row is built in a `static` initializer, so a denominator a [`Number`] cannot write is a compile error
-    /// here rather than a panic at the first amount that reaches the row.
+    /// Every row is built in a `static` initializer, so a denominator a [`Number`] cannot write is a compile error here
+    /// rather than a panic at the first amount that reaches the row.
     pub(crate) const fn new(
         unit: Unit,
         at_least: f64,
