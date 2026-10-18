@@ -242,20 +242,6 @@ mod tests {
         best_unit(value, Unit::from_id(from).unwrap(), audience).id()
     }
 
-    /// Bundled wrote a decimal in the threshold's unit when no fraction fitted anywhere, `1.125 c`; a row marked
-    /// `or_decimal` does the same instead of trying the next row (ADR 7).
-    #[test]
-    fn a_legacy_cup_with_no_fraction_stays_a_decimal_cup() {
-        let cup = Unit::from_id("us cup").unwrap();
-        let (amount, unit) = best_amount(1.125, cup, Audience::legacy(System::UsCustomary));
-        assert_eq!(unit, cup);
-        assert_eq!(amount, Number::Regular(1.125));
-        // below a cup the row is not marked, so the tablespoon row is tried
-        let (amount, unit) = best_amount(0.4, cup, Audience::legacy(System::UsCustomary));
-        assert_eq!(unit.id(), "us tablespoon");
-        assert_eq!(amount.to_string(), "6 1/3");
-    }
-
     #[test]
     fn the_largest_whole_unit_wins() {
         assert_eq!(best(1500.0, "milliliter", METRIC), "liter");
@@ -329,6 +315,13 @@ mod tests {
         ]
     }
 
+    fn or_decimal(row: Row) -> Row {
+        Row {
+            or_decimal: true,
+            ..row
+        }
+    }
+
     fn shown(rows: &[Row], value: f64, from: &str) -> String {
         let (number, unit) = amount_in(rows, value, Unit::from_id(from).unwrap());
         format!("{number} {}", unit.id())
@@ -353,6 +346,20 @@ mod tests {
         // 0.4 cup fits no fraction of a cup or a fluid ounce; 6.4 tbsp fits
         // a third
         assert_eq!(shown(&rows, 0.4, "us cup"), "6 1/3 us tablespoon");
+    }
+
+    /// Bundled wrote a decimal in the threshold's unit when no fraction fitted anywhere, `1.125 c`; a row marked
+    /// `or_decimal` does the same instead of trying the next row (ADR 7).
+    #[test]
+    fn a_row_marked_or_decimal_keeps_an_amount_no_fraction_fits() {
+        let rows = [
+            or_decimal(row("us cup", 0.25, Some(4))),
+            row("us tablespoon", 1.0, Some(3)),
+        ];
+        assert_eq!(shown(&rows, 0.4, "us cup"), "0.4 us cup");
+        assert_eq!(shown(&rows, 0.5, "us cup"), "1/2 us cup");
+        // unmarked, the same amount falls to the tablespoon row
+        assert_eq!(shown(&us_rows(), 0.4, "us cup"), "6 1/3 us tablespoon");
     }
 
     #[test]
