@@ -104,22 +104,6 @@ pub(crate) fn names_reviewed(tag: &str) -> bool {
     meta_index(tag).is_some_and(|i| LOCALE_META[i].2)
 }
 
-/// [`reviewed_locale`], panicking with the whole locale rather than reporting. No caller outside the tests wants that
-/// today.
-///
-/// # Panics
-///
-/// If nothing vendored covers `tag`, or the locale it reaches is unreviewed.
-#[cfg(test)]
-pub(crate) fn reviewed_for_tag(tag: &LocaleTag) -> Arc<Locale> {
-    match reviewed_locale(tag) {
-        Ok(locale) => locale,
-        Err(Refusal::Unknown(tag)) => panic!("no vendored locale covers '{tag}'"),
-        Err(Refusal::Unreviewed(reached)) => refuse_unless_reviewed(&reached),
-        Err(Refusal::NoAudience(error)) => panic!("{error}"),
-    }
-}
-
 /// Why a tag cannot be served to a reader.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Refusal {
@@ -147,26 +131,4 @@ pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
         return Err(Refusal::Unreviewed(reached.to_string()));
     }
     Ok(vendored_locale(reached).expect("tag_for found it"))
-}
-
-/// The refusal carries the whole locale, not a command to go and run: whoever hits this is the person most likely to
-/// speak the language, and they are most likely to answer while they are already looking at it. It is the same text
-/// [`crate::locale_markdown`] renders, so `show-locale-as-md` reproduces it later. That makes for a long panic, about
-/// 110 lines, deliberately.
-#[cfg(test)]
-fn refuse_unless_reviewed(reached: &str) -> ! {
-    let report = crate::locale_markdown(reached)
-        .unwrap_or_else(|e| format!("(the locale could not be rendered: {e})"));
-    panic!(
-        "locale '{reached}' has not been reviewed, so cooklang will not write unit \
-         names for it: nobody who speaks the language has confirmed they are what \
-         recipes in it actually write. Naming a unit wrongly is worse than refusing \
-         to name it, which is why this is a refusal rather than a guess.\n\n\
-         Below is everything '{reached}' would write, as \
-         `cargo run --example show-locale-as-md -- {reached}` prints it. If it looks \
-         right, or if you can say what is wrong, please open an issue at \
-         https://github.com/cooklang/cooklang-rs/issues. locales/README.md says what we \
-         are asking and takes about twenty minutes.\n\n\
-         {report}"
-    );
 }

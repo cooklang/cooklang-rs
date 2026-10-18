@@ -410,15 +410,18 @@ mod universal_aliases {
     }
 }
 
-/// The reviewed gate: a `reviewed` key in a locale's own file decides whether
-/// it may be served to a reader; an unreviewed one is refused, not degraded.
+/// The review gate: a `reviewed` key in a locale's own file decides whether it may be served to a reader; an
+/// unreviewed one is refused, not degraded.
 mod reviewed {
     use super::*;
     use crate::convert::locales::tag::LocaleTag;
 
-    /// Deliberately a list rather than a count, so that reviewing the next
-    /// locale is a conscious act with a test to update, not something that
-    /// slips in.
+    fn served(tag: &str) -> Result<Arc<Locale>, Refusal> {
+        reviewed_locale(&LocaleTag::parse(tag).unwrap())
+    }
+
+    /// Deliberately a list rather than a count, so that reviewing the next locale is a conscious act with a test to
+    /// update, not something that slips in.
     #[test]
     fn only_da_fi_pl_and_sv_are_reviewed() {
         let reviewed: Vec<&str> = vendored_tags().filter(|t| names_reviewed(t)).collect();
@@ -431,117 +434,13 @@ mod reviewed {
 
     #[test]
     fn a_reviewed_locale_is_served() {
-        let sv = reviewed_for_tag(&LocaleTag::parse("sv-SE").unwrap());
-        let tbsp = unit("metric tablespoon");
-        assert_eq!(sv.written(tbsp), "msk");
-    }
-
-    /// Any vendored locale with no entry, found rather than named: hardcoding
-    /// one would make the test fail the day that locale is reviewed, which is
-    /// the one day it should still pass.
-    fn an_unreviewed_tag() -> &'static str {
-        vendored_tags()
-            .find(|t| !names_reviewed(t))
-            .expect("every vendored locale is reviewed, so this test is moot")
-    }
-
-    /// Adjudication does not imply review: a locale with a verdict for every
-    /// ambiguous string is still refused until a speaker confirms it.
-    #[test]
-    #[should_panic(expected = "has not been reviewed")]
-    fn an_unreviewed_locale_is_refused() {
-        reviewed_for_tag(&LocaleTag::parse(an_unreviewed_tag()).unwrap());
-    }
-
-    /// The refusal has to be answerable without going and running anything,
-    /// so it carries the whole locale and says where to reply.
-    #[test]
-    fn the_refusal_contains_the_locale_and_where_to_reply() {
-        let tag = an_unreviewed_tag();
-        let message = std::panic::catch_unwind(|| {
-            reviewed_for_tag(&LocaleTag::parse(tag).unwrap());
-        })
-        .expect_err("refused");
-        let message = message
-            .downcast_ref::<String>()
-            .expect("a formatted message");
-
-        assert!(
-            message.contains("github.com/cooklang/cooklang-rs/issues"),
-            "{message}"
-        );
-        assert!(
-            message.contains(&format!("show-locale-as-md -- {tag}")),
-            "{message}"
-        );
-
-        // the locale itself, not a pointer to it: the same text
-        // `locale_markdown` renders
-        let report = crate::locale_markdown(tag).expect("renders");
-        assert!(message.contains(&report), "{message}");
-        assert!(message.contains("| `metric tablespoon` |"), "{message}");
-        assert!(
-            message.lines().count() > 100,
-            "expected the whole locale, got {} lines",
-            message.lines().count()
-        );
-    }
-
-    /// The refusal names the locale actually reached, not the tag asked for,
-    /// since that is the one needing an entry. `en-NZ` reaches `en-001`.
-    #[test]
-    fn the_refusal_names_the_locale_reached_not_the_tag_asked_for() {
-        if names_reviewed("en-001") {
-            return; // nothing to refuse
-        }
-        let message = std::panic::catch_unwind(|| {
-            reviewed_for_tag(&LocaleTag::parse("en-NZ").unwrap());
-        })
-        .expect_err("refused");
-        let message = message
-            .downcast_ref::<String>()
-            .expect("a formatted message");
-        assert!(
-            message.starts_with("locale 'en-001' has not been reviewed"),
-            "{}",
-            &message[..message.len().min(120)]
-        );
-    }
-
-    /// An unknown tag is refused for being unknown, not for being unreviewed,
-    /// so the two failures stay distinguishable.
-    #[test]
-    #[should_panic(expected = "no vendored locale covers 'xh'")]
-    fn an_unvendored_tag_is_refused_as_unknown() {
-        reviewed_for_tag(&LocaleTag::parse("xh").unwrap());
-    }
-
-    /// `show-locale-as-md` must keep working on an unreviewed locale, or the
-    /// refusal would point at a command that cannot run.
-    #[test]
-    fn the_command_the_refusal_names_still_works_on_an_unreviewed_locale() {
-        let tag = an_unreviewed_tag();
-        let report = crate::locale_markdown(tag).expect("renders");
-        assert!(report.starts_with(&format!("# Locale `{tag}`")), "{tag}");
-    }
-}
-
-/// The same gate as `reviewed`, reported rather than panicked, which is what
-/// the parser needs.
-mod served {
-    use super::*;
-    use crate::convert::locales::tag::LocaleTag;
-
-    fn served(tag: &str) -> Result<Arc<Locale>, Refusal> {
-        reviewed_locale(&LocaleTag::parse(tag).unwrap())
-    }
-
-    #[test]
-    fn a_reviewed_locale_is_served() {
         let sv = served("sv-SE").unwrap();
         assert_eq!(sv.written(unit("metric tablespoon")), "msk");
     }
 
+    /// Adjudication does not imply review: a locale with a verdict for every ambiguous string is still refused until a
+    /// speaker confirms it. The refusal names the locale reached, not the tag asked for, since that is the one needing
+    /// an entry: `en-NZ` reaches `en-001`.
     #[test]
     fn an_unreviewed_locale_is_refused_by_the_name_it_reached() {
         if names_reviewed("en-001") {
@@ -555,11 +454,29 @@ mod served {
         assert!(message.contains("show-locale-as-md -- en-001"), "{message}");
     }
 
+    /// Unknown is not unreviewed, so the two failures stay distinguishable.
     #[test]
     fn an_unknown_tag_is_refused_as_unknown() {
         assert_eq!(
             served("xh").unwrap_err(),
             Refusal::Unknown("xh".to_string())
         );
+    }
+
+    /// Any vendored locale with no entry, found rather than named: hardcoding one would make the test fail the day
+    /// that locale is reviewed, which is the one day it should still pass.
+    fn an_unreviewed_tag() -> &'static str {
+        vendored_tags()
+            .find(|t| !names_reviewed(t))
+            .expect("every vendored locale is reviewed, so this test is moot")
+    }
+
+    /// `show-locale-as-md` must keep working on an unreviewed locale, or the refusal would point at a command that
+    /// cannot run.
+    #[test]
+    fn the_command_the_refusal_names_still_works_on_an_unreviewed_locale() {
+        let tag = an_unreviewed_tag();
+        let report = crate::locale_markdown(tag).expect("renders");
+        assert!(report.starts_with(&format!("# Locale `{tag}`")), "{tag}");
     }
 }
