@@ -613,23 +613,13 @@ fn generate_preferences() {
             other => panic!("locales/preferences: unknown quantity '{other}'"),
         }
     }
-    // `Number::MAX_FRACTION_DENOMINATOR`, which a build script cannot import: `Number::new_approx` asserts it, so a
-    // larger row would panic on the first conversion that reaches it instead of failing here
-    const MAX_FRACTION_DENOMINATOR: u8 = 64;
+    // `Row::new` checks the denominator at compile time, against the limit a build script cannot see
     fn rows(quantity_name: &str, rows: &[Threshold]) -> String {
         let q = quantity(quantity_name);
         rows.iter()
             .map(|t| {
-                if let Some(den) = t.fractions {
-                    assert!(
-                        (1..=MAX_FRACTION_DENOMINATOR).contains(&den),
-                        "locales/preferences: `{}` has fractions = {den}, but the largest \
-                         denominator a fraction is written with is {MAX_FRACTION_DENOMINATOR}",
-                        t.unit
-                    );
-                }
                 format!(
-                    "Row {{ unit: Unit::{q}({q}Unit::{}), at_least: {:?}, fractions: {:?}, or_decimal: {} }}",
+                    "Row::new(Unit::{q}({q}Unit::{}), {:?}, {:?}, {})",
                     variant(&t.unit),
                     t.at_least,
                     t.fractions,

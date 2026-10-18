@@ -103,6 +103,27 @@ pub(crate) struct Row {
     pub or_decimal: bool,
 }
 
+impl Row {
+    /// Every row is built in a `static` initializer, so a denominator a [`Number`] cannot write is a compile error
+    /// here rather than a panic at the first amount that reaches the row.
+    pub(crate) const fn new(
+        unit: Unit,
+        at_least: f64,
+        fractions: Option<u8>,
+        or_decimal: bool,
+    ) -> Self {
+        if let Some(den) = fractions {
+            assert!(den >= 1 && den <= Number::MAX_FRACTION_DENOMINATOR);
+        }
+        Row {
+            unit,
+            at_least,
+            fractions,
+            or_decimal,
+        }
+    }
+}
+
 // The rows themselves are data: one entry per system and quantity in `locales/preferences/system.toml`, per region
 // and quantity in `region.toml`, each with its citation. build.rs turns them into `PREFERENCES` and
 // `REGION_PREFERENCES`; the frozen rows an untagged recipe uses are `legacy::LEGACY_PREFERENCES`, and `rows_for` says
@@ -402,27 +423,6 @@ mod tests {
         assert_eq!(fraction_in(&rows, 0.4, cup).to_string(), "0.4");
         let liter = Unit::from_id("liter").unwrap();
         assert_eq!(fraction_in(&rows, 0.5, liter).to_string(), "0.5");
-    }
-
-    /// `build.rs` refuses a larger denominator; this keeps the two limits the same number.
-    #[test]
-    fn every_fraction_row_is_within_what_a_number_can_write() {
-        let all = PREFERENCES
-            .iter()
-            .chain(LEGACY_PREFERENCES)
-            .map(|(_, _, rows)| *rows)
-            .chain(REGION_PREFERENCES.iter().map(|(_, _, rows)| *rows));
-        for row in all.flatten() {
-            if let Some(den) = row.fractions {
-                assert!(
-                    (1..=Number::MAX_FRACTION_DENOMINATOR).contains(&den),
-                    "{} fractions /{den}",
-                    row.unit.id()
-                );
-                // and the number layer agrees, rather than panicking
-                let _ = fraction(1.5, row);
-            }
-        }
     }
 
     /// A generated row cannot mismatch: `build.rs` derives the unit enum from the quantity, so the wrong unit is a

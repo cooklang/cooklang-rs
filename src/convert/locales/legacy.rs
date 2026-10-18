@@ -68,71 +68,62 @@ pub(crate) fn legacy_system(unit: Unit) -> System {
         .map_or(UsCustomary, |&(_, system, ..)| system)
 }
 
-const fn row(unit: Unit, at_least: f64, fractions: Option<u8>, or_decimal: bool) -> Row {
-    Row {
-        unit,
-        at_least,
-        fractions,
-        or_decimal,
-    }
-}
-
 // The units.toml preferences frozen here for compatibility
 #[rustfmt::skip]
 pub(crate) static LEGACY_PREFERENCES: &[(System, PhysicalQuantity, &[Row])] = &[
     // `best.metric = ["ml", "l"]`, `fractions.metric = false`
     (Metric, Volume, &[
-        row(Unit::Volume(VolumeUnit::Liter),                1.0, None,    false),
-        row(Unit::Volume(VolumeUnit::Milliliter),           1.0, None,    false),
+        Row::new(Unit::Volume(VolumeUnit::Liter),                1.0, None,    false),
+        Row::new(Unit::Volume(VolumeUnit::Milliliter),           1.0, None,    false),
     ]),
     // `best.metric = ["mg", "g", "kg"]`
     (Metric, Mass, &[
-        row(Unit::Mass(MassUnit::Kilogram),                 1.0, None,    false),
-        row(Unit::Mass(MassUnit::Gram),                     1.0, None,    false),
-        row(Unit::Mass(MassUnit::Milligram),                1.0, None,    false),
+        Row::new(Unit::Mass(MassUnit::Kilogram),                 1.0, None,    false),
+        Row::new(Unit::Mass(MassUnit::Gram),                     1.0, None,    false),
+        Row::new(Unit::Mass(MassUnit::Milligram),                1.0, None,    false),
     ]),
     // `best.metric = ["cm", "mm", "m"]`
     (Metric, Length, &[
-        row(Unit::Length(LengthUnit::Meter),                1.0, None,    false),
-        row(Unit::Length(LengthUnit::Centimeter),           1.0, None,    false),
-        row(Unit::Length(LengthUnit::Millimeter),           1.0, None,    false),
+        Row::new(Unit::Length(LengthUnit::Meter),                1.0, None,    false),
+        Row::new(Unit::Length(LengthUnit::Centimeter),           1.0, None,    false),
+        Row::new(Unit::Length(LengthUnit::Millimeter),           1.0, None,    false),
     ]),
     // `best.metric = ["C"]`, `fractions.quantity.temperature = false`
     (Metric, Temperature, &[
-        row(Unit::Temperature(TemperatureUnit::Celsius),    1.0, None,    false),
+        Row::new(Unit::Temperature(TemperatureUnit::Celsius),    1.0, None,    false),
     ]),
     // `best = ["s", "h", "min", "d"]`, one list for both systems, `fractions.quantity.time = false`
     (Metric, Time, &[
-        row(Unit::Time(TimeUnit::Day),                      1.0, None,    false),
-        row(Unit::Time(TimeUnit::Hour),                     1.0, None,    false),
-        row(Unit::Time(TimeUnit::Minute),                   1.0, None,    false),
-        row(Unit::Time(TimeUnit::Second),                   1.0, None,    false),
+        Row::new(Unit::Time(TimeUnit::Day),                      1.0, None,    false),
+        Row::new(Unit::Time(TimeUnit::Hour),                     1.0, None,    false),
+        Row::new(Unit::Time(TimeUnit::Minute),                   1.0, None,    false),
+        Row::new(Unit::Time(TimeUnit::Second),                   1.0, None,    false),
     ]),
     // `best.imperial = ["cup", "tsp", "tbsp"]`; `fractions.unit.tsp.max_denominator = 8`, `tbsp = 3`, cup the
     // default 4. A third of a cup and half a tablespoon are the smallest fractions bundled kept in those units: a
     // quarter cup was `4 tbsp` and two thirds of a tablespoon `2 tsp`, whole numbers winning its search.
     (UsCustomary, Volume, &[
-        row(Unit::Volume(VolumeUnit::UsCup),                1.0, Some(4), true),
-        row(Unit::Volume(VolumeUnit::UsCup),                0.3, Some(4), false),
-        row(Unit::Volume(VolumeUnit::UsTablespoon),         2.0, Some(3), true),
-        row(Unit::Volume(VolumeUnit::UsTablespoon),         0.5, Some(3), false),
-        row(Unit::Volume(VolumeUnit::UsTeaspoon),           0.0, Some(8), false),
+        Row::new(Unit::Volume(VolumeUnit::UsCup),                1.0, Some(4), true),
+        Row::new(Unit::Volume(VolumeUnit::UsCup),                0.3, Some(4), false),
+        Row::new(Unit::Volume(VolumeUnit::UsTablespoon),         2.0, Some(3), true),
+        Row::new(Unit::Volume(VolumeUnit::UsTablespoon),         0.5, Some(3), false),
+        Row::new(Unit::Volume(VolumeUnit::UsTeaspoon),           0.0, Some(8), false),
     ]),
     // `best.imperial = ["oz", "lb"]`; `fractions.unit.lb.max_denominator = 8`, ounce the default 4. Below a pound
     // bundled kept the pound only for thirds, which the search decided; every other fraction of a pound is a whole
     // number of ounces.
     (UsCustomary, Mass, &[
-        row(Unit::Mass(MassUnit::Pound),                    1.0, Some(8), false),
-        row(Unit::Mass(MassUnit::Ounce),                    0.0, Some(4), false),
+        Row::new(Unit::Mass(MassUnit::Pound),                    1.0, Some(8), false),
+        Row::new(Unit::Mass(MassUnit::Ounce),                    0.0, Some(4), false),
     ]),
     // `best.imperial = ["in", "ft"]`, the default denominator 4
     (UsCustomary, Length, &[
-        row(Unit::Length(LengthUnit::Foot),                 1.0, Some(4), false),
-        row(Unit::Length(LengthUnit::Inch),                 0.0, Some(4), false),
+        Row::new(Unit::Length(LengthUnit::Foot),                 1.0, Some(4), false),
+        Row::new(Unit::Length(LengthUnit::Inch),                 0.0, Some(4), false),
     ]),
     // `best.imperial = ["F"]`, `fractions.quantity.temperature = false`
     (UsCustomary, Temperature, &[
-        row(Unit::Temperature(TemperatureUnit::Fahrenheit), 1.0, None,    false),
+        Row::new(Unit::Temperature(TemperatureUnit::Fahrenheit), 1.0, None,    false),
     ]),
 ];
 
