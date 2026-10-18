@@ -1387,7 +1387,7 @@ impl Number {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::sync::LazyLock;
     use test_case::test_case;
@@ -1428,7 +1428,8 @@ mod tests {
         num
     }
 
-    fn qty(q: &str) -> Quantity {
+    /// `"1.5%l"`, `"1-2%l"`, `"some%l"` or `"3"`, unread.
+    pub(crate) fn qty(q: &str) -> Quantity {
         let (value, unit) = match q.split_once("%") {
             Some((value, unit)) => (value, Some(unit.to_string())),
             None => (q, None),
