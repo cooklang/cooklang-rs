@@ -167,8 +167,13 @@ mod tests {
     /// The rules and samples below are CLDR 48.2.3's (`cldr-core/supplemental/plurals.json`), one locale for each
     /// construct of the rule language, with every listed sample up to 1000, both ends and a middle of every range,
     /// and 1000000 where a rule turns on it. Compact samples (`1c6`) are never printed and are left out.
+    struct Eval<'a> {
+        rules: &'a [(&'a str, &'a str)],
+        expected: &'a [(&'a str, &'a [&'a str])],
+    }
+
     #[track_caller]
-    fn assert_plural_eval(rules: &[(&str, &str)], expected: &[(&str, &[&str])]) {
+    fn assert_plural_eval(Eval { rules, expected }: Eval) {
         for (expected, numbers) in expected {
             for number in *numbers {
                 assert_eq!(
@@ -184,16 +189,16 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn english() {
-        assert_plural_eval(
-            &[
+        assert_plural_eval(Eval {
+            rules: &[
                 ("one",   "i = 1 and v = 0"),
                 ("other", ""),
             ],
-            &[
+            expected: &[
                 ("one",   &["1"]),
                 ("other", &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0", "100.0"]),
             ],
-        );
+        });
     }
 
     /// `n` matching a decimal with no fraction digits, the `e` operand (always 0 here), a negated range and a
@@ -201,36 +206,36 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn spanish() {
-        assert_plural_eval(
-            &[
+        assert_plural_eval(Eval {
+            rules: &[
                 ("one",   "n = 1"),
                 ("many",  "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5"),
                 ("other", ""),
             ],
-            &[
+            expected: &[
                 ("one",   &["1", "1.0", "1.00", "1.000", "1.0000"]),
                 ("many",  &["1000000"]),
                 ("other", &["0", "2", "9", "16", "100", "1000", "0.0", "0.4", "0.9", "1.1", "1.3", "1.6", "10.0", "100.0"]),
             ],
-        );
+        });
     }
 
     /// A comma list, and `i` putting every fraction between 0 and 2 in `one`.
     #[test]
     #[rustfmt::skip]
     fn french() {
-        assert_plural_eval(
-            &[
+        assert_plural_eval(Eval {
+            rules: &[
                 ("one",   "i = 0,1"),
                 ("many",  "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5"),
                 ("other", ""),
             ],
-            &[
+            expected: &[
                 ("one",   &["0", "1", "0.0", "0.7", "1.5"]),
                 ("many",  &["1000000"]),
                 ("other", &["2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0"]),
             ],
-        );
+        });
     }
 
     /// Modulus with a range, a negated range, `!=` on a single value, and `or` chains where every arm carries its
@@ -238,37 +243,37 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn polish() {
-        assert_plural_eval(
-            &[
+        assert_plural_eval(Eval {
+            rules: &[
                 ("one",   "i = 1 and v = 0"),
                 ("few",   "v = 0 and i % 10 = 2..4 and i % 100 != 12..14"),
                 ("many",  "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 \
                            or v = 0 and i % 100 = 12..14"),
                 ("other", ""),
             ],
-            &[
+            expected: &[
                 ("one",   &["1"]),
                 ("few",   &["2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52", "53", "54", "62", "102"]),
                 ("many",  &["0", "5", "12", "19", "100", "1000", "1000000"]),
                 ("other", &["0.0", "0.7", "1.5", "10.0", "100.0"]),
             ],
-        );
+        });
     }
 
     /// The `t` operand, and `and` binding tighter than `or`: 0.1 to 1.6 are `one` by their fraction digits.
     #[test]
     #[rustfmt::skip]
     fn danish() {
-        assert_plural_eval(
-            &[
+        assert_plural_eval(Eval {
+            rules: &[
                 ("one",   "n = 1 or t != 0 and i = 0,1"),
                 ("other", ""),
             ],
-            &[
+            expected: &[
                 ("one",   &["1", "0.1", "0.8", "1.6"]),
                 ("other", &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "2.0", "2.7", "3.4", "10.0", "100.0"]),
             ],
-        );
+        });
     }
 
     /// Six categories, and modulus on `n`: a decimal counts only when it is integral, so 3.0 is `few` and 0.5 is
@@ -276,8 +281,8 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn arabic() {
-        assert_plural_eval(
-            &[
+        assert_plural_eval(Eval {
+            rules: &[
                 ("zero",  "n = 0"),
                 ("one",   "n = 1"),
                 ("two",   "n = 2"),
@@ -285,7 +290,7 @@ mod tests {
                 ("many",  "n % 100 = 11..99"),
                 ("other", ""),
             ],
-            &[
+            expected: &[
                 ("zero",  &["0", "0.0", "0.00", "0.000", "0.0000"]),
                 ("one",   &["1", "1.0", "1.00", "1.000", "1.0000"]),
                 ("two",   &["2", "2.0", "2.00", "2.000", "2.0000"]),
@@ -293,6 +298,6 @@ mod tests {
                 ("many",  &["11", "18", "26", "111", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0"]),
                 ("other", &["100", "101", "102", "200", "201", "202", "300", "301", "302", "400", "401", "402", "500", "501", "502", "600", "1000", "1000000", "0.1", "0.5", "0.9", "1.1", "1.4", "1.7", "10.1", "100.0"]),
             ],
-        );
+        });
     }
 }
