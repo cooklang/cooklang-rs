@@ -284,13 +284,11 @@ mod tests {
 
     #[test]
     fn a_region_row_overrides_only_its_own_quantity() {
-        let se = region("SE");
-        let hu = region("HU");
-        assert_eq!(best(150.0, "milliliter", se), "deciliter");
-        assert_eq!(best(250.0, "gram", hu), "decagram");
+        assert_eq!(best(150.0, "milliliter", region("SE")), "deciliter");
+        assert_eq!(best(250.0, "gram", region("HU")), "decagram");
         // a quantity the region has no rows for falls to its system's
-        assert_eq!(best(500.0, "gram", se), "gram");
-        assert_eq!(best(100.0, "celsius", se), "celsius");
+        assert_eq!(best(500.0, "gram", region("SE")), "gram");
+        assert_eq!(best(100.0, "celsius", region("SE")), "celsius");
         // and a system asked for outright ignores the region's rows
         assert_eq!(best(150.0, "milliliter", METRIC), "milliliter");
     }
