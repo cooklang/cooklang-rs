@@ -131,6 +131,21 @@ fn audiences() -> Vec<Audience> {
     audiences
 }
 
+/// Every preference row, under the key the snapshot files it by: the system, `region:SE`, or `legacy:Metric`.
+fn all_rows() -> impl Iterator<Item = (String, PhysicalQuantity, &'static Row)> {
+    let system = PREFERENCES
+        .iter()
+        .flat_map(|(s, q, rows)| rows.iter().map(move |row| (format!("{s:?}"), *q, row)));
+    let region = REGION_PREFERENCES
+        .iter()
+        .flat_map(|(r, q, rows)| rows.iter().map(move |row| (format!("region:{r}"), *q, row)));
+    let legacy = LEGACY_PREFERENCES.iter().flat_map(|(s, q, rows)| {
+        rows.iter()
+            .map(move |row| (format!("legacy:{s:?}"), *q, row))
+    });
+    system.chain(region).chain(legacy)
+}
+
 fn fractions_suffix(row: &Row) -> String {
     let fractions = match row.fractions {
         Some(den) => format!(" fractions /{den}"),
@@ -254,41 +269,15 @@ fn render_derived(out: &mut String, tags: &[&str]) {
         )
         .unwrap();
     }
-    for (system, quantity, rows) in PREFERENCES {
-        for row in rows.iter() {
-            writeln!(
-                out,
-                "preference {system:?} {quantity:?} {} >= {}{}",
-                row.unit.id(),
-                row.at_least,
-                fractions_suffix(row)
-            )
-            .unwrap();
-        }
-    }
-    for (region, quantity, rows) in REGION_PREFERENCES {
-        for row in rows.iter() {
-            writeln!(
-                out,
-                "preference region:{region} {quantity:?} {} >= {}{}",
-                row.unit.id(),
-                row.at_least,
-                fractions_suffix(row)
-            )
-            .unwrap();
-        }
-    }
-    for (system, quantity, rows) in LEGACY_PREFERENCES {
-        for row in rows.iter() {
-            writeln!(
-                out,
-                "preference legacy:{system:?} {quantity:?} {} >= {}{}",
-                row.unit.id(),
-                row.at_least,
-                fractions_suffix(row)
-            )
-            .unwrap();
-        }
+    for (key, quantity, row) in all_rows() {
+        writeln!(
+            out,
+            "preference {key} {quantity:?} {} >= {}{}",
+            row.unit.id(),
+            row.at_least,
+            fractions_suffix(row)
+        )
+        .unwrap();
     }
     for audience in audiences() {
         for (unit, value) in sweep() {
@@ -349,16 +338,7 @@ fn render_derived(out: &mut String, tags: &[&str]) {
 /// "reach" one -- the lever is the row, not the value.
 #[test]
 fn the_samples_reach_every_unit_a_row_can_choose() {
-    let mut reachable: HashSet<Unit> = HashSet::new();
-    for (_, _, rows) in PREFERENCES {
-        reachable.extend(rows.iter().map(|row| row.unit));
-    }
-    for (_, _, rows) in REGION_PREFERENCES {
-        reachable.extend(rows.iter().map(|row| row.unit));
-    }
-    for (_, _, rows) in LEGACY_PREFERENCES {
-        reachable.extend(rows.iter().map(|row| row.unit));
-    }
+    let reachable: HashSet<Unit> = all_rows().map(|(_, _, row)| row.unit).collect();
 
     let mut chosen: HashSet<Unit> = HashSet::new();
     for audience in audiences() {
