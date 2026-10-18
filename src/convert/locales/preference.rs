@@ -38,8 +38,7 @@ pub struct Audience {
 pub enum Units {
     Region(Region),
     System(System),
-    /// The frozen rows an untagged recipe is fitted with, for the system the quantity was written in: metric stays
-    /// metric, US stays US (ADR 7).
+    /// The frozen legacy preferences
     Legacy(System),
 }
 
@@ -448,23 +447,17 @@ mod tests {
         }
     }
 
-    /// A row's units must all measure the row's quantity, or `convert`
-    /// would panic at the first lookup.
+    /// A generated row cannot mismatch: `build.rs` derives the unit enum from the quantity, so the wrong unit is a
+    /// compile error. The hand-written legacy rows can, and `convert` would panic at the first lookup.
     #[test]
-    fn every_row_lists_units_of_its_own_quantity() {
-        for (_, quantity, rows) in PREFERENCES {
-            assert!(!rows.is_empty());
-            for row in rows.iter() {
-                assert_eq!(row.unit.physical_quantity(), *quantity, "{quantity:?}");
-            }
-        }
-        for (region, quantity, rows) in REGION_PREFERENCES {
-            assert!(!rows.is_empty(), "{region}");
+    fn every_legacy_row_lists_units_of_its_own_quantity() {
+        for (system, quantity, rows) in LEGACY_PREFERENCES {
+            assert!(!rows.is_empty(), "{system:?} {quantity:?}");
             for row in rows.iter() {
                 assert_eq!(
                     row.unit.physical_quantity(),
                     *quantity,
-                    "{region} {quantity:?}"
+                    "{system:?} {quantity:?}"
                 );
             }
         }
