@@ -141,20 +141,16 @@ pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'stat
             return temperature_row(unit);
         }
     }
-    let shared = |table: &'static [(System, PhysicalQuantity, &'static [Row])]| {
-        (quantity == PhysicalQuantity::Time).then(|| rows_in(table, System::Metric, quantity))?
+    let (table, own) = match audience.units {
+        Units::Region(region) => (PREFERENCES, rows_in(REGION_PREFERENCES, region, quantity)),
+        Units::System(_) => (PREFERENCES, None),
+        Units::Legacy(_) => (LEGACY_PREFERENCES, None),
     };
-    let own = match audience.units {
-        Units::Region(region) => rows_in(REGION_PREFERENCES, region, quantity),
-        Units::System(_) => None,
-        Units::Legacy(system) => {
-            return rows_in(LEGACY_PREFERENCES, system, quantity)
-                .or_else(|| shared(LEGACY_PREFERENCES))
-                .expect("every legacy system has rows for every quantity but time");
-        }
-    };
-    own.or_else(|| rows_in(PREFERENCES, audience.official(), quantity))
-        .or_else(|| shared(PREFERENCES))
+    own.or_else(|| rows_in(table, audience.official(), quantity))
+        .or_else(|| {
+            (quantity == PhysicalQuantity::Time)
+                .then(|| rows_in(table, System::Metric, quantity))?
+        })
         .expect("every system has rows for every quantity but time")
 }
 
