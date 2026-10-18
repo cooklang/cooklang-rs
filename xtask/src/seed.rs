@@ -66,6 +66,15 @@ const CLDR_KEYS: &[(&str, &str)] = &[
 /// language write it: feet and inches are seeded into every locale, and
 /// whether a kitchen uses them is left to its reviewer (locales/README.md).
 /// Adding a name after review is harmless; removing one may break recipes.
+/// The degree sign's other spellings, which are not CLDR's: every file carries them, with `°C`/`°F` as the symbol
+/// and CLDR's own symbol kept as an alias where it differs.
+const DEGREE_SPELLINGS: &[(&str, &str, &[&str])] = &[
+    ("celsius", "°C", &["℃", "ºC", "C"]),
+    ("fahrenheit", "°F", &["℉", "ºF", "F"]),
+];
+const DEGREE_REASON: &str =
+    "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere";
+
 const NEEDS_A_VERDICT: &[&str] = &[
     "us cup",
     "metric cup",
@@ -211,7 +220,14 @@ pub(crate) fn render_new_locale(
 
         out.push_str("\n[[unit]]\n");
         writeln!(out, "id = {}", quote(id)).unwrap();
-        let symbol = symbol.filter(|s| names.contains(s));
+        let degree = DEGREE_SPELLINGS.iter().find(|(unit, _, _)| *unit == id);
+        let symbol = match degree {
+            Some((_, sign, spellings)) => {
+                names.extend(spellings.iter().map(|s| (*s).to_string()));
+                Some((*sign).to_string())
+            }
+            None => symbol.filter(|s| names.contains(s)),
+        };
         if let Some(symbol) = &symbol {
             writeln!(out, "symbol = {}", quote(symbol)).unwrap();
         }
@@ -229,6 +245,9 @@ pub(crate) fn render_new_locale(
                 .map(|(c, p)| format!("{c} = {}", quote(p)))
                 .collect();
             writeln!(out, "long = {{ {} }}", list.join(", ")).unwrap();
+        }
+        if degree.is_some() {
+            writeln!(out, "reason = {}", quote(DEGREE_REASON)).unwrap();
         }
     }
 
