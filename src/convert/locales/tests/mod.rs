@@ -30,6 +30,20 @@ fn locale_with(entries: &[(&str, UnitNames)]) -> Result<Locale, LocaleError> {
     Locale::new(map)
 }
 
+/// The review gate: a `reviewed` key in a locale's own file decides whether it may be served to a reader; an
+/// unreviewed one is refused, not degraded.
+fn served(tag: &str) -> Result<Arc<Locale>, Refusal> {
+    reviewed_locale(&LocaleTag::parse(tag).unwrap())
+}
+
+/// Any vendored locale with no entry, found rather than named: hardcoding one would make the test fail the day
+/// that locale is reviewed, which is the one day it should still pass.
+fn an_unreviewed_tag() -> &'static str {
+    vendored_tags()
+        .find(|t| !names_reviewed(t))
+        .expect("every vendored locale is reviewed, so this test is moot")
+}
+
 #[track_caller]
 fn assert_reaches(tag: &str, vendored: Option<&str>) {
     assert_eq!(tag_for(&LocaleTag::parse(tag).unwrap()), vendored, "{tag}");
@@ -289,12 +303,6 @@ fn a_locale_may_not_give_a_universal_alias_to_another_unit() {
     assert!(locale_with(&[("celsius", names("°C", &["℃"]))]).is_ok());
 }
 
-/// The review gate: a `reviewed` key in a locale's own file decides whether it may be served to a reader; an
-/// unreviewed one is refused, not degraded.
-fn served(tag: &str) -> Result<Arc<Locale>, Refusal> {
-    reviewed_locale(&LocaleTag::parse(tag).unwrap())
-}
-
 /// Deliberately a list rather than a count, so that reviewing the next locale is a conscious act with a test to
 /// update, not something that slips in.
 #[test]
@@ -332,14 +340,6 @@ fn an_unknown_tag_is_refused_as_unknown() {
         served("xh").unwrap_err(),
         Refusal::Unknown("xh".to_string())
     );
-}
-
-/// Any vendored locale with no entry, found rather than named: hardcoding one would make the test fail the day
-/// that locale is reviewed, which is the one day it should still pass.
-fn an_unreviewed_tag() -> &'static str {
-    vendored_tags()
-        .find(|t| !names_reviewed(t))
-        .expect("every vendored locale is reviewed, so this test is moot")
 }
 
 /// `show-locale-as-md` must keep working on an unreviewed locale, or the refusal would point at a command that
