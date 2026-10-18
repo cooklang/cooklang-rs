@@ -142,25 +142,29 @@ fn rows_in<K: PartialEq>(
 }
 
 /// The rows that apply to `audience` for `quantity`, most specific first: the `-u-mu-` unit for temperature, a region's
-/// own rows, its system's, then metric, which is where time lives. A legacy audience has only its frozen rows (ADR 7).
+/// own rows, then its system's. Time has one list, under metric, which every system shares. A legacy audience has only
+/// its frozen rows (ADR 7).
 pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'static [Row] {
     if quantity == PhysicalQuantity::Temperature {
         if let Some(unit) = audience.temperature {
             return temperature_row(unit);
         }
     }
+    let shared = |table: &'static [(System, PhysicalQuantity, &'static [Row])]| {
+        (quantity == PhysicalQuantity::Time).then(|| rows_in(table, System::Metric, quantity))?
+    };
     let own = match audience.units {
         Units::Region(region) => rows_in(REGION_PREFERENCES, region, quantity),
         Units::System(_) => None,
         Units::Legacy(system) => {
             return rows_in(LEGACY_PREFERENCES, system, quantity)
-                .or_else(|| rows_in(LEGACY_PREFERENCES, System::Metric, quantity))
-                .expect("every quantity has legacy metric rows");
+                .or_else(|| shared(LEGACY_PREFERENCES))
+                .expect("every legacy system has rows for every quantity but time");
         }
     };
     own.or_else(|| rows_in(PREFERENCES, audience.official(), quantity))
-        .or_else(|| rows_in(PREFERENCES, System::Metric, quantity))
-        .expect("every quantity has metric rows")
+        .or_else(|| shared(PREFERENCES))
+        .expect("every system has rows for every quantity but time")
 }
 
 fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
