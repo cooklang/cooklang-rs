@@ -32,7 +32,7 @@ pub struct Audience {
 pub enum Units {
     Region(Region),
     System(System),
-    /// The frozen legacy preferences
+    /// The frozen rows an untagged recipe is fitted with, for the system the quantity was written in (ADR 7).
     Legacy(System),
 }
 
@@ -91,6 +91,8 @@ pub(crate) struct Row {
     pub unit: Unit,
     pub at_least: f64,
     pub fractions: Option<u8>,
+    /// When no fraction fits, write a decimal in this unit rather than trying the next row. The legacy rows need it:
+    /// bundled fell back to a decimal in the unit its threshold chose (ADR 7).
     pub or_decimal: bool,
 }
 
@@ -173,17 +175,18 @@ fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
     }
 }
 
-/// How far a fraction may be from the amount it stands for, as a share of it: the legacy converter's imperial
-/// `accuracy`. The precision research's tiers (`docs/research/measurement-precision.md`) are parked.
-const FRACTION_TOLERANCE: f32 = 0.05;
+/// `value` of `from` as `audience` would write it, with the unit.
+///
+/// The first row the value reaches the threshold of takes it, unless that row writes fractions and none fits, in which
+/// case the next row is tried: `100 ml` is no quarter of a cup, so it is `3 1/2 fl oz`. A fraction is a display form,
+/// not a rounding: [`Number::Fraction`] keeps the residual.
+pub(crate) fn best_amount(value: f64, from: Unit, audience: Audience) -> (Number, Unit) {
+    amount_in(rows_for(audience, from.physical_quantity()), value, from)
+}
 
-/// Each row `value` reaches the threshold of, largest first, with the value in that row's unit. The magnitude is what
-/// matters, so a negative value — a freezer temperature — is judged by its absolute size.
-fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = (&Row, f64)> {
-    rows.iter().filter_map(move |row| {
-        let converted = Unit::convert(value, from, row.unit).expect("same quantity");
-        (converted.abs() >= row.at_least).then_some((row, converted))
-    })
+/// `amount`, already in `unit`, as `audience` writes that unit: a fraction if its row has one that fits, else as it is.
+pub(crate) fn as_written(amount: f64, unit: Unit, audience: Audience) -> Number {
+    fraction_in(rows_for(audience, unit.physical_quantity()), amount, unit)
 }
 
 /// The unit `value` should be displayed in for `audience`: the largest one it reaches the threshold of, falling back to
@@ -198,20 +201,6 @@ pub(crate) fn best_unit(value: f64, from: Unit, audience: Audience) -> Unit {
         || rows.last().expect("rows are never empty").unit,
         |(row, _)| row.unit,
     )
-}
-
-/// `value` of `from` as `audience` would write it, with the unit.
-///
-/// The first row the value reaches the threshold of takes it, unless that row writes fractions and none fits, in which
-/// case the next row is tried: `100 ml` is no quarter of a cup, so it is `3 1/2 fl oz`. A fraction is a display form,
-/// not a rounding: [`Number::Fraction`] keeps the residual.
-pub(crate) fn best_amount(value: f64, from: Unit, audience: Audience) -> (Number, Unit) {
-    amount_in(rows_for(audience, from.physical_quantity()), value, from)
-}
-
-/// `amount`, already in `unit`, as `audience` writes that unit: a fraction if its row has one that fits, else as it is.
-pub(crate) fn as_written(amount: f64, unit: Unit, audience: Audience) -> Number {
-    fraction_in(rows_for(audience, unit.physical_quantity()), amount, unit)
 }
 
 fn amount_in(rows: &[Row], value: f64, from: Unit) -> (Number, Unit) {
@@ -235,6 +224,19 @@ fn fraction_in(rows: &[Row], amount: f64, unit: Unit) -> Number {
         .and_then(|row| fraction(amount, row))
         .unwrap_or(Number::Regular(amount))
 }
+
+/// Each row `value` reaches the threshold of, largest first, with the value in that row's unit. The magnitude is what
+/// matters, so a negative value — a freezer temperature — is judged by its absolute size.
+fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = (&Row, f64)> {
+    rows.iter().filter_map(move |row| {
+        let converted = Unit::convert(value, from, row.unit).expect("same quantity");
+        (converted.abs() >= row.at_least).then_some((row, converted))
+    })
+}
+
+/// How far a fraction may be from the amount it stands for, as a share of it: the legacy converter's imperial
+/// `accuracy`. The precision research's tiers (`docs/research/measurement-precision.md`) are parked.
+const FRACTION_TOLERANCE: f32 = 0.05;
 
 /// `amount` as `row` writes it, or `None` if the row wants a fraction and none fits. Only a positive amount can be a
 /// fraction; zero and negatives are written as they are.
