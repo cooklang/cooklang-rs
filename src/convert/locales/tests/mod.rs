@@ -1,13 +1,10 @@
+//! What is asserted about the vendored locales as a set: the naming policy of ADR 3, and the snapshot that pins every
+//! decision. Each module's own rules are tested beside it.
+
 mod snapshot;
 
-use super::legacy::*;
-use super::locale::*;
-use super::vendored::*;
-use crate::convert::locales::reference::render_locale;
-use crate::convert::locales::tag::LocaleTag;
+use super::vendored::{vendored_locale, vendored_tags};
 use crate::convert::units::Unit;
-use std::collections::HashMap;
-use std::sync::Arc;
 
 fn unit(id: &str) -> Unit {
     Unit::from_id(id).unwrap_or_else(|| panic!("no unit with id '{id}'"))
