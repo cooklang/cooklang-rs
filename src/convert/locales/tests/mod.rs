@@ -173,12 +173,12 @@ fn tag_for_follows_cldr_parents_and_ignores_extensions() {
 
 #[test]
 fn without_a_long_form_the_number_precedes_the_written_form() {
-    let de = vendored_locale("de").unwrap();
-    // declined: no symbol, no long form, so the spaced identifier
-    assert_eq!(de.written_long(2.0, unit("us cup")), "2 us cup");
-    // a hand-named unit with no long patterns: the symbol
-    assert_eq!(de.written_long(2.0, unit("decagram")), "2 dag");
-    // legacy has no long forms at all
+    let locale = locale_with(&[("decagram", names("dag", &[]))]).unwrap();
+    // a symbol but no long patterns
+    assert_eq!(locale.written_long(2.0, unit("decagram")), "2 dag");
+    // nothing at all: the identifier
+    assert_eq!(locale.written_long(2.0, unit("us cup")), "2 us cup");
+    // legacy has no long forms
     assert_eq!(legacy_locale().written_long(2.0, unit("us cup")), "2 c");
 }
 
