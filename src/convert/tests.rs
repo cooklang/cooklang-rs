@@ -218,7 +218,7 @@ mod parsed {
         use icu_locale_core::subtags::region;
 
         let src = "---\nlocale: sv-SE\n---\n\
-            Vispa @mjölk{5%dl} med @smör{2%msk} och @salt{1%krm}. \
+            Vispa @mjölk{5%dl} med @smör{2%msk} och @salt{1%krm} i #kastrull{1%dl}. \
             Jäs i ~{1%tim}. Grädda i 200 °C.\n";
         let result = parse(src);
         assert!(!result.report().has_errors(), "{:?}", result.report());
@@ -233,6 +233,7 @@ mod parsed {
                 .ingredients
                 .iter()
                 .filter_map(|i| i.quantity.as_ref())
+                .chain(recipe.cookware.iter().filter_map(|c| c.quantity.as_ref()))
                 .chain(recipe.timers.iter().filter_map(|t| t.quantity.as_ref()))
                 .chain(&recipe.inline_quantities)
                 .map(|q| q.to_string())
@@ -245,7 +246,7 @@ mod parsed {
         assert!(errors.is_empty(), "{errors:?}");
         assert_eq!(
             written(&swedish),
-            ["5 dl", "2 msk", "1 krm", "1 h", "200 °C"]
+            ["5 dl", "2 msk", "1 krm", "1 dl", "1 h", "200 °C"]
         );
 
         // for an American: US rows, still the recipe's own names; the US units sv declines to name are written by
@@ -260,6 +261,7 @@ mod parsed {
                 "17 us fluid ounce",
                 "1 us fluid ounce",
                 "0.203 us teaspoon",
+                "3 1/2 us fluid ounce",
                 "1 h",
                 "392 °F"
             ]

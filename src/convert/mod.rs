@@ -318,6 +318,9 @@ impl Recipe {
         {
             convert(quantity);
         }
+        for quantity in self.cookware.iter_mut().filter_map(|c| c.quantity.as_mut()) {
+            convert(quantity);
+        }
         for quantity in self.timers.iter_mut().filter_map(|t| t.quantity.as_mut()) {
             convert(quantity);
         }
