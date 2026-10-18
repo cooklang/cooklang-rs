@@ -177,11 +177,12 @@ fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
 /// `accuracy`. The precision research's tiers (`docs/research/measurement-precision.md`) are parked.
 const FRACTION_TOLERANCE: f32 = 0.05;
 
-/// The rows `value` reaches the threshold of, largest first. The magnitude is what matters, so a negative value — a
-/// freezer temperature — is judged by its absolute size.
-fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = &Row> {
-    rows.iter().filter(move |row| {
-        Unit::convert(value.abs(), from, row.unit).expect("same quantity") >= row.at_least
+/// Each row `value` reaches the threshold of, largest first, with the value in that row's unit. The magnitude is what
+/// matters, so a negative value — a freezer temperature — is judged by its absolute size.
+fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = (&Row, f64)> {
+    rows.iter().filter_map(move |row| {
+        let converted = Unit::convert(value, from, row.unit).expect("same quantity");
+        (converted.abs() >= row.at_least).then_some((row, converted))
     })
 }
 
@@ -193,10 +194,10 @@ fn candidates(rows: &[Row], value: f64, from: Unit) -> impl Iterator<Item = &Row
 #[cfg(test)]
 pub(crate) fn best_unit(value: f64, from: Unit, audience: Audience) -> Unit {
     let rows = rows_for(audience, from.physical_quantity());
-    candidates(rows, value, from)
-        .next()
-        .unwrap_or_else(|| rows.last().expect("rows are never empty"))
-        .unit
+    candidates(rows, value, from).next().map_or_else(
+        || rows.last().expect("rows are never empty").unit,
+        |(row, _)| row.unit,
+    )
 }
 
 /// `value` of `from` as `audience` would write it, with the unit.
@@ -214,8 +215,7 @@ pub(crate) fn as_written(amount: f64, unit: Unit, audience: Audience) -> Number 
 }
 
 fn amount_in(rows: &[Row], value: f64, from: Unit) -> (Number, Unit) {
-    for row in candidates(rows, value, from) {
-        let converted = Unit::convert(value, from, row.unit).expect("same quantity");
+    for (row, converted) in candidates(rows, value, from) {
         match fraction(converted, row) {
             Some(number) => return (number, row.unit),
             None if row.or_decimal => return (Number::Regular(converted), row.unit),
@@ -223,8 +223,10 @@ fn amount_in(rows: &[Row], value: f64, from: Unit) -> (Number, Unit) {
         }
     }
     let last = rows.last().expect("rows are never empty").unit;
-    let converted = Unit::convert(value, from, last).expect("same quantity");
-    (Number::Regular(converted), last)
+    (
+        Number::Regular(Unit::convert(value, from, last).expect("same quantity")),
+        last,
+    )
 }
 
 fn fraction_in(rows: &[Row], amount: f64, unit: Unit) -> Number {
