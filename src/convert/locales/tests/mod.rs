@@ -262,10 +262,9 @@ fn imperial_names_are_stripped_in_metric_only_locales() {
     assert_eq!(us.resolve("galón imperial"), Some(unit("imperial gallon")));
 }
 
-/// What every locale resolves whatever it names: each unit's identifier and the universal aliases, which
-/// `with_plurals` claims by construction.
+/// What every locale resolves whatever it names: each unit's identifier, which `with_plurals` claims by construction.
 #[test]
-fn identifiers_and_universal_aliases_resolve_in_every_locale() {
+fn the_identifier_resolves_in_every_locale() {
     let mut locales: Vec<(String, Arc<Locale>)> = vec![
         ("empty".to_string(), Arc::new(locale_with(&[]).unwrap())),
         ("legacy".to_string(), legacy_locale()),
@@ -277,20 +276,7 @@ fn identifiers_and_universal_aliases_resolve_in_every_locale() {
         for unit in Unit::all() {
             assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {}", unit.id());
         }
-        for (id, aliases) in UNIVERSAL_ALIASES {
-            for alias in *aliases {
-                assert_eq!(locale.resolve(alias), Some(unit(id)), "{tag} '{alias}'");
-            }
-        }
     }
-}
-
-#[test]
-fn a_locale_may_not_give_a_universal_alias_to_another_unit() {
-    let err = locale_with(&[("us cup", names("c", &["℃"]))]).unwrap_err();
-    assert!(matches!(err, LocaleError::DuplicateAlias { ref alias, .. } if alias == "℃"));
-    // its own unit is fine
-    assert!(locale_with(&[("celsius", names("°C", &["℃"]))]).is_ok());
 }
 
 /// Deliberately a list rather than a count, so that reviewing the next locale is a conscious act with a test to

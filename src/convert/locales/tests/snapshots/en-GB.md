@@ -14,10 +14,8 @@ Unit names were seeded from CLDR 48.2.3.
 ## Units
 
 The identifier resolves in every locale and is what a conversion writes
-when the locale has no symbol. So do `℃`, `℉`, `ºC`, `ºF` and the
-bare `C` and `F`, whatever the locale names. The bare letters are safe
-only because lookup is case-sensitive: `c` is a cup in `en`, `en-001`,
-`en-AU` and `en-GB`. Long forms are CLDR patterns by plural category,
+when the locale has no symbol. Lookup is case-sensitive: `C` is Celsius
+where `c` is a cup. Long forms are CLDR patterns by plural category,
 with `{0}` where the number goes.
 
 | Identifier | Symbol | Aliases | Long forms |

@@ -9,8 +9,8 @@
 //! a file is left behind that is no longer generated; `UPDATE_UNITS_DOC=1
 //! cargo test` rewrites them, and the diff is the review.
 //!
-//! What a rule implies is not repeated here: an identifier resolving to itself, a universal alias, an unnamed unit
-//! written by its identifier, a long form with its number dropped in. Each such rule has a unit test in
+//! What a rule implies is not repeated here: an identifier resolving to itself, an unnamed unit written by its
+//! identifier, a long form with its number dropped in. Each such rule has a unit test in
 //! `tests/mod.rs`, and pinning its consequences per locale would only multiply the diff when the rule changed.
 
 use std::collections::HashSet;

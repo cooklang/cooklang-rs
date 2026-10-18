@@ -107,10 +107,8 @@ fn write_plural_rules(out: &mut String, locale: &Locale) {
 fn write_units(out: &mut String, locale: &Locale) {
     out.push_str("\n## Units\n\n");
     out.push_str("The identifier resolves in every locale and is what a conversion writes\n");
-    out.push_str("when the locale has no symbol. So do `℃`, `℉`, `ºC`, `ºF` and the\n");
-    out.push_str("bare `C` and `F`, whatever the locale names. The bare letters are safe\n");
-    out.push_str("only because lookup is case-sensitive: `c` is a cup in `en`, `en-001`,\n");
-    out.push_str("`en-AU` and `en-GB`. Long forms are CLDR patterns by plural category,\n");
+    out.push_str("when the locale has no symbol. Lookup is case-sensitive: `C` is Celsius\n");
+    out.push_str("where `c` is a cup. Long forms are CLDR patterns by plural category,\n");
     out.push_str("with `{0}` where the number goes.\n\n");
     out.push_str("| Identifier | Symbol | Aliases | Long forms |\n");
     out.push_str("|---|---|---|---|\n");

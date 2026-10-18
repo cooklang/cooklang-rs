@@ -20,12 +20,6 @@ pub(crate) struct UnitNames {
 /// CLDR plural rules as `(category, condition)` pairs.
 pub(crate) type PluralRules = &'static [(&'static str, &'static str)];
 
-/// Spellings that resolve in every locale, whatever it names.
-pub(crate) const UNIVERSAL_ALIASES: &[(&str, &[&str])] = &[
-    ("celsius", &["℃", "ºC", "C"]),
-    ("fahrenheit", &["℉", "ºF", "F"]),
-];
-
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub(crate) enum LocaleError {
     #[error("'{alias}' names both '{}' and '{}'", a.id(), b.id())]
@@ -61,12 +55,6 @@ impl Locale {
         let mut index = HashMap::new();
         for (&unit, unit_names) in &names {
             for alias in unit_names.symbol.iter().chain(&unit_names.aliases) {
-                claim(&mut index, alias, unit)?;
-            }
-        }
-        for (id, aliases) in UNIVERSAL_ALIASES {
-            let unit = Unit::from_id(id).expect("a universal alias names a unit");
-            for alias in *aliases {
                 claim(&mut index, alias, unit)?;
             }
         }
