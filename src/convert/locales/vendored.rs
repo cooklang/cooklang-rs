@@ -126,3 +126,80 @@ pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
     }
     Ok(vendored_locale(reached).expect("tag_for found it"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The review gate: a `reviewed` key in a locale's own file decides whether it may be served to a reader; an
+    /// unreviewed one is refused, not degraded.
+    fn served(tag: &str) -> Result<Arc<Locale>, Refusal> {
+        reviewed_locale(&LocaleTag::parse(tag).unwrap())
+    }
+
+    /// Any vendored locale with no entry, found rather than named: hardcoding one would make the test fail the day
+    /// that locale is reviewed, which is the one day it should still pass.
+    fn an_unreviewed_tag() -> &'static str {
+        vendored_tags()
+            .find(|t| !names_reviewed(t))
+            .expect("every vendored locale is reviewed, so this test is moot")
+    }
+
+    #[track_caller]
+    fn assert_reaches(tag: &str, vendored: Option<&str>) {
+        assert_eq!(tag_for(&LocaleTag::parse(tag).unwrap()), vendored, "{tag}");
+    }
+
+    #[test]
+    fn every_vendored_locale_reads_back_what_it_writes() {
+        let mut count = 0;
+        for tag in vendored_tags() {
+            let locale = vendored_locale(tag).unwrap_or_else(|| panic!("{tag} missing"));
+            for unit in Unit::all() {
+                let written = locale.written(unit);
+                assert!(!written.is_empty(), "{tag} {}", unit.id());
+                assert_eq!(locale.resolve(written), Some(unit), "{tag} '{written}'");
+            }
+            count += 1;
+        }
+        assert!(count >= 34, "only {count} locales");
+        assert!(vendored_locale("sw").is_none(), "sw is not vendored");
+    }
+
+    /// Extensions choose units, not names; lookup follows CLDR's parent chain before it truncates.
+    #[test]
+    fn tag_for_follows_cldr_parents_and_ignores_extensions() {
+        assert_reaches("en-GB-u-ms-metric", Some("en-GB"));
+        assert_reaches("EN-gb", Some("en-GB"));
+        // the parent chain, where truncation would reach US English
+        assert_reaches("en-NZ", Some("en-001"));
+    }
+
+    /// Deliberately a list rather than a count, so that reviewing the next locale is a conscious act with a test to
+    /// update, not something that slips in.
+    #[test]
+    fn only_da_fi_pl_and_sv_are_reviewed() {
+        let reviewed: Vec<&str> = vendored_tags().filter(|t| names_reviewed(t)).collect();
+        assert_eq!(reviewed, ["da", "fi", "pl", "sv"]);
+    }
+
+    /// Adjudication does not imply review: a locale with a verdict for every ambiguous string is still refused until a
+    /// speaker confirms it, by name; an unknown tag is refused as unknown, so the two stay distinguishable.
+    #[test]
+    fn a_locale_is_refused_as_unreviewed_or_as_unknown() {
+        let tag = an_unreviewed_tag();
+        assert_eq!(
+            served(tag).unwrap_err(),
+            Refusal::Unreviewed(tag.to_string())
+        );
+        let message = served(tag).unwrap_err().to_string();
+        assert!(
+            message.contains(&format!("show-locale-as-md -- {tag}")),
+            "{message}"
+        );
+        assert_eq!(
+            served("xh").unwrap_err(),
+            Refusal::Unknown("xh".to_string())
+        );
+    }
+}
