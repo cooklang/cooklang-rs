@@ -426,6 +426,21 @@ fn generate_locales() {
         sources: Vec<String>,
     }
 
+    /// The US customary units; not the US legal cup, the 240 ml cup Mexico and Brazil write bare.
+    const US_CUSTOMARY: &[&str] = &[
+        "us cup",
+        "us pint",
+        "us quart",
+        "us gallon",
+        "us fluid ounce",
+        "us teaspoon",
+        "us tablespoon",
+    ];
+    /// Locales allowed bare words for them: the two whose official system is US customary.
+    const BARE_US_WORDS: &[&str] = &["en", "es-US"];
+    /// Locales that name the imperial units: English, and US Spanish with its own Spanish names.
+    const NAMES_IMPERIAL: &[&str] = &["en", "en-001", "en-AU", "en-GB", "es-US"];
+
     // every locales/*.toml but the parent chain; preferences/ is a directory
     let mut files: Vec<String> = std::fs::read_dir("locales")
         .expect("locales/ exists")
@@ -474,6 +489,25 @@ fn generate_locales() {
             assert!(
                 unit.symbol.is_some() || !unit.aliases.is_empty(),
                 "{path}: '{}' has neither a symbol nor an alias",
+                unit.id
+            );
+            // ADR 3: outside the US customary locales an unmarked word for a US unit is refused, and only English and
+            // US Spanish name the imperial units. CLDR marks the imperial side of each pair (`brittiska quarts`,
+            // `Imp. Gallonen`) and leaves the US side bare, which is its layout, not evidence that a Swedish kitchen
+            // means 3.79 l by `gallon`.
+            if US_CUSTOMARY.contains(&unit.id.as_str()) && !BARE_US_WORDS.contains(&tag.as_str()) {
+                for name in unit.symbol.iter().chain(&unit.aliases) {
+                    // en-GB's `US qt`, Finnish `am. gallona`
+                    assert!(
+                        name.contains("US") || name.starts_with("am."),
+                        "{path}: '{name}' for {} carries no US marker",
+                        unit.id
+                    );
+                }
+            }
+            assert!(
+                !unit.id.starts_with("imperial ") || NAMES_IMPERIAL.contains(&tag.as_str()),
+                "{path}: names {}, which only English and US Spanish do",
                 unit.id
             );
         }
