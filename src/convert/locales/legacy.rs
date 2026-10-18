@@ -10,7 +10,6 @@ use crate::convert::units::{LengthUnit, MassUnit, TemperatureUnit, TimeUnit, Uni
 /// Identifier, the system `units.toml` filed it under, the symbol a conversion writes back, every other spelling.
 type Names = (&'static str, System, &'static str, &'static [&'static str]);
 
-
 // The units.toml locale frozen here for compatibility.
 #[rustfmt::skip]
 const LEGACY_UNITS: &[Names] = &[
