@@ -615,6 +615,11 @@ fn generate_preferences() {
     }
     // `Row::new` checks the denominator at compile time, against the limit a build script cannot see
     fn rows(quantity_name: &str, rows: &[Threshold]) -> String {
+        // a lookup falls back to the last row, so there must be one
+        assert!(
+            !rows.is_empty(),
+            "locales/preferences: a {quantity_name} entry has no rows"
+        );
         let q = quantity(quantity_name);
         rows.iter()
             .map(|t| {

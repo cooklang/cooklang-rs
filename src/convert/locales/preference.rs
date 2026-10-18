@@ -406,22 +406,6 @@ mod tests {
         assert_eq!(fraction_in(&rows, 0.5, liter).to_string(), "0.5");
     }
 
-    /// A generated row cannot mismatch: `build.rs` derives the unit enum from the quantity, so the wrong unit is a
-    /// compile error. The hand-written legacy rows can, and `convert` would panic at the first lookup.
-    #[test]
-    fn every_legacy_row_lists_units_of_its_own_quantity() {
-        for (system, quantity, rows) in LEGACY_PREFERENCES {
-            assert!(!rows.is_empty(), "{system:?} {quantity:?}");
-            for row in rows.iter() {
-                assert_eq!(
-                    row.unit.physical_quantity(),
-                    *quantity,
-                    "{system:?} {quantity:?}"
-                );
-            }
-        }
-    }
-
     /// Only time is allowed to fall back to the metric rows; a system that
     /// forgot its mass rows would otherwise silently write grams.
     #[test]
