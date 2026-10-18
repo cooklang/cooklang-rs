@@ -240,6 +240,10 @@ mod tests {
     const US: Audience = Audience::system(System::UsCustomary);
     const IMPERIAL: Audience = Audience::system(System::Imperial);
 
+    fn region(code: &str) -> Audience {
+        Audience::region(Region::try_from_str(code).unwrap())
+    }
+
     fn best(value: f64, from: &str, audience: Audience) -> &'static str {
         best_unit(value, Unit::from_id(from).unwrap(), audience).id()
     }
@@ -256,16 +260,10 @@ mod tests {
     #[test]
     fn a_region_gets_its_official_system() {
         assert_eq!(official_system(region!("US")), System::UsCustomary);
-        assert_eq!(
-            best(500.0, "milliliter", Audience::region(region!("US"))),
-            "us cup"
-        );
+        assert_eq!(best(500.0, "milliliter", region("US")), "us cup");
         // officially metric, whatever the kitchen still says: the UK, and the two territories CLDR files under the US
         // and UK systems
-        assert_eq!(
-            best(1.0, "imperial pint", Audience::region(region!("GB"))),
-            "milliliter"
-        );
+        assert_eq!(best(1.0, "imperial pint", region("GB")), "milliliter");
         assert_eq!(official_system(region!("LR")), System::Metric);
         assert_eq!(official_system(region!("MM")), System::Metric);
     }
@@ -286,8 +284,8 @@ mod tests {
 
     #[test]
     fn a_region_row_overrides_only_its_own_quantity() {
-        let se = Audience::region(region!("SE"));
-        let hu = Audience::region(region!("HU"));
+        let se = region("SE");
+        let hu = region("HU");
         assert_eq!(best(150.0, "milliliter", se), "deciliter");
         assert_eq!(best(250.0, "gram", hu), "decagram");
         // a quantity the region has no rows for falls to its system's
@@ -474,7 +472,7 @@ mod tests {
     #[test]
     fn a_temperature_override_changes_only_temperature() {
         // the English-Canadian case: metric cups, Fahrenheit ovens
-        let en_ca = Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit);
+        let en_ca = region("CA").with_temperature(TemperatureUnit::Fahrenheit);
         assert_eq!(best(180.0, "celsius", en_ca), "fahrenheit");
         assert_eq!(best(150.0, "milliliter", en_ca), "metric cup");
         let us_c = US.with_temperature(TemperatureUnit::Celsius);
