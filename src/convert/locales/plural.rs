@@ -134,9 +134,7 @@ fn holds(rule: &str, ops: &Operands) -> bool {
     })
 }
 
-/// The CLDR category for `number` (the digits as they will be printed) under `rules`, a list of `(category, rule)`
-/// pairs. Categories other than `other` are mutually exclusive by construction, so the first match wins; nothing
-/// matching is `other`.
+/// The CLDR category for `number` (the digits as they will be printed)
 pub(crate) fn category<'r>(rules: &'r [(&'r str, &'r str)], number: &str) -> &'r str {
     let ops = operands(number);
     rules
