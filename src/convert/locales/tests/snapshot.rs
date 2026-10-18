@@ -155,13 +155,9 @@ fn render_decisions(out: &mut String, tag: &str, locale: &Locale) {
         writeln!(out, "resolve {tag} {input:?} -> {id}").unwrap();
     }
     for unit in Unit::all() {
-        writeln!(
-            out,
-            "written {tag} {} -> {:?}",
-            unit.id(),
-            locale.written(unit)
-        )
-        .unwrap();
+        if let Some(symbol) = locale.symbol(unit) {
+            writeln!(out, "written {tag} {} -> {symbol:?}", unit.id()).unwrap();
+        }
     }
     // 0, 12 and 14 are where Finnish and Polish leave the obvious category
     for unit in Unit::all() {
