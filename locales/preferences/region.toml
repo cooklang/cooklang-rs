@@ -1,0 +1,176 @@
+# A region's own rows, overriding its official system's for that quantity only. The systems are in system.toml, and
+# the row schema is decision 5 in docs/adr/locale-aware-units.md.
+#
+# A region with no rows here gets its official system's: only the United States is US customary, everyone else is
+# metric. An explicit `-u-ms-` selects a system and ignores these rows.
+#
+# No source states a switching threshold; every one here is inferred from how recipes are written in that place
+# (`½ dl`, `0,25 ts`, `25 dkg`). Citations are into docs/research/best-units-by-region.md unless noted.
+
+# --- Regions --------------------------------------------------------------
+
+[[region]]
+region = "SE"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+    { unit = "nordic spice measure", at_least = 1 },
+]
+reason = """
+§7.1 SE: Nordic kitchens measure in dl, with msk/tsk and the 1 ml krm below. \
+52 ml would become `½ dl` where Livsmedelsverket wrote `3,5 msk`; the overlap \
+zone is 3–4 spoons ≈ ½ dl and either is idiomatic. `10 dl vatten` also \
+occurs, so `liter ≥ 1` is a choice, not a rule."""
+
+[[region]]
+region = "NO"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+    { unit = "nordic spice measure", at_least = 1 },
+]
+reason = "§7.1 NO: MatPrat writes `1,5 l` and `0,25 ts`. No `½ dl` exhibit; the 0.5 is carried over from SE/DK/FI."
+
+[[region]]
+region = "FI"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+    { unit = "nordic spice measure", at_least = 1 },
+]
+reason = "§7.1 FI: `1 l maitoa` but `8 dl vettä`; `½ dl siirappia`; `4 rkl`; `½ tl`."
+
+[[region]]
+region = "DK"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 0.25 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = """
+§7.1 DK: Danish writes `½ l`, `¼ l` rather than `5 dl`, `2½ dl`; Arla DK lists \
+¼ l, ½ l, 1 l as units. No krm."""
+
+[[region]]
+region = "CH"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 1 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+]
+reason = "§7.1 CH: `3,6 dl`, `1 dl Milch`, `¾ TL Salz`. Swiss decimals (`7,25 dl`) suggest dl is kept down to 1 dl, then EL."
+
+[[region]]
+region = "HU"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 0.5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+]
+reason = "§7.1 HU: `2 dl tej`, `1.25 dl tej`, `0.25 tk só`. The 0.5 dl threshold is inferred; Mindmegette writes `1 dl olaj` and `3 ek tej`."
+
+[[region]]
+region = "HU"
+quantity = "mass"
+rows = [{ unit = "kilogram", at_least = 0.5 }, { unit = "decagram", at_least = 0.5 }, { unit = "gram", at_least = 1 }]
+reason = """
+§7.1 HU: `1/2 kg liszt`; `25 dkg`; `2 dkg élesztő`; `0.9 dkg sütőpor`; `1/2 dkg \
+só`. Hungarian does not drop to grams; the gram row is a floor for sub-5 g \
+values no exhibit covers. The strongest non-Nordic case in the research."""
+
+[[region]]
+region = "FR"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "centiliter", at_least = 5 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = "§7.1 FR: `60 cl`, `25 cl`, `5 cl`, `3 cuillères à soupe`; a 5 cl threshold keeps 15–45 ml as spoons, as Marmiton prints them."
+
+[[region]]
+region = "BE"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "deciliter", at_least = 1 },
+    { unit = "milliliter", at_least = 50 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.25 },
+]
+reason = "§7.1 BE (Flemish): VRT writes `4 dl`, `1 dl room`, `80 ml room`, `50 ml melk`, `1 el`. Francophone Belgium not researched."
+
+[[region]]
+region = "NZ"
+quantity = "volume"
+rows = [{ unit = "metric cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 NZ: Edmonds' stated standard, 250/15/5. Odd amounts are printed in ml, which a threshold table cannot express (outstanding.md)."
+
+[[region]]
+region = "CA"
+quantity = "volume"
+rows = [{ unit = "metric cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 CA: Health Canada 250/15/5; both languages use the 250 ml cup, only the bracket order differs."
+
+[[region]]
+region = "AU"
+quantity = "volume"
+rows = [{ unit = "metric cup", at_least = 0.25 }, { unit = "australian tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 AU: SBS, AWW, Edmonds and Chelsea all state the 250 ml cup and the 20 ml spoon."
+
+[[region]]
+region = "JP"
+quantity = "volume"
+rows = [{ unit = "japanese cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 JP: five publishers state 200/15/5; NHK writes `カップ3/4`."
+
+[[region]]
+region = "KR"
+quantity = "volume"
+rows = [{ unit = "japanese cup", at_least = 0.25 }, { unit = "metric tablespoon", at_least = 1 }, { unit = "metric teaspoon", at_least = 0.25 }]
+reason = "§7.1 KR: 만개의레시피 and 우리의식탁 state the 200 ml cup."
+
+[[region]]
+region = "BR"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "us legal cup", at_least = 0.25 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric dessert spoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = "§7.1 BR: three publishers state 240/15/5 and the 10 ml colher de sobremesa."
+
+[[region]]
+region = "MX"
+quantity = "volume"
+rows = [
+    { unit = "liter", at_least = 1 },
+    { unit = "us legal cup", at_least = 0.25 },
+    { unit = "metric tablespoon", at_least = 1 },
+    { unit = "metric teaspoon", at_least = 0.5 },
+]
+reason = "§7.1 MX: Kiwilimón and Cocina Fácil write tazas; 240 ml chosen over SMAE's 250 (§8)."
+
+[[region]]
+region = "CO"
+quantity = "mass"
+rows = [{ unit = "kilogram", at_least = 1 }, { unit = "colombian libra", at_least = 0.25 }, { unit = "gram", at_least = 1 }]
+reason = "§7.1 CO: `¼ de libra de arveja (125 g)`, `½ libra`, `1 libra` at Nestlé CO, plus the SIC statement."

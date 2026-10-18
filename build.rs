@@ -550,11 +550,12 @@ fn generate_parent_locales() {
     std::fs::write(dest, out).unwrap();
 }
 
-/// Emits the preference tables from `locales/preferences.toml` as enum
+/// Emits the preference tables from `locales/preferences/` as enum
 /// paths, so a unit that is not in `definitions.rs` fails to compile rather
 /// than at the first lookup.
 fn generate_preferences() {
-    #[derive(serde::Deserialize)]
+    #[derive(serde::Deserialize, Default)]
+    #[serde(default)]
     struct Preferences {
         system: Vec<SystemRows>,
         region: Vec<RegionRows>,
@@ -610,7 +611,7 @@ fn generate_preferences() {
             "length" => ("Length", "LengthUnit"),
             "time" => ("Time", "TimeUnit"),
             "temperature" => ("Temperature", "TemperatureUnit"),
-            other => panic!("locales/preferences.toml: unknown quantity '{other}'"),
+            other => panic!("locales/preferences: unknown quantity '{other}'"),
         }
     }
     // `Number::MAX_FRACTION_DENOMINATOR`, which a build script cannot import: `Number::new_approx` asserts it, so a
@@ -623,7 +624,7 @@ fn generate_preferences() {
                 if let Some(den) = t.fractions {
                     assert!(
                         (1..=MAX_FRACTION_DENOMINATOR).contains(&den),
-                        "locales/preferences.toml: `{}` has fractions = {den}, but the largest \
+                        "locales/preferences: `{}` has fractions = {den}, but the largest \
                          denominator a fraction is written with is {MAX_FRACTION_DENOMINATOR}",
                         t.unit
                     );
@@ -640,9 +641,33 @@ fn generate_preferences() {
             .join(", ")
     }
 
-    let text = std::fs::read_to_string("locales/preferences.toml").unwrap();
-    let prefs: Preferences =
-        toml::from_str(&text).unwrap_or_else(|e| panic!("locales/preferences.toml: {e}"));
+    // the rows are split by what they key on: systems and the frozen legacy rows in one file,
+    // regions in the other. Registered by name, since the directory watch is what the locale files
+    // already do not rely on.
+    let mut prefs = Preferences::default();
+    for (name, file) in [
+        ("system", "locales/preferences/system.toml"),
+        ("region", "locales/preferences/region.toml"),
+    ] {
+        println!("cargo::rerun-if-changed={file}");
+        let text = std::fs::read_to_string(file).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let read: Preferences =
+            toml::from_str(&text).unwrap_or_else(|e| panic!("{file}: {e}"));
+        match name {
+            "system" => {
+                assert!(read.region.is_empty(), "{file}: region rows belong in region.toml");
+                prefs.system = read.system;
+                prefs.legacy = read.legacy;
+            }
+            _ => {
+                assert!(
+                    read.system.is_empty() && read.legacy.is_empty(),
+                    "{file}: system rows belong in system.toml"
+                );
+                prefs.region = read.region;
+            }
+        }
+    }
 
     fn system_table(name: &str, entries: &[SystemRows]) -> String {
         let mut out =
@@ -652,7 +677,7 @@ fn generate_preferences() {
                 "metric" => "Metric",
                 "us-customary" => "UsCustomary",
                 "imperial" => "Imperial",
-                other => panic!("locales/preferences.toml: unknown system '{other}'"),
+                other => panic!("locales/preferences: unknown system '{other}'"),
             };
             let (q, _) = quantity(&s.quantity);
             out.push_str(&format!(
