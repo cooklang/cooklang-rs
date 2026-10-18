@@ -185,42 +185,8 @@ mod tests {
         }
     }
 
-    /// `and`, and `v` keeping a decimal out of `one`: 1.0 has `i = 1` and is still `other`.
-    #[test]
-    #[rustfmt::skip]
-    fn english() {
-        assert_plural_eval(Eval {
-            rules: &[
-                ("one",   "i = 1 and v = 0"),
-                ("other", ""),
-            ],
-            expected: &[
-                ("one",   &["1"]),
-                ("other", &["0", "2", "9", "16", "100", "1000000", "0.0", "0.7", "1.0", "1.5", "10.0", "100.0"]),
-            ],
-        });
-    }
-
-    /// `n` matching a decimal with no fraction digits, the `e` operand (always 0 here), a negated range and a
-    /// seven-figure modulus that 1000 does not reach.
-    #[test]
-    #[rustfmt::skip]
-    fn spanish() {
-        assert_plural_eval(Eval {
-            rules: &[
-                ("one",   "n = 1"),
-                ("many",  "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5"),
-                ("other", ""),
-            ],
-            expected: &[
-                ("one",   &["1", "1.0", "1.00", "1.000"]),
-                ("many",  &["1000000"]),
-                ("other", &["0", "2", "9", "16", "100", "1000", "0.0", "0.9", "1.1", "1.6", "10.0", "100.0"]),
-            ],
-        });
-    }
-
-    /// A comma list, and `i` rather than `n`: 0.7 and 1.5 are `one`, 2.0 is not.
+    /// A comma list, and `i` rather than `n`: 0.7 and 1.5 are `one`, 2.0 is not. `many` has the `e` operand (always
+    /// 0 here), a seven-figure modulus that 1000 does not reach, and a negated range.
     #[test]
     #[rustfmt::skip]
     fn french() {
@@ -240,7 +206,7 @@ mod tests {
 
     /// Modulus with a range, a negated range on `% 100` overriding `% 10` (12 to 14), `!=` on a single value, and
     /// `and` binding tighter than `or`: 5 is `many` by the second arm alone. Every arm carries `v = 0`, so a
-    /// decimal is `other` whatever its integer part.
+    /// decimal is `other` whatever its integer part, 1.0 included.
     #[test]
     #[rustfmt::skip]
     fn polish() {
@@ -255,7 +221,7 @@ mod tests {
                 ("one",   &["1"]),
                 ("few",   &["2", "3", "4", "22", "23", "24", "32", "34", "42", "44", "52", "54", "62", "102"]),
                 ("many",  &["0", "5", "9", "11", "12", "14", "15", "19", "100", "1000", "1000000"]),
-                ("other", &["0.0", "0.7", "1.5", "10.0", "100.0"]),
+                ("other", &["0.0", "0.7", "1.0", "1.5", "10.0", "100.0"]),
             ],
         });
     }
