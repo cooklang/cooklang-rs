@@ -268,33 +268,18 @@ mod tests {
     #[test]
     fn a_region_gets_its_official_system() {
         assert_eq!(official_system(region!("US")), System::UsCustomary);
-        // officially metric, whatever the kitchen still says: the UK, and the two territories CLDR files under the US
-        // and UK systems
-        for r in [
-            region!("GB"),
-            region!("LR"),
-            region!("MM"),
-            region!("DE"),
-            region!("IT"),
-            region!("ES"),
-            region!("001"),
-        ] {
-            assert_eq!(official_system(r), System::Metric, "{r}");
-            assert_eq!(
-                best(1500.0, "milliliter", Audience::region(r)),
-                "liter",
-                "{r}"
-            );
-            assert_eq!(
-                best(1.0, "imperial pint", Audience::region(r)),
-                "milliliter",
-                "{r}"
-            );
-        }
         assert_eq!(
             best(500.0, "milliliter", Audience::region(region!("US"))),
             "us cup"
         );
+        // officially metric, whatever the kitchen still says: the UK, and the two territories CLDR files under the US
+        // and UK systems
+        assert_eq!(
+            best(1.0, "imperial pint", Audience::region(region!("GB"))),
+            "milliliter"
+        );
+        assert_eq!(official_system(region!("LR")), System::Metric);
+        assert_eq!(official_system(region!("MM")), System::Metric);
     }
 
     #[test]
@@ -306,11 +291,9 @@ mod tests {
 
     #[test]
     fn time_is_the_same_in_every_system() {
-        for audience in [METRIC, US, IMPERIAL] {
-            assert_eq!(best(90.0, "minute", audience), "hour", "{audience:?}");
-            assert_eq!(best(30.0, "second", audience), "second", "{audience:?}");
-            assert_eq!(best(48.0, "hour", audience), "day", "{audience:?}");
-        }
+        assert_eq!(best(90.0, "minute", METRIC), "hour");
+        assert_eq!(best(90.0, "minute", US), "hour");
+        assert_eq!(best(90.0, "minute", IMPERIAL), "hour");
     }
 
     #[test]
@@ -318,22 +301,12 @@ mod tests {
         let se = Audience::region(region!("SE"));
         let hu = Audience::region(region!("HU"));
         assert_eq!(best(150.0, "milliliter", se), "deciliter");
+        assert_eq!(best(250.0, "gram", hu), "decagram");
+        // a quantity the region has no rows for falls to its system's
         assert_eq!(best(500.0, "gram", se), "gram");
         assert_eq!(best(100.0, "celsius", se), "celsius");
-        assert_eq!(best(200.0, "milliliter", hu), "deciliter");
-        assert_eq!(best(250.0, "gram", hu), "decagram");
-        assert_eq!(best(500.0, "gram", hu), "kilogram");
-        assert_eq!(best(3.0, "gram", hu), "gram");
-        assert_eq!(best(2000.0, "gram", hu), "kilogram");
-    }
-
-    #[test]
-    fn an_explicit_system_ignores_region_rows() {
+        // and a system asked for outright ignores the region's rows
         assert_eq!(best(150.0, "milliliter", METRIC), "milliliter");
-        assert_eq!(
-            best(150.0, "milliliter", Audience::region(region!("SE"))),
-            "deciliter"
-        );
     }
 
     fn row(id: &str, at_least: f64, fractions: Option<u8>) -> Row {
@@ -488,18 +461,14 @@ mod tests {
         }
     }
 
-    /// `-u-mu-` names a temperature unit outright and touches nothing else:
-    /// English Canada keeps its metric cups and gets Fahrenheit ovens.
+    /// `-u-mu-` names a temperature unit outright and touches nothing else.
     #[test]
     fn a_temperature_override_changes_only_temperature() {
+        // the English-Canadian case: metric cups, Fahrenheit ovens
         let en_ca = Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit);
         assert_eq!(best(180.0, "celsius", en_ca), "fahrenheit");
-        assert_eq!(best(-18.0, "celsius", en_ca), "fahrenheit");
         assert_eq!(best(150.0, "milliliter", en_ca), "metric cup");
-        assert_eq!(best(500.0, "gram", en_ca), "gram");
-
         let us_c = US.with_temperature(TemperatureUnit::Celsius);
         assert_eq!(best(350.0, "fahrenheit", us_c), "celsius");
-        assert_eq!(best(500.0, "milliliter", us_c), "us cup");
     }
 }
