@@ -38,28 +38,53 @@ fn operands(text: &str) -> Operands {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Operand {
+    N,
+    I,
+    V,
+    W,
+    F,
+    T,
+    /// The exponent of compact notation (`c` is its older name), which is never printed, so it is always zero.
+    E,
+}
+
+impl Operand {
+    fn parse(text: &str) -> Result<Self, String> {
+        Ok(match text {
+            "n" => Self::N,
+            "i" => Self::I,
+            "v" => Self::V,
+            "w" => Self::W,
+            "f" => Self::F,
+            "t" => Self::T,
+            "e" | "c" => Self::E,
+            other => return Err(format!("unknown operand '{other}'")),
+        })
+    }
+}
+
 /// `operand % modulus = ranges` or `!= ranges`.
-struct Relation<'a> {
-    operand: char,
+struct Relation {
+    operand: Operand,
     modulus: Option<u64>,
     negated: bool,
     ranges: Vec<(u64, u64)>,
-    source: &'a str,
 }
 
-impl Relation<'_> {
+impl Relation {
     fn holds(&self, ops: &Operands) -> bool {
         // `n` may be fractional; a range or value relation on it is true only for an integral value, as CLDR's `in`
         // semantics require
         let (value, integral) = match self.operand {
-            'n' => (ops.n, ops.n.fract() == 0.0),
-            'i' => (ops.i as f64, true),
-            'v' => (ops.v as f64, true),
-            'w' => (ops.w as f64, true),
-            'f' => (ops.f as f64, true),
-            't' => (ops.t as f64, true),
-            'e' | 'c' => (0.0, true),
-            other => panic!("unknown plural operand '{other}' in '{}'", self.source),
+            Operand::N => (ops.n, ops.n.fract() == 0.0),
+            Operand::I => (ops.i as f64, true),
+            Operand::V => (ops.v as f64, true),
+            Operand::W => (ops.w as f64, true),
+            Operand::F => (ops.f as f64, true),
+            Operand::T => (ops.t as f64, true),
+            Operand::E => (0.0, true),
         };
         let value = match self.modulus {
             Some(m) => value % m as f64,
@@ -75,62 +100,79 @@ impl Relation<'_> {
 }
 
 /// Parses one relation such as `i % 10 = 2..4` or `v != 0`.
-fn relation(text: &str) -> Relation<'_> {
+fn relation(text: &str) -> Result<Relation, String> {
     let (lhs, negated, rhs) = match text.split_once("!=") {
         Some((l, r)) => (l, true, r),
         None => match text.split_once('=') {
             Some((l, r)) => (l, false, r),
-            None => panic!("plural relation without '=': '{text}'"),
+            None => return Err(format!("no '=' in '{text}'")),
         },
     };
     let (operand, modulus) = match lhs.split_once('%') {
-        Some((o, m)) => (o.trim(), Some(m.trim().parse().expect("modulus"))),
+        Some((o, m)) => {
+            let m = m
+                .trim()
+                .parse()
+                .map_err(|_| format!("bad modulus in '{text}'"))?;
+            (o.trim(), Some(m))
+        }
         None => (lhs.trim(), None),
     };
-    let operand = {
-        let mut chars = operand.chars();
-        let c = chars
-            .next()
-            .unwrap_or_else(|| panic!("empty operand in '{text}'"));
-        assert!(chars.next().is_none(), "operand is one letter: '{text}'");
-        c
+    let operand = Operand::parse(operand)?;
+    let bound = |s: &str| {
+        let s = s.trim();
+        s.parse::<u64>()
+            .map_err(|_| format!("bad value '{s}' in '{text}'"))
     };
     let ranges = rhs
         .split(',')
         .map(|item| {
-            let item = item.trim();
-            match item.split_once("..") {
-                Some((lo, hi)) => (
-                    lo.trim().parse().expect("range"),
-                    hi.trim().parse().expect("range"),
-                ),
-                None => {
-                    let v: u64 = item.parse().unwrap_or_else(|_| panic!("value in '{text}'"));
-                    (v, v)
-                }
-            }
+            let (lo, hi) = item.split_once("..").unwrap_or((item, item));
+            Ok((bound(lo)?, bound(hi)?))
         })
-        .collect();
-    Relation {
+        .collect::<Result<_, String>>()?;
+    Ok(Relation {
         operand,
         modulus,
         negated,
         ranges,
-        source: text,
-    }
+    })
 }
 
-/// Whether a rule's condition holds. `or` binds loosest, then `and`.
-fn holds(rule: &str, ops: &Operands) -> bool {
-    let condition = rule.trim();
+/// The relations of a condition, in evaluation order: `or` binds loosest, then `and`. The `other` rule's condition is
+/// empty and yields none.
+fn relations(condition: &str) -> impl Iterator<Item = &str> {
+    condition
+        .split(" or ")
+        .flat_map(|and| and.split(" and "))
+        .map(str::trim)
+        .filter(|rel| !rel.is_empty())
+}
+
+/// The first condition in `rules` that is not CLDR rule syntax, by category. A locale checks its rules with this when it
+/// is built, which is what lets [`category`] assume them valid.
+pub(crate) fn validate(rules: &[(&str, &str)]) -> Result<(), String> {
+    for (category, condition) in rules {
+        for rel in relations(condition) {
+            relation(rel).map_err(|e| format!("{category}: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+/// Whether a rule's condition holds.
+fn holds(condition: &str, ops: &Operands) -> bool {
+    let condition = condition.trim();
     if condition.is_empty() {
         // only the `other` rule is empty; it is the fallback, not a match
         return false;
     }
     condition.split(" or ").any(|and_condition| {
-        and_condition
-            .split(" and ")
-            .all(|rel| relation(rel.trim()).holds(ops))
+        and_condition.split(" and ").all(|rel| {
+            relation(rel.trim())
+                .expect("validated when the locale was built")
+                .holds(ops)
+        })
     })
 }
 
@@ -158,6 +200,16 @@ mod tests {
         assert_eq!(o.n, 1.5);
         let o = operands("-18");
         assert_eq!((o.n, o.i), (18.0, 18));
+    }
+
+    #[test]
+    fn a_rule_that_is_not_cldr_syntax_is_an_error_naming_the_category() {
+        let bad = |condition: &str| validate(&[("few", condition)]).unwrap_err();
+        assert!(bad("i % 10 2..4").contains("few"), "no '='");
+        assert!(bad("x = 1").contains("'x'"), "unknown operand");
+        assert!(bad("i % ten = 1").contains("modulus"), "bad modulus");
+        assert!(bad("i = 1..y").contains("'y'"), "bad value");
+        assert!(validate(&[("one", "i = 1 and v = 0"), ("other", "")]).is_ok());
     }
 
     struct Eval<'a> {

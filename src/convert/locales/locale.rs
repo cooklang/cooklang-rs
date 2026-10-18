@@ -32,6 +32,8 @@ pub(crate) enum LocaleError {
     DuplicateAlias { alias: String, a: Unit, b: Unit },
     #[error("'{alias}' names '{}' but is the identifier of '{}'", unit.id(), of.id())]
     AliasIsAnIdentifier { alias: String, unit: Unit, of: Unit },
+    #[error("plural rule {0} is not CLDR syntax")]
+    InvalidPluralRule(String),
 }
 
 /// Names for the units one language has names for.
@@ -50,11 +52,12 @@ impl Locale {
         Self::with_plurals(names, &[])
     }
 
-    /// As [`Locale::new`], with the CLDR plural rules long forms select by.
+    /// As [`Locale::new`], with the CLDR plural rules long forms select by, each of which must be rule syntax.
     pub(crate) fn with_plurals(
         names: HashMap<Unit, UnitNames>,
         plurals: PluralRules,
     ) -> Result<Self, LocaleError> {
+        plural::validate(plurals).map_err(LocaleError::InvalidPluralRule)?;
         let mut index = HashMap::new();
         for (&unit, unit_names) in &names {
             for alias in unit_names.symbol.iter().chain(&unit_names.aliases) {

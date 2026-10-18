@@ -76,6 +76,18 @@ fn the_identifier_resolves_in_every_locale() {
     }
 }
 
+/// A condition that is not CLDR rule syntax is refused when the locale is built, not at the first number
+/// evaluated under it.
+#[test]
+fn a_plural_rule_that_is_not_cldr_syntax_is_refused() {
+    let err = Locale::with_plurals(HashMap::new(), &[("one", "i = 1 and")]).unwrap_err();
+    assert!(
+        matches!(err, LocaleError::InvalidPluralRule(ref e) if e.contains("one")),
+        "{err}"
+    );
+    assert!(Locale::with_plurals(HashMap::new(), &[("one", "i = 1"), ("other", "")]).is_ok());
+}
+
 #[test]
 fn a_string_may_name_only_one_unit() {
     let cup = unit("us cup");
