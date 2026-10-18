@@ -13,16 +13,6 @@ fn unit(id: &str) -> Unit {
     Unit::from_id(id).unwrap_or_else(|| panic!("no unit with id '{id}'"))
 }
 
-#[test]
-fn bad_input_is_an_error_not_a_panic() {
-    assert!(render_locale("not a tag")
-        .unwrap_err()
-        .contains("not a valid locale tag"));
-    assert!(render_locale("sw-KE")
-        .unwrap_err()
-        .contains("no vendored locale"));
-}
-
 /// Locales allowed bare words for US units: the two whose official system is US customary.
 const BARE_US_WORDS: [&str; 2] = ["en", "es-US"];
 /// Locales that name the imperial units: English, and US Spanish with its own Spanish names.

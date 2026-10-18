@@ -277,3 +277,18 @@ const BEST_UNIT_SAMPLES: [(f64, &str); 16] = [
     (180.0, "celsius"),
     (-18.0, "celsius"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bad_input_is_an_error_not_a_panic() {
+        assert!(render_locale("not a tag")
+            .unwrap_err()
+            .contains("not a valid locale tag"));
+        assert!(render_locale("sw-KE")
+            .unwrap_err()
+            .contains("no vendored locale"));
+    }
+}
