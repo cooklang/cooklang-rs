@@ -645,6 +645,28 @@ fn generate_preferences() {
     let systems: SystemFile = read("locales/preferences/system.toml");
     let regions: RegionFile = read("locales/preferences/region.toml");
 
+    // every system carries its own rows for every quantity but time, which has one list under metric that the
+    // others fall back to; a system missing a quantity would otherwise fall back to metric's rows for it too
+    let has = |system: &str, quantity: &str| {
+        systems
+            .system
+            .iter()
+            .any(|s| s.system == system && s.quantity == quantity)
+    };
+    for system in ["metric", "us-customary", "imperial"] {
+        for quantity in ["volume", "mass", "length", "temperature"] {
+            assert!(
+                has(system, quantity),
+                "locales/preferences/system.toml: {system} has no {quantity} rows"
+            );
+        }
+        assert_eq!(
+            has(system, "time"),
+            system == "metric",
+            "locales/preferences/system.toml: time has one list, under metric"
+        );
+    }
+
     let mut out =
         String::from("pub(crate) static PREFERENCES: &[(System, PhysicalQuantity, &[Row])] = &[\n");
     for s in &systems.system {

@@ -406,31 +406,6 @@ mod tests {
         assert_eq!(fraction_in(&rows, 0.5, liter).to_string(), "0.5");
     }
 
-    /// Only time is allowed to fall back to the metric rows; a system that
-    /// forgot its mass rows would otherwise silently write grams.
-    #[test]
-    fn every_system_has_its_own_rows_for_everything_but_time() {
-        let quantities = [
-            PhysicalQuantity::Volume,
-            PhysicalQuantity::Mass,
-            PhysicalQuantity::Length,
-            PhysicalQuantity::Temperature,
-        ];
-        for system in [System::Metric, System::UsCustomary, System::Imperial] {
-            for quantity in quantities {
-                assert!(
-                    rows_in(PREFERENCES, system, quantity).is_some(),
-                    "{system:?} {quantity:?}"
-                );
-            }
-            assert_eq!(
-                rows_in(PREFERENCES, system, PhysicalQuantity::Time).is_some(),
-                system == System::Metric,
-                "{system:?} time"
-            );
-        }
-    }
-
     /// `-u-mu-` names a temperature unit outright and touches nothing else.
     #[test]
     fn a_temperature_override_changes_only_temperature() {
