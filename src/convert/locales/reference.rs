@@ -282,6 +282,35 @@ const BEST_UNIT_SAMPLES: [(f64, &str); 16] = [
 mod tests {
     use super::*;
 
+    #[track_caller]
+    fn assert_renders(tag: &str, saying: &str) {
+        let page = render_locale(tag).unwrap_or_else(|e| panic!("{tag}: {e}"));
+        assert!(page.contains(saying), "{tag}: no {saying:?} in\n{page}");
+    }
+
+    /// One tag per branch of the page: the frozen locale, a language with no region, names reached through the parent
+    /// chain, a region with rows of its own, a US region, a system asked for outright, a temperature unit asked for
+    /// outright. `en-NZ` reaches `en-001`, which is unreviewed: the page a refusal points at must render.
+    #[test]
+    fn every_kind_of_page_renders() {
+        assert_renders("legacy", "The frozen compatibility locale");
+        assert_renders("pl", "locale 'pl' has no region");
+        assert_renders("en-NZ", "names come from `en-001`");
+        assert_renders("sv-SE", "Region `SE`, whose official system is **Metric**");
+        assert_renders(
+            "es-US",
+            "Region `US`, whose official system is **UsCustomary**",
+        );
+        assert_renders(
+            "en-GB-u-ms-uksystem",
+            "`-u-ms-` asks for **Imperial** outright",
+        );
+        assert_renders(
+            "en-CA-u-mu-fahrenhe",
+            "`-u-mu-` asks for **Fahrenheit** for temperature",
+        );
+    }
+
     #[test]
     fn bad_input_is_an_error_not_a_panic() {
         assert!(render_locale("not a tag")
