@@ -14,7 +14,6 @@ readme = "README.md"
 # ~700 KB; `.direnv` is a Nix symlink farm.
 exclude = [
     "src/convert/locales/tests/snapshots/**",
-    "locales/plural-samples.json",
     ".direnv/**",
     "playground/**",
     "docs/**",

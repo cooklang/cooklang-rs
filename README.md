@@ -29,7 +29,8 @@ mobile apps and desktop editor, which share recipes through
 
 Unit names are seeded from [Unicode CLDR](https://cldr.unicode.org/), whose data is governed by
 the [Unicode License V3](./locales/UNICODE-LICENSE). That licence covers the CLDR-derived names in
-`locales/*.toml` and `locales/plural-samples.json`, and the code generated from them. Nothing else:
+`locales/*.toml`, the plural rules and samples quoted in `src/convert/locales/plural.rs`, and the code
+generated from them. Nothing else:
 every hand-authored name, every refusal and its reason, and all other source in this repository is
 under the [MIT license](./LICENSE). Each locale file says in its header which of its names came from
 CLDR and which were written by hand, and records the CLDR release it was seeded from. The crate is

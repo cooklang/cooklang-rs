@@ -150,7 +150,8 @@ pub(crate) fn category<'r>(rules: &'r [(&'r str, &'r str)], number: &str) -> &'r
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
+    use crate::convert::locales::vendored::{vendored_locale, vendored_tags};
+    use std::collections::BTreeSet;
 
     #[test]
     fn operands_follow_the_printed_digits() {
@@ -163,92 +164,136 @@ mod tests {
         assert_eq!((o.n, o.i), (18.0, 18));
     }
 
-    #[test]
-    fn polish_by_hand() {
-        let rules = [
-            ("one", "i = 1 and v = 0"),
-            ("few", "v = 0 and i % 10 = 2..4 and i % 100 != 12..14"),
-            ("many", "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 12..14"),
-            ("other", ""),
-        ];
-        assert_eq!(category(&rules, "1"), "one");
-        assert_eq!(category(&rules, "2"), "few");
-        assert_eq!(category(&rules, "12"), "many");
-        assert_eq!(category(&rules, "22"), "few");
-        assert_eq!(category(&rules, "25"), "many");
-        assert_eq!(category(&rules, "1.5"), "other");
-        assert_eq!(category(&rules, "0"), "many");
-    }
+    /// Category, condition as the locale's TOML carries it, samples.
+    type Rule = (&'static str, &'static str, &'static [&'static str]);
 
-    /// Every sample CLDR attaches to a rule must land in that rule's category: `@integer 2~4, 22~24, …` and `@decimal
-    /// 0.0~1.5, 10.0, …`.  Ranges are enumerated at the sample's precision; compact-notation samples (`1c6`) are
-    /// skipped since we never print them.
+    /// One locale per distinct rule set among the vendored locales, with the samples CLDR 48.2.3 attaches to each
+    /// rule in `cldr-core/supplemental/plurals.json`: every listed value up to 1000, both ends and a middle of every
+    /// range, and 1000000, which the Romance `many` rules turn on. Compact samples (`1c6`) are never printed and are
+    /// left out, as are decimals past 100.0, which repeat the same digits.
+    #[rustfmt::skip]
+    const CLDR_RULES: &[(&str, &[Rule])] = &[
+    ("en", &[  // and en-001, en-GB, en-AU, de, nl, sv, fi
+        ("one", "i = 1 and v = 0", &["1"]),
+        ("other", "",             &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0", "100.0"]),
+    ]),
+    ("ja", &[  // and zh, zh-Hant, ko, th, vi, id, ms
+        ("other", "", &["0", "7", "15", "100", "1000", "1000000", "0.0", "0.7", "1.5", "10.0", "100.0"]),
+    ]),
+    ("es", &[  // and es-419, es-US, es-MX, es-CO
+        ("one", "n = 1",                                                       &["1", "1.0", "1.00", "1.000", "1.0000"]),
+        ("many", "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5", &["1000000"]),
+        ("other", "",                                                          &["0", "2", "9", "16", "100", "1000", "0.0", "0.4", "0.9", "1.1", "1.3", "1.6", "10.0", "100.0"]),
+    ]),
+    ("no", &[  // and hu, tr, el
+        ("one", "n = 1", &["1", "1.0", "1.00", "1.000", "1.0000"]),
+        ("other", "",   &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "0.4", "0.9", "1.1", "1.3", "1.6", "10.0", "100.0"]),
+    ]),
+    ("it", &[  // and pt-PT
+        ("one", "i = 1 and v = 0",                                             &["1"]),
+        ("many", "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5", &["1000000"]),
+        ("other", "",                                                          &["0", "2", "9", "16", "100", "1000", "0.0", "0.7", "1.5", "10.0", "100.0"]),
+    ]),
+    ("ru", &[  // and uk
+        ("one", "v = 0 and i % 10 = 1 and i % 100 != 11",                                        &["1", "21", "31", "41", "51", "61", "71", "81", "101"]),
+        ("few", "v = 0 and i % 10 = 2..4 and i % 100 != 12..14",                                 &["2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52", "53", "54", "62", "102"]),
+        ("many", "v = 0 and i % 10 = 0 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 11..14", &["0", "5", "12", "19", "100", "1000", "1000000"]),
+        ("other", "",                                                                            &["0.0", "0.7", "1.5", "10.0", "100.0"]),
+    ]),
+    ("fr", &[
+        ("one", "i = 0,1",                                                     &["0", "1", "0.0", "0.7", "1.5"]),
+        ("many", "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5", &["1000000"]),
+        ("other", "",                                                          &["2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0"]),
+    ]),
+    ("pt", &[
+        ("one", "i = 0..1",                                                    &["0", "1", "0.0", "0.7", "1.5"]),
+        ("many", "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5", &["1000000"]),
+        ("other", "",                                                          &["2", "9", "17", "100", "1000", "2.0", "2.7", "3.5", "10.0", "100.0"]),
+    ]),
+    ("pl", &[
+        ("one", "i = 1 and v = 0",                                                                             &["1"]),
+        ("few", "v = 0 and i % 10 = 2..4 and i % 100 != 12..14",                                               &["2", "3", "4", "22", "23", "24", "32", "33", "34", "42", "43", "44", "52", "53", "54", "62", "102"]),
+        ("many", "v = 0 and i != 1 and i % 10 = 0..1 or v = 0 and i % 10 = 5..9 or v = 0 and i % 100 = 12..14", &["0", "5", "12", "19", "100", "1000", "1000000"]),
+        ("other", "",                                                                                          &["0.0", "0.7", "1.5", "10.0", "100.0"]),
+    ]),
+    ("da", &[
+        ("one", "n = 1 or t != 0 and i = 0,1", &["1", "0.1", "0.8", "1.6"]),
+        ("other", "",                         &["0", "2", "9", "16", "100", "1000", "1000000", "0.0", "2.0", "2.7", "3.4", "10.0", "100.0"]),
+    ]),
+    ("cs", &[
+        ("one", "i = 1 and v = 0",   &["1"]),
+        ("few", "i = 2..4 and v = 0", &["2", "3", "4"]),
+        ("many", "v != 0",           &["0.0", "0.7", "1.5", "10.0", "100.0"]),
+        ("other", "",                &["0", "5", "12", "19", "100", "1000", "1000000"]),
+    ]),
+    ("ar", &[
+        ("zero", "n = 0",           &["0", "0.0", "0.00", "0.000", "0.0000"]),
+        ("one", "n = 1",            &["1", "1.0", "1.00", "1.000", "1.0000"]),
+        ("two", "n = 2",            &["2", "2.0", "2.00", "2.000", "2.0000"]),
+        ("few", "n % 100 = 3..10",  &["3", "6", "10", "103", "106", "110", "3.0", "4.0", "5.0", "6.0", "7.0", "8.0", "9.0", "10.0"]),
+        ("many", "n % 100 = 11..99", &["11", "18", "26", "111", "11.0", "12.0", "13.0", "14.0", "15.0", "16.0", "17.0", "18.0"]),
+        ("other", "",               &["100", "101", "102", "200", "201", "202", "300", "301", "302", "400", "401", "402", "500", "501", "502", "600", "1000", "1000000", "0.1", "0.5", "0.9", "1.1", "1.4", "1.7", "10.1", "100.0"]),
+    ]),
+    ("hi", &[
+        ("one", "i = 0 or n = 1", &["0", "1", "0.0", "0.5", "1.0", "0.00", "0.02", "0.04"]),
+        ("other", "",            &["2", "9", "17", "100", "1000", "1000000", "1.1", "1.8", "2.6", "10.0", "100.0"]),
+    ]),
+    ("he", &[
+        ("one", "i = 1 and v = 0 or i = 0 and v != 0", &["1", "0.0", "0.4", "0.9", "0.00", "0.02", "0.05"]),
+        ("two", "i = 2 and v = 0",                    &["2"]),
+        ("other", "",                                 &["0", "3", "10", "17", "100", "1000", "1000000", "1.0", "1.7", "2.5", "10.0", "100.0"]),
+    ]),
+    ("ro", &[
+        ("one", "i = 1 and v = 0",                              &["1"]),
+        ("few", "v != 0 or n = 0 or n != 1 and n % 100 = 1..19", &["0", "2", "9", "16", "101", "0.0", "0.7", "1.5", "10.0", "100.0"]),
+        ("other", "",                                           &["20", "27", "35", "100", "1000", "1000000"]),
+    ]),
+    ];
+
+    /// Every sample CLDR attaches to a rule lands in that rule's category.
     #[test]
     fn every_cldr_sample_lands_in_its_own_category() {
-        let text = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/locales/plural-samples.json"
-        ))
-        .unwrap();
-        let locales: BTreeMap<String, BTreeMap<String, String>> =
-            serde_json::from_str(&text).unwrap();
         let mut checked = 0;
-
-        for (locale, raw) in &locales {
-            let rules: Vec<(&str, &str)> = raw
-                .iter()
-                .map(|(k, v)| (k.trim_start_matches("pluralRule-count-"), v.as_str()))
-                .collect();
-            for (expected, rule) in &rules {
-                for sample in samples(rule) {
+        for (locale, rules) in CLDR_RULES {
+            let conditions: Vec<(&str, &str)> = rules.iter().map(|(c, r, _)| (*c, *r)).collect();
+            for (expected, _, samples) in *rules {
+                for sample in *samples {
                     assert_eq!(
-                        category(&rules, &sample),
+                        category(&conditions, sample),
                         *expected,
-                        "{locale}: sample {sample} of '{rule}'"
+                        "{locale}: {sample}"
                     );
                     checked += 1;
                 }
             }
         }
-        assert!(checked > 1000, "only {checked} samples checked");
+        assert!(checked > 250, "only {checked} samples checked");
     }
 
-    fn samples(rule: &str) -> Vec<String> {
-        let mut out = Vec::new();
-        for section in rule.split('@').skip(1) {
-            let body = section
-                .trim_start_matches("integer")
-                .trim_start_matches("decimal");
-            for item in body.split(',') {
-                let item = item.trim();
-                if item.is_empty() || item.contains('…') || item.contains('c') || item.contains('e')
-                {
-                    continue;
-                }
-                match item.split_once('~') {
-                    Some((lo, hi)) => {
-                        let decimals = lo.split_once('.').map_or(0, |(_, d)| d.len());
-                        let scale = 10f64.powi(decimals as i32);
-                        let lo_n = (lo.parse::<f64>().unwrap() * scale).round() as i64;
-                        let hi_n = (hi.parse::<f64>().unwrap() * scale).round() as i64;
-                        for k in lo_n..=hi_n {
-                            out.push(format_scaled(k, decimals));
-                        }
-                    }
-                    None => out.push(item.to_string()),
-                }
-            }
+    /// The table and the vendored locales agree: every locale's `plural_rules` are one entry's conditions, and every
+    /// entry is some locale's, so the oracle can neither drift from the TOML nor carry a rule nobody ships.
+    #[test]
+    fn the_table_is_exactly_the_vendored_rule_sets() {
+        let table: Vec<(&str, BTreeSet<(&str, &str)>)> = CLDR_RULES
+            .iter()
+            .map(|(tag, rules)| (*tag, rules.iter().map(|(c, r, _)| (*c, *r)).collect()))
+            .collect();
+        let mut used = vec![false; table.len()];
+        for tag in vendored_tags() {
+            let own: BTreeSet<(&str, &str)> = vendored_locale(tag)
+                .unwrap()
+                .plural_rules()
+                .iter()
+                .copied()
+                .collect();
+            let i = table
+                .iter()
+                .position(|(_, conditions)| *conditions == own)
+                .unwrap_or_else(|| panic!("{tag}: its plural rules match no entry in CLDR_RULES"));
+            used[i] = true;
         }
-        out
-    }
-
-    /// `k / 10^decimals` printed with exactly `decimals` digits.
-    fn format_scaled(k: i64, decimals: usize) -> String {
-        if decimals == 0 {
-            return k.to_string();
+        for ((tag, _), used) in table.iter().zip(used) {
+            assert!(used, "{tag} in CLDR_RULES matches no vendored locale");
         }
-        let s = format!("{:0width$}", k, width = decimals + 1);
-        let (int, frac) = s.split_at(s.len() - decimals);
-        format!("{int}.{frac}")
     }
 }

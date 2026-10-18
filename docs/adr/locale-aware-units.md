@@ -142,8 +142,8 @@ reads only TOML.
 - **Plural rules and long forms**, CLDR's own, so that a long form can pick between `1 łyżeczka`,
   `2 łyżeczki` and `5 łyżeczek`. They are evaluated in the crate rather than taken from a
   plural-rules dependency, because they are part of how a unit is *written*, on the same footing as
-  the names. `locales/plural-samples.json` is a test fixture, not build input: CLDR's own
-  `@integer` and `@decimal` samples, the oracle for the evaluator.
+  the names. CLDR's own samples, one locale per rule set, are the oracle for the
+  evaluator, in `plural.rs`'s tests.
 - **The parent chain.** Name fallback follows CLDR's `parentLocales`, so `en-NZ` reaches `en-001`
   (Commonwealth English) rather than truncating to US English, and `nb` reaches `no`.
   `locales/parent-locales.toml` is global because it is consulted for whatever tag a recipe asks
