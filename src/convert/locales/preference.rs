@@ -10,6 +10,7 @@ use icu_locale_core::subtags::{region, Region};
 
 use crate::quantity::Number;
 
+use super::legacy::LEGACY_PREFERENCES;
 use crate::convert::units::{
     LengthUnit, MassUnit, PhysicalQuantity, TemperatureUnit, TimeUnit, Unit, VolumeUnit,
 };
@@ -106,9 +107,10 @@ pub(crate) struct Row {
     pub or_decimal: bool,
 }
 
-// The rows themselves are data: `locales/preferences.toml`, one entry per system, legacy system or region and quantity,
-// each with its citation. build.rs turns it into `PREFERENCES`, `LEGACY_PREFERENCES` and `REGION_PREFERENCES`;
-// `rows_for` says which of them applies.
+// The rows themselves are data: one entry per system and quantity in `locales/preferences/system.toml`, per region
+// and quantity in `region.toml`, each with its citation. build.rs turns them into `PREFERENCES` and
+// `REGION_PREFERENCES`; the frozen rows an untagged recipe uses are `legacy::LEGACY_PREFERENCES`, and `rows_for` says
+// which of the three applies.
 include!(concat!(env!("OUT_DIR"), "/preferences.rs"));
 
 fn rows(system: System, quantity: PhysicalQuantity) -> Option<&'static [Row]> {

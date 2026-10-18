@@ -76,7 +76,7 @@ with all cups adjacent. The mapping is an explicit `match` either way.
 No identifier is ever a TOML key, a command-line argument or a URL segment; every one of the
 several hundred places an identifier appears is a quoted value. So the arguments for a
 machine-friendly separator do not apply, and a space makes a configuration file say what a recipe
-says: `preferences.toml` writes `metric tablespoon` and a reader is shown `metric tablespoon`.
+says: `preferences/system.toml` writes `metric tablespoon` and a reader is shown `metric tablespoon`.
 
 The one real hazard of a space is that a double, leading, trailing or non-breaking one is invisible
 in a diff. It is asserted rather than avoided: `ids_are_single_spaced_words` rejects all four,
@@ -296,8 +296,8 @@ for is an error, not a guess.
 
 ### The table
 
-The rows are data, in `locales/preferences.toml`: one `[[system]]` or `[[region]]` entry per
-quantity, each with its rows, thresholds, fraction denominators
+The rows are data, in `locales/preferences/system.toml` and `region.toml`: one `[[system]]` or
+`[[region]]` entry per quantity, each with its rows, thresholds, fraction denominators
 ([decision 6](#6-fractions-are-a-property-of-the-preference-row)) and a `reason` citing
 `docs/research/best-units-by-region.md`. Only two rules stay in code: a region's official system,
 and time falling back to the metric list.
@@ -356,8 +356,8 @@ and time falling back to the metric list.
 
 A converted amount is written as a fraction (`1/2 cup`, `3 1/2 fl oz`) when the preference row that
 chose its unit says so: `{ unit = "us cup", at_least = 0.25, fractions = 4 }` in
-`locales/preferences.toml`. The row's `fractions` is the largest denominator allowed, and the build
-refuses one larger than `Number` can write. A row without it writes decimals.
+`locales/preferences/system.toml`. The row's `fractions` is the largest denominator allowed, and the
+build refuses one larger than `Number` can write. A row without it writes decimals.
 
 ### The rule
 
@@ -429,11 +429,13 @@ converter; `Recipe::converter()` is the converter the naming calls for, and scal
 
 An untagged recipe reads through a frozen locale that names exactly the units `units.toml` knew,
 with preference rows transcribed from `units.toml`'s `best` lists and fraction config, so that what
-an untagged recipe does is what it always did: a quantity is fitted within the system it was
-written in, metric staying metric and US staying US, and a row that wrote a decimal where no
-fraction fitted still does. It is a distinct naming, not a tag: `legacy` is not a language, and a
-private-use tag such as `und-x-legacy` would let `und-x-legacy-u-ms-metric` parse into nonsense.
-The naming is derived from metadata on demand; `Recipe` gains no field.
+an untagged recipe does is what it always did: a quantity is fitted within the system it was written
+in, metric staying metric and US staying US, and a row that wrote a decimal where no fraction fitted
+still does. Its names and its rows are hand-written tables in `legacy.rs`, not data files: nothing
+in them is researched or will change on evidence, and a file that invites edits is the wrong home
+for data whose purpose is not to move. It is a distinct naming, not a tag: `legacy` is not a
+language, and a private-use tag such as `und-x-legacy` would let `und-x-legacy-u-ms-metric` parse
+into nonsense. The naming is derived from metadata on demand; `Recipe` gains no field.
 
 ### What the converter is
 

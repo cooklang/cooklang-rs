@@ -559,8 +559,6 @@ fn generate_preferences() {
     struct Preferences {
         system: Vec<SystemRows>,
         region: Vec<RegionRows>,
-        /// The frozen rows of the legacy locale, keyed by system like `system`
-        legacy: Vec<SystemRows>,
     }
     #[derive(serde::Deserialize)]
     struct SystemRows {
@@ -641,9 +639,8 @@ fn generate_preferences() {
             .join(", ")
     }
 
-    // the rows are split by what they key on: systems and the frozen legacy rows in one file,
-    // regions in the other. Registered by name, since the directory watch is what the locale files
-    // already do not rely on.
+    // the rows are split by what they key on, and each file is registered by name as the locale
+    // files are; the frozen legacy rows are a table in locales/legacy.rs
     let mut prefs = Preferences::default();
     for (name, file) in [
         ("system", "locales/preferences/system.toml"),
@@ -651,17 +648,18 @@ fn generate_preferences() {
     ] {
         println!("cargo::rerun-if-changed={file}");
         let text = std::fs::read_to_string(file).unwrap_or_else(|e| panic!("{file}: {e}"));
-        let read: Preferences =
-            toml::from_str(&text).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let read: Preferences = toml::from_str(&text).unwrap_or_else(|e| panic!("{file}: {e}"));
         match name {
             "system" => {
-                assert!(read.region.is_empty(), "{file}: region rows belong in region.toml");
+                assert!(
+                    read.region.is_empty(),
+                    "{file}: region rows belong in region.toml"
+                );
                 prefs.system = read.system;
-                prefs.legacy = read.legacy;
             }
             _ => {
                 assert!(
-                    read.system.is_empty() && read.legacy.is_empty(),
+                    read.system.is_empty(),
                     "{file}: system rows belong in system.toml"
                 );
                 prefs.region = read.region;
@@ -690,7 +688,6 @@ fn generate_preferences() {
     }
 
     let mut out = system_table("PREFERENCES", &prefs.system);
-    out.push_str(&system_table("LEGACY_PREFERENCES", &prefs.legacy));
     out.push_str(
         "pub(crate) static REGION_PREFERENCES: &[(Region, PhysicalQuantity, &[Row])] = &[\n",
     );

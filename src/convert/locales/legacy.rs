@@ -9,14 +9,16 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 
 use super::locale::{Locale, UnitNames};
+use super::preference::Row;
 use super::preference::System::{self, Metric, UsCustomary};
-use crate::convert::units::Unit;
+use crate::convert::units::PhysicalQuantity::{self, Length, Mass, Temperature, Time, Volume};
+use crate::convert::units::{LengthUnit, MassUnit, TemperatureUnit, TimeUnit, Unit, VolumeUnit};
 
 /// Identifier, the system `units.toml` filed it under, the symbol a conversion writes back, every other spelling.
-type Row = (&'static str, System, &'static str, &'static [&'static str]);
+type Names = (&'static str, System, &'static str, &'static [&'static str]);
 
 #[rustfmt::skip]
-const LEGACY_UNITS: &[Row] = &[
+const LEGACY_UNITS: &[Names] = &[
     // volume
     ("kiloliter",      Metric,      "kl",    &["kiloliter", "kiloliters", "kilolitre", "kilolitres", "kL"]),
     ("hectoliter",     Metric,      "hl",    &["hectoliter", "hectoliters", "hectolitre", "hectolitres", "hL"]),
@@ -71,6 +73,85 @@ pub(crate) fn legacy_system(unit: Unit) -> System {
         .find(|(id, ..)| *id == unit.id())
         .map_or(UsCustomary, |&(_, system, ..)| system)
 }
+
+const fn row(unit: Unit, at_least: f64, fractions: Option<u8>, or_decimal: bool) -> Row {
+    Row {
+        unit,
+        at_least,
+        fractions,
+        or_decimal,
+    }
+}
+
+/// What an untagged recipe is fitted with: `units.toml`'s `best` lists and fraction config, frozen (ADR 7).
+///
+/// On the metric side bundled chose the largest unit the amount reached a whole one of, so `at_least` is 1, and
+/// wrote decimals. On its "imperial" side, which is US customary, bundled first looked for a fraction in any best
+/// unit, with per-unit denominators (tsp 8, tbsp 3, lb 8, else 4), so a unit was kept below one of it when a
+/// fraction fitted: `1/2 c`, `1/3 lb`. The thresholds below one reproduce that. When no fraction fitted anywhere,
+/// bundled wrote a decimal in the unit its threshold chose, `1.125 c`; the rows at one cup and two tablespoons are
+/// marked `or_decimal` to do the same instead of falling through as ADR 6 otherwise has it. Two tablespoons, not
+/// one, because up to two bundled still found a teaspoon fraction (`3 1/2 tsp`); beyond that the teaspoon's cap of
+/// five wholes ruled it out. Bundled's preference for a whole number in the smaller unit over a fraction in the
+/// larger (`4 tsp`, not `1 1/3 tbsp`; `24 oz`, not `1 1/2 lb`) is the search ADR 6 does not port, and
+/// `tests/differential.rs` lists what that changes. Never fractions for time or temperature.
+#[rustfmt::skip]
+pub(crate) static LEGACY_PREFERENCES: &[(System, PhysicalQuantity, &[Row])] = &[
+    // `best.metric = ["ml", "l"]`, `fractions.metric = false`
+    (Metric, Volume, &[
+        row(Unit::Volume(VolumeUnit::Liter),                1.0, None,    false),
+        row(Unit::Volume(VolumeUnit::Milliliter),           1.0, None,    false),
+    ]),
+    // `best.metric = ["mg", "g", "kg"]`
+    (Metric, Mass, &[
+        row(Unit::Mass(MassUnit::Kilogram),                 1.0, None,    false),
+        row(Unit::Mass(MassUnit::Gram),                     1.0, None,    false),
+        row(Unit::Mass(MassUnit::Milligram),                1.0, None,    false),
+    ]),
+    // `best.metric = ["cm", "mm", "m"]`
+    (Metric, Length, &[
+        row(Unit::Length(LengthUnit::Meter),                1.0, None,    false),
+        row(Unit::Length(LengthUnit::Centimeter),           1.0, None,    false),
+        row(Unit::Length(LengthUnit::Millimeter),           1.0, None,    false),
+    ]),
+    // `best.metric = ["C"]`, `fractions.quantity.temperature = false`
+    (Metric, Temperature, &[
+        row(Unit::Temperature(TemperatureUnit::Celsius),    1.0, None,    false),
+    ]),
+    // `best = ["s", "h", "min", "d"]`, one list for both systems, `fractions.quantity.time = false`
+    (Metric, Time, &[
+        row(Unit::Time(TimeUnit::Day),                      1.0, None,    false),
+        row(Unit::Time(TimeUnit::Hour),                     1.0, None,    false),
+        row(Unit::Time(TimeUnit::Minute),                   1.0, None,    false),
+        row(Unit::Time(TimeUnit::Second),                   1.0, None,    false),
+    ]),
+    // `best.imperial = ["cup", "tsp", "tbsp"]`; `fractions.unit.tsp.max_denominator = 8`, `tbsp = 3`, cup the
+    // default 4. A third of a cup and half a tablespoon are the smallest fractions bundled kept in those units: a
+    // quarter cup was `4 tbsp` and two thirds of a tablespoon `2 tsp`, whole numbers winning its search.
+    (UsCustomary, Volume, &[
+        row(Unit::Volume(VolumeUnit::UsCup),                1.0, Some(4), true),
+        row(Unit::Volume(VolumeUnit::UsCup),                0.3, Some(4), false),
+        row(Unit::Volume(VolumeUnit::UsTablespoon),         2.0, Some(3), true),
+        row(Unit::Volume(VolumeUnit::UsTablespoon),         0.5, Some(3), false),
+        row(Unit::Volume(VolumeUnit::UsTeaspoon),           0.0, Some(8), false),
+    ]),
+    // `best.imperial = ["oz", "lb"]`; `fractions.unit.lb.max_denominator = 8`, ounce the default 4. Below a pound
+    // bundled kept the pound only for thirds, which the search decided; every other fraction of a pound is a whole
+    // number of ounces.
+    (UsCustomary, Mass, &[
+        row(Unit::Mass(MassUnit::Pound),                    1.0, Some(8), false),
+        row(Unit::Mass(MassUnit::Ounce),                    0.0, Some(4), false),
+    ]),
+    // `best.imperial = ["in", "ft"]`, the default denominator 4
+    (UsCustomary, Length, &[
+        row(Unit::Length(LengthUnit::Foot),                 1.0, Some(4), false),
+        row(Unit::Length(LengthUnit::Inch),                 0.0, Some(4), false),
+    ]),
+    // `best.imperial = ["F"]`, `fractions.quantity.temperature = false`
+    (UsCustomary, Temperature, &[
+        row(Unit::Temperature(TemperatureUnit::Fahrenheit), 1.0, None,    false),
+    ]),
+];
 
 /// Built once: the locale is immutable, and every parse, scale and list of an untagged recipe reads it.
 pub(crate) fn legacy_locale() -> Arc<Locale> {

@@ -4,8 +4,8 @@
 #
 # Time has one list, under metric, which every system shares.
 #
-# build.rs turns this file and region.toml into the PREFERENCES, LEGACY_PREFERENCES and REGION_PREFERENCES tables; a
-# unit that is not in definitions.rs fails to compile.
+# build.rs turns this file and region.toml into the PREFERENCES and REGION_PREFERENCES tables; a unit that is not in
+# definitions.rs fails to compile.
 
 # --- Systems --------------------------------------------------------------
 
@@ -126,83 +126,3 @@ system = "imperial"
 quantity = "temperature"
 rows = [{ unit = "celsius", at_least = 1 }]
 reason = "UK ovens have been Celsius and gas mark for decades; Fahrenheit is the US system."
-
-# --- Legacy ---------------------------------------------------------------
-# What an untagged recipe is fitted with: units.toml's `best` lists, frozen,
-# so that an untagged recipe does what it always did (ADR 7). On the
-# metric side bundled chose the largest unit the amount reached a whole one
-# of, so `at_least = 1`, and wrote decimals. On its "imperial" side, which is
-# US customary, bundled first looked for a fraction in any best unit, with
-# its per-unit denominators (tsp 8, tbsp 3, lb 8, else 4), so a unit was kept
-# below one of it when a fraction fitted: `1/2 c`, `1/3 lb`. The thresholds
-# below one reproduce that. When no fraction fitted anywhere, bundled wrote
-# a decimal in the unit its threshold chose, `1.125 c`; the rows at one cup
-# and two tablespoons are marked `or_decimal` to do the same instead of
-# falling through to the next row as ADR 6 otherwise has it. Two, not
-# one, because up to two tablespoons bundled still found a teaspoon
-# fraction (`3 1/2 tsp`); beyond that the teaspoon's cap of five wholes
-# ruled it out. Bundled's
-# preference for a whole number in the smaller unit over a fraction in the
-# larger (`4 tsp`, not `1 1/3 tbsp`; `24 oz`, not `1 1/2 lb`) is the search
-# ADR 6 does not port, and the scaling differential lists what it
-# changes. Never fractions for time or temperature.
-
-[[legacy]]
-system = "metric"
-quantity = "volume"
-rows = [{ unit = "liter", at_least = 1 }, { unit = "milliliter", at_least = 1 }]
-reason = "units.toml: `best.metric = [\"ml\", \"l\"]`, `fractions.metric = false`."
-
-[[legacy]]
-system = "metric"
-quantity = "mass"
-rows = [{ unit = "kilogram", at_least = 1 }, { unit = "gram", at_least = 1 }, { unit = "milligram", at_least = 1 }]
-reason = "units.toml: `best.metric = [\"mg\", \"g\", \"kg\"]`."
-
-[[legacy]]
-system = "metric"
-quantity = "length"
-rows = [{ unit = "meter", at_least = 1 }, { unit = "centimeter", at_least = 1 }, { unit = "millimeter", at_least = 1 }]
-reason = "units.toml: `best.metric = [\"cm\", \"mm\", \"m\"]`."
-
-[[legacy]]
-system = "metric"
-quantity = "temperature"
-rows = [{ unit = "celsius", at_least = 1 }]
-reason = "units.toml: `best.metric = [\"C\"]`, `fractions.quantity.temperature = false`."
-
-[[legacy]]
-system = "metric"
-quantity = "time"
-rows = [{ unit = "day", at_least = 1 }, { unit = "hour", at_least = 1 }, { unit = "minute", at_least = 1 }, { unit = "second", at_least = 1 }]
-reason = "units.toml: `best = [\"s\", \"h\", \"min\", \"d\"]`, one list for both systems, `fractions.quantity.time = false`."
-
-[[legacy]]
-system = "us-customary"
-quantity = "volume"
-rows = [
-    { unit = "us cup", at_least = 1, fractions = 4, or_decimal = true },
-    { unit = "us cup", at_least = 0.3, fractions = 4 },
-    { unit = "us tablespoon", at_least = 2, fractions = 3, or_decimal = true },
-    { unit = "us tablespoon", at_least = 0.5, fractions = 3 },
-    { unit = "us teaspoon", at_least = 0, fractions = 8 },
-]
-reason = "units.toml: `best.imperial = [\"cup\", \"tsp\", \"tbsp\"]`; `fractions.unit.tsp.max_denominator = 8`, `tbsp = 3`, cup the default 4. A third of a cup and half a tablespoon are the smallest fractions bundled kept in those units: a quarter cup was `4 tbsp` and two thirds of a tablespoon `2 tsp`, whole numbers winning its search."
-
-[[legacy]]
-system = "us-customary"
-quantity = "mass"
-rows = [{ unit = "pound", at_least = 1, fractions = 8 }, { unit = "ounce", at_least = 0, fractions = 4 }]
-reason = "units.toml: `best.imperial = [\"oz\", \"lb\"]`; `fractions.unit.lb.max_denominator = 8`, ounce the default 4. Below a pound bundled kept the pound only for thirds, which the search decided; every other fraction of a pound is a whole number of ounces."
-
-[[legacy]]
-system = "us-customary"
-quantity = "length"
-rows = [{ unit = "foot", at_least = 1, fractions = 4 }, { unit = "inch", at_least = 0, fractions = 4 }]
-reason = "units.toml: `best.imperial = [\"in\", \"ft\"]`, the default denominator 4."
-
-[[legacy]]
-system = "us-customary"
-quantity = "temperature"
-rows = [{ unit = "fahrenheit", at_least = 1 }]
-reason = "units.toml: `best.imperial = [\"F\"]`, `fractions.quantity.temperature = false`."

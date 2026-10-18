@@ -14,11 +14,11 @@ use std::fmt::Write;
 
 use icu_locale_core::subtags::{region, Region};
 
-use crate::convert::locales::legacy::legacy_locale;
+use crate::convert::locales::legacy::{legacy_locale, LEGACY_PREFERENCES};
 use crate::convert::locales::locale::{Locale, UNIVERSAL_ALIASES};
 use crate::convert::locales::preference::{
-    best_amount, best_unit, official_system, Audience, Row, System, Units, LEGACY_PREFERENCES,
-    PREFERENCES, REGION_PREFERENCES,
+    best_amount, best_unit, official_system, Audience, Row, System, Units, PREFERENCES,
+    REGION_PREFERENCES,
 };
 use crate::convert::locales::reference;
 use crate::convert::locales::tag::LocaleTag;
