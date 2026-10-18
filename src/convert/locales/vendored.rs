@@ -1,6 +1,5 @@
-//! The locales `build.rs` generates from `locales/<tag>.toml`: loading one,
-//! finding which one a tag reaches, and the review gate that decides whether
-//! it may be served to a reader.
+//! The locales `build.rs` generates from `locales/<tag>.toml`: loading one, finding which one a tag reaches, and the
+//! review gate that decides whether it may be served to a reader.
 
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, OnceLock};
@@ -22,9 +21,8 @@ pub(crate) struct GeneratedLocale {
     pub units: &'static [GeneratedUnit],
 }
 
-/// A unit in a generated locale: our identifier, the symbol if the locale has
-/// a safe one, the aliases that survived adjudication, and the long patterns
-/// by plural category that did.
+/// A unit in a generated locale: our identifier, the symbol if the locale has a safe one, the aliases that survived
+/// adjudication, and the long patterns by plural category that did.
 pub(crate) struct GeneratedUnit {
     pub id: &'static str,
     pub symbol: Option<&'static str>,
@@ -58,11 +56,9 @@ pub(crate) fn cldr_version(tag: &str) -> Option<&'static str> {
 
 /// The CLDR-derived locale for `tag`, if it was vendored.
 ///
-/// A unit CLDR does not carry, or that the locale declined to name — a
-/// German `Tasse` is 150 ml, so it cannot name the US cup — is left unnamed
-/// and is written by its identifier. Nothing is inherited from any other
-/// locale: inheriting legacy's English names would reinstate the strings
-/// adjudication rejected.
+/// A unit CLDR does not carry, or that the locale declined to name — a German `Tasse` is 150 ml, so it cannot name the
+/// US cup — is left unnamed and is written by its identifier. Nothing is inherited from any other locale: inheriting
+/// legacy's English names would reinstate the strings adjudication rejected.
 pub(crate) fn vendored_locale(tag: &str) -> Option<Arc<Locale>> {
     let i = generated_index(tag)?;
     Some(
@@ -179,11 +175,10 @@ pub(crate) fn reviewed_locale(tag: &LocaleTag) -> Result<Arc<Locale>, Refusal> {
     Ok(vendored_locale(reached).expect("tag_for found it"))
 }
 
-/// The refusal carries the whole locale, not a command to go and run: whoever
-/// hits this is the person most likely to speak the language, and they are
-/// most likely to answer while they are already looking at it. It is the same
-/// text [`crate::locale_markdown`] renders, so `show-locale-as-md` reproduces
-/// it later. That makes for a long panic, about 110 lines, deliberately.
+/// The refusal carries the whole locale, not a command to go and run: whoever hits this is the person most likely to
+/// speak the language, and they are most likely to answer while they are already looking at it. It is the same text
+/// [`crate::locale_markdown`] renders, so `show-locale-as-md` reproduces it later. That makes for a long panic, about
+/// 110 lines, deliberately.
 #[cfg(test)]
 fn refuse_unless_reviewed(reached: &str) -> ! {
     let report = crate::locale_markdown(reached)
