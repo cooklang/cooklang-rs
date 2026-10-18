@@ -1,5 +1,5 @@
 //! One locale as a human-readable Markdown page: what `show-locale-as-md` prints, which is what a review refusal
-//! points at. The pages of a few tags are pinned in `tests/snapshots/<tag>.md`.
+//! points at.
 
 use std::fmt::Write;
 
