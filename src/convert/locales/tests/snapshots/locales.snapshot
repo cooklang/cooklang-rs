@@ -4,6 +4,8 @@
 # change.
 resolve legacy "\"" -> inch
 resolve legacy "'" -> foot
+resolve legacy "C" -> celsius
+resolve legacy "F" -> fahrenheit
 resolve legacy "L" -> liter
 resolve legacy "c" -> us cup
 resolve legacy "cL" -> centiliter
@@ -163,6 +165,10 @@ resolve legacy "tsp" -> us teaspoon
 resolve legacy "tsp." -> us teaspoon
 resolve legacy "°C" -> celsius
 resolve legacy "°F" -> fahrenheit
+resolve legacy "ºC" -> celsius
+resolve legacy "ºF" -> fahrenheit
+resolve legacy "℃" -> celsius
+resolve legacy "℉" -> fahrenheit
 written legacy kiloliter -> "kl"
 written legacy hectoliter -> "hl"
 written legacy decaliter -> "dal"
@@ -201,8 +207,14 @@ written legacy hour -> "h"
 written legacy day -> "d"
 written legacy celsius -> "°C"
 written legacy fahrenheit -> "°F"
+resolve ar "C" -> celsius
+resolve ar "F" -> fahrenheit
+resolve ar "°C" -> celsius
+resolve ar "°F" -> fahrenheit
 resolve ar "°ف" -> fahrenheit
 resolve ar "°م" -> celsius
+resolve ar "ºC" -> celsius
+resolve ar "ºF" -> fahrenheit
 resolve ar "أمتار" -> meter
 resolve ar "أيام" -> day
 resolve ar "بوصة" -> inch
@@ -236,6 +248,8 @@ resolve ar "مليمتر" -> millimeter
 resolve ar "مم" -> millimeter
 resolve ar "يوم" -> day
 resolve ar "يوم\u{64b}ا" -> day
+resolve ar "℃" -> celsius
+resolve ar "℉" -> fahrenheit
 written ar liter -> "لتر"
 written ar deciliter -> "ديسيلتر"
 written ar centiliter -> "سنتيلتر"
@@ -251,8 +265,8 @@ written ar second -> "ث"
 written ar minute -> "د"
 written ar hour -> "س"
 written ar day -> "يوم"
-written ar celsius -> "°م"
-written ar fahrenheit -> "°ف"
+written ar celsius -> "°C"
+written ar fahrenheit -> "°F"
 long ar liter few -> "{0} لتر"
 long ar liter many -> "{0} لتر"
 long ar liter one -> "لتر"
@@ -363,6 +377,8 @@ plural ar 1.5 -> other
 plural ar 0 -> zero
 plural ar 12 -> many
 plural ar 14 -> many
+resolve cs "C" -> celsius
+resolve cs "F" -> fahrenheit
 resolve cs "centilitr" -> centiliter
 resolve cs "centilitru" -> centiliter
 resolve cs "centilitry" -> centiliter
@@ -440,6 +456,10 @@ resolve cs "stupňů Celsia" -> celsius
 resolve cs "stupňů Fahrenheita" -> fahrenheit
 resolve cs "°C" -> celsius
 resolve cs "°F" -> fahrenheit
+resolve cs "ºC" -> celsius
+resolve cs "ºF" -> fahrenheit
+resolve cs "℃" -> celsius
+resolve cs "℉" -> fahrenheit
 written cs liter -> "l"
 written cs deciliter -> "dl"
 written cs centiliter -> "cl"
@@ -533,6 +553,8 @@ plural cs 1.5 -> many
 plural cs 0 -> other
 plural cs 12 -> other
 plural cs 14 -> other
+resolve da "C" -> celsius
+resolve da "F" -> fahrenheit
 resolve da "centiliter" -> centiliter
 resolve da "centimeter" -> centimeter
 resolve da "cl" -> centiliter
@@ -589,6 +611,10 @@ resolve da "tsk" -> metric teaspoon
 resolve da "tsk." -> metric teaspoon
 resolve da "°C" -> celsius
 resolve da "°F" -> fahrenheit
+resolve da "ºC" -> celsius
+resolve da "ºF" -> fahrenheit
+resolve da "℃" -> celsius
+resolve da "℉" -> fahrenheit
 written da liter -> "l"
 written da deciliter -> "dl"
 written da centiliter -> "cl"
@@ -654,11 +680,13 @@ plural da 1.5 -> one
 plural da 0 -> other
 plural da 12 -> other
 plural da 14 -> other
+resolve de "C" -> celsius
 resolve de "Deka" -> decagram
 resolve de "Dekagramm" -> decagram
 resolve de "Deziliter" -> deciliter
 resolve de "EL" -> metric tablespoon
 resolve de "Esslöffel" -> metric tablespoon
+resolve de "F" -> fahrenheit
 resolve de "Fuß" -> foot
 resolve de "Grad Celsius" -> celsius
 resolve de "Grad Fahrenheit" -> fahrenheit
@@ -707,6 +735,10 @@ resolve de "mm" -> millimeter
 resolve de "oz" -> ounce
 resolve de "°C" -> celsius
 resolve de "°F" -> fahrenheit
+resolve de "ºC" -> celsius
+resolve de "ºF" -> fahrenheit
+resolve de "℃" -> celsius
+resolve de "℉" -> fahrenheit
 written de liter -> "l"
 written de deciliter -> "dl"
 written de centiliter -> "cl"
@@ -780,11 +812,15 @@ plural de 1.5 -> other
 plural de 0 -> other
 plural de 12 -> other
 plural de 14 -> other
+resolve el "C" -> celsius
+resolve el "F" -> fahrenheit
 resolve el "cL" -> centiliter
 resolve el "dL" -> deciliter
 resolve el "mL" -> milliliter
 resolve el "°C" -> celsius
 resolve el "°F" -> fahrenheit
+resolve el "ºC" -> celsius
+resolve el "ºF" -> fahrenheit
 resolve el "ίν." -> inch
 resolve el "ίντσα" -> inch
 resolve el "ίντσες" -> inch
@@ -830,6 +866,8 @@ resolve el "χλστ." -> millimeter
 resolve el "ώ." -> hour
 resolve el "ώρα" -> hour
 resolve el "ώρες" -> hour
+resolve el "℃" -> celsius
+resolve el "℉" -> fahrenheit
 written el liter -> "λίτ."
 written el deciliter -> "dL"
 written el centiliter -> "cL"
@@ -889,6 +927,8 @@ plural el 1.5 -> other
 plural el 0 -> other
 plural el 12 -> other
 plural el 14 -> other
+resolve en "C" -> celsius
+resolve en "F" -> fahrenheit
 resolve en "Imp. fluid ounce" -> imperial fluid ounce
 resolve en "Imp. fluid ounces" -> imperial fluid ounce
 resolve en "Imp. gallon" -> imperial gallon
@@ -987,6 +1027,10 @@ resolve en "teaspoons" -> us teaspoon
 resolve en "tsp" -> us teaspoon
 resolve en "°C" -> celsius
 resolve en "°F" -> fahrenheit
+resolve en "ºC" -> celsius
+resolve en "ºF" -> fahrenheit
+resolve en "℃" -> celsius
+resolve en "℉" -> fahrenheit
 written en liter -> "L"
 written en deciliter -> "dL"
 written en centiliter -> "cL"
@@ -1091,6 +1135,8 @@ plural en 1.5 -> other
 plural en 0 -> other
 plural en 12 -> other
 plural en 14 -> other
+resolve en-001 "C" -> celsius
+resolve en-001 "F" -> fahrenheit
 resolve en-001 "US c" -> us cup
 resolve en-001 "US fl oz" -> us fluid ounce
 resolve en-001 "US fluid ounce" -> us fluid ounce
@@ -1196,6 +1242,10 @@ resolve en-001 "teaspoons" -> metric teaspoon
 resolve en-001 "tsp" -> metric teaspoon
 resolve en-001 "°C" -> celsius
 resolve en-001 "°F" -> fahrenheit
+resolve en-001 "ºC" -> celsius
+resolve en-001 "ºF" -> fahrenheit
+resolve en-001 "℃" -> celsius
+resolve en-001 "℉" -> fahrenheit
 written en-001 liter -> "l"
 written en-001 deciliter -> "dl"
 written en-001 centiliter -> "cl"
@@ -1296,6 +1346,8 @@ plural en-001 1.5 -> other
 plural en-001 0 -> other
 plural en-001 12 -> other
 plural en-001 14 -> other
+resolve en-AU "C" -> celsius
+resolve en-AU "F" -> fahrenheit
 resolve en-AU "Imp. fluid ounce" -> imperial fluid ounce
 resolve en-AU "Imp. fluid ounces" -> imperial fluid ounce
 resolve en-AU "L" -> liter
@@ -1395,6 +1447,10 @@ resolve en-AU "teaspoons" -> metric teaspoon
 resolve en-AU "tsp" -> metric teaspoon
 resolve en-AU "°C" -> celsius
 resolve en-AU "°F" -> fahrenheit
+resolve en-AU "ºC" -> celsius
+resolve en-AU "ºF" -> fahrenheit
+resolve en-AU "℃" -> celsius
+resolve en-AU "℉" -> fahrenheit
 written en-AU liter -> "L"
 written en-AU deciliter -> "dL"
 written en-AU centiliter -> "cL"
@@ -1495,6 +1551,8 @@ plural en-AU 1.5 -> other
 plural en-AU 0 -> other
 plural en-AU 12 -> other
 plural en-AU 14 -> other
+resolve en-GB "C" -> celsius
+resolve en-GB "F" -> fahrenheit
 resolve en-GB "US c" -> us cup
 resolve en-GB "US fl oz" -> us fluid ounce
 resolve en-GB "US fluid ounce" -> us fluid ounce
@@ -1600,6 +1658,10 @@ resolve en-GB "teaspoons" -> metric teaspoon
 resolve en-GB "tsp" -> metric teaspoon
 resolve en-GB "°C" -> celsius
 resolve en-GB "°F" -> fahrenheit
+resolve en-GB "ºC" -> celsius
+resolve en-GB "ºF" -> fahrenheit
+resolve en-GB "℃" -> celsius
+resolve en-GB "℉" -> fahrenheit
 written en-GB liter -> "l"
 written en-GB deciliter -> "dl"
 written en-GB centiliter -> "cl"
@@ -1700,6 +1762,8 @@ plural en-GB 1.5 -> other
 plural en-GB 0 -> other
 plural en-GB 12 -> other
 plural en-GB 14 -> other
+resolve es "C" -> celsius
+resolve es "F" -> fahrenheit
 resolve es "cda" -> metric tablespoon
 resolve es "cdta" -> metric teaspoon
 resolve es "centilitro" -> centiliter
@@ -1764,6 +1828,10 @@ resolve es "tazas métricas" -> metric cup
 resolve es "tza m" -> metric cup
 resolve es "°C" -> celsius
 resolve es "°F" -> fahrenheit
+resolve es "ºC" -> celsius
+resolve es "ºF" -> fahrenheit
+resolve es "℃" -> celsius
+resolve es "℉" -> fahrenheit
 written es liter -> "l"
 written es deciliter -> "dl"
 written es centiliter -> "cl"
@@ -1836,6 +1904,8 @@ plural es 1.5 -> other
 plural es 0 -> other
 plural es 12 -> other
 plural es 14 -> other
+resolve es-419 "C" -> celsius
+resolve es-419 "F" -> fahrenheit
 resolve es-419 "cdas." -> metric tablespoon
 resolve es-419 "cdtas." -> metric teaspoon
 resolve es-419 "centilitro" -> centiliter
@@ -1900,6 +1970,10 @@ resolve es-419 "tazas métricas" -> metric cup
 resolve es-419 "tza m" -> metric cup
 resolve es-419 "°C" -> celsius
 resolve es-419 "°F" -> fahrenheit
+resolve es-419 "ºC" -> celsius
+resolve es-419 "ºF" -> fahrenheit
+resolve es-419 "℃" -> celsius
+resolve es-419 "℉" -> fahrenheit
 written es-419 liter -> "l"
 written es-419 deciliter -> "dl"
 written es-419 centiliter -> "cl"
@@ -1972,6 +2046,8 @@ plural es-419 1.5 -> other
 plural es-419 0 -> other
 plural es-419 12 -> other
 plural es-419 14 -> other
+resolve es-CO "C" -> celsius
+resolve es-CO "F" -> fahrenheit
 resolve es-CO "cdas." -> metric tablespoon
 resolve es-CO "cdtas." -> metric teaspoon
 resolve es-CO "centilitro" -> centiliter
@@ -2037,6 +2113,10 @@ resolve es-CO "tazas métricas" -> metric cup
 resolve es-CO "tza m" -> metric cup
 resolve es-CO "°C" -> celsius
 resolve es-CO "°F" -> fahrenheit
+resolve es-CO "ºC" -> celsius
+resolve es-CO "ºF" -> fahrenheit
+resolve es-CO "℃" -> celsius
+resolve es-CO "℉" -> fahrenheit
 written es-CO liter -> "l"
 written es-CO deciliter -> "dl"
 written es-CO centiliter -> "cl"
@@ -2111,6 +2191,8 @@ plural es-CO 1.5 -> other
 plural es-CO 0 -> other
 plural es-CO 12 -> other
 plural es-CO 14 -> other
+resolve es-MX "C" -> celsius
+resolve es-MX "F" -> fahrenheit
 resolve es-MX "cdas." -> metric tablespoon
 resolve es-MX "cdtas." -> metric teaspoon
 resolve es-MX "centilitro" -> centiliter
@@ -2177,6 +2259,10 @@ resolve es-MX "tza m" -> metric cup
 resolve es-MX "tzas." -> us legal cup
 resolve es-MX "°C" -> celsius
 resolve es-MX "°F" -> fahrenheit
+resolve es-MX "ºC" -> celsius
+resolve es-MX "ºF" -> fahrenheit
+resolve es-MX "℃" -> celsius
+resolve es-MX "℉" -> fahrenheit
 written es-MX liter -> "l"
 written es-MX deciliter -> "dl"
 written es-MX centiliter -> "cl"
@@ -2252,6 +2338,8 @@ plural es-MX 1.5 -> other
 plural es-MX 0 -> other
 plural es-MX 12 -> other
 plural es-MX 14 -> other
+resolve es-US "C" -> celsius
+resolve es-US "F" -> fahrenheit
 resolve es-US "cdas." -> us tablespoon
 resolve es-US "cdtas." -> us teaspoon
 resolve es-US "centilitro" -> centiliter
@@ -2340,6 +2428,10 @@ resolve es-US "tza m" -> metric cup
 resolve es-US "tzas." -> us cup
 resolve es-US "°C" -> celsius
 resolve es-US "°F" -> fahrenheit
+resolve es-US "ºC" -> celsius
+resolve es-US "ºF" -> fahrenheit
+resolve es-US "℃" -> celsius
+resolve es-US "℉" -> fahrenheit
 written es-US liter -> "l"
 written es-US deciliter -> "dl"
 written es-US centiliter -> "cl"
@@ -2438,6 +2530,8 @@ plural es-US 1.5 -> other
 plural es-US 0 -> other
 plural es-US 12 -> other
 plural es-US 14 -> other
+resolve fi "C" -> celsius
+resolve fi "F" -> fahrenheit
 resolve fi "celsiusaste" -> celsius
 resolve fi "celsiusasteet" -> celsius
 resolve fi "celsiusastetta" -> celsius
@@ -2513,6 +2607,10 @@ resolve fi "tunti" -> hour
 resolve fi "tuntia" -> hour
 resolve fi "°C" -> celsius
 resolve fi "°F" -> fahrenheit
+resolve fi "ºC" -> celsius
+resolve fi "ºF" -> fahrenheit
+resolve fi "℃" -> celsius
+resolve fi "℉" -> fahrenheit
 written fi liter -> "l"
 written fi deciliter -> "dl"
 written fi centiliter -> "cl"
@@ -2577,6 +2675,8 @@ plural fi 1.5 -> other
 plural fi 0 -> other
 plural fi 12 -> other
 plural fi 14 -> other
+resolve fr "C" -> celsius
+resolve fr "F" -> fahrenheit
 resolve fr "centilitre" -> centiliter
 resolve fr "centilitres" -> centiliter
 resolve fr "centimètre" -> centimeter
@@ -2628,6 +2728,10 @@ resolve fr "seconde" -> second
 resolve fr "secondes" -> second
 resolve fr "°C" -> celsius
 resolve fr "°F" -> fahrenheit
+resolve fr "ºC" -> celsius
+resolve fr "ºF" -> fahrenheit
+resolve fr "℃" -> celsius
+resolve fr "℉" -> fahrenheit
 written fr liter -> "l"
 written fr deciliter -> "dl"
 written fr centiliter -> "cl"
@@ -2687,11 +2791,15 @@ plural fr 1.5 -> one
 plural fr 0 -> one
 plural fr 12 -> other
 plural fr 14 -> other
+resolve he "C" -> celsius
+resolve he "F" -> fahrenheit
 resolve he "cL" -> centiliter
 resolve he "ft" -> foot
 resolve he "in" -> inch
 resolve he "°C" -> celsius
 resolve he "°F" -> fahrenheit
+resolve he "ºC" -> celsius
+resolve he "ºF" -> fahrenheit
 resolve he "אינץ׳" -> inch
 resolve he "גרם" -> gram
 resolve he "גר׳" -> gram
@@ -2730,6 +2838,8 @@ resolve he "שנ׳" -> second
 resolve he "שעה" -> hour
 resolve he "שעות" -> hour
 resolve he "שע׳" -> hour
+resolve he "℃" -> celsius
+resolve he "℉" -> fahrenheit
 written he liter -> "ל׳"
 written he deciliter -> "דצ״ל"
 written he centiliter -> "cL"
@@ -2823,8 +2933,14 @@ plural he 1.5 -> other
 plural he 0 -> other
 plural he 12 -> other
 plural he 14 -> other
+resolve hi "C" -> celsius
+resolve hi "F" -> fahrenheit
+resolve hi "°C" -> celsius
+resolve hi "°F" -> fahrenheit
 resolve hi "°फ\u{93c}\u{947}रन" -> fahrenheit
 resolve hi "°स\u{947}॰" -> celsius
+resolve hi "ºC" -> celsius
+resolve hi "ºF" -> fahrenheit
 resolve hi "इ\u{902}च" -> inch
 resolve hi "किलोग\u{94d}राम" -> kilogram
 resolve hi "कि॰ग\u{94d}रा॰" -> kilogram
@@ -2856,6 +2972,8 @@ resolve hi "स\u{947}\u{902}॰मी॰" -> centimeter
 resolve hi "स\u{947}\u{902}॰ली॰" -> centiliter
 resolve hi "स\u{947}क\u{902}ड" -> second
 resolve hi "स\u{947}॰" -> second
+resolve hi "℃" -> celsius
+resolve hi "℉" -> fahrenheit
 written hi liter -> "ली॰"
 written hi deciliter -> "ड\u{947}॰ली॰"
 written hi centiliter -> "स\u{947}\u{902}॰ली॰"
@@ -2871,8 +2989,8 @@ written hi second -> "स\u{947}॰"
 written hi minute -> "मि॰"
 written hi hour -> "घ\u{902}॰"
 written hi day -> "दिन"
-written hi celsius -> "°स\u{947}॰"
-written hi fahrenheit -> "°फ\u{93c}\u{947}रन"
+written hi celsius -> "°C"
+written hi fahrenheit -> "°F"
 long hi liter one -> "{0} लीटर"
 long hi liter other -> "{0} लीटर"
 long hi deciliter one -> "{0} ड\u{947}सीलीटर"
@@ -2915,7 +3033,9 @@ plural hi 1.5 -> other
 plural hi 0 -> one
 plural hi 12 -> other
 plural hi 14 -> other
+resolve hu "C" -> celsius
 resolve hu "Celsius-fok" -> celsius
+resolve hu "F" -> fahrenheit
 resolve hu "Fahrenheit-fok" -> fahrenheit
 resolve hu "centiliter" -> centiliter
 resolve hu "centiméter" -> centimeter
@@ -2944,8 +3064,12 @@ resolve hu "p" -> minute
 resolve hu "perc" -> minute
 resolve hu "°C" -> celsius
 resolve hu "°F" -> fahrenheit
+resolve hu "ºC" -> celsius
+resolve hu "ºF" -> fahrenheit
 resolve hu "ó" -> hour
 resolve hu "óra" -> hour
+resolve hu "℃" -> celsius
+resolve hu "℉" -> fahrenheit
 written hu liter -> "l"
 written hu deciliter -> "dl"
 written hu centiliter -> "cl"
@@ -3005,6 +3129,8 @@ plural hu 1.5 -> other
 plural hu 0 -> other
 plural hu 12 -> other
 plural hu 14 -> other
+resolve id "C" -> celsius
+resolve id "F" -> fahrenheit
 resolve id "L" -> liter
 resolve id "cL" -> centiliter
 resolve id "cm" -> centimeter
@@ -3039,6 +3165,10 @@ resolve id "sentiliter" -> centiliter
 resolve id "sentimeter" -> centimeter
 resolve id "°C" -> celsius
 resolve id "°F" -> fahrenheit
+resolve id "ºC" -> celsius
+resolve id "ºF" -> fahrenheit
+resolve id "℃" -> celsius
+resolve id "℉" -> fahrenheit
 written id liter -> "L"
 written id deciliter -> "dL"
 written id centiliter -> "cL"
@@ -3081,6 +3211,8 @@ plural id 1.5 -> other
 plural id 0 -> other
 plural id 12 -> other
 plural id 14 -> other
+resolve it "C" -> celsius
+resolve it "F" -> fahrenheit
 resolve it "centilitri" -> centiliter
 resolve it "centilitro" -> centiliter
 resolve it "centimetri" -> centimeter
@@ -3136,6 +3268,10 @@ resolve it "secondi" -> second
 resolve it "secondo" -> second
 resolve it "°C" -> celsius
 resolve it "°F" -> fahrenheit
+resolve it "ºC" -> celsius
+resolve it "ºF" -> fahrenheit
+resolve it "℃" -> celsius
+resolve it "℉" -> fahrenheit
 written it liter -> "l"
 written it deciliter -> "dl"
 written it centiliter -> "cl"
@@ -3196,6 +3332,8 @@ plural it 1.5 -> other
 plural it 0 -> other
 plural it 12 -> other
 plural it 14 -> other
+resolve ja "C" -> celsius
+resolve ja "F" -> fahrenheit
 resolve ja "L" -> liter
 resolve ja "cL" -> centiliter
 resolve ja "cm" -> centimeter
@@ -3215,6 +3353,10 @@ resolve ja "tbsp" -> metric tablespoon
 resolve ja "tsp" -> metric teaspoon
 resolve ja "°C" -> celsius
 resolve ja "°F" -> fahrenheit
+resolve ja "ºC" -> celsius
+resolve ja "ºF" -> fahrenheit
+resolve ja "℃" -> celsius
+resolve ja "℉" -> fahrenheit
 resolve ja "インチ" -> inch
 resolve ja "オンス" -> ounce
 resolve ja "カップ" -> japanese cup
@@ -3291,6 +3433,8 @@ plural ja 1.5 -> other
 plural ja 0 -> other
 plural ja 12 -> other
 plural ja 14 -> other
+resolve ko "C" -> celsius
+resolve ko "F" -> fahrenheit
 resolve ko "L" -> liter
 resolve ko "cL" -> centiliter
 resolve ko "cm" -> centimeter
@@ -3304,6 +3448,10 @@ resolve ko "mL" -> milliliter
 resolve ko "mm" -> millimeter
 resolve ko "°C" -> celsius
 resolve ko "°F" -> fahrenheit
+resolve ko "ºC" -> celsius
+resolve ko "ºF" -> fahrenheit
+resolve ko "℃" -> celsius
+resolve ko "℉" -> fahrenheit
 resolve ko "그램" -> gram
 resolve ko "데시리터" -> deciliter
 resolve ko "리터" -> liter
@@ -3366,6 +3514,8 @@ plural ko 1.5 -> other
 plural ko 0 -> other
 plural ko 12 -> other
 plural ko 14 -> other
+resolve ms "C" -> celsius
+resolve ms "F" -> fahrenheit
 resolve ms "cL" -> centiliter
 resolve ms "cm" -> centimeter
 resolve ms "dL" -> deciliter
@@ -3398,6 +3548,10 @@ resolve ms "sentiliter" -> centiliter
 resolve ms "sentimeter" -> centimeter
 resolve ms "°C" -> celsius
 resolve ms "°F" -> fahrenheit
+resolve ms "ºC" -> celsius
+resolve ms "ºF" -> fahrenheit
+resolve ms "℃" -> celsius
+resolve ms "℉" -> fahrenheit
 written ms liter -> "l"
 written ms deciliter -> "dL"
 written ms centiliter -> "cL"
@@ -3440,6 +3594,8 @@ plural ms 1.5 -> other
 plural ms 0 -> other
 plural ms 12 -> other
 plural ms 14 -> other
+resolve nl "C" -> celsius
+resolve nl "F" -> fahrenheit
 resolve nl "centiliter" -> centiliter
 resolve nl "centimeter" -> centimeter
 resolve nl "cl" -> centiliter
@@ -3480,6 +3636,10 @@ resolve nl "uur" -> hour
 resolve nl "voet" -> foot
 resolve nl "°C" -> celsius
 resolve nl "°F" -> fahrenheit
+resolve nl "ºC" -> celsius
+resolve nl "ºF" -> fahrenheit
+resolve nl "℃" -> celsius
+resolve nl "℉" -> fahrenheit
 written nl liter -> "l"
 written nl deciliter -> "dl"
 written nl centiliter -> "cl"
@@ -3540,6 +3700,8 @@ plural nl 1.5 -> other
 plural nl 0 -> other
 plural nl 12 -> other
 plural nl 14 -> other
+resolve no "C" -> celsius
+resolve no "F" -> fahrenheit
 resolve no "barneskje" -> metric dessert spoon
 resolve no "barneskjeer" -> metric dessert spoon
 resolve no "bs" -> metric dessert spoon
@@ -3591,6 +3753,10 @@ resolve no "tommer" -> inch
 resolve no "ts" -> metric teaspoon
 resolve no "°C" -> celsius
 resolve no "°F" -> fahrenheit
+resolve no "ºC" -> celsius
+resolve no "ºF" -> fahrenheit
+resolve no "℃" -> celsius
+resolve no "℉" -> fahrenheit
 written no liter -> "l"
 written no deciliter -> "dl"
 written no centiliter -> "cl"
@@ -3663,6 +3829,8 @@ plural no 1.5 -> other
 plural no 0 -> other
 plural no 12 -> other
 plural no 14 -> other
+resolve pl "C" -> celsius
+resolve pl "F" -> fahrenheit
 resolve pl "centylitr" -> centiliter
 resolve pl "centylitra" -> centiliter
 resolve pl "centylitry" -> centiliter
@@ -3744,6 +3912,8 @@ resolve pl "szklanka" -> metric cup
 resolve pl "szklanki" -> metric cup
 resolve pl "°C" -> celsius
 resolve pl "°F" -> fahrenheit
+resolve pl "ºC" -> celsius
+resolve pl "ºF" -> fahrenheit
 resolve pl "ł. cz." -> metric teaspoon
 resolve pl "ł. st." -> metric tablespoon
 resolve pl "łyżeczek" -> metric teaspoon
@@ -3753,6 +3923,8 @@ resolve pl "łyżek stołowych" -> metric tablespoon
 resolve pl "łyżka stołowa" -> metric tablespoon
 resolve pl "łyżki stołowe" -> metric tablespoon
 resolve pl "łyżki stołowej" -> metric tablespoon
+resolve pl "℃" -> celsius
+resolve pl "℉" -> fahrenheit
 written pl liter -> "l"
 written pl deciliter -> "dl"
 written pl centiliter -> "cl"
@@ -3855,6 +4027,8 @@ plural pl 1.5 -> other
 plural pl 0 -> many
 plural pl 12 -> many
 plural pl 14 -> many
+resolve pt "C" -> celsius
+resolve pt "F" -> fahrenheit
 resolve pt "c. chá" -> metric teaspoon
 resolve pt "c. sopa" -> metric tablespoon
 resolve pt "centilitro" -> centiliter
@@ -3914,6 +4088,10 @@ resolve pt "xícara" -> us legal cup
 resolve pt "xícaras" -> us legal cup
 resolve pt "°C" -> celsius
 resolve pt "°F" -> fahrenheit
+resolve pt "ºC" -> celsius
+resolve pt "ºF" -> fahrenheit
+resolve pt "℃" -> celsius
+resolve pt "℉" -> fahrenheit
 written pt liter -> "l"
 written pt deciliter -> "dl"
 written pt centiliter -> "cl"
@@ -3982,6 +4160,8 @@ plural pt 1.5 -> one
 plural pt 0 -> one
 plural pt 12 -> other
 plural pt 14 -> other
+resolve pt-PT "C" -> celsius
+resolve pt-PT "F" -> fahrenheit
 resolve pt-PT "centilitro" -> centiliter
 resolve pt-PT "centilitros" -> centiliter
 resolve pt-PT "centímetro" -> centimeter
@@ -4032,6 +4212,10 @@ resolve pt-PT "segundo" -> second
 resolve pt-PT "segundos" -> second
 resolve pt-PT "°C" -> celsius
 resolve pt-PT "°F" -> fahrenheit
+resolve pt-PT "ºC" -> celsius
+resolve pt-PT "ºF" -> fahrenheit
+resolve pt-PT "℃" -> celsius
+resolve pt-PT "℉" -> fahrenheit
 written pt-PT liter -> "l"
 written pt-PT deciliter -> "dl"
 written pt-PT centiliter -> "cl"
@@ -4091,6 +4275,8 @@ plural pt-PT 1.5 -> other
 plural pt-PT 0 -> other
 plural pt-PT 12 -> other
 plural pt-PT 14 -> other
+resolve ro "C" -> celsius
+resolve ro "F" -> fahrenheit
 resolve ro "centilitri" -> centiliter
 resolve ro "centilitru" -> centiliter
 resolve ro "centimetri" -> centimeter
@@ -4157,6 +4343,10 @@ resolve ro "zi" -> day
 resolve ro "zile" -> day
 resolve ro "°C" -> celsius
 resolve ro "°F" -> fahrenheit
+resolve ro "ºC" -> celsius
+resolve ro "ºF" -> fahrenheit
+resolve ro "℃" -> celsius
+resolve ro "℉" -> fahrenheit
 written ro liter -> "l"
 written ro deciliter -> "dl"
 written ro centiliter -> "cl"
@@ -4233,8 +4423,12 @@ plural ro 1.5 -> few
 plural ro 0 -> few
 plural ro 12 -> few
 plural ro 14 -> few
+resolve ru "C" -> celsius
+resolve ru "F" -> fahrenheit
 resolve ru "°C" -> celsius
 resolve ru "°F" -> fahrenheit
+resolve ru "ºC" -> celsius
+resolve ru "ºF" -> fahrenheit
 resolve ru "г" -> gram
 resolve ru "градус Фаренгейта" -> fahrenheit
 resolve ru "градус Цельсия" -> celsius
@@ -4314,6 +4508,8 @@ resolve ru "час" -> hour
 resolve ru "часа" -> hour
 resolve ru "часов" -> hour
 resolve ru "часы" -> hour
+resolve ru "℃" -> celsius
+resolve ru "℉" -> fahrenheit
 written ru liter -> "л"
 written ru deciliter -> "дл"
 written ru centiliter -> "сл"
@@ -4407,6 +4603,8 @@ plural ru 1.5 -> other
 plural ru 0 -> many
 plural ru 12 -> many
 plural ru 14 -> many
+resolve sv "C" -> celsius
+resolve sv "F" -> fahrenheit
 resolve sv "centiliter" -> centiliter
 resolve sv "centimeter" -> centimeter
 resolve sv "cl" -> centiliter
@@ -4454,6 +4652,10 @@ resolve sv "timme" -> hour
 resolve sv "tsk" -> metric teaspoon
 resolve sv "°C" -> celsius
 resolve sv "°F" -> fahrenheit
+resolve sv "ºC" -> celsius
+resolve sv "ºF" -> fahrenheit
+resolve sv "℃" -> celsius
+resolve sv "℉" -> fahrenheit
 written sv liter -> "l"
 written sv deciliter -> "dl"
 written sv centiliter -> "cl"
@@ -4517,8 +4719,12 @@ plural sv 1.5 -> other
 plural sv 0 -> other
 plural sv 12 -> other
 plural sv 14 -> other
+resolve th "C" -> celsius
+resolve th "F" -> fahrenheit
 resolve th "°C" -> celsius
 resolve th "°F" -> fahrenheit
+resolve th "ºC" -> celsius
+resolve th "ºF" -> fahrenheit
 resolve th "ก." -> gram
 resolve th "กก." -> kilogram
 resolve th "กร\u{e31}ม" -> gram
@@ -4547,6 +4753,8 @@ resolve th "เซนต\u{e34}ล\u{e34}ตร" -> centiliter
 resolve th "เซนต\u{e34}เมตร" -> centimeter
 resolve th "เดซ\u{e34}ล\u{e34}ตร" -> deciliter
 resolve th "เมตร" -> meter
+resolve th "℃" -> celsius
+resolve th "℉" -> fahrenheit
 written th liter -> "ล."
 written th deciliter -> "ดล."
 written th centiliter -> "ซล."
@@ -4589,6 +4797,8 @@ plural th 1.5 -> other
 plural th 0 -> other
 plural th 12 -> other
 plural th 14 -> other
+resolve tr "C" -> celsius
+resolve tr "F" -> fahrenheit
 resolve tr "cl" -> centiliter
 resolve tr "cm" -> centimeter
 resolve tr "dakika" -> minute
@@ -4620,6 +4830,10 @@ resolve tr "santimetre" -> centimeter
 resolve tr "sn." -> second
 resolve tr "°C" -> celsius
 resolve tr "°F" -> fahrenheit
+resolve tr "ºC" -> celsius
+resolve tr "ºF" -> fahrenheit
+resolve tr "℃" -> celsius
+resolve tr "℉" -> fahrenheit
 written tr liter -> "l"
 written tr deciliter -> "dl"
 written tr centiliter -> "cl"
@@ -4679,8 +4893,12 @@ plural tr 1.5 -> other
 plural tr 0 -> other
 plural tr 12 -> other
 plural tr 14 -> other
+resolve uk "C" -> celsius
+resolve uk "F" -> fahrenheit
 resolve uk "°C" -> celsius
 resolve uk "°F" -> fahrenheit
+resolve uk "ºC" -> celsius
+resolve uk "ºF" -> fahrenheit
 resolve uk "г" -> gram
 resolve uk "год" -> hour
 resolve uk "годин" -> hour
@@ -4760,6 +4978,8 @@ resolve uk "хв" -> minute
 resolve uk "хвилин" -> minute
 resolve uk "хвилина" -> minute
 resolve uk "хвилини" -> minute
+resolve uk "℃" -> celsius
+resolve uk "℉" -> fahrenheit
 written uk liter -> "л"
 written uk deciliter -> "дл"
 written uk centiliter -> "сл"
@@ -4853,6 +5073,8 @@ plural uk 1.5 -> other
 plural uk 0 -> many
 plural uk 12 -> many
 plural uk 14 -> many
+resolve vi "C" -> celsius
+resolve vi "F" -> fahrenheit
 resolve vi "L" -> liter
 resolve vi "cL" -> centiliter
 resolve vi "cm" -> centimeter
@@ -4879,9 +5101,13 @@ resolve vi "xentilít" -> centiliter
 resolve vi "xentimét" -> centimeter
 resolve vi "°C" -> celsius
 resolve vi "°F" -> fahrenheit
+resolve vi "ºC" -> celsius
+resolve vi "ºF" -> fahrenheit
 resolve vi "đềxilít" -> deciliter
 resolve vi "độ C" -> celsius
 resolve vi "độ F" -> fahrenheit
+resolve vi "℃" -> celsius
+resolve vi "℉" -> fahrenheit
 written vi liter -> "L"
 written vi deciliter -> "dL"
 written vi centiliter -> "cL"
@@ -4924,10 +5150,16 @@ plural vi 1.5 -> other
 plural vi 0 -> other
 plural vi 12 -> other
 plural vi 14 -> other
+resolve zh "C" -> celsius
+resolve zh "F" -> fahrenheit
 resolve zh "g" -> gram
 resolve zh "kg" -> kilogram
 resolve zh "°C" -> celsius
 resolve zh "°F" -> fahrenheit
+resolve zh "ºC" -> celsius
+resolve zh "ºF" -> fahrenheit
+resolve zh "℃" -> celsius
+resolve zh "℉" -> fahrenheit
 resolve zh "克" -> gram
 resolve zh "分升" -> deciliter
 resolve zh "分钟" -> minute
@@ -4988,8 +5220,14 @@ plural zh 1.5 -> other
 plural zh 0 -> other
 plural zh 12 -> other
 plural zh 14 -> other
+resolve zh-Hant "C" -> celsius
+resolve zh-Hant "F" -> fahrenheit
 resolve zh-Hant "°C" -> celsius
 resolve zh-Hant "°F" -> fahrenheit
+resolve zh-Hant "ºC" -> celsius
+resolve zh-Hant "ºF" -> fahrenheit
+resolve zh-Hant "℃" -> celsius
+resolve zh-Hant "℉" -> fahrenheit
 resolve zh-Hant "克" -> gram
 resolve zh-Hant "公分" -> centimeter
 resolve zh-Hant "公升" -> liter

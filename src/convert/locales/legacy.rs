@@ -53,9 +53,9 @@ const LEGACY_UNITS: &[Names] = &[
     ("minute",         Metric,      "min",   &["minute", "minutes", "mins"]),
     ("hour",           Metric,      "h",     &["hour", "hours"]),
     ("day",            Metric,      "d",     &["day", "days"]),
-    // temperature: the other spellings `units.toml` gives the degrees are UNIVERSAL_ALIASES
-    ("celsius",        Metric,      "°C",    &["celsius"]),
-    ("fahrenheit",     UsCustomary, "°F",    &["fahrenheit"]),
+    // temperature: the other spellings `units.toml` gives the degrees, and the bare letters
+    ("celsius",        Metric,      "°C",    &["celsius", "℃", "ºC", "C"]),
+    ("fahrenheit",     UsCustomary, "°F",    &["fahrenheit", "℉", "ºF", "F"]),
 ];
 
 /// The system `units.toml` filed `unit` under, which is what an untagged recipe is fitted within. A unit it never knew,

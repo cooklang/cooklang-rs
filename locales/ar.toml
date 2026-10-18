@@ -117,15 +117,17 @@ long = { few = "{0} أيام", many = "{0} يومًا", one = "يوم", other = 
 
 [[unit]]
 id = "celsius"
-symbol = "°م"
-aliases = ["درجة مئوية"]
+symbol = "°C"
+aliases = ["درجة مئوية", "°م", "℃", "ºC", "C"]
 long = { few = "{0} درجة مئوية", many = "{0} درجة مئوية", one = "{0} درجة مئوية", other = "{0} درجة مئوية", two = "{0} درجة مئوية", zero = "{0} درجة مئوية" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 [[unit]]
 id = "fahrenheit"
-symbol = "°ف"
-aliases = ["درجة فهرنهايت"]
+symbol = "°F"
+aliases = ["درجة فهرنهايت", "°ف", "℉", "ºF", "F"]
 long = { few = "{0} درجة فهرنهايت", many = "{0} درجة فهرنهايت", one = "{0} درجة فهرنهايت", other = "{0} درجة فهرنهايت", two = "{0} درجة فهرنهايت", zero = "{0} درجة فهرنهايت" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 # Refused names. These do not resolve: a name resolves only by being listed
 # above, so this is the record of why, not a mechanism.

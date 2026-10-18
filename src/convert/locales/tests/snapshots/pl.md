@@ -74,8 +74,8 @@ with `{0}` where the number goes.
 | `minute` | `min` | `minut`, `minuta`, `minuty` | few `{0} minuty`; many `{0} minut`; one `{0} minuta`; other `{0} minuty` |
 | `hour` | `h` | `godz.`, `godzin`, `godzina`, `godziny` | few `{0} godziny`; many `{0} godzin`; one `{0} godzina`; other `{0} godziny` |
 | `day` | `d` | `dni`, `dnia`, `dzień` | few `{0} dni`; many `{0} dni`; one `{0} dzień`; other `{0} dnia` |
-| `celsius` | `°C` | `st. C`, `stopień Celsjusza`, `stopni Celsjusza`, `stopnia Celsjusza`, `stopnie Celsjusza` | few `{0} stopnie Celsjusza`; many `{0} stopni Celsjusza`; one `{0} stopień Celsjusza`; other `{0} stopnia Celsjusza` |
-| `fahrenheit` | `°F` | `stopień Fahrenheita`, `stopni Fahrenheita`, `stopnia Fahrenheita`, `stopnie Fahrenheita` | few `{0} stopnie Fahrenheita`; many `{0} stopni Fahrenheita`; one `{0} stopień Fahrenheita`; other `{0} stopnia Fahrenheita` |
+| `celsius` | `°C` | `C`, `st. C`, `stopień Celsjusza`, `stopni Celsjusza`, `stopnia Celsjusza`, `stopnie Celsjusza`, `ºC`, `℃` | few `{0} stopnie Celsjusza`; many `{0} stopni Celsjusza`; one `{0} stopień Celsjusza`; other `{0} stopnia Celsjusza` |
+| `fahrenheit` | `°F` | `F`, `stopień Fahrenheita`, `stopni Fahrenheita`, `stopnia Fahrenheita`, `stopnie Fahrenheita`, `ºF`, `℉` | few `{0} stopnie Fahrenheita`; many `{0} stopni Fahrenheita`; one `{0} stopień Fahrenheita`; other `{0} stopnia Fahrenheita` |
 
 ## Plural evaluation
 

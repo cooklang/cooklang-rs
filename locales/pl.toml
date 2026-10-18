@@ -124,11 +124,13 @@ long = { few = "{0} dni", many = "{0} dni", one = "{0} dzień", other = "{0} dni
 [[unit]]
 id = "celsius"
 symbol = "°C"
-aliases = ["st. C", "stopień Celsjusza", "stopni Celsjusza", "stopnia Celsjusza", "stopnie Celsjusza"]
+aliases = ["st. C", "stopień Celsjusza", "stopni Celsjusza", "stopnia Celsjusza", "stopnie Celsjusza", "℃", "ºC", "C"]
 long = { few = "{0} stopnie Celsjusza", many = "{0} stopni Celsjusza", one = "{0} stopień Celsjusza", other = "{0} stopnia Celsjusza" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 [[unit]]
 id = "fahrenheit"
 symbol = "°F"
-aliases = ["stopień Fahrenheita", "stopni Fahrenheita", "stopnia Fahrenheita", "stopnie Fahrenheita"]
+aliases = ["stopień Fahrenheita", "stopni Fahrenheita", "stopnia Fahrenheita", "stopnie Fahrenheita", "℉", "ºF", "F"]
 long = { few = "{0} stopnie Fahrenheita", many = "{0} stopni Fahrenheita", one = "{0} stopień Fahrenheita", other = "{0} stopnia Fahrenheita" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"

@@ -119,14 +119,16 @@ long = { one = "{0} ημέρα", other = "{0} ημέρες" }
 [[unit]]
 id = "celsius"
 symbol = "°C"
-aliases = ["βαθμοί Κελσίου", "βαθμός Κελσίου"]
+aliases = ["βαθμοί Κελσίου", "βαθμός Κελσίου", "℃", "ºC", "C"]
 long = { one = "{0} βαθμός Κελσίου", other = "{0} βαθμοί Κελσίου" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 [[unit]]
 id = "fahrenheit"
 symbol = "°F"
-aliases = ["βαθμοί Φαρενάιτ", "βαθμός Φαρενάιτ"]
+aliases = ["βαθμοί Φαρενάιτ", "βαθμός Φαρενάιτ", "℉", "ºF", "F"]
 long = { one = "{0} βαθμός Φαρενάιτ", other = "{0} βαθμοί Φαρενάιτ" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 # Refused names. These do not resolve: a name resolves only by being listed
 # above, so this is the record of why, not a mechanism.

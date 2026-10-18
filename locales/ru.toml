@@ -121,14 +121,16 @@ long = { few = "{0} дня", many = "{0} дней", one = "{0} день", other 
 [[unit]]
 id = "celsius"
 symbol = "°C"
-aliases = ["градус Цельсия", "градуса Цельсия", "градусов Цельсия", "градусы Цельсия"]
+aliases = ["градус Цельсия", "градуса Цельсия", "градусов Цельсия", "градусы Цельсия", "℃", "ºC", "C"]
 long = { few = "{0} градуса Цельсия", many = "{0} градусов Цельсия", one = "{0} градус Цельсия", other = "{0} градуса Цельсия" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 [[unit]]
 id = "fahrenheit"
 symbol = "°F"
-aliases = ["градус Фаренгейта", "градуса Фаренгейта", "градусов Фаренгейта", "градусы Фаренгейта"]
+aliases = ["градус Фаренгейта", "градуса Фаренгейта", "градусов Фаренгейта", "градусы Фаренгейта", "℉", "ºF", "F"]
 long = { few = "{0} градуса Фаренгейта", many = "{0} градусов Фаренгейта", one = "{0} градус Фаренгейта", other = "{0} градуса Фаренгейта" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 # Refused names. These do not resolve: a name resolves only by being listed
 # above, so this is the record of why, not a mechanism.

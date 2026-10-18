@@ -74,8 +74,8 @@ with `{0}` where the number goes.
 | `minute` | `min` | `minut`, `minuter` | one `{0} minut`; other `{0} minuter` |
 | `hour` | `h` | `tim`, `timmar`, `timme` | one `{0} timme`; other `{0} timmar` |
 | `day` | `d` | `dygn` | one `{0} dygn`; other `{0} dygn` |
-| `celsius` | `°C` | `grad Celsius`, `grader Celsius` | one `{0} grad Celsius`; other `{0} grader Celsius` |
-| `fahrenheit` | `°F` | `grad Fahrenheit`, `grader Fahrenheit` | one `{0} grad Fahrenheit`; other `{0} grader Fahrenheit` |
+| `celsius` | `°C` | `C`, `grad Celsius`, `grader Celsius`, `ºC`, `℃` | one `{0} grad Celsius`; other `{0} grader Celsius` |
+| `fahrenheit` | `°F` | `F`, `grad Fahrenheit`, `grader Fahrenheit`, `ºF`, `℉` | one `{0} grad Fahrenheit`; other `{0} grader Fahrenheit` |
 
 ## Plural evaluation
 

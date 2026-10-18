@@ -158,14 +158,16 @@ long = { one = "{0} Tag", other = "{0} Tage" }
 [[unit]]
 id = "celsius"
 symbol = "°C"
-aliases = ["Grad Celsius"]
+aliases = ["Grad Celsius", "℃", "ºC", "C"]
 long = { one = "{0} Grad Celsius", other = "{0} Grad Celsius" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 [[unit]]
 id = "fahrenheit"
 symbol = "°F"
-aliases = ["Grad Fahrenheit"]
+aliases = ["Grad Fahrenheit", "℉", "ºF", "F"]
 long = { one = "{0} Grad Fahrenheit", other = "{0} Grad Fahrenheit" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 # Refused names. These do not resolve: a name resolves only by being listed
 # above, so this is the record of why, not a mechanism.

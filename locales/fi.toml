@@ -123,14 +123,16 @@ long = { one = "{0} päivä", other = "{0} päivää" }
 [[unit]]
 id = "celsius"
 symbol = "°C"
-aliases = ["celsiusaste", "celsiusasteet", "celsiusastetta"]
+aliases = ["celsiusaste", "celsiusasteet", "celsiusastetta", "℃", "ºC", "C"]
 long = { one = "{0} celsiusaste", other = "{0} celsiusastetta" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 [[unit]]
 id = "fahrenheit"
 symbol = "°F"
-aliases = ["fahrenheitaste", "fahrenheitasteet", "fahrenheitastetta"]
+aliases = ["fahrenheitaste", "fahrenheitasteet", "fahrenheitastetta", "℉", "ºF", "F"]
 long = { one = "{0} fahrenheitaste", other = "{0} fahrenheitastetta" }
+reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
 
 
 # Refused names. These do not resolve: a name resolves only by being listed

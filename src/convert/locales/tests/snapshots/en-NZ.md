@@ -74,8 +74,8 @@ with `{0}` where the number goes.
 | `minute` | `min` | `mins`, `minute`, `minutes` | one `{0} minute`; other `{0} minutes` |
 | `hour` | `h` | `hour`, `hours`, `hrs` | one `{0} hour`; other `{0} hours` |
 | `day` | `d` | `day`, `days` | one `{0} day`; other `{0} days` |
-| `celsius` | `°C` | `degree Celsius`, `degrees Celsius` | one `{0} degree Celsius`; other `{0} degrees Celsius` |
-| `fahrenheit` | `°F` | `degree Fahrenheit`, `degrees Fahrenheit` | one `{0} degree Fahrenheit`; other `{0} degrees Fahrenheit` |
+| `celsius` | `°C` | `C`, `degree Celsius`, `degrees Celsius`, `ºC`, `℃` | one `{0} degree Celsius`; other `{0} degrees Celsius` |
+| `fahrenheit` | `°F` | `F`, `degree Fahrenheit`, `degrees Fahrenheit`, `ºF`, `℉` | one `{0} degree Fahrenheit`; other `{0} degrees Fahrenheit` |
 
 ## Plural evaluation
 

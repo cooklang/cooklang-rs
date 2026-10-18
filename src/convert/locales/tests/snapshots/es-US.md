@@ -73,8 +73,8 @@ with `{0}` where the number goes.
 | `minute` | `min` | `minuto`, `minutos` | one `{0} minuto`; other `{0} minutos` |
 | `hour` | `h` | `hora`, `horas` | one `{0} hora`; other `{0} horas` |
 | `day` | `días` | `día` | one `{0} día`; other `{0} días` |
-| `celsius` | `°C` | `grado Celsius`, `grados Celsius` | one `{0} grado Celsius`; other `{0} grados Celsius` |
-| `fahrenheit` | `°F` | `grado Fahrenheit`, `grados Fahrenheit` | one `{0} grado Fahrenheit`; other `{0} grados Fahrenheit` |
+| `celsius` | `°C` | `C`, `grado Celsius`, `grados Celsius`, `ºC`, `℃` | one `{0} grado Celsius`; other `{0} grados Celsius` |
+| `fahrenheit` | `°F` | `F`, `grado Fahrenheit`, `grados Fahrenheit`, `ºF`, `℉` | one `{0} grado Fahrenheit`; other `{0} grados Fahrenheit` |
 
 ## Plural evaluation
 

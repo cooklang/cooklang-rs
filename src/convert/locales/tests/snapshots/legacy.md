@@ -72,8 +72,8 @@ with `{0}` where the number goes.
 | `minute` | `min` | `minute`, `minutes`, `mins` | — |
 | `hour` | `h` | `hour`, `hours` | — |
 | `day` | `d` | `day`, `days` | — |
-| `celsius` | `°C` | `celsius` | — |
-| `fahrenheit` | `°F` | `fahrenheit` | — |
+| `celsius` | `°C` | `celsius`, `℃`, `ºC`, `C` | — |
+| `fahrenheit` | `°F` | `fahrenheit`, `℉`, `ºF`, `F` | — |
 
 ## Plural evaluation
 
