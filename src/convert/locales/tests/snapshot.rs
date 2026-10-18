@@ -10,8 +10,8 @@
 //! cargo test` rewrites them, and the diff is the review.
 //!
 //! What a rule implies is not repeated here: an identifier resolving to itself, a universal alias, an unnamed unit
-//! written by its identifier. Each such rule has a unit test in `tests/mod.rs`, and pinning its consequences per
-//! locale would only multiply the diff when the rule changed.
+//! written by its identifier, a long form with its number dropped in. Each such rule has a unit test in
+//! `tests/mod.rs`, and pinning its consequences per locale would only multiply the diff when the rule changed.
 
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -20,6 +20,7 @@ use icu_locale_core::subtags::{region, Region};
 
 use crate::convert::locales::legacy::{legacy_locale, LEGACY_PREFERENCES};
 use crate::convert::locales::locale::Locale;
+use crate::convert::locales::plural;
 use crate::convert::locales::preference::{
     best_amount, best_unit, official_system, Audience, Row, System, Units, PREFERENCES,
     REGION_PREFERENCES,
@@ -159,7 +160,6 @@ fn render_decisions(out: &mut String, tag: &str, locale: &Locale) {
             writeln!(out, "written {tag} {} -> {symbol:?}", unit.id()).unwrap();
         }
     }
-    // 0, 12 and 14 are where Finnish and Polish leave the obvious category
     for unit in Unit::all() {
         let Some(names) = locale.names(unit) else {
             continue;
@@ -167,16 +167,14 @@ fn render_decisions(out: &mut String, tag: &str, locale: &Locale) {
         for (category, pattern) in &names.long {
             writeln!(out, "long {tag} {} {category} -> {pattern:?}", unit.id()).unwrap();
         }
-        if !names.long.is_empty() {
-            for value in [1.0, 2.0, 5.0, 22.0, 1.5, 0.0, 12.0, 14.0] {
-                writeln!(
-                    out,
-                    "long-written {tag} {} {value} -> {:?}",
-                    unit.id(),
-                    locale.written_long(value, unit)
-                )
-                .unwrap();
-            }
+    }
+    // the category a number falls in, which picks the pattern above; 0, 12 and 14 are where Finnish and Polish leave
+    // the obvious one
+    if !locale.plural_rules().is_empty() {
+        for value in [1.0, 2.0, 5.0, 22.0, 1.5, 0.0, 12.0, 14.0] {
+            let number = format!("{value}");
+            let category = plural::category(locale.plural_rules(), &number);
+            writeln!(out, "plural {tag} {number} -> {category}").unwrap();
         }
     }
 }

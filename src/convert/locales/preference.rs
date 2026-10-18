@@ -82,11 +82,8 @@ impl Audience {
     }
 }
 
-/// The measurement system a region's law prescribes, which is what its readers are shown (ADR 5): only the United
-/// States is US customary; everyone else, the United Kingdom included, is metric.
-///
-/// CLDR's own data also lists Liberia as US customary and Myanmar, with the UK, as imperial; all three are officially
-/// metric or metricating, and a reader there who wants otherwise can say so with `-u-ms-`.
+/// The measurement system a region's law prescribes, which is what its readers are shown: only the United States is US
+/// customary, everyone else is metric.
 pub(crate) fn official_system(region: Region) -> System {
     if region == region!("US") {
         System::UsCustomary

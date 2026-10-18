@@ -207,6 +207,31 @@ mod long_forms {
         // legacy has no long forms at all
         assert_eq!(legacy_locale().written_long(2.0, unit("us cup")), "2 c");
     }
+
+    const POLISH: PluralRules = &[
+        ("one", "i = 1 and v = 0"),
+        ("few", "v = 0 and i % 10 = 2..4 and i % 100 != 12..14"),
+        ("other", ""),
+    ];
+
+    /// The number's CLDR category picks the pattern; a category the unit has no pattern for falls to `other`.
+    #[test]
+    fn the_long_form_follows_the_numbers_category() {
+        let tsp = unit("metric teaspoon");
+        let names = UnitNames {
+            symbol: Some("ł".to_string()),
+            aliases: Vec::new(),
+            long: vec![
+                ("one".to_string(), "{0} łyżeczka".to_string()),
+                ("other".to_string(), "{0} łyżeczek".to_string()),
+            ],
+        };
+        let locale = Locale::with_plurals(HashMap::from([(tsp, names)]), POLISH).unwrap();
+        assert_eq!(locale.written_long(1.0, tsp), "1 łyżeczka");
+        assert_eq!(locale.written_long(1.5, tsp), "1.5 łyżeczek");
+        // 2 is `few`, which this unit has no pattern for
+        assert_eq!(locale.written_long(2.0, tsp), "2 łyżeczek");
+    }
 }
 
 mod markdown {
