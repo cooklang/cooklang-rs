@@ -139,11 +139,9 @@ impl Converter {
     pub fn rewrite(&self, quantity: &Quantity) -> Quantity {
         // a text value is never operated on, so its unit stays as written too
         match quantity.unit_id() {
-            Some(unit) if !quantity.value().is_text() => Quantity {
-                value: quantity.value().clone(),
-                unit: Some(WrittenUnit::known(self.locale.written(unit), unit)),
-                scalable: quantity.scalable,
-            },
+            Some(unit) if !quantity.value().is_text() => {
+                self.in_unit(quantity, quantity.value().clone(), unit)
+            }
             _ => quantity.clone(),
         }
     }
@@ -168,11 +166,7 @@ impl Converter {
             },
             Value::Text(t) => return Err(ConvertError::TextValue(t.clone())),
         };
-        Ok(Quantity {
-            value,
-            unit: Some(WrittenUnit::known(self.locale.written(to), to)),
-            scalable: quantity.scalable,
-        })
+        Ok(self.in_unit(quantity, value, to))
     }
 
     /// `quantity` as `audience` would write it: in the unit its rows choose, as a fraction where the row has one that
@@ -197,11 +191,16 @@ impl Converter {
             }
             Value::Text(t) => return Err(ConvertError::TextValue(t.clone())),
         };
-        Ok(Quantity {
+        Ok(self.in_unit(quantity, value, to))
+    }
+
+    /// `value`, already in `to`, written as this locale writes `to`, keeping what else `quantity` carries.
+    fn in_unit(&self, quantity: &Quantity, value: Value, to: Unit) -> Quantity {
+        Quantity {
             value,
             unit: Some(WrittenUnit::known(self.locale.written(to), to)),
             scalable: quantity.scalable,
-        })
+        }
     }
 
     pub(crate) fn locale(&self) -> &Locale {
