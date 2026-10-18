@@ -119,122 +119,105 @@ fn region_of_subdivision(id: &str) -> Option<Region> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use icu_locale_core::subtags::region;
+    use icu_locale_core::subtags::Region;
+    use TemperatureUnit::{Celsius, Fahrenheit};
 
-    fn audience_of(tag: &str) -> Result<Audience, RegionError> {
-        LocaleTag::parse(tag).unwrap().audience()
+    const METRIC: Audience = Audience::system(System::Metric);
+    const US: Audience = Audience::system(System::UsCustomary);
+    const IMPERIAL: Audience = Audience::system(System::Imperial);
+
+    fn region(code: &str) -> Audience {
+        Audience::region(Region::try_from_str(code).unwrap())
+    }
+
+    #[track_caller]
+    fn assert_audience(tag: &str, expected: Audience) {
+        assert_eq!(
+            LocaleTag::parse(tag).unwrap().audience(),
+            Ok(expected),
+            "{tag}"
+        );
+    }
+
+    #[track_caller]
+    fn assert_no_audience(tag: &str, expected: RegionError) {
+        assert_eq!(
+            LocaleTag::parse(tag).unwrap().audience(),
+            Err(expected),
+            "{tag}"
+        );
     }
 
     #[test]
     fn the_tags_own_region_is_the_audience() {
-        assert_eq!(
-            audience_of("es-MX").unwrap(),
-            Audience::region(region!("MX"))
-        );
+        assert_audience("es-MX", region("MX"));
+        assert_audience("en-GB", region("GB"));
     }
 
     #[test]
     fn a_tag_without_a_region_fails_only_when_the_region_is_needed() {
         assert!(LocaleTag::parse("es").is_ok(), "parsing must succeed");
-        assert_eq!(
-            audience_of("es"),
-            Err(RegionError::Missing("es".to_string())),
-            "but choosing units must not"
-        );
+        assert_no_audience("es", RegionError::Missing("es".to_string()));
     }
 
     #[test]
     fn measurement_system_selects_a_system_not_a_region() {
-        assert_eq!(
-            audience_of("en-US-u-ms-metric").unwrap(),
-            Audience::system(System::Metric)
-        );
-        assert_eq!(
-            audience_of("en-GB-u-ms-ussystem").unwrap(),
-            Audience::system(System::UsCustomary)
-        );
-        // the UK is officially metric, so this is the only way to ask for
-        // imperial output, and it must not collapse to the GB region
-        assert_eq!(
-            audience_of("en-GB-u-ms-uksystem").unwrap(),
-            Audience::system(System::Imperial)
-        );
-        assert_eq!(
-            audience_of("es-MX-u-ms-uksystem").unwrap(),
-            Audience::system(System::Imperial)
-        );
-        assert_eq!(
-            audience_of("en-u-ms-metric").unwrap(),
-            Audience::system(System::Metric)
-        );
-    }
-
-    #[test]
-    fn an_unsupported_measurement_system_is_an_error_not_a_guess() {
-        assert_eq!(
-            audience_of("en-US-u-ms-haa"),
-            Err(RegionError::UnsupportedMeasurementSystem {
-                tag: "en-US-u-ms-haa".to_string(),
-                system: "haa".to_string(),
-            })
-        );
+        assert_audience("en-US-u-ms-metric", METRIC);
+        assert_audience("en-GB-u-ms-ussystem", US);
+        // the UK is officially metric, so this is the only way to ask for imperial output, and it must not collapse
+        // to the GB region
+        assert_audience("en-GB-u-ms-uksystem", IMPERIAL);
+        assert_audience("es-MX-u-ms-uksystem", IMPERIAL);
+        assert_audience("en-u-ms-metric", METRIC);
     }
 
     #[test]
     fn region_override_reads_the_subdivision() {
-        assert_eq!(
-            audience_of("en-GB-u-rg-uszzzz").unwrap(),
-            Audience::region(region!("US"))
-        );
-        assert_eq!(
-            audience_of("en-US-u-rg-gbzzzz").unwrap(),
-            Audience::region(region!("GB"))
-        );
-        assert_eq!(
-            audience_of("en-GB-u-rg-usca").unwrap(),
-            Audience::region(region!("US"))
-        );
+        assert_audience("en-GB-u-rg-uszzzz", region("US"));
+        assert_audience("en-US-u-rg-gbzzzz", region("GB"));
+        assert_audience("en-GB-u-rg-usca", region("US"));
     }
 
     #[test]
     fn measurement_system_wins_over_region_override() {
-        assert_eq!(
-            audience_of("en-GB-u-ms-metric-rg-uszzzz").unwrap(),
-            Audience::system(System::Metric)
-        );
+        assert_audience("en-GB-u-ms-metric-rg-uszzzz", METRIC);
     }
 
     #[test]
     fn a_temperature_unit_override_is_read_from_mu() {
         // the English-Canadian case: metric region, Fahrenheit ovens
-        assert_eq!(
-            audience_of("en-CA-u-mu-fahrenhe").unwrap(),
-            Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit)
+        assert_audience(
+            "en-CA-u-mu-fahrenhe",
+            region("CA").with_temperature(Fahrenheit),
         );
-        assert_eq!(
-            audience_of("en-US-u-mu-celsius").unwrap(),
-            Audience::region(region!("US")).with_temperature(TemperatureUnit::Celsius)
-        );
+        assert_audience("en-US-u-mu-celsius", region("US").with_temperature(Celsius));
         // composes with a system asked for outright
-        assert_eq!(
-            audience_of("en-GB-u-ms-metric-mu-fahrenhe").unwrap(),
-            Audience::system(System::Metric).with_temperature(TemperatureUnit::Fahrenheit)
+        assert_audience(
+            "en-GB-u-ms-metric-mu-fahrenhe",
+            METRIC.with_temperature(Fahrenheit),
         );
         // and does not supply a region
-        assert_eq!(
-            audience_of("en-u-mu-celsius"),
-            Err(RegionError::Missing("en-u-mu-celsius".to_string()))
+        assert_no_audience(
+            "en-u-mu-celsius",
+            RegionError::Missing("en-u-mu-celsius".to_string()),
         );
     }
 
     #[test]
-    fn an_unsupported_temperature_unit_is_an_error_not_a_guess() {
-        assert_eq!(
-            audience_of("en-US-u-mu-kelvin"),
-            Err(RegionError::UnsupportedTemperatureUnit {
+    fn an_unsupported_value_is_an_error_not_a_guess() {
+        assert_no_audience(
+            "en-US-u-ms-haa",
+            RegionError::UnsupportedMeasurementSystem {
+                tag: "en-US-u-ms-haa".to_string(),
+                system: "haa".to_string(),
+            },
+        );
+        assert_no_audience(
+            "en-US-u-mu-kelvin",
+            RegionError::UnsupportedTemperatureUnit {
                 tag: "en-US-u-mu-kelvin".to_string(),
                 unit: "kelvin".to_string(),
-            })
+            },
         );
     }
 
@@ -246,8 +229,8 @@ mod tests {
 
     #[test]
     fn the_language_identifier_drops_extensions() {
-        // this is what locale data is keyed by; truncation would reach the
-        // same place for these, but only by accident
+        // this is what locale data is keyed by; truncation would reach the same place for these, but only by
+        // accident
         for (tag, id) in [
             ("en-GB-u-ms-metric", "en-GB"),
             ("es-MX-u-rg-uszzzz", "es-MX"),
