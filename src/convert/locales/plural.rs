@@ -122,7 +122,7 @@ fn relation(text: &str) -> Relation<'_> {
 
 /// Whether a rule's condition holds. `or` binds loosest, then `and`.
 fn holds(rule: &str, ops: &Operands) -> bool {
-    let condition = rule.split('@').next().unwrap_or("").trim();
+    let condition = rule.trim();
     if condition.is_empty() {
         // only the `other` rule is empty; it is the fallback, not a match
         return false;
