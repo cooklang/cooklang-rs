@@ -77,7 +77,24 @@ const REGIONS: [Region; 12] = [
     region!("MX"),
 ];
 
-const VALUES: [f64; 6] = [0.5, 1.0, 2.5, 100.0, 1000.0, -18.0];
+/// Magnitudes per physical quantity, in the unit named, straddling every threshold a row sets: the spoons, cups and
+/// decilitre below 300 ml, the pint and the kilogram and pound around 500, the decagram and libra at 5 and 125 g.
+/// Which unit is best depends on the magnitude alone, so one input unit per quantity is enough.
+#[rustfmt::skip]
+const SWEEP: [(&str, &[f64]); 5] = [
+    ("milliliter", &[0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 60.0, 100.0, 150.0, 250.0, 300.0, 500.0, 600.0, 1000.0, 2500.0]),
+    ("gram", &[0.5, 1.0, 5.0, 10.0, 28.0, 100.0, 125.0, 250.0, 450.0, 500.0, 1000.0, 2500.0]),
+    ("millimeter", &[0.5, 1.0, 5.0, 10.0, 25.4, 100.0, 254.0, 304.8, 1000.0, 2000.0]),
+    ("second", &[0.5, 1.0, 30.0, 59.0, 60.0, 90.0, 3599.0, 3600.0, 5400.0, 86400.0, 172800.0]),
+    ("celsius", &[-18.0, 0.0, 0.5, 1.0, 100.0, 180.0, 350.0]),
+];
+
+fn sweep() -> impl Iterator<Item = (Unit, f64)> {
+    SWEEP.iter().flat_map(|(id, values)| {
+        let unit = Unit::from_id(id).expect("a unit");
+        values.iter().map(move |value| (unit, *value))
+    })
+}
 
 /// Amounts that exercise the fraction rows: a third, a half, three quarters,
 /// a near-whole, wholes, and odd amounts that fit no fraction of the first
@@ -275,18 +292,16 @@ fn render_derived(out: &mut String, tags: &[&str]) {
         }
     }
     for audience in audiences() {
-        for unit in Unit::all() {
-            for value in VALUES {
-                let chosen = best_unit(value, unit, audience);
-                writeln!(
-                    out,
-                    "best {} {value} {} -> {}",
-                    audience_name(audience),
-                    unit.id(),
-                    chosen.id()
-                )
-                .unwrap();
-            }
+        for (unit, value) in sweep() {
+            let chosen = best_unit(value, unit, audience);
+            writeln!(
+                out,
+                "best {} {value} {} -> {}",
+                audience_name(audience),
+                unit.id(),
+                chosen.id()
+            )
+            .unwrap();
         }
     }
     // what is written, fraction and unit together, for the amounts that
@@ -307,27 +322,22 @@ fn render_derived(out: &mut String, tags: &[&str]) {
             }
         }
     }
-    // `-u-mu-` overrides temperature only: both directions, with a volume
-    // and a mass unit as witnesses that nothing else moves
+    // `-u-mu-` overrides temperature only: both directions, the other quantities as witnesses that nothing else moves
     let overrides = [
         Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit),
         Audience::system(System::UsCustomary).with_temperature(TemperatureUnit::Celsius),
     ];
-    let witnesses = ["celsius", "fahrenheit", "milliliter", "gram"]
-        .map(|id| Unit::from_id(id).expect("a unit"));
     for audience in overrides {
-        for unit in witnesses {
-            for value in VALUES {
-                let chosen = best_unit(value, unit, audience);
-                writeln!(
-                    out,
-                    "best {} {value} {} -> {}",
-                    audience_name(audience),
-                    unit.id(),
-                    chosen.id()
-                )
-                .unwrap();
-            }
+        for (unit, value) in sweep() {
+            let chosen = best_unit(value, unit, audience);
+            writeln!(
+                out,
+                "best {} {value} {} -> {}",
+                audience_name(audience),
+                unit.id(),
+                chosen.id()
+            )
+            .unwrap();
         }
     }
 }
@@ -353,10 +363,8 @@ fn the_samples_reach_every_unit_a_row_can_choose() {
 
     let mut chosen: HashSet<Unit> = HashSet::new();
     for audience in audiences() {
-        for unit in Unit::all() {
-            for value in VALUES {
-                chosen.insert(best_unit(value, unit, audience));
-            }
+        for (unit, value) in sweep() {
+            chosen.insert(best_unit(value, unit, audience));
         }
     }
 
@@ -368,7 +376,7 @@ fn the_samples_reach_every_unit_a_row_can_choose() {
     assert!(
         unreached.is_empty(),
         "a preference row can choose these and no sample does, so the grid \
-         never exercises them: {unreached:?}. Add a value to VALUES in the \
+         never exercises them: {unreached:?}. Add a magnitude to SWEEP in the \
          band the row covers."
     );
 }
