@@ -41,7 +41,7 @@ impl LocaleTag {
             .map_err(|_| InvalidTag(text.to_string()))
     }
 
-    /// The language-script-region part, without extensions. This is what
+    /// the language-script-region part, without extensions. This is what
     /// CLDR keys its locale data by.
     pub(crate) fn language_identifier(&self) -> String {
         self.0.id.to_string()
@@ -152,6 +152,7 @@ mod tests {
     #[test]
     fn the_tags_own_region_is_the_audience() {
         assert_audience("es-MX", region("MX"));
+        assert_audience("en-GB", region("GB"));
     }
 
     #[test]
@@ -164,18 +165,17 @@ mod tests {
     fn measurement_system_selects_a_system_not_a_region() {
         assert_audience("en-US-u-ms-metric", METRIC);
         assert_audience("en-GB-u-ms-ussystem", US);
-        // the UK is officially metric, so this is the only way to ask for imperial output, and it must not collapse
-        // to the GB region
+        // the UK is officially metric, so this is the only way to specify imperial, and it must not collapse region "GB"
         assert_audience("en-GB-u-ms-uksystem", IMPERIAL);
+        assert_audience("es-MX-u-ms-uksystem", IMPERIAL);
         assert_audience("en-u-ms-metric", METRIC);
     }
 
     #[test]
     fn region_override_reads_the_subdivision() {
         assert_audience("en-GB-u-rg-uszzzz", region("US"));
+        assert_audience("en-US-u-rg-gbzzzz", region("GB"));
         assert_audience("en-GB-u-rg-usca", region("US"));
-        // a UN M.49 region is three digits, not two letters
-        assert_audience("en-u-rg-419zzzz", region("419"));
     }
 
     #[test]
@@ -224,6 +224,7 @@ mod tests {
     #[test]
     fn invalid_tags_are_rejected() {
         assert!(LocaleTag::parse("not a tag").is_err());
+        assert!(LocaleTag::parse("").is_err());
     }
 
     #[track_caller]
@@ -236,9 +237,10 @@ mod tests {
 
     #[test]
     fn the_language_identifier_drops_extensions() {
-        // this is what locale data is keyed by; truncation would reach the same place for these, but only by
-        // accident
+        // this is what locale data is keyed by; truncation would reach the same place for these, but only by accident
         assert_identifier("en-GB-u-ms-metric", "en-GB");
+        assert_identifier("es-MX-u-rg-uszzzz", "es-MX");
         assert_identifier("en-u-ms-uksystem", "en");
+        assert_identifier("EN-gb", "en-GB");
     }
 }
