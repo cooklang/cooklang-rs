@@ -69,12 +69,6 @@ pub(crate) fn vendored_locale(tag: &str) -> Option<Arc<Locale>> {
 
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
 
-/// The locale whose names apply to `tag`, reviewed or not; [`reviewed_locale`] is what serves a reader.
-#[cfg(test)]
-pub(crate) fn for_tag(tag: &LocaleTag) -> Option<Arc<Locale>> {
-    vendored_locale(tag_for(tag)?)
-}
-
 /// The vendored tag whose names apply to `tag`, if any.
 ///
 /// Extensions are ignored: `-u-ms-metric` chooses units, not names. Lookup follows CLDR's parent chain before

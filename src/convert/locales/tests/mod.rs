@@ -30,6 +30,11 @@ fn locale_with(entries: &[(&str, UnitNames)]) -> Result<Locale, LocaleError> {
     Locale::new(map)
 }
 
+#[track_caller]
+fn assert_reaches(tag: &str, vendored: Option<&str>) {
+    assert_eq!(tag_for(&LocaleTag::parse(tag).unwrap()), vendored, "{tag}");
+}
+
 #[test]
 fn resolve_matches_symbols_and_aliases_exactly() {
     let locale = locale_with(&[("us cup", names("c", &["cup", "cups"]))]).unwrap();
@@ -155,22 +160,15 @@ fn every_vendored_locale_reads_back_its_identifiers_and_what_it_writes() {
     assert!(vendored_locale("sw").is_none(), "sw is not vendored");
 }
 
-fn names_for(tag: &str) -> Option<Arc<Locale>> {
-    for_tag(&LocaleTag::parse(tag).unwrap())
-}
-
+/// Extensions choose units, not names; lookup follows CLDR's parent chain before it truncates.
 #[test]
-fn extensions_do_not_affect_which_names_are_used() {
-    let pint = unit("us pint");
-    for tag in ["en-GB-u-ms-metric", "en-GB-u-rg-uszzzz"] {
-        assert_eq!(names_for(tag).unwrap().symbol(pint), Some("US pt"), "{tag}");
-    }
-}
-
-#[test]
-fn case_is_normalised_before_lookup() {
-    let pint = unit("us pint");
-    assert_eq!(names_for("EN-gb").unwrap().symbol(pint), Some("US pt"));
+fn tag_for_follows_cldr_parents_and_ignores_extensions() {
+    assert_reaches("en-GB-u-ms-metric", Some("en-GB"));
+    assert_reaches("EN-gb", Some("en-GB"));
+    // the parent chain, where truncation would reach US English
+    assert_reaches("en-NZ", Some("en-001"));
+    assert_reaches("de-AT", Some("de"));
+    assert_reaches("sw-KE", None);
 }
 
 #[test]
