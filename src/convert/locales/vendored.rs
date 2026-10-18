@@ -11,9 +11,8 @@ use crate::convert::units::Unit;
 /// A locale as `build.rs` writes it from `locales/<tag>.toml`.
 pub(crate) struct GeneratedLocale {
     pub tag: &'static str,
-    /// Which CLDR release the names were seeded from. Per locale, not one
-    /// global version: locales are seeded when someone comes to review them,
-    /// so they will not share a release.
+    /// Which CLDR release the names were seeded from. Per locale, not one global version: locales are seeded when
+    /// someone comes to review them, so they will not share a release.
     pub cldr_version: &'static str,
     /// Whether the file has a `reviewed` key: a speaker has confirmed the names.
     pub reviewed: bool,
@@ -122,9 +121,8 @@ pub(crate) fn tag_for(tag: &LocaleTag) -> Option<&'static str> {
 
 /// Whether a speaker has confirmed this locale's unit names.
 ///
-/// Adjudication is not review: a locale can have a verdict for every
-/// ambiguous string and still be unreviewed, until a speaker has checked that
-/// what it writes is what recipes in the language write. The `reviewed` key in
+/// Adjudication is not review: a locale can have a verdict for every ambiguous string and still be unreviewed, until a
+/// speaker has checked that what it writes is what recipes in the language write. The `reviewed` key in
 /// `locales/<tag>.toml` records that.
 pub(crate) fn names_reviewed(tag: &str) -> bool {
     generated(tag).is_some_and(|locale| locale.reviewed)
