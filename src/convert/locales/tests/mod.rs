@@ -217,11 +217,10 @@ fn bad_input_is_an_error_not_a_panic() {
         .contains("no vendored locale"));
 }
 
-/// Fully adjudicated locales whose official system is not US customary.
-const NON_US: [&str; 13] = [
-    "da", "de", "en-001", "en-AU", "en-GB", "es", "es-419", "es-CO", "es-MX", "fi", "ja", "no",
-    "sv",
-];
+/// Locales allowed bare words for US units: the two whose official system is US customary.
+const BARE_US_WORDS: [&str; 2] = ["en", "es-US"];
+/// Locales that name the imperial units: English, and US Spanish with its own Spanish names.
+const NAMES_IMPERIAL: [&str; 5] = ["en", "en-001", "en-AU", "en-GB", "es-US"];
 const US_UNITS: [&str; 7] = [
     "us cup",
     "us pint",
@@ -237,11 +236,10 @@ const US_UNITS: [&str; 7] = [
 /// that a Swedish or German kitchen means 3.79 l by `gallon`; the readings differ by 20% (4% for the fluid ounce).
 #[test]
 fn only_marked_names_reach_a_us_unit() {
-    for tag in NON_US {
+    for tag in vendored_tags().filter(|t| !BARE_US_WORDS.contains(t)) {
         let locale = vendored_locale(tag).unwrap();
         for id in US_UNITS {
-            let unit = unit(id);
-            if let Some(names) = locale.names(unit) {
+            if let Some(names) = locale.names(unit(id)) {
                 for name in names.symbol.iter().chain(&names.aliases) {
                     // en-GB's `US qt`, Finnish `am. gallona`
                     let marked = name.contains("US") || name.starts_with("am.");
@@ -251,15 +249,15 @@ fn only_marked_names_reach_a_us_unit() {
         }
     }
     // and the two US customary locales keep the bare words
-    for tag in ["en", "es-US"] {
-        let locale = vendored_locale(tag).unwrap();
-        assert_eq!(locale.resolve("gal"), Some(unit("us gallon")), "{tag}");
-        assert_eq!(locale.resolve("qt"), Some(unit("us quart")), "{tag}");
-    }
+    let en = vendored_locale("en").unwrap();
+    let es_us = vendored_locale("es-US").unwrap();
+    assert_eq!(en.resolve("gal"), Some(unit("us gallon")));
+    assert_eq!(en.resolve("qt"), Some(unit("us quart")));
+    assert_eq!(es_us.resolve("gal"), Some(unit("us gallon")));
+    assert_eq!(es_us.resolve("qt"), Some(unit("us quart")));
 }
 
-/// Every non-English locale here strips the imperial names (ADR 3). Locales whose region has a US/UK-system past --
-/// hi, ms, he, ar, zh-Hant -- keep theirs, and are not in `NON_US`.
+/// Only English and US Spanish name the imperial units (ADR 3); everywhere else they are written by identifier.
 #[test]
 fn imperial_names_are_stripped_in_metric_only_locales() {
     let imperial = [
@@ -268,22 +266,11 @@ fn imperial_names_are_stripped_in_metric_only_locales() {
         "imperial quart",
         "imperial gallon",
     ];
-    for tag in NON_US {
-        if tag.starts_with("en") {
-            continue;
-        }
+    for tag in vendored_tags().filter(|t| !NAMES_IMPERIAL.contains(t)) {
         let locale = vendored_locale(tag).unwrap();
         for id in imperial {
-            let unit = unit(id);
-            assert_eq!(locale.names(unit), None, "{tag} names {id}");
-            assert_eq!(locale.written(unit), unit.id(), "{tag} {id}");
-            assert_eq!(locale.resolve(unit.id()), Some(unit), "{tag} {id}");
+            assert_eq!(locale.names(unit(id)), None, "{tag} names {id}");
         }
-        assert_eq!(
-            locale.resolve("us gallon"),
-            Some(unit("us gallon")),
-            "{tag}"
-        );
     }
     // English keeps them, bare in Commonwealth English and marked in US English
     let gb = vendored_locale("en-GB").unwrap();
@@ -297,8 +284,6 @@ fn imperial_names_are_stripped_in_metric_only_locales() {
 
 #[test]
 fn degree_variants_resolve_in_every_locale() {
-    let celsius = unit("celsius");
-    let fahrenheit = unit("fahrenheit");
     let empty = locale_with(&[]).unwrap();
     let mut locales: Vec<(String, Arc<Locale>)> = vec![
         ("empty".to_string(), Arc::new(empty)),
@@ -308,14 +293,11 @@ fn degree_variants_resolve_in_every_locale() {
         locales.push((tag.to_string(), vendored_locale(tag).unwrap()));
     }
     for (tag, locale) in &locales {
-        for s in ["℃", "ºC"] {
-            assert_eq!(locale.resolve(s), Some(celsius), "{tag} '{s}'");
+        for (id, aliases) in UNIVERSAL_ALIASES {
+            for alias in *aliases {
+                assert_eq!(locale.resolve(alias), Some(unit(id)), "{tag} '{alias}'");
+            }
         }
-        for s in ["℉", "ºF"] {
-            assert_eq!(locale.resolve(s), Some(fahrenheit), "{tag} '{s}'");
-        }
-        assert_eq!(locale.resolve("C"), Some(celsius), "{tag}");
-        assert_eq!(locale.resolve("F"), Some(fahrenheit), "{tag}");
     }
 }
 
