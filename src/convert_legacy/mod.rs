@@ -25,6 +25,9 @@ pub use units_file::UnitsFile;
 mod builder;
 pub mod units_file;
 
+#[cfg(all(test, feature = "bundled_units"))]
+mod differential_tests;
+
 /// Main struct to perform conversions
 ///
 /// This holds information about all the known units and how to convert them.

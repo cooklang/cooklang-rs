@@ -385,7 +385,7 @@ at most 5 %, the old converter's imperial `accuracy`, kept until the precision t
   `1.5 lb` became `24 oz` and `0.26 cup` became `4 tbsp`; its purpose, a quarter cup rather than
   four tablespoons, is what the thresholds now say directly (`us cup ≥ ¼`). That search is not
   ported, and the eleven renderings it changes for untagged recipes are listed in
-  `tests/differential.rs`.
+  `src/convert_legacy/differential_tests/recipes.rs`.
 
 ### What it costs
 
@@ -577,7 +577,7 @@ and nothing is ever released with both.
   `convert` and `convert_legacy`. So the reviewer reads the API that merges, and the removal
   commits only delete. `CooklangParser::new`, `default`, `extended` and `canonical` are the new
   pipeline; the old one is reached through `new_legacy` alone.
-- **The differential test is the evidence.** `tests/differential.rs` runs the canonical cases,
+- **The differential test is the evidence.** `src/convert_legacy/differential_tests/recipes.rs` runs the canonical cases,
   every `.cook` fixture and hand-written scale and grouping cases through both pipelines end to end
   and compares parsing, scaling, lists, metadata time and equality verdicts. A divergence is either
   ported or listed there with its cause, and a listed divergence must still occur or the test

@@ -6,8 +6,8 @@
 //!
 //! This test is deleted together with the old converter (ADR 9).
 
-use cooklang::ingredient_list::IngredientList;
-use cooklang::{
+use crate::ingredient_list::IngredientList;
+use crate::{
     Converter, CooklangParser, Extensions, LegacyConverter, LegacySemanticEq, Quantity, Recipe,
     SemanticEq,
 };
@@ -26,7 +26,7 @@ fn canonical_cases() -> Vec<Case> {
     struct TestCase {
         source: String,
     }
-    const GENERATED: &str = include_str!("canonical_cases/mod.rs");
+    const GENERATED: &str = include_str!("../../../tests/canonical_cases/mod.rs");
     const OPEN: &str = "#[test_case(r#\"";
     const CLOSE: &str = "\"#\n; \"";
     let mut cases = Vec::new();
@@ -56,15 +56,15 @@ fn fixtures() -> Vec<Case> {
     [
         (
             "benches/test_recipe.cook",
-            include_str!("../benches/test_recipe.cook"),
+            include_str!("../../../benches/test_recipe.cook"),
         ),
         (
             "benches/complex_test_recipe.cook",
-            include_str!("../benches/complex_test_recipe.cook"),
+            include_str!("../../../benches/complex_test_recipe.cook"),
         ),
         (
             "benches/frontmatter_test_recipe.cook",
-            include_str!("../benches/frontmatter_test_recipe.cook"),
+            include_str!("../../../benches/frontmatter_test_recipe.cook"),
         ),
     ]
     .into_iter()
@@ -174,10 +174,10 @@ fn corpus() -> Vec<Case> {
 
 /// The warning the new pipeline adds to a recipe with no `locale`.
 fn is_untagged_warning(message: &str) -> bool {
-    message == cooklang::analysis::UNTAGGED_WARNING
+    message == crate::analysis::UNTAGGED_WARNING
 }
 
-fn messages(report: &cooklang::error::SourceReport, drop_untagged: bool) -> Vec<String> {
+fn messages(report: &crate::error::SourceReport, drop_untagged: bool) -> Vec<String> {
     let mut messages: Vec<String> = report
         .iter()
         .filter(|diag| !(drop_untagged && is_untagged_warning(&diag.message)))
@@ -470,7 +470,7 @@ fn lists_match_the_old_converter() {
     let v2 = Converter::legacy();
     let mut divergences = Vec::new();
     #[cfg(feature = "pantry")]
-    let pantry = cooklang::pantry::parse(
+    let pantry = crate::pantry::parse(
         "[kitchen]\nwater = \"unlim\"\nsalt = \"0.5%tsp\"\nflour = \"100%g\"\noil = \"1%tbsp\"\nsugar = \"1%scoop\"\n",
     )
     .expect("a pantry");
