@@ -162,11 +162,6 @@ mod tests {
         assert_eq!((o.n, o.i), (18.0, 18));
     }
 
-    /// Every number falls in the category it is listed under.
-    ///
-    /// The rules below are CLDR 48.2.3's (`cldr-core/supplemental/plurals.json`), one locale for each construct of
-    /// the rule language, and the samples are CLDR's with each range thinned to its ends and a few values between,
-    /// so a sample that fails points at the construct.
     struct Eval<'a> {
         rules: &'a [(&'a str, &'a str)],
         expected: &'a [(&'a str, &'a [&'a str])],
@@ -185,8 +180,6 @@ mod tests {
         }
     }
 
-    /// A comma list, and `i` rather than `n`: 0.7 and 1.5 are `one`, 2.0 is not. `many` has the `e` operand (always
-    /// 0 here), a seven-figure modulus that 1000 does not reach, and a negated range.
     #[test]
     #[rustfmt::skip]
     fn french() {
@@ -204,9 +197,6 @@ mod tests {
         });
     }
 
-    /// Modulus with a range, a negated range on `% 100` overriding `% 10` (12 to 14), `!=` on a single value, and
-    /// `and` binding tighter than `or`: 5 is `many` by the second arm alone. Every arm carries `v = 0`, so a
-    /// decimal is `other` whatever its integer part, 1.0 included.
     #[test]
     #[rustfmt::skip]
     fn polish() {
@@ -226,8 +216,6 @@ mod tests {
         });
     }
 
-    /// The `t` operand: trailing zeros are stripped first, so 0.0 is `other` where `v != 0` would have made it
-    /// `one`, and 0.1 is `one`.
     #[test]
     #[rustfmt::skip]
     fn danish() {
@@ -243,8 +231,6 @@ mod tests {
         });
     }
 
-    /// Six categories, and modulus on `n`: a decimal counts only when it is integral, so 3.0 is `few` and 10.1
-    /// is `other`; 100 to 102 are the residues below `few`.
     #[test]
     #[rustfmt::skip]
     fn arabic() {
