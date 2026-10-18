@@ -441,7 +441,12 @@ fn generate_locales() -> Vec<String> {
     files.sort();
     assert!(files.len() >= 6, "only {} locales found", files.len());
 
-    let mut out = String::from("pub(crate) static GENERATED_LOCALES: &[GeneratedLocale] = &[\n");
+    // the metadata is borrowed and always read: `tag_for` walks the fallback chain and the review
+    // gate checks `reviewed`, neither of which needs a locale built
+    let mut meta = String::from("pub(crate) static LOCALE_META: &[(&str, &str, bool)] = &[\n");
+    let mut built = String::from(
+        "pub(crate) static VENDORED: LazyLock<Vec<Arc<Locale>>> = LazyLock::new(|| {\n    vec![\n",
+    );
 
     for tag in &files {
         let path = format!("locales/{tag}.toml");
@@ -483,11 +488,11 @@ fn generate_locales() -> Vec<String> {
             .map(|r| format!("({:?}, {:?})", r.category, r.condition))
             .collect::<Vec<_>>()
             .join(", ");
-        out.push_str(&format!(
-            "    GeneratedLocale {{\n        tag: {tag:?},\n        cldr_version: {:?},\n        \
-             reviewed: {reviewed},\n        plural_rules: &[{rules}],\n        units: &[\n",
+        meta.push_str(&format!(
+            "    ({tag:?}, {:?}, {reviewed}),\n",
             locale.cldr_version
         ));
+        built.push_str(&format!("        locale({tag:?}, &[{rules}], vec![\n"));
         for (id, unit) in table {
             let symbol = match &unit.symbol {
                 Some(s) => format!("Some({s:?})"),
@@ -507,17 +512,17 @@ fn generate_locales() -> Vec<String> {
                 .map(|(c, p)| format!("({c:?}, {p:?})"))
                 .collect::<Vec<_>>()
                 .join(", ");
-            out.push_str(&format!(
-                "            GeneratedUnit {{ id: {id:?}, symbol: {symbol}, \
-                 aliases: &[{aliases}], long: &[{longs}] }},\n"
+            built.push_str(&format!(
+                "            unit({id:?}, {symbol}, &[{aliases}], &[{longs}]),\n"
             ));
         }
-        out.push_str("        ],\n    },\n");
+        built.push_str("        ]),\n");
     }
-    out.push_str("];\n");
+    meta.push_str("];\n");
+    built.push_str("    ]\n});\n");
 
     let dest = std::path::Path::new(&std::env::var("OUT_DIR").unwrap()).join("cldr_locales.rs");
-    std::fs::write(dest, out).unwrap();
+    std::fs::write(dest, meta + "\n" + &built).unwrap();
 
     files
 }

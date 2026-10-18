@@ -1,94 +1,65 @@
 //! The locales `build.rs` generates from `locales/<tag>.toml`: loading one, finding which one a tag reaches, and the
 //! review gate that decides whether it may be served to a reader.
 
-use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, OnceLock};
+use std::sync::{Arc, LazyLock};
 
 use super::locale::{Locale, PluralRules, UnitNames};
 use super::tag::{LocaleTag, RegionError};
 use crate::convert::units::Unit;
 
-/// A locale as `build.rs` writes it from `locales/<tag>.toml`.
-pub(crate) struct GeneratedLocale {
-    pub tag: &'static str,
-    /// Which CLDR release the names were seeded from. Per locale, not one global version: locales are seeded when
-    /// someone comes to review them, so they will not share a release.
-    pub cldr_version: &'static str,
-    /// Whether the file has a `reviewed` key: a speaker has confirmed the names.
-    pub reviewed: bool,
-    pub plural_rules: PluralRules,
-    pub units: &'static [GeneratedUnit],
-}
-
-/// A unit in a generated locale: our identifier, the symbol if the locale has a safe one, the aliases that survived
-/// adjudication, and the long patterns by plural category that did.
-pub(crate) struct GeneratedUnit {
-    pub id: &'static str,
-    pub symbol: Option<&'static str>,
-    pub aliases: &'static [&'static str],
-    pub long: &'static [(&'static str, &'static str)],
-}
-
+// `LOCALE_META` is the tag, the CLDR release the names were seeded from and whether a speaker has
+// confirmed them, for each locale; `VENDORED` is the locales themselves, in the same order, built
+// on first use through the two constructors below. The release is per locale because locales are
+// seeded when someone comes to review them, so they will not share one.
 include!(concat!(env!("OUT_DIR"), "/cldr_locales.rs"));
 
-fn generated_index(tag: &str) -> Option<usize> {
-    GENERATED_LOCALES
-        .iter()
-        .position(|locale| locale.tag == tag)
+/// One unit's names, as `build.rs` emits them. `build.rs` refuses a unit that names nothing, so a
+/// name here is always one the locale resolves.
+fn unit(
+    id: &str,
+    symbol: Option<&str>,
+    aliases: &[&str],
+    long: &[(&str, &str)],
+) -> (Unit, UnitNames) {
+    let names = UnitNames {
+        symbol: symbol.map(str::to_string),
+        aliases: aliases.iter().map(|a| (*a).to_string()).collect(),
+        long: long
+            .iter()
+            .map(|(c, p)| ((*c).to_string(), (*p).to_string()))
+            .collect(),
+    };
+    let unit = Unit::from_id(id).expect("a generated identifier is a unit");
+    (unit, names)
 }
 
-fn generated(tag: &str) -> Option<&'static GeneratedLocale> {
-    generated_index(tag).map(|i| &GENERATED_LOCALES[i])
+/// One locale, as `build.rs` emits it.
+///
+/// A unit CLDR does not carry, or that the locale declined to name — a German `Tasse` is 150 ml, so
+/// it cannot name the US cup — is absent and is written by its identifier. Nothing is inherited from
+/// any other locale: inheriting legacy's English names would reinstate the strings adjudication
+/// rejected.
+fn locale(tag: &str, plurals: PluralRules, units: Vec<(Unit, UnitNames)>) -> Arc<Locale> {
+    let locale = Locale::with_plurals(units.into_iter().collect(), plurals)
+        .unwrap_or_else(|e| panic!("locale '{tag}' is invalid: {e}"));
+    Arc::new(locale)
 }
 
-/// Each vendored locale, built the first time it is asked for and shared from then on, parallel to `GENERATED_LOCALES`.
-static BUILT: LazyLock<Vec<OnceLock<Arc<Locale>>>> =
-    LazyLock::new(|| GENERATED_LOCALES.iter().map(|_| OnceLock::new()).collect());
+fn meta_index(tag: &str) -> Option<usize> {
+    LOCALE_META.iter().position(|(t, _, _)| *t == tag)
+}
 
 pub(crate) fn vendored_tags() -> impl Iterator<Item = &'static str> {
-    GENERATED_LOCALES.iter().map(|locale| locale.tag)
+    LOCALE_META.iter().map(|(tag, _, _)| *tag)
 }
 
 pub(crate) fn cldr_version(tag: &str) -> Option<&'static str> {
-    generated(tag).map(|locale| locale.cldr_version)
+    meta_index(tag).map(|i| LOCALE_META[i].1)
 }
 
 /// The CLDR-derived locale for `tag`, if it was vendored.
-///
-/// A unit CLDR does not carry, or that the locale declined to name — a German `Tasse` is 150 ml, so it cannot name the
-/// US cup — is left unnamed and is written by its identifier. Nothing is inherited from any other locale: inheriting
-/// legacy's English names would reinstate the strings adjudication rejected.
 pub(crate) fn vendored_locale(tag: &str) -> Option<Arc<Locale>> {
-    let i = generated_index(tag)?;
-    Some(
-        BUILT[i]
-            .get_or_init(|| Arc::new(build(&GENERATED_LOCALES[i])))
-            .clone(),
-    )
-}
-
-fn build(generated: &GeneratedLocale) -> Locale {
-    let tag = generated.tag;
-    let names: HashMap<Unit, UnitNames> = generated
-        .units
-        .iter()
-        .filter(|unit| unit.symbol.is_some() || !unit.aliases.is_empty())
-        .map(|unit| {
-            let names = UnitNames {
-                symbol: unit.symbol.map(str::to_string),
-                aliases: unit.aliases.iter().map(|a| (*a).to_string()).collect(),
-                long: unit
-                    .long
-                    .iter()
-                    .map(|(c, p)| ((*c).to_string(), (*p).to_string()))
-                    .collect(),
-            };
-            let unit = Unit::from_id(unit.id).expect("a generated identifier is a unit");
-            (unit, names)
-        })
-        .collect();
-    Locale::with_plurals(names, generated.plural_rules)
-        .unwrap_or_else(|e| panic!("locale '{tag}' is invalid: {e}"))
+    Some(VENDORED[meta_index(tag)?].clone())
 }
 
 include!(concat!(env!("OUT_DIR"), "/cldr_parents.rs"));
@@ -125,7 +96,7 @@ pub(crate) fn tag_for(tag: &LocaleTag) -> Option<&'static str> {
 /// speaker has checked that what it writes is what recipes in the language write. The `reviewed` key in
 /// `locales/<tag>.toml` records that.
 pub(crate) fn names_reviewed(tag: &str) -> bool {
-    generated(tag).is_some_and(|locale| locale.reviewed)
+    meta_index(tag).is_some_and(|i| LOCALE_META[i].2)
 }
 
 /// [`reviewed_locale`], panicking with the whole locale rather than reporting. No caller outside the tests wants that
