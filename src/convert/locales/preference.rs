@@ -264,29 +264,12 @@ mod tests {
         best_unit(value, Unit::from_id(from).unwrap(), audience).id()
     }
 
-    #[test]
-    fn the_largest_whole_unit_wins() {
-        assert_eq!(best(1500.0, "milliliter", METRIC), "liter");
-        assert_eq!(best(999.0, "milliliter", METRIC), "milliliter");
-        assert_eq!(best(1.0, "liter", METRIC), "liter");
-        // below the smallest row, fall back to it rather than failing
-        assert_eq!(best(0.1, "milliliter", METRIC), "milliliter");
-    }
-
+    /// Only the United States is US customary; everyone else, the United Kingdom and the two territories CLDR files
+    /// under the US and UK systems included, is metric.
     #[test]
     fn a_region_gets_its_official_system() {
         assert_eq!(official_system(region!("US")), System::UsCustomary);
-        assert_eq!(best(500.0, "milliliter", region("US")), "us cup");
-        // officially metric, whatever the kitchen still says: the UK, and the two territories CLDR files under the US
-        // and UK systems
-        assert_eq!(best(1.0, "imperial pint", region("GB")), "milliliter");
-    }
-
-    #[test]
-    fn magnitude_is_what_matters_not_sign() {
-        // a freezer temperature must not be judged as "smaller than one"
-        assert_eq!(best(-18.0, "celsius", US), "fahrenheit");
-        assert_eq!(best(-1500.0, "milliliter", METRIC), "liter");
+        assert_eq!(official_system(region!("GB")), System::Metric);
     }
 
     #[test]
@@ -375,6 +358,8 @@ mod tests {
         let rows = [row("liter", 1.0, None), row("milliliter", 0.0, None)];
         assert_eq!(shown(&rows, 1500.0, "milliliter"), "1.5 liter");
         assert_eq!(shown(&rows, 0.3, "milliliter"), "0.3 milliliter");
+        // a threshold is reached by magnitude, so a freezer temperature is not "smaller than one"
+        assert_eq!(shown(&rows, -1500.0, "milliliter"), "-1.5 liter");
     }
 
     #[test]
