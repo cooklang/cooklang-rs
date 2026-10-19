@@ -4,7 +4,7 @@
 use std::fmt::Write;
 
 use super::locale::Locale;
-use super::preference::{best_amount, official_system, rows_for, Row, Units, REGION_PREFERENCES};
+use super::preference::{best_amount, sourced_rows_for, Row, Units};
 use super::tag::LocaleTag;
 use crate::convert::units::{PhysicalQuantity, Unit};
 
@@ -185,29 +185,17 @@ fn write_units_for_reader(out: &mut String, locale: &Locale, parsed: &LocaleTag)
             return;
         }
     };
-    let system = match audience.units {
-        Units::Region(region) => {
-            let system = official_system(region);
-            writeln!(
-                out,
-                "Region `{region}`, whose official system is **{system:?}**.\n"
-            )
-            .unwrap();
-            system
-        }
-        Units::System(system) => {
-            writeln!(out, "`-u-ms-` asks for **{system:?}** outright.\n").unwrap();
-            system
-        }
-        Units::Legacy(system) => {
-            writeln!(
-                out,
-                "The legacy locale's frozen rows for **{system:?}**, the system the quantity was written in.\n"
-            )
-            .unwrap();
-            system
-        }
-    };
+    let system = audience.official();
+    match audience.units {
+        Units::Region(region) => writeln!(
+            out,
+            "Region `{region}`, whose official system is **{system:?}**.\n"
+        )
+        .unwrap(),
+        Units::System(_) => writeln!(out, "`-u-ms-` asks for **{system:?}** outright.\n").unwrap(),
+        // `LocaleTag::audience` builds only the two above
+        Units::Legacy(_) => unreachable!("a parsed tag has no legacy audience"),
+    }
     if let Some(unit) = audience.temperature {
         writeln!(out, "`-u-mu-` asks for **{unit:?}** for temperature.\n").unwrap();
     }
@@ -224,22 +212,9 @@ fn write_units_for_reader(out: &mut String, locale: &Locale, parsed: &LocaleTag)
         PhysicalQuantity::Temperature,
         PhysicalQuantity::Time,
     ] {
-        let from = match audience.units {
-            _ if quantity == PhysicalQuantity::Temperature && audience.temperature.is_some() => {
-                "`-u-mu-`".to_string()
-            }
-            Units::Region(region)
-                if REGION_PREFERENCES
-                    .iter()
-                    .any(|(r, q, _)| *r == region && *q == quantity) =>
-            {
-                format!("region `{region}`")
-            }
-            _ if quantity == PhysicalQuantity::Time => "shared".to_string(),
-            _ => format!("{system:?}"),
-        };
-        let order = order(rows_for(audience, quantity), true);
-        writeln!(out, "| {quantity:?} | {from} | {order} |").unwrap();
+        let (source, rows) = sourced_rows_for(audience, quantity);
+        let order = order(rows, true);
+        writeln!(out, "| {quantity:?} | {source} | {order} |").unwrap();
     }
 
     out.push_str("\n### Best unit for sample amounts\n\n");

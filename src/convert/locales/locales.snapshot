@@ -5702,6 +5702,131 @@ preference legacy:UsCustomary Mass ounce >= 0 fractions /4
 preference legacy:UsCustomary Length foot >= 1 fractions /4
 preference legacy:UsCustomary Length inch >= 0 fractions /4
 preference legacy:UsCustomary Temperature fahrenheit >= 1
+source system:Metric Volume -> Metric
+source system:Metric Mass -> Metric
+source system:Metric Length -> Metric
+source system:Metric Temperature -> Metric
+source system:Metric Time -> shared
+source system:UsCustomary Volume -> UsCustomary
+source system:UsCustomary Mass -> UsCustomary
+source system:UsCustomary Length -> UsCustomary
+source system:UsCustomary Temperature -> UsCustomary
+source system:UsCustomary Time -> shared
+source system:Imperial Volume -> Imperial
+source system:Imperial Mass -> Imperial
+source system:Imperial Length -> Imperial
+source system:Imperial Temperature -> Imperial
+source system:Imperial Time -> shared
+source region:US Volume -> UsCustomary
+source region:US Mass -> UsCustomary
+source region:US Length -> UsCustomary
+source region:US Temperature -> UsCustomary
+source region:US Time -> shared
+source region:GB Volume -> Metric
+source region:GB Mass -> Metric
+source region:GB Length -> Metric
+source region:GB Temperature -> Metric
+source region:GB Time -> shared
+source legacy:Metric Volume -> legacy Metric
+source legacy:Metric Mass -> legacy Metric
+source legacy:Metric Length -> legacy Metric
+source legacy:Metric Temperature -> legacy Metric
+source legacy:Metric Time -> shared
+source legacy:UsCustomary Volume -> legacy UsCustomary
+source legacy:UsCustomary Mass -> legacy UsCustomary
+source legacy:UsCustomary Length -> legacy UsCustomary
+source legacy:UsCustomary Temperature -> legacy UsCustomary
+source legacy:UsCustomary Time -> shared
+source region:SE Volume -> region `SE`
+source region:SE Mass -> Metric
+source region:SE Length -> Metric
+source region:SE Temperature -> Metric
+source region:SE Time -> shared
+source region:NO Volume -> region `NO`
+source region:NO Mass -> Metric
+source region:NO Length -> Metric
+source region:NO Temperature -> Metric
+source region:NO Time -> shared
+source region:FI Volume -> region `FI`
+source region:FI Mass -> Metric
+source region:FI Length -> Metric
+source region:FI Temperature -> Metric
+source region:FI Time -> shared
+source region:DK Volume -> region `DK`
+source region:DK Mass -> Metric
+source region:DK Length -> Metric
+source region:DK Temperature -> Metric
+source region:DK Time -> shared
+source region:CH Volume -> region `CH`
+source region:CH Mass -> Metric
+source region:CH Length -> Metric
+source region:CH Temperature -> Metric
+source region:CH Time -> shared
+source region:HU Volume -> region `HU`
+source region:HU Mass -> region `HU`
+source region:HU Length -> Metric
+source region:HU Temperature -> Metric
+source region:HU Time -> shared
+source region:FR Volume -> region `FR`
+source region:FR Mass -> Metric
+source region:FR Length -> Metric
+source region:FR Temperature -> Metric
+source region:FR Time -> shared
+source region:BE Volume -> region `BE`
+source region:BE Mass -> Metric
+source region:BE Length -> Metric
+source region:BE Temperature -> Metric
+source region:BE Time -> shared
+source region:NZ Volume -> region `NZ`
+source region:NZ Mass -> Metric
+source region:NZ Length -> Metric
+source region:NZ Temperature -> Metric
+source region:NZ Time -> shared
+source region:CA Volume -> region `CA`
+source region:CA Mass -> Metric
+source region:CA Length -> Metric
+source region:CA Temperature -> Metric
+source region:CA Time -> shared
+source region:AU Volume -> region `AU`
+source region:AU Mass -> Metric
+source region:AU Length -> Metric
+source region:AU Temperature -> Metric
+source region:AU Time -> shared
+source region:JP Volume -> region `JP`
+source region:JP Mass -> Metric
+source region:JP Length -> Metric
+source region:JP Temperature -> Metric
+source region:JP Time -> shared
+source region:KR Volume -> region `KR`
+source region:KR Mass -> Metric
+source region:KR Length -> Metric
+source region:KR Temperature -> Metric
+source region:KR Time -> shared
+source region:BR Volume -> region `BR`
+source region:BR Mass -> Metric
+source region:BR Length -> Metric
+source region:BR Temperature -> Metric
+source region:BR Time -> shared
+source region:MX Volume -> region `MX`
+source region:MX Mass -> Metric
+source region:MX Length -> Metric
+source region:MX Temperature -> Metric
+source region:MX Time -> shared
+source region:CO Volume -> Metric
+source region:CO Mass -> region `CO`
+source region:CO Length -> Metric
+source region:CO Temperature -> Metric
+source region:CO Time -> shared
+source region:CA+mu:Fahrenheit Volume -> region `CA`
+source region:CA+mu:Fahrenheit Mass -> Metric
+source region:CA+mu:Fahrenheit Length -> Metric
+source region:CA+mu:Fahrenheit Temperature -> `-u-mu-`
+source region:CA+mu:Fahrenheit Time -> shared
+source system:UsCustomary+mu:Celsius Volume -> UsCustomary
+source system:UsCustomary+mu:Celsius Mass -> UsCustomary
+source system:UsCustomary+mu:Celsius Length -> UsCustomary
+source system:UsCustomary+mu:Celsius Temperature -> `-u-mu-`
+source system:UsCustomary+mu:Celsius Time -> shared
 best system:Metric 0.25 milliliter -> milliliter
 best system:Metric 0.5 milliliter -> milliliter
 best system:Metric 1 milliliter -> milliliter

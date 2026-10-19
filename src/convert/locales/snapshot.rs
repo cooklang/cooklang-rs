@@ -19,8 +19,8 @@ use crate::convert::locales::legacy::{legacy_locale, LEGACY_PREFERENCES};
 use crate::convert::locales::locale::Locale;
 use crate::convert::locales::plural;
 use crate::convert::locales::preference::{
-    best_amount, best_unit, official_system, Audience, Row, System, Units, PREFERENCES,
-    REGION_PREFERENCES,
+    best_amount, best_unit, official_system, sourced_rows_for, Audience, Row, System, Units,
+    PREFERENCES, REGION_PREFERENCES,
 };
 use crate::convert::locales::tag::LocaleTag;
 use crate::convert::locales::vendored::{
@@ -85,6 +85,14 @@ const AMOUNT_UNITS: [&str; 6] = [
     "us teaspoon",
     "imperial pint",
     "celsius",
+];
+
+const QUANTITIES: [PhysicalQuantity; 5] = [
+    PhysicalQuantity::Volume,
+    PhysicalQuantity::Mass,
+    PhysicalQuantity::Length,
+    PhysicalQuantity::Temperature,
+    PhysicalQuantity::Time,
 ];
 
 const AUDIENCES: [Audience; 7] = [
@@ -258,6 +266,18 @@ fn render_derived(out: &mut String, tags: &[&str]) {
         Audience::region(region!("CA")).with_temperature(TemperatureUnit::Fahrenheit),
         Audience::system(System::UsCustomary).with_temperature(TemperatureUnit::Celsius),
     ];
+    // which rule chose the rows: the override for temperature, a region's own rows, the shared time list, the system
+    for audience in audiences().into_iter().chain(overrides) {
+        for quantity in QUANTITIES {
+            let (source, _) = sourced_rows_for(audience, quantity);
+            writeln!(
+                out,
+                "source {} {quantity:?} -> {source}",
+                audience_name(audience)
+            )
+            .unwrap();
+        }
+    }
     for audience in audiences().into_iter().chain(overrides) {
         for (unit, value) in sweep() {
             let chosen = best_unit(value, unit, audience);

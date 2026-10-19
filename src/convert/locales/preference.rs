@@ -67,7 +67,7 @@ impl Audience {
         }
     }
 
-    fn official(self) -> System {
+    pub(crate) fn official(self) -> System {
         match self.units {
             Units::Region(region) => official_system(region),
             Units::System(system) | Units::Legacy(system) => system,
@@ -132,26 +132,68 @@ fn rows_in<K: PartialEq>(
         .map(|(_, _, rows)| *rows)
 }
 
+/// Which rule chose the rows for an audience and quantity, in the order [`sourced_rows_for`] tries them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RowSource {
+    /// `-u-mu-` named a temperature unit outright.
+    TemperatureOverride(TemperatureUnit),
+    /// The region has rows of its own for this quantity.
+    Region(Region),
+    /// Time has one list, under metric, that every system shares.
+    Shared,
+    /// The system's rows, official for the region or asked for outright.
+    System(System),
+    /// The frozen rows an untagged recipe uses (ADR 7).
+    Legacy(System),
+}
+
+impl std::fmt::Display for RowSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TemperatureOverride(_) => f.write_str("`-u-mu-`"),
+            Self::Region(region) => write!(f, "region `{region}`"),
+            Self::Shared => f.write_str("shared"),
+            Self::System(system) => write!(f, "{system:?}"),
+            Self::Legacy(system) => write!(f, "legacy {system:?}"),
+        }
+    }
+}
+
 /// The rows that apply to `audience` for `quantity`, most specific first: the `-u-mu-` unit for temperature, a region's
 /// own rows, then its system's. Time has one list, under metric, which every system shares. A legacy audience has only
 /// its frozen rows (ADR 7).
 pub(crate) fn rows_for(audience: Audience, quantity: PhysicalQuantity) -> &'static [Row] {
+    sourced_rows_for(audience, quantity).1
+}
+
+/// [`rows_for`], with the rule that chose the rows.
+pub(crate) fn sourced_rows_for(
+    audience: Audience,
+    quantity: PhysicalQuantity,
+) -> (RowSource, &'static [Row]) {
     if quantity == PhysicalQuantity::Temperature {
         if let Some(unit) = audience.temperature {
-            return temperature_row(unit);
+            return (RowSource::TemperatureOverride(unit), temperature_row(unit));
         }
     }
-    let (table, own) = match audience.units {
-        Units::Region(region) => (PREFERENCES, rows_in(REGION_PREFERENCES, region, quantity)),
-        Units::System(_) => (PREFERENCES, None),
-        Units::Legacy(_) => (LEGACY_PREFERENCES, None),
+    if let Units::Region(region) = audience.units {
+        if let Some(rows) = rows_in(REGION_PREFERENCES, region, quantity) {
+            return (RowSource::Region(region), rows);
+        }
+    }
+    let (table, source) = match audience.units {
+        Units::Legacy(system) => (LEGACY_PREFERENCES, RowSource::Legacy(system)),
+        Units::Region(_) | Units::System(_) => {
+            (PREFERENCES, RowSource::System(audience.official()))
+        }
     };
-    own.or_else(|| rows_in(table, audience.official(), quantity))
-        .or_else(|| {
-            (quantity == PhysicalQuantity::Time)
-                .then(|| rows_in(table, System::Metric, quantity))?
-        })
-        .expect("every system has rows for every quantity but time")
+    if quantity == PhysicalQuantity::Time {
+        let rows = rows_in(table, System::Metric, quantity).expect("time has rows under metric");
+        return (RowSource::Shared, rows);
+    }
+    let rows = rows_in(table, audience.official(), quantity)
+        .expect("every system has rows for every quantity but time");
+    (source, rows)
 }
 
 fn temperature_row(unit: TemperatureUnit) -> &'static [Row] {
@@ -395,5 +437,43 @@ mod tests {
         assert_eq!(best(150.0, "milliliter", en_ca), "metric cup");
         let us_c = US.with_temperature(TemperatureUnit::Celsius);
         assert_eq!(best(350.0, "fahrenheit", us_c), "celsius");
+    }
+
+    fn source(audience: Audience, quantity: PhysicalQuantity) -> RowSource {
+        sourced_rows_for(audience, quantity).0
+    }
+
+    /// The most specific rule wins: the unit asked for outright, the region's own rows, the shared time list, then
+    /// the system. A legacy audience has only its frozen rows.
+    #[test]
+    fn rows_come_from_the_most_specific_rule() {
+        let canada = region("CA").with_temperature(TemperatureUnit::Fahrenheit);
+        assert_eq!(
+            source(canada, PhysicalQuantity::Temperature),
+            RowSource::TemperatureOverride(TemperatureUnit::Fahrenheit)
+        );
+        assert_eq!(
+            source(canada, PhysicalQuantity::Mass),
+            RowSource::System(System::Metric)
+        );
+        assert_eq!(
+            source(region("SE"), PhysicalQuantity::Volume),
+            RowSource::Region(region!("SE"))
+        );
+        assert_eq!(source(METRIC, PhysicalQuantity::Time), RowSource::Shared);
+        assert_eq!(
+            source(
+                Audience::legacy(System::UsCustomary),
+                PhysicalQuantity::Time
+            ),
+            RowSource::Shared
+        );
+        assert_eq!(
+            source(
+                Audience::legacy(System::UsCustomary),
+                PhysicalQuantity::Volume
+            ),
+            RowSource::Legacy(System::UsCustomary)
+        );
     }
 }
