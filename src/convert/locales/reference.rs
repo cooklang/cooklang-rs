@@ -1,11 +1,14 @@
 //! One locale as a human-readable Markdown page: what `show-locale-as-md` prints, which is what a review refusal
 //! points at.
 
-use std::fmt::Write;
+use std::fmt::{self, Write};
+use std::sync::Arc;
 
+use super::legacy::legacy_locale;
 use super::locale::Locale;
 use super::preference::{best_amount, sourced_rows_for, Row, Units};
 use super::tag::LocaleTag;
+use super::vendored::{cldr_version, tag_for, vendored_locale};
 use crate::convert::units::{PhysicalQuantity, Unit};
 
 /// Preference rows as `` `liter` ≥ 1 → `deciliter` ≥ 0.5 ``, largest first.
@@ -32,86 +35,131 @@ pub(crate) fn order(rows: &[Row], with_thresholds: bool) -> String {
 /// `one`, `two`, `few`, `many` and fractional `other` in most languages.
 const PLURAL_SAMPLES: [f64; 9] = [0.0, 1.0, 2.0, 5.0, 11.0, 21.0, 22.0, 100.0, 1.5];
 
+/// What a page is about: the frozen locale, or a vendored one reached from a tag.
+enum Page {
+    Legacy(Arc<Locale>),
+    Vendored {
+        requested: LocaleTag,
+        /// The vendored tag the fallback chain reached, which is where the names come from.
+        reached: &'static str,
+        locale: Arc<Locale>,
+    },
+}
+
+impl Page {
+    /// `tag` is any BCP 47 tag, or the bare word `legacy`: a naming, not a tag (ADR 7).
+    fn resolve(tag: &str) -> Result<Self, String> {
+        if tag == "legacy" {
+            return Ok(Page::Legacy(legacy_locale()));
+        }
+        let requested = LocaleTag::parse(tag).map_err(|e| e.to_string())?;
+        let reached =
+            tag_for(&requested).ok_or_else(|| format!("no vendored locale covers '{tag}'"))?;
+        let locale = vendored_locale(reached).expect("tag_for found it");
+        Ok(Page::Vendored {
+            requested,
+            reached,
+            locale,
+        })
+    }
+
+    fn title(&self) -> &str {
+        match self {
+            Page::Legacy(_) => "legacy",
+            Page::Vendored { reached, .. } => reached,
+        }
+    }
+
+    fn locale(&self) -> &Locale {
+        match self {
+            Page::Legacy(locale) | Page::Vendored { locale, .. } => locale,
+        }
+    }
+}
+
 /// One locale as Markdown: every unit with its spaced identifier, symbol,
 /// aliases and long forms, the plural rules, and what the long form writes
-/// for a few numbers. `tag` is any BCP 47 tag; names come from the vendored
-/// locale its fallback chain reaches.
+/// for a few numbers.
 pub(crate) fn render_locale(tag: &str) -> Result<String, String> {
-    // `legacy` is a naming, not a tag (ADR 7); the example takes the bare word for it
-    let (locale, parsed, reached) = if tag == "legacy" {
-        (super::legacy::legacy_locale(), None, "legacy")
-    } else {
-        let parsed = LocaleTag::parse(tag).map_err(|e| e.to_string())?;
-        let reached = super::vendored::tag_for(&parsed)
-            .ok_or_else(|| format!("no vendored locale covers '{tag}'"))?;
-        let locale = super::vendored::vendored_locale(reached).expect("tag_for found it");
-        (locale, Some(parsed), reached)
-    };
-
+    let page = Page::resolve(tag)?;
     let mut out = String::new();
-    write_header(&mut out, tag, reached, parsed.as_ref());
-    write_plural_rules(&mut out, &locale);
-    write_units(&mut out, &locale);
-    write_plural_evaluation(&mut out, &locale);
-    out.push_str("\n## Units chosen for the reader\n\n");
-    match &parsed {
-        None => {
-            out.push_str("Legacy has no region and no system; it names units and nothing more.\n")
-        }
-        Some(parsed) => write_units_for_reader(&mut out, &locale, parsed),
-    }
+    render(&mut out, &page).expect("writing to a String cannot fail");
     Ok(out)
 }
 
-/// The title, and where the names come from. `parsed` is `None` for legacy.
-fn write_header(out: &mut String, tag: &str, reached: &str, parsed: Option<&LocaleTag>) {
-    writeln!(out, "# Locale `{reached}`\n").unwrap();
-    match parsed {
-        None => {
-            out.push_str("The frozen compatibility locale: exactly the names `units.toml` gives\n");
-            out.push_str("the bundled units, and nothing for any other unit. It is not a BCP 47\n");
-            out.push_str("tag: a recipe with no `locale` reads through it (ADR 7).\n\n");
+fn render(out: &mut impl Write, page: &Page) -> fmt::Result {
+    write_header(out, page)?;
+    write_plural_rules(out, page.locale())?;
+    write_units(out, page.locale())?;
+    write_plural_evaluation(out, page.locale())?;
+    out.write_str("\n## Units chosen for the reader\n\n")?;
+    match page {
+        Page::Legacy(_) => {
+            out.write_str("Legacy has no region and no system; it names units and nothing more.\n")
         }
-        Some(parsed) => {
-            if reached != parsed.language_identifier() {
-                writeln!(out, "Requested `{tag}`; names come from `{reached}`.\n").unwrap();
+        Page::Vendored { requested, .. } => write_units_for_reader(out, page.locale(), requested),
+    }
+}
+
+const LEGACY_PREAMBLE: &str = "\
+The frozen compatibility locale: exactly the names `units.toml` gives
+the bundled units, and nothing for any other unit. It is not a BCP 47
+tag: a recipe with no `locale` reads through it (ADR 7).
+
+";
+
+/// The title, and where the names come from.
+fn write_header(out: &mut impl Write, page: &Page) -> fmt::Result {
+    writeln!(out, "# Locale `{}`\n", page.title())?;
+    match page {
+        Page::Legacy(_) => out.write_str(LEGACY_PREAMBLE),
+        Page::Vendored {
+            requested, reached, ..
+        } => {
+            if *reached != requested.language_identifier() {
+                writeln!(
+                    out,
+                    "Requested `{requested}`; names come from `{reached}`.\n"
+                )?;
             }
-            writeln!(
-                out,
-                "Unit names were seeded from CLDR {}.\n",
-                super::vendored::cldr_version(reached).unwrap_or("unknown")
-            )
-            .unwrap();
+            let cldr = cldr_version(reached).unwrap_or("unknown");
+            writeln!(out, "Unit names were seeded from CLDR {cldr}.\n")
         }
     }
 }
 
-fn write_plural_rules(out: &mut String, locale: &Locale) {
-    out.push_str("## Plural rules\n\n");
+fn write_plural_rules(out: &mut impl Write, locale: &Locale) -> fmt::Result {
+    out.write_str("## Plural rules\n\n")?;
     if locale.plural_rules().is_empty() {
-        out.push_str("This locale has no plural rules: every number is `other`, and it has\n");
-        out.push_str("no long forms to apply them to.\n");
-        return;
+        out.write_str("This locale has no plural rules: every number is `other`, and it has\n")?;
+        return out.write_str("no long forms to apply them to.\n");
     }
-    out.push_str("| Category | Condition |\n|---|---|\n");
+    out.write_str("| Category | Condition |\n|---|---|\n")?;
     for (category, condition) in locale.plural_rules() {
         let condition = if condition.is_empty() {
             "*everything else*".to_string()
         } else {
             format!("`{condition}`")
         };
-        writeln!(out, "| {category} | {condition} |").unwrap();
+        writeln!(out, "| {category} | {condition} |")?;
     }
+    Ok(())
 }
 
-fn write_units(out: &mut String, locale: &Locale) {
-    out.push_str("\n## Units\n\n");
-    out.push_str("The identifier resolves in every locale and is what a conversion writes\n");
-    out.push_str("when the locale has no symbol. Lookup is case-sensitive: `C` is Celsius\n");
-    out.push_str("where `c` is a cup. Long forms are CLDR patterns by plural category,\n");
-    out.push_str("with `{0}` where the number goes.\n\n");
-    out.push_str("| Identifier | Symbol | Aliases | Long forms |\n");
-    out.push_str("|---|---|---|---|\n");
+const UNITS_PREAMBLE: &str = "
+## Units
+
+The identifier resolves in every locale and is what a conversion writes
+when the locale has no symbol. Lookup is case-sensitive: `C` is Celsius
+where `c` is a cup. Long forms are CLDR patterns by plural category,
+with `{0}` where the number goes.
+
+| Identifier | Symbol | Aliases | Long forms |
+|---|---|---|---|
+";
+
+fn write_units(out: &mut impl Write, locale: &Locale) -> fmt::Result {
+    out.write_str(UNITS_PREAMBLE)?;
     for unit in Unit::all() {
         let names = locale.names(unit);
         let symbol = match locale.symbol(unit) {
@@ -138,51 +186,66 @@ fn write_units(out: &mut String, locale: &Locale) {
                     .join("; ")
             })
             .unwrap_or_else(|| "—".to_string());
-        writeln!(out, "| `{}` | {symbol} | {aliases} | {long} |", unit.id()).unwrap();
+        writeln!(out, "| `{}` | {symbol} | {aliases} | {long} |", unit.id())?;
     }
+    Ok(())
 }
 
 /// What `written_long` writes for [`PLURAL_SAMPLES`], per unit with a long form.
-fn write_plural_evaluation(out: &mut String, locale: &Locale) {
-    out.push_str("\n## Plural evaluation\n\n");
-    out.push_str("What `written_long` writes, for the units that have a long form.\n\n");
-    out.push_str("| Identifier |");
+fn write_plural_evaluation(out: &mut impl Write, locale: &Locale) -> fmt::Result {
+    out.write_str("\n## Plural evaluation\n\n")?;
+    out.write_str("What `written_long` writes, for the units that have a long form.\n\n")?;
+    out.write_str("| Identifier |")?;
     for value in PLURAL_SAMPLES {
-        write!(out, " {value} |").unwrap();
+        write!(out, " {value} |")?;
     }
-    out.push_str("\n|---|");
+    out.write_str("\n|---|")?;
     for _ in PLURAL_SAMPLES {
-        out.push_str("---|");
+        out.write_str("---|")?;
     }
-    out.push('\n');
+    out.write_char('\n')?;
     for unit in Unit::all() {
         if locale.names(unit).is_none_or(|n| n.long.is_empty()) {
             continue;
         }
-        write!(out, "| `{}` |", unit.id()).unwrap();
+        write!(out, "| `{}` |", unit.id())?;
         for value in PLURAL_SAMPLES {
-            write!(out, " {} |", locale.written_long(value, unit)).unwrap();
+            write!(out, " {} |", locale.written_long(value, unit))?;
         }
-        out.push('\n');
+        out.write_char('\n')?;
     }
+    Ok(())
 }
+
+const PREFERENCE_ROWS_PREAMBLE: &str = "\
+### Preference rows
+
+Largest first; a value is shown in the first unit it reaches the
+threshold of, falling back to the last. A region's own rows override
+its system's for that quantity; time is the same everywhere.
+
+| Quantity | From | Order |
+|---|---|---|
+";
 
 /// The rows and best-unit choices for the tag's audience, or what the tag
 /// lacks to have one.
-fn write_units_for_reader(out: &mut String, locale: &Locale, parsed: &LocaleTag) {
-    let audience = match parsed.audience() {
+fn write_units_for_reader(
+    out: &mut impl Write,
+    locale: &Locale,
+    requested: &LocaleTag,
+) -> fmt::Result {
+    let audience = match requested.audience() {
         Ok(audience) => audience,
         Err(error) => {
-            writeln!(out, "{error}.\n").unwrap();
-            out.push_str("Names come from the language alone; choosing units needs a region\n");
-            writeln!(
+            writeln!(out, "{error}.\n")?;
+            out.write_str("Names come from the language alone; choosing units needs a region\n")?;
+            return writeln!(
                 out,
                 "(`{}-XX`) or a measurement system (`{}-u-ms-metric`, `ussystem`, `uksystem`).\n",
-                parsed.language_identifier(),
-                parsed.language_identifier()
-            )
-            .unwrap();
-            return;
+                requested.language_identifier(),
+                requested.language_identifier()
+            );
         }
     };
     let system = audience.official();
@@ -190,21 +253,16 @@ fn write_units_for_reader(out: &mut String, locale: &Locale, parsed: &LocaleTag)
         Units::Region(region) => writeln!(
             out,
             "Region `{region}`, whose official system is **{system:?}**.\n"
-        )
-        .unwrap(),
-        Units::System(_) => writeln!(out, "`-u-ms-` asks for **{system:?}** outright.\n").unwrap(),
+        )?,
+        Units::System(_) => writeln!(out, "`-u-ms-` asks for **{system:?}** outright.\n")?,
         // `LocaleTag::audience` builds only the two above
         Units::Legacy(_) => unreachable!("a parsed tag has no legacy audience"),
     }
     if let Some(unit) = audience.temperature {
-        writeln!(out, "`-u-mu-` asks for **{unit:?}** for temperature.\n").unwrap();
+        writeln!(out, "`-u-mu-` asks for **{unit:?}** for temperature.\n")?;
     }
 
-    out.push_str("### Preference rows\n\n");
-    out.push_str("Largest first; a value is shown in the first unit it reaches the\n");
-    out.push_str("threshold of, falling back to the last. A region's own rows override\n");
-    out.push_str("its system's for that quantity; time is the same everywhere.\n\n");
-    out.push_str("| Quantity | From | Order |\n|---|---|---|\n");
+    out.write_str(PREFERENCE_ROWS_PREAMBLE)?;
     for quantity in [
         PhysicalQuantity::Volume,
         PhysicalQuantity::Mass,
@@ -214,11 +272,11 @@ fn write_units_for_reader(out: &mut String, locale: &Locale, parsed: &LocaleTag)
     ] {
         let (source, rows) = sourced_rows_for(audience, quantity);
         let order = order(rows, true);
-        writeln!(out, "| {quantity:?} | {source} | {order} |").unwrap();
+        writeln!(out, "| {quantity:?} | {source} | {order} |")?;
     }
 
-    out.push_str("\n### Best unit for sample amounts\n\n");
-    out.push_str("| Given | Chosen unit | Written |\n|---|---|---|\n");
+    out.write_str("\n### Best unit for sample amounts\n\n")?;
+    out.write_str("| Given | Chosen unit | Written |\n|---|---|---|\n")?;
     for (value, from) in BEST_UNIT_SAMPLES {
         let from = Unit::from_id(from).expect("a sample unit");
         let (amount, chosen) = best_amount(value, from, audience);
@@ -228,9 +286,9 @@ fn write_units_for_reader(out: &mut String, locale: &Locale, parsed: &LocaleTag)
             locale.written(from),
             chosen.id(),
             locale.written(chosen)
-        )
-        .unwrap();
+        )?;
     }
+    Ok(())
 }
 
 /// Amounts that show where each system's rows switch units.
