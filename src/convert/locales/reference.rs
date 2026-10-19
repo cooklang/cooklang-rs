@@ -11,29 +11,38 @@ use super::tag::LocaleTag;
 use super::vendored::{cldr_version, tag_for, vendored_locale};
 use crate::convert::units::{PhysicalQuantity, Unit};
 
-/// Preference rows as `` `liter` ≥ 1 → `deciliter` ≥ 0.5 ``, largest first.
-pub(crate) fn order(rows: &[Row], with_thresholds: bool) -> String {
-    rows.iter()
-        .map(|row| {
-            let mut s = format!("`{}`", row.unit.id());
-            if with_thresholds {
-                write!(s, " ≥ {}", row.at_least).unwrap();
-            }
-            if let Some(den) = row.fractions {
-                write!(s, " (/{den})").unwrap();
-            }
-            if row.or_decimal {
-                s.push_str(" or decimal");
-            }
-            s
-        })
-        .collect::<Vec<_>>()
-        .join(" → ")
-}
-
 /// The numbers the plural evaluation table shows: enough to exercise
 /// `one`, `two`, `few`, `many` and fractional `other` in most languages.
 const PLURAL_SAMPLES: [f64; 9] = [0.0, 1.0, 2.0, 5.0, 11.0, 21.0, 22.0, 100.0, 1.5];
+
+/// The quantities the preference-rows table lists, in its row order.
+const QUANTITIES: [PhysicalQuantity; 5] = [
+    PhysicalQuantity::Volume,
+    PhysicalQuantity::Mass,
+    PhysicalQuantity::Length,
+    PhysicalQuantity::Temperature,
+    PhysicalQuantity::Time,
+];
+
+/// Amounts that show where each system's rows switch units.
+const BEST_UNIT_SAMPLES: [(f64, &str); 16] = [
+    (5.0, "milliliter"),
+    (20.0, "milliliter"),
+    (100.0, "milliliter"),
+    (500.0, "milliliter"),
+    (1500.0, "milliliter"),
+    (4.0, "us fluid ounce"),
+    (1.0, "imperial pint"),
+    (10.0, "gram"),
+    (500.0, "gram"),
+    (2000.0, "gram"),
+    (5.0, "millimeter"),
+    (30.0, "centimeter"),
+    (90.0, "minute"),
+    (48.0, "hour"),
+    (180.0, "celsius"),
+    (-18.0, "celsius"),
+];
 
 /// What a page is about: the frozen locale, or a vendored one reached from a tag.
 enum Page {
@@ -162,30 +171,18 @@ fn write_units(out: &mut impl Write, locale: &Locale) -> fmt::Result {
     out.write_str(UNITS_PREAMBLE)?;
     for unit in Unit::all() {
         let names = locale.names(unit);
-        let symbol = match locale.symbol(unit) {
-            Some(s) => format!("`{s}`"),
-            None => "—".to_string(),
-        };
-        let aliases = names
-            .map(|n| n.aliases.as_slice())
-            .filter(|a| !a.is_empty())
-            .map(|a| {
-                a.iter()
-                    .map(|s| format!("`{s}`"))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            })
-            .unwrap_or_else(|| "—".to_string());
-        let long = names
-            .map(|n| n.long.as_slice())
-            .filter(|l| !l.is_empty())
-            .map(|l| {
-                l.iter()
-                    .map(|(c, p)| format!("{c} `{p}`"))
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            })
-            .unwrap_or_else(|| "—".to_string());
+        let symbol = cell(", ", locale.symbol(unit).map(code).into_iter());
+        let aliases = cell(
+            ", ",
+            names.into_iter().flat_map(|n| &n.aliases).map(|s| code(s)),
+        );
+        let long = cell(
+            "; ",
+            names
+                .into_iter()
+                .flat_map(|n| &n.long)
+                .map(|(c, p)| format!("{c} `{p}`")),
+        );
         writeln!(out, "| `{}` | {symbol} | {aliases} | {long} |", unit.id())?;
     }
     Ok(())
@@ -263,16 +260,9 @@ fn write_units_for_reader(
     }
 
     out.write_str(PREFERENCE_ROWS_PREAMBLE)?;
-    for quantity in [
-        PhysicalQuantity::Volume,
-        PhysicalQuantity::Mass,
-        PhysicalQuantity::Length,
-        PhysicalQuantity::Temperature,
-        PhysicalQuantity::Time,
-    ] {
+    for quantity in QUANTITIES {
         let (source, rows) = sourced_rows_for(audience, quantity);
-        let order = order(rows, true);
-        writeln!(out, "| {quantity:?} | {source} | {order} |")?;
+        writeln!(out, "| {quantity:?} | {source} | {} |", order(rows))?;
     }
 
     out.write_str("\n### Best unit for sample amounts\n\n")?;
@@ -291,25 +281,34 @@ fn write_units_for_reader(
     Ok(())
 }
 
-/// Amounts that show where each system's rows switch units.
-const BEST_UNIT_SAMPLES: [(f64, &str); 16] = [
-    (5.0, "milliliter"),
-    (20.0, "milliliter"),
-    (100.0, "milliliter"),
-    (500.0, "milliliter"),
-    (1500.0, "milliliter"),
-    (4.0, "us fluid ounce"),
-    (1.0, "imperial pint"),
-    (10.0, "gram"),
-    (500.0, "gram"),
-    (2000.0, "gram"),
-    (5.0, "millimeter"),
-    (30.0, "centimeter"),
-    (90.0, "minute"),
-    (48.0, "hour"),
-    (180.0, "celsius"),
-    (-18.0, "celsius"),
-];
+/// A table cell listing `items`, or a dash when there are none.
+fn cell(separator: &str, items: impl Iterator<Item = String>) -> String {
+    let items: Vec<String> = items.collect();
+    if items.is_empty() {
+        "—".to_string()
+    } else {
+        items.join(separator)
+    }
+}
+
+fn code(s: &str) -> String {
+    format!("`{s}`")
+}
+
+/// Preference rows as `` `liter` ≥ 1 → `deciliter` ≥ 0.5 ``, largest first.
+fn order(rows: &[Row]) -> String {
+    let row = |row: &Row| {
+        let mut s = format!("`{}` ≥ {}", row.unit.id(), row.at_least);
+        if let Some(den) = row.fractions {
+            write!(s, " (/{den})").expect("writing to a String cannot fail");
+        }
+        if row.or_decimal {
+            s.push_str(" or decimal");
+        }
+        s
+    };
+    rows.iter().map(row).collect::<Vec<_>>().join(" → ")
+}
 
 #[cfg(test)]
 mod tests {
