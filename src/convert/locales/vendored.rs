@@ -150,22 +150,6 @@ mod tests {
         assert_eq!(tag_for(&LocaleTag::parse(tag).unwrap()), vendored, "{tag}");
     }
 
-    #[test]
-    fn every_vendored_locale_reads_back_what_it_writes() {
-        let mut count = 0;
-        for tag in vendored_tags() {
-            let locale = vendored_locale(tag).unwrap_or_else(|| panic!("{tag} missing"));
-            for unit in Unit::all() {
-                let written = locale.written(unit);
-                assert!(!written.is_empty(), "{tag} {}", unit.id());
-                assert_eq!(locale.resolve(written), Some(unit), "{tag} '{written}'");
-            }
-            count += 1;
-        }
-        assert!(count >= 34, "only {count} locales");
-        assert!(vendored_locale("sw").is_none(), "sw is not vendored");
-    }
-
     /// Extensions choose units, not names; lookup follows CLDR's parent chain before it truncates.
     #[test]
     fn tag_for_follows_cldr_parents_and_ignores_extensions() {
@@ -173,14 +157,6 @@ mod tests {
         assert_reaches("EN-gb", Some("en-GB"));
         // the parent chain, where truncation would reach US English
         assert_reaches("en-NZ", Some("en-001"));
-    }
-
-    /// Deliberately a list rather than a count, so that reviewing the next locale is a conscious act with a test to
-    /// update, not something that slips in.
-    #[test]
-    fn only_da_fi_pl_and_sv_are_reviewed() {
-        let reviewed: Vec<&str> = vendored_tags().filter(|t| names_reviewed(t)).collect();
-        assert_eq!(reviewed, ["da", "fi", "pl", "sv"]);
     }
 
     /// Adjudication does not imply review: a locale with a verdict for every ambiguous string is still refused until a

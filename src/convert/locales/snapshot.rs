@@ -23,7 +23,9 @@ use crate::convert::locales::preference::{
     REGION_PREFERENCES,
 };
 use crate::convert::locales::tag::LocaleTag;
-use crate::convert::locales::vendored::{tag_for, vendored_locale, vendored_tags, PARENT_LOCALES};
+use crate::convert::locales::vendored::{
+    names_reviewed, tag_for, vendored_locale, vendored_tags, PARENT_LOCALES,
+};
 use crate::convert::units::{PhysicalQuantity, TemperatureUnit, Unit};
 
 const PATH: &str = concat!(
@@ -230,6 +232,9 @@ fn render_derived(out: &mut String, tags: &[&str]) {
         writeln!(out, "fallback {probe} -> {reached}").unwrap();
     }
 
+    for tag in tags {
+        writeln!(out, "reviewed {tag} -> {}", names_reviewed(tag)).unwrap();
+    }
     for region in REGIONS {
         writeln!(
             out,

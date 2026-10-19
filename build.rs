@@ -491,6 +491,15 @@ fn generate_locales() {
                 "{path}: '{}' has neither a symbol nor an alias",
                 unit.id
             );
+            // a conversion writes the symbol, so an empty one would write nothing at all
+            assert!(
+                unit.symbol
+                    .iter()
+                    .chain(&unit.aliases)
+                    .all(|n| !n.is_empty()),
+                "{path}: '{}' has an empty name",
+                unit.id
+            );
             // ADR 3: outside the US customary locales an unmarked word for a US unit is refused, and only English and
             // US Spanish name the imperial units. CLDR marks the imperial side of each pair (`brittiska quarts`,
             // `Imp. Gallonen`) and leaves the US side bare, which is its layout, not evidence that a Swedish kitchen
