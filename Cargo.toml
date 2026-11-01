@@ -13,7 +13,7 @@ readme = "README.md"
 [dependencies]
 bitflags = { version = "2", features = ["serde"] }
 serde = { version = "1", features = ["derive", "rc"] }
-strum = { version = "0.26.1", features = ["derive"] }
+strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2"
 enum-map = { version = "3", features = ["serde"] }
 tracing = "0.1"
