@@ -332,6 +332,7 @@ pub fn metadata_get_std(recipe: &Arc<CooklangRecipe>, key: StdKey) -> Option<Str
         StdKey::PrepTime => OriginalStdKey::PrepTime,
         StdKey::CookTime => OriginalStdKey::CookTime,
         StdKey::Servings => OriginalStdKey::Servings,
+        StdKey::Yield => OriginalStdKey::Yield,
         StdKey::Difficulty => OriginalStdKey::Difficulty,
         StdKey::Cuisine => OriginalStdKey::Cuisine,
         StdKey::Diet => OriginalStdKey::Diet,
@@ -807,7 +808,7 @@ a test @step @salt{1%mg} more text
         let servings = metadata_servings(&recipe);
         assert!(servings.is_some());
         match servings.unwrap() {
-            Servings::Number { value } => assert_eq!(value, 4),
+            Servings::Number { value } => assert_eq!(value, 4.0),
             _ => panic!("Expected number servings"),
         }
 
@@ -1451,8 +1452,8 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
         assert_eq!(
             ingredient.reference,
             Some(RecipeReference {
+                path: "./pasta/spaghetti".to_string(),
                 name: "spaghetti".to_string(),
-                components: vec![".".to_string(), "pasta".to_string()],
             })
         );
     }

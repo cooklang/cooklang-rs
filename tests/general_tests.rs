@@ -1,6 +1,14 @@
-use cooklang::{Content, CooklangParser, Extensions, Item, Value};
+use cooklang::analysis::{CheckResult, RecipeRefTarget};
+use cooklang::{
+    Content, Converter, CooklangParser, Extensions, Item, ParseOptions, RecipeReference, Value,
+};
 use indoc::indoc;
+use std::cell::RefCell;
+use std::sync::LazyLock;
 use test_case::test_case;
+
+static PARSER: LazyLock<CooklangParser> =
+    LazyLock::new(|| CooklangParser::new(Extensions::all(), Converter::default()));
 
 #[test_case(
     indoc! {r#"
@@ -92,8 +100,7 @@ use test_case::test_case;
     "#} => vec![vec![None], vec![None, Some(1)]]; "complex 5"
 )]
 fn step_number(src: &str) -> Vec<Vec<Option<u32>>> {
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(src).unwrap_output();
+    let r = PARSER.parse(src).unwrap_output();
     let numbers: Vec<Vec<Option<u32>>> = r
         .sections
         .into_iter()
@@ -124,12 +131,9 @@ fn empty_not_empty() {
     "#};
 
     // should be the same with multiline and without
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert!(r.sections.is_empty());
-
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert!(r.sections.is_empty());
 }
 
@@ -149,12 +153,9 @@ fn empty_steps() {
     "#};
 
     // should be the same with multiline and without
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert!(r.sections[0].content.is_empty());
-
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert!(r.sections[0].content.is_empty());
 }
 
@@ -167,8 +168,7 @@ fn whitespace_line_block_separator() {
     "#};
 
     // should be the same with multiline and without
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert_eq!(r.sections[0].content.len(), 2);
 }
 
@@ -180,8 +180,7 @@ fn single_line_no_separator() {
         another step
         = section
     "#};
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert_eq!(r.sections.len(), 2);
     assert_eq!(r.sections[0].content.len(), 2);
     assert_eq!(r.sections[1].content.len(), 0);
@@ -191,8 +190,7 @@ fn single_line_no_separator() {
 #[test]
 fn multiple_temperatures() {
     let input = "text 2ºC more text 150 F end text";
-    let parser = CooklangParser::new(Extensions::all(), Default::default());
-    let r = parser.parse(input).unwrap_output();
+    let r = PARSER.parse(input).unwrap_output();
     assert_eq!(r.inline_quantities.len(), 2);
     assert_eq!(r.inline_quantities[0].value(), &Value::from(2.0));
     assert_eq!(r.inline_quantities[0].unit(), Some("ºC"));
@@ -272,4 +270,83 @@ fn timer_missing_unit_warning() {
 
     // Should parse successfully (not error)
     let _r = result.unwrap_output();
+}
+
+/// Collects what [`ParseOptions::recipe_ref_check`] is handed for `input`,
+/// rendered by `describe`.
+fn checked_refs<F>(input: &str, path: Option<&str>, describe: F) -> Vec<String>
+where
+    F: Fn(RecipeRefTarget) -> String,
+{
+    let seen = RefCell::new(Vec::new());
+
+    let options = ParseOptions {
+        recipe_ref_check: Some(Box::new(|target: RecipeRefTarget| {
+            seen.borrow_mut().push(describe(target));
+            CheckResult::Ok
+        })),
+        ..Default::default()
+    };
+
+    let path = path.map(|s| s.parse::<RecipeReference>().unwrap());
+    let _ = PARSER.parse_with_options(input, options, path);
+    seen.into_inner()
+}
+
+fn tagged(target: RecipeRefTarget) -> String {
+    match target {
+        RecipeRefTarget::Resolved(reference) => format!("resolved {reference}"),
+        RecipeRefTarget::Unresolved(reference) => format!("unresolved {reference}"),
+    }
+}
+
+#[test]
+fn what_the_recipe_ref_check_is_handed() {
+    let handed = |input: &str, path: Option<&str>| checked_refs(input, path, tagged).join(", ");
+
+    // resolved against the recipe's path
+    assert_eq!(
+        handed("@@../spices/x.cook{}", Some("./pickles/sour.cook")),
+        "resolved ./spices/x.cook"
+    );
+    assert_eq!(
+        handed("@@./spices/x.cook{}", Some("./root.cook")),
+        "resolved ./spices/x.cook"
+    );
+    // told when there is no path to resolve against
+    assert_eq!(
+        handed("@@../spices/x.cook{}", None),
+        "unresolved ../spices/x.cook"
+    );
+    // backslash separators read as a path
+    assert_eq!(
+        handed(r#"@@..\\spices\\x.cook{}"#, Some("./pickles/sour.cook")),
+        "resolved ./spices/x.cook"
+    );
+    assert_eq!(
+        handed(r#"@@.\\spices\\x.cook{}"#, None),
+        "unresolved ./spices/x.cook"
+    );
+    // not called for a bare name
+    assert_eq!(handed("@@plain{}", Some("./root.cook")), "");
+    assert_eq!(handed("@@plain{}", None), "");
+}
+
+#[test]
+fn every_recipe_ref_target_carries_a_name() {
+    let name = |target: RecipeRefTarget| target.name().to_string();
+
+    assert_eq!(
+        checked_refs("@@../spices/x.cook{}", Some("./pickles/sour.cook"), name),
+        ["x.cook"]
+    );
+    assert_eq!(checked_refs("@@../spices/x.cook{}", None, name), ["x.cook"]);
+}
+
+#[test]
+fn a_backslash_that_separates_no_path_stays_in_the_name() {
+    let recipe = PARSER.parse(r#"@@my\\recipe{}"#).unwrap_output();
+
+    assert_eq!(recipe.ingredients[0].name, r#"my\recipe"#);
+    assert!(recipe.ingredients[0].reference.is_none());
 }

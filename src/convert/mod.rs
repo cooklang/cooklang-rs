@@ -138,6 +138,18 @@ impl Converter {
         }
     }
 
+    /// Get the smallest metric unit of a physical quantity.
+    ///
+    /// This is the unit every other one in the family converts up from, for
+    /// example `mg` for mass or `ml` for volume. It is always one of
+    /// [`Self::best_units`].
+    ///
+    /// Returns `None` if the physical quantity has no metric units.
+    fn base_unit(&self, quantity: PhysicalQuantity) -> Option<Arc<Unit>> {
+        let unit_id = self.best[quantity].conversions(System::Metric).base()?;
+        Some(Arc::clone(&self.all_units[unit_id]))
+    }
+
     /// Find a unit by any of it's names, symbols or aliases
     pub fn find_unit(&self, unit: &str) -> Option<Arc<Unit>> {
         let uid = self.unit_index.get_unit_id(unit).ok()?;
@@ -483,7 +495,9 @@ impl Quantity {
         let value = ConvertValue::try_from(self.value())?;
 
         let (new_value, new_unit) = converter.convert(value, unit, to)?;
-        *self = Quantity::new(new_value.into(), Some(new_unit.symbol().to_string()));
+        // a conversion changes the amount and the unit, not whether it scales
+        self.value = new_value.into();
+        self.unit = Some(new_unit.symbol().to_string());
         match to {
             ConvertTo::Unit(_) => {
                 self.try_fraction(converter);
@@ -518,6 +532,33 @@ impl Quantity {
         // convert to the best in the same system
         self.convert(ConvertTo::SameSystem, converter)?;
 
+        Ok(())
+    }
+
+    /// Converts the unit to the smallest metric one of its family, so `1 kg`
+    /// becomes `1000000 mg` and `1 cup` becomes millilitres: the inverse of
+    /// [`Self::fit`].
+    ///
+    /// Semantic equality takes both quantities here. Always metric, whatever
+    /// system either was written in, is what makes units from different
+    /// systems comparable at all. No fraction is fitted afterwards, since that
+    /// could pick a bigger unit of the family again.
+    #[tracing::instrument(level = "trace", skip_all)]
+    pub(crate) fn convert_to_base_unit(
+        &mut self,
+        converter: &Converter,
+    ) -> Result<(), ConvertError> {
+        let Some(symbol) = self.unit() else {
+            return Err(ConvertError::NoUnit(self.clone()));
+        };
+        let unit = self
+            .unit_info(converter)
+            .ok_or_else(|| ConvertError::UnknownUnit(UnknownUnit(symbol.to_string())))?;
+        let value = ConvertValue::try_from(self.value())?;
+
+        let (new_value, new_unit) = converter.convert_to_base(value, &unit)?;
+        self.value = new_value.into();
+        self.unit = Some(new_unit.symbol().to_string());
         Ok(())
     }
 
@@ -596,7 +637,8 @@ impl Quantity {
             }
             Value::Text(_) => unreachable!(),
         };
-        *self = Quantity::new(new_value, Some(new_unit.symbol().to_string()));
+        self.value = new_value;
+        self.unit = Some(new_unit.symbol().to_string());
         Ok(true)
     }
 
@@ -682,6 +724,22 @@ impl Converter {
         let converted = self.convert_value(value, unit, best_unit.as_ref());
 
         Ok((converted, best_unit))
+    }
+
+    fn convert_to_base(
+        &self,
+        value: ConvertValue,
+        unit: &Unit,
+    ) -> Result<(ConvertValue, Arc<Unit>), ConvertError> {
+        let base_unit =
+            self.base_unit(unit.physical_quantity)
+                .ok_or(ConvertError::BestUnitNotFound {
+                    physical_quantity: unit.physical_quantity,
+                    system: Some(System::Metric),
+                })?;
+        let converted = self.convert_value(value, unit, base_unit.as_ref());
+
+        Ok((converted, base_unit))
     }
 
     fn convert_value(&self, value: ConvertValue, from: &Unit, to: &Unit) -> ConvertValue {

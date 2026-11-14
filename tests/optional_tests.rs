@@ -55,7 +55,8 @@ fn optional_recipe_reference() {
     assert!(igr.modifiers().is_optional());
     assert_eq!(igr.name, "chimichurri");
     let reference = igr.reference.as_ref().expect("recipe reference");
-    assert_eq!(reference.components, vec![".", "sauces"]);
+    assert_eq!(reference.name(), "chimichurri");
+    assert_eq!(reference.to_string(), "./sauces/chimichurri");
 }
 
 #[test]
