@@ -383,9 +383,9 @@ impl Quantity {
 /// converted to the metric base unit of their family, so `3 dl` equals
 /// `300 ml` and, across systems, `1 cup` equals `236.59 ml`.
 ///
-/// The values are then compared with a small absolute tolerance, so the
-/// error the conversion itself leaves behind does not make two equal
-/// amounts differ.
+/// The values are then compared within a small tolerance, absolute near zero
+/// and relative to the amount otherwise, so the error the conversion itself
+/// leaves behind does not make two equal amounts differ.
 ///
 /// Quantities that can't be converted, like text values, quantities without
 /// a unit or with a unit unknown to the `converter`, are compared as
@@ -1110,6 +1110,12 @@ mod tests {
         // across systems
         assert!(eq("236.588236%ml", "1%cup"));
         assert!(eq("453.59237%g", "1%lb"));
+        // the bundled imperial ratios are truncated, so canonical equivalences
+        // only agree to about 1e-7 of their size once converted
+        assert!(eq("3%tsp", "1%tbsp"));
+        assert!(eq("16%tbsp", "1%cup"));
+        assert!(eq("48%tsp", "1%cup"));
+        assert!(eq("16%oz", "1%lb"));
         assert!(!eq("1%l", "1%cup"));
         // a unit's fractions `accuracy` no longer loosens the comparison, so a
         // cup is only the volume it converts to

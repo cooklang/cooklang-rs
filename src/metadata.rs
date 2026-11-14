@@ -1,6 +1,6 @@
 //! Metadata of a recipe
 
-use crate::float::round_f64;
+use crate::float::{equal_f64_with_tolerance, round_f64};
 use std::{borrow::Cow, num::ParseFloatError, str::FromStr};
 
 use serde::{Deserialize, Serialize};
@@ -751,19 +751,18 @@ impl SemanticEq for serde_yaml::Value {
     }
 }
 
-/// Compares two servings counts, allowing the rounding error scaling
-/// introduces.
+/// Compares two servings counts, allowing the float error scaling leaves
+/// behind.
 ///
-/// Unlike [`PartialEq`], numeric servings are compared rounded one digit finer
-/// than [`Recipe::scale`](crate::Recipe::scale) writes them, so a count scaled
-/// to `2.5` equals one written as `2.50001` while `4.05` and `4.1` stay apart.
-/// Text servings are compared as written.
+/// Unlike [`PartialEq`], numeric servings are compared within half a unit of
+/// the digit finer than the one [`Recipe::scale`](crate::Recipe::scale) writes,
+/// so a count scaled to `2.5` equals one written as `2.50001` while `4.05` and
+/// `4.1` stay apart. Text servings are compared as written.
 impl SemanticEq for Servings {
     fn equals(&self, other: &Self, _converter: &Converter) -> bool {
         match (self, other) {
             (Servings::Number(a), Servings::Number(b)) => {
-                round_f64(*a, Servings::COMPARE_PRECISION)
-                    == round_f64(*b, Servings::COMPARE_PRECISION)
+                equal_f64_with_tolerance(*a, *b, Servings::COMPARE_TOLERANCE)
             }
             (Servings::Text(a), Servings::Text(b)) => a == b,
             _ => false,
@@ -776,10 +775,11 @@ impl Servings {
     /// decimal: more would claim a precision the recipe never had
     pub(crate) const WRITE_PRECISION: u32 = 1;
 
-    /// Comparing one digit finer than the writer keeps every count the writer
-    /// could produce distinguishable, while absorbing the float error it leaves
-    /// behind
-    const COMPARE_PRECISION: u32 = Self::WRITE_PRECISION + 1;
+    /// Half a unit of the digit finer than [`Self::WRITE_PRECISION`], so every
+    /// count the writer can produce stays distinguishable while the float error
+    /// it leaves behind is absorbed. A tolerance rather than rounding, because
+    /// rounding splits counts that straddle a boundary, `2.345` and `2.3449999`
+    const COMPARE_TOLERANCE: f64 = 0.005;
 
     /// The servings scaled by `factor`, with the count rounded to the precision
     /// a servings count is written with
@@ -1242,7 +1242,7 @@ mod tests {
     }
 
     #[test]
-    fn servings_partial_eq_is_exact_and_semantic_eq_rounds_to_two_decimals() {
+    fn servings_partial_eq_is_exact_and_semantic_eq_absorbs_float_error() {
         // a count has no unit, so the converter has nothing to say about it and
         // an empty one gives the same answer as the bundled one
         let converter = Converter::empty();
@@ -1252,19 +1252,21 @@ mod tests {
         assert_ne!(n(4.0), n(4.000_1));
         assert_eq!(n(4.0), n(4.0));
 
-        // equals absorbs the rounding error scaling introduces, because both
-        // counts round to the same two decimals
+        // equals absorbs the float error scaling leaves behind, wherever the
+        // count lands: 2.345 and 2.3449999 straddle a rounding boundary and
+        // are still the same count
         assert!(n(4.0).equals(&n(4.000_1), &converter));
         assert!(n(4.0).equals(&n(4.004), &converter));
+        assert!(n(2.345).equals(&n(2.344_999_9), &converter));
         // a difference a recipe could write down survives the rounding
         assert!(!n(4.0).equals(&n(4.05), &converter));
         assert!(!n(2.5).equals(&n(2.0), &converter));
 
-        // comparing is one digit finer than writing, so two counts the writer
-        // could tell apart are never merged: at WRITE_PRECISION both of these
-        // round to 4.1
+        // the tolerance is below the digit the writer produces, so two counts
+        // the writer could tell apart are never merged: at WRITE_PRECISION both
+        // of these round to 4.1
         assert!(!n(4.05).equals(&n(4.1), &converter));
-        assert_eq!(Servings::COMPARE_PRECISION, Servings::WRITE_PRECISION + 1);
+        assert!(Servings::COMPARE_TOLERANCE < 10f64.powi(-(Servings::WRITE_PRECISION as i32)));
 
         // scaling rounds to the precision a count is written with
         assert_eq!(n(4.0).scaled(1.0 / 3.0), n(1.3));

@@ -1523,13 +1523,9 @@ fn parse_reference(name: &str) -> Option<RecipeReference> {
     // a reference may separate with `\` (written `\\` in a recipe, since `\`
     // escapes), which was accepted before a reference became a relative path.
     // `\` is a legal file name character on unix, so this stays at the cooklang
-    // boundary instead of going into `RecipeReference`
-    let name = name.replace('\\', "/");
-    if name.starts_with("./") || name.starts_with("../") {
-        name.parse::<RecipeReference>().ok()
-    } else {
-        None
-    }
+    // boundary instead of going into `RecipeReference`. What a reference looks
+    // like otherwise is `RecipeReference`'s rule, applied by `parse`
+    name.replace('\\', "/").parse().ok()
 }
 
 #[cfg(test)]

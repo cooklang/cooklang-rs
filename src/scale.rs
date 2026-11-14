@@ -2,8 +2,8 @@
 
 use crate::{
     convert::Converter,
-    float::round_f64,
-    metadata::{is_scalable_amount, Servings},
+    float::{round_f64, snap_f64},
+    metadata::{is_scalable_amount, Metadata, Servings},
     quantity::Value,
     Quantity, Recipe,
 };
@@ -43,18 +43,7 @@ impl Recipe {
             .servings()
             .and_then(|s| s.scaled(factor).as_number())
         {
-            if let Some(servings_value) = self.metadata.get_mut(crate::metadata::StdKey::Servings) {
-                // Preserve the original type (string or number)
-                match servings_value {
-                    serde_yaml::Value::String(_) => {
-                        *servings_value = serde_yaml::Value::String(new_servings.to_string());
-                    }
-                    _ => {
-                        *servings_value =
-                            serde_yaml::Value::Number(serde_yaml::Number::from(new_servings));
-                    }
-                }
-            }
+            write_servings(&mut self.metadata, new_servings);
         }
 
         // the yield is an amount the recipe makes, so it cannot stay behind the
@@ -113,17 +102,7 @@ impl Recipe {
 
         // written to the precision a count is written with, as `scale` does
         let written = round_f64(target, Servings::WRITE_PRECISION);
-        if let Some(servings_value) = self.metadata.get_mut(crate::metadata::StdKey::Servings) {
-            // Preserve the original type (string or number)
-            match servings_value {
-                serde_yaml::Value::String(_) => {
-                    *servings_value = serde_yaml::Value::String(written.to_string());
-                }
-                _ => {
-                    *servings_value = serde_yaml::Value::Number(serde_yaml::Number::from(written));
-                }
-            }
-        }
+        write_servings(&mut self.metadata, written);
         Ok(())
     }
 
@@ -230,6 +209,18 @@ impl Recipe {
     }
 }
 
+/// Writes a count back under the key the recipe spelled, keeping the type it
+/// was written with
+fn write_servings(metadata: &mut Metadata, count: f64) {
+    let Some(entry) = metadata.get_mut(crate::metadata::StdKey::Servings) else {
+        return;
+    };
+    *entry = match entry {
+        serde_yaml::Value::String(_) => serde_yaml::Value::String(snap_f64(count).to_string()),
+        _ => serde_yaml::Value::Number(yaml_number(count)),
+    };
+}
+
 /// Writes a yield quantity back in the `value%unit` form the key is read in
 fn yield_metadata_value(qty: &Quantity) -> serde_yaml::Value {
     let value = match qty.value() {
@@ -238,8 +229,21 @@ fn yield_metadata_value(qty: &Quantity) -> serde_yaml::Value {
         _ => return serde_yaml::Value::String(qty.value().to_string()),
     };
     match qty.unit() {
-        Some(unit) => serde_yaml::Value::String(format!("{value}%{unit}")),
-        None => serde_yaml::Value::Number(serde_yaml::Number::from(value)),
+        Some(unit) => serde_yaml::Value::String(format!("{}%{unit}", snap_f64(value))),
+        None => serde_yaml::Value::Number(yaml_number(value)),
+    }
+}
+
+/// A whole amount stays an integer, so `servings: 4` scaled by 2 reads `8`,
+/// and a reader that took it as an integer before scaling still can. The
+/// `u64` bounds guard the cast; `serde_yaml::Number::from(f64)` is always a
+/// float
+fn yaml_number(n: f64) -> serde_yaml::Number {
+    let n = snap_f64(n);
+    if n.fract() == 0.0 && n >= 0.0 && n < u64::MAX as f64 {
+        serde_yaml::Number::from(n as u64)
+    } else {
+        serde_yaml::Number::from(n)
     }
 }
 

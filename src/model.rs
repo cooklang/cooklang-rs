@@ -6,12 +6,6 @@ use std::borrow::Cow;
 use std::str::FromStr;
 use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub enum RecipeReferenceParseError {
-    #[error("reference is missing name {0}")]
-    MissingName(String),
-}
-
 #[cfg(feature = "ts")]
 use tsify::Tsify;
 
@@ -19,6 +13,18 @@ use crate::{
     convert::Converter, metadata::Metadata, parser::Modifiers, quantity::Quantity,
     semantic_eq::SemanticEq, GroupedQuantity,
 };
+
+/// Why a string could not become a [`RecipeReference`]
+#[derive(Debug, Error)]
+pub enum RecipeReferenceParseError {
+    /// A reference starts with `./` or `../`, the way a recipe writes one.
+    /// An absolute path fails here too, rather than silently becoming relative.
+    #[error("recipe reference does not start with `./` or `../`: {0:?}")]
+    NotRelative(String),
+    /// `./`, `../` and `./a/..` name no file
+    #[error("recipe reference has no file name: {0:?}")]
+    MissingName(String),
+}
 
 /// A complete recipe
 ///
@@ -51,6 +57,7 @@ pub struct Recipe {
     /// All the inline quantities
     pub inline_quantities: Vec<Quantity>,
     /// The path of the recipe file this was parsed from
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<RecipeReference>,
 }
 
@@ -241,8 +248,13 @@ impl RecipeReference {
 impl FromStr for RecipeReference {
     type Err = RecipeReferenceParseError;
 
-    /// A reference has to name a file, so `..` and `./a/..` are errors
+    /// The rule a recipe follows: `./` or `../`, then a path that names a file.
+    /// `parse_reference` at the cooklang boundary relies on this being the
+    /// whole rule, so it is kept here and nowhere else.
     fn from_str(path: &str) -> Result<Self, Self::Err> {
+        if !(path.starts_with("./") || path.starts_with("../")) {
+            return Err(RecipeReferenceParseError::NotRelative(path.to_string()));
+        }
         match RelativePathBuf::from(path) {
             rp if rp.file_name().is_some() => Ok(RecipeReference(Self::normalize(rp))),
             _ => Err(RecipeReferenceParseError::MissingName(path.to_string())),
@@ -280,6 +292,7 @@ pub struct Ingredient {
     pub(crate) modifiers: Modifiers,
 
     /// The path of the recipe file this ingredient was parsed from
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recipe_path: Option<RecipeReference>,
 }
 
@@ -690,7 +703,7 @@ impl SemanticEq for Timer {
 
 #[cfg(test)]
 mod tests {
-    use super::{Recipe, RecipeReference};
+    use super::{Recipe, RecipeReference, RecipeReferenceParseError};
     use crate::{Converter, CooklangParser, Extensions, SemanticEq};
 
     use indoc::indoc;
@@ -735,6 +748,20 @@ mod tests {
     }
 
     #[test]
+    fn a_recipe_parsed_without_a_path_serializes_no_path_fields() {
+        // the path is per recipe and absent more often than not, so a recipe
+        // and each of its ingredients should not carry a null for it
+        let json = serde_json::to_string(&recipe("@flour{1%g}")).unwrap();
+        assert!(!json.contains("\"path\""), "{json}");
+        assert!(!json.contains("\"recipe_path\""), "{json}");
+
+        // with a path, both are written and read back
+        let json = serde_json::to_string(&referenced("./a/b.cook", "@flour{1%g}")).unwrap();
+        assert!(json.contains("\"path\":\"./a/b.cook\""), "{json}");
+        assert!(json.contains("\"recipe_path\":\"./a/b.cook\""), "{json}");
+    }
+
+    #[test]
     fn deserializing_a_reference_goes_through_the_constructor() {
         let parse = |json: &str| serde_json::from_str::<RecipeReference>(json);
 
@@ -742,8 +769,9 @@ mod tests {
         assert!(parse("\"..\"").is_err());
         assert!(parse("\"\"").is_err());
 
+        // the same rule as a recipe: a reference starts with `./` or `../`
+        assert!(parse("\"a/b\"").is_err());
         // and the path is normalized, so `Display` keeps its `./` promise
-        assert_eq!(parse("\"a/b\"").unwrap().to_string(), "./a/b");
         assert_eq!(parse("\"./a/../b\"").unwrap().to_string(), "./b");
 
         // round trips through serde
@@ -988,7 +1016,7 @@ mod tests {
     #[test]
     fn sibling_in_same_directory() {
         assert_eq!(
-            rel("./tomato", "recipes/pasta/spaghetti"),
+            rel("./tomato", "./recipes/pasta/spaghetti"),
             "./recipes/pasta/tomato"
         );
     }
@@ -996,7 +1024,7 @@ mod tests {
     #[test]
     fn parent_directory_reference() {
         assert_eq!(
-            rel("../sauces/tomato", "recipes/pasta/spaghetti"),
+            rel("../sauces/tomato", "./recipes/pasta/spaghetti"),
             "./recipes/sauces/tomato"
         );
     }
@@ -1004,36 +1032,27 @@ mod tests {
     #[test]
     fn multiple_parent_directory_references() {
         assert_eq!(
-            rel("../../sauces/tomato", "recipes/italian/pasta/spaghetti"),
+            rel("../../sauces/tomato", "./recipes/italian/pasta/spaghetti"),
             "./recipes/sauces/tomato"
         );
     }
 
     #[test]
     fn other_at_root_has_no_parent() {
-        // "spaghetti" has no directory component, so the base is the root.
-        assert_eq!(rel("./sauce", "spaghetti"), "./sauce");
-    }
-
-    #[test]
-    fn reference_without_dot_prefix_is_treated_as_relative() {
-        // A bare relative path behaves the same as one with a "./" prefix.
-        assert_eq!(
-            rel("sauces/tomato", "recipes/pasta/spaghetti"),
-            "./recipes/pasta/sauces/tomato"
-        );
+        // "./spaghetti" has no directory component, so the base is the root.
+        assert_eq!(rel("./sauce", "./spaghetti"), "./sauce");
     }
 
     #[test]
     fn resolving_from_self_gives_own_path() {
-        assert_eq!(rel("./spaghetti", "spaghetti"), "./spaghetti");
+        assert_eq!(rel("./spaghetti", "./spaghetti"), "./spaghetti");
     }
 
     #[test]
     fn can_escape_above_the_other_reference_root() {
         // Going up more levels than "other" has just walks above the root;
         // resolved_from does not clamp this.
-        assert_eq!(rel("../tomato", "spaghetti"), "../tomato");
+        assert_eq!(rel("../tomato", "./spaghetti"), "../tomato");
     }
 
     #[test]
@@ -1047,9 +1066,24 @@ mod tests {
     }
 
     #[test]
-    fn bare_path_is_prefixed_with_dot_slash() {
-        assert_eq!(rref("spaghetti").to_string(), "./spaghetti");
-        assert_eq!(rref("pasta/spaghetti").to_string(), "./pasta/spaghetti");
+    fn a_reference_starts_with_dot_or_dotdot() {
+        // the rule the cooklang boundary applies, held here so a reference read
+        // back from JSON or built by hand cannot be one a recipe could not have
+        // written. An absolute path fails the same way, instead of silently
+        // becoming relative
+        assert_not_relative("spaghetti");
+        assert_not_relative("pasta/spaghetti");
+        assert_not_relative("/pasta/spaghetti");
+        assert_not_relative("");
+    }
+
+    #[track_caller]
+    fn assert_not_relative(s: &str) {
+        let result = s.parse::<RecipeReference>();
+        assert!(
+            matches!(result, Err(RecipeReferenceParseError::NotRelative(_))),
+            "{s:?} parsed as {result:?}, expected NotRelative"
+        );
     }
 
     #[test]

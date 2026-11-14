@@ -60,7 +60,7 @@ Mix and bake."#;
         .metadata
         .get(cooklang::metadata::StdKey::Servings)
         .unwrap();
-    assert_eq!(scaled_servings_value.as_f64(), Some(8.0));
+    assert_eq!(scaled_servings_value.as_u64(), Some(8));
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_scale_by_factor_updates_servings_metadata() {
     // Handle both string and number formats
     match scaled_servings_value {
         serde_yaml::Value::String(s) => assert_eq!(s, "6"),
-        serde_yaml::Value::Number(n) => assert_eq!(n.as_f64(), Some(6.0)),
+        serde_yaml::Value::Number(n) => assert_eq!(n.as_u64(), Some(6)),
         _ => panic!("Unexpected servings value type"),
     }
 }
@@ -431,4 +431,25 @@ fn scaling_to_servings_writes_the_count_rounded_as_scaling_does() {
     recipe.scale_to_servings(4.567, &CONVERTER).unwrap();
 
     assert_eq!(servings(&recipe), Some(4.6));
+}
+
+fn raw_yield(recipe: &Recipe) -> serde_yaml::Value {
+    recipe
+        .metadata
+        .get(cooklang::metadata::StdKey::Yield)
+        .cloned()
+        .unwrap()
+}
+
+#[test]
+fn a_scaled_yield_is_written_without_float_noise() {
+    // 3 * 1.1 is 3.3000000000000003 in f64, which no recipe should have to read
+    let mut recipe = parse("---\nyield: 3%g\n---\n@flour{100%g}");
+    recipe.scale(1.1, &CONVERTER);
+    assert_eq!(raw_yield(&recipe).as_str(), Some("3.3%g"));
+
+    // a whole yield is an integer, like a whole count
+    let mut recipe = parse("---\nyield: 3\n---\n@flour{100%g}");
+    recipe.scale(2.0, &CONVERTER);
+    assert_eq!(raw_yield(&recipe).as_u64(), Some(6));
 }
