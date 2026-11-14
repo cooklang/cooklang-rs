@@ -820,8 +820,19 @@ jobs:
         working-directory: typescript
         run: |
           npm ci
+          npm run build-wasm
           npm run build
+
+      # Publish the exact tarball we verified, so a missing pkg/ (e.g. an
+      # ignore file excluding it, as happened with 0.19.0) fails the release.
+      - name: Pack and verify npm tarball
+        working-directory: typescript
+        run: |
+          npm pack --ignore-scripts
+          for f in pkg/cooklang_wasm.js pkg/cooklang_wasm_bg.js pkg/cooklang_wasm_bg.wasm; do
+            tar tzf cooklang-cooklang-*.tgz | grep -qx "package/$f" || { echo "::error::npm tarball is missing $f"; exit 1; }
+          done
 
       - name: Publish to npm
         working-directory: typescript
-        run: npm publish --provenance --access public
+        run: npm publish ./cooklang-cooklang-*.tgz --provenance --access public
