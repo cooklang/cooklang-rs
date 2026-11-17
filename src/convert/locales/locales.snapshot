@@ -5544,10 +5544,10 @@ reviewed cs -> false
 reviewed da -> true
 reviewed de -> false
 reviewed el -> false
-reviewed en -> false
+reviewed en -> true
 reviewed en-001 -> false
 reviewed en-AU -> false
-reviewed en-GB -> false
+reviewed en-GB -> true
 reviewed es -> false
 reviewed es-419 -> false
 reviewed es-CO -> false
