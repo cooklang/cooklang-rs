@@ -84,36 +84,6 @@ aliases = ["gallon", "gallons"]
 long = { one = "{0} gallon", other = "{0} gallons" }
 
 [[unit]]
-id = "imperial fluid ounce"
-symbol = "fl oz Imp."
-aliases = ["Imp. fluid ounce", "Imp. fluid ounces"]
-long = { one = "{0} Imp. fluid ounce", other = "{0} Imp. fluid ounces" }
-
-[[unit]]
-id = "imperial pint"
-symbol = "pt Imp."
-aliases = ["pint Imperial", "pints Imperial"]
-long = { one = "{0} pint Imperial", other = "{0} pints Imperial" }
-
-[[unit]]
-id = "imperial quart"
-symbol = "qt-Imp."
-aliases = ["Imp. quart", "Imp. quarts"]
-long = { one = "{0} Imp. quart", other = "{0} Imp. quarts" }
-
-[[unit]]
-id = "imperial gallon"
-symbol = "gal Imp."
-aliases = ["Imp. gallon", "Imp. gallons"]
-long = { one = "{0} Imp. gallon", other = "{0} Imp. gallons" }
-
-[[unit]]
-id = "metric cup"
-symbol = "mc"
-aliases = ["metric cup", "metric cups"]
-long = { one = "{0} metric cup", other = "{0} metric cups" }
-
-[[unit]]
 id = "kilogram"
 symbol = "kg"
 aliases = ["kilogram", "kilograms"]

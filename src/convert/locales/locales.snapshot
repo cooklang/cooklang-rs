@@ -929,12 +929,6 @@ plural el 12 -> other
 plural el 14 -> other
 resolve en "C" -> celsius
 resolve en "F" -> fahrenheit
-resolve en "Imp. fluid ounce" -> imperial fluid ounce
-resolve en "Imp. fluid ounces" -> imperial fluid ounce
-resolve en "Imp. gallon" -> imperial gallon
-resolve en "Imp. gallons" -> imperial gallon
-resolve en "Imp. quart" -> imperial quart
-resolve en "Imp. quarts" -> imperial quart
 resolve en "L" -> liter
 resolve en "c" -> us cup
 resolve en "cL" -> centiliter
@@ -959,14 +953,12 @@ resolve en "degrees Fahrenheit" -> fahrenheit
 resolve en "dl" -> deciliter
 resolve en "feet" -> foot
 resolve en "fl oz" -> us fluid ounce
-resolve en "fl oz Imp." -> imperial fluid ounce
 resolve en "fluid ounce" -> us fluid ounce
 resolve en "fluid ounces" -> us fluid ounce
 resolve en "foot" -> foot
 resolve en "ft" -> foot
 resolve en "g" -> gram
 resolve en "gal" -> us gallon
-resolve en "gal Imp." -> imperial gallon
 resolve en "gallon" -> us gallon
 resolve en "gallons" -> us gallon
 resolve en "gram" -> gram
@@ -987,11 +979,8 @@ resolve en "liter" -> liter
 resolve en "liters" -> liter
 resolve en "m" -> meter
 resolve en "mL" -> milliliter
-resolve en "mc" -> metric cup
 resolve en "meter" -> meter
 resolve en "meters" -> meter
-resolve en "metric cup" -> metric cup
-resolve en "metric cups" -> metric cup
 resolve en "milliliter" -> milliliter
 resolve en "milliliters" -> milliliter
 resolve en "millimeter" -> millimeter
@@ -1005,15 +994,11 @@ resolve en "ounce" -> ounce
 resolve en "ounces" -> ounce
 resolve en "oz" -> ounce
 resolve en "pint" -> us pint
-resolve en "pint Imperial" -> imperial pint
 resolve en "pints" -> us pint
-resolve en "pints Imperial" -> imperial pint
 resolve en "pound" -> pound
 resolve en "pounds" -> pound
 resolve en "pt" -> us pint
-resolve en "pt Imp." -> imperial pint
 resolve en "qt" -> us quart
-resolve en "qt-Imp." -> imperial quart
 resolve en "quart" -> us quart
 resolve en "quarts" -> us quart
 resolve en "s" -> second
@@ -1043,11 +1028,6 @@ written en us cup -> "c"
 written en us pint -> "pt"
 written en us quart -> "qt"
 written en us gallon -> "gal"
-written en imperial fluid ounce -> "fl oz Imp."
-written en imperial pint -> "pt Imp."
-written en imperial quart -> "qt-Imp."
-written en imperial gallon -> "gal Imp."
-written en metric cup -> "mc"
 written en kilogram -> "kg"
 written en gram -> "g"
 written en ounce -> "oz"
@@ -1085,16 +1065,6 @@ long en us quart one -> "{0} quart"
 long en us quart other -> "{0} quarts"
 long en us gallon one -> "{0} gallon"
 long en us gallon other -> "{0} gallons"
-long en imperial fluid ounce one -> "{0} Imp. fluid ounce"
-long en imperial fluid ounce other -> "{0} Imp. fluid ounces"
-long en imperial pint one -> "{0} pint Imperial"
-long en imperial pint other -> "{0} pints Imperial"
-long en imperial quart one -> "{0} Imp. quart"
-long en imperial quart other -> "{0} Imp. quarts"
-long en imperial gallon one -> "{0} Imp. gallon"
-long en imperial gallon other -> "{0} Imp. gallons"
-long en metric cup one -> "{0} metric cup"
-long en metric cup other -> "{0} metric cups"
 long en kilogram one -> "{0} kilogram"
 long en kilogram other -> "{0} kilograms"
 long en gram one -> "{0} gram"
@@ -1221,13 +1191,10 @@ resolve en-001 "ounce" -> ounce
 resolve en-001 "ounces" -> ounce
 resolve en-001 "oz" -> ounce
 resolve en-001 "pint" -> imperial pint
-resolve en-001 "pint Imperial" -> imperial pint
 resolve en-001 "pints" -> imperial pint
-resolve en-001 "pints Imperial" -> imperial pint
 resolve en-001 "pound" -> pound
 resolve en-001 "pounds" -> pound
 resolve en-001 "pt" -> imperial pint
-resolve en-001 "pt Imp." -> imperial pint
 resolve en-001 "qt" -> imperial quart
 resolve en-001 "quart" -> imperial quart
 resolve en-001 "quarts" -> imperial quart
