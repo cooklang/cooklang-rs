@@ -1453,9 +1453,9 @@ resolve en-AU "ºC" -> celsius
 resolve en-AU "ºF" -> fahrenheit
 resolve en-AU "℃" -> celsius
 resolve en-AU "℉" -> fahrenheit
-written en-AU liter -> "L"
-written en-AU deciliter -> "dL"
-written en-AU centiliter -> "cL"
+written en-AU liter -> "l"
+written en-AU deciliter -> "dl"
+written en-AU centiliter -> "cl"
 written en-AU milliliter -> "ml"
 written en-AU us teaspoon -> "US tsp"
 written en-AU us tablespoon -> "US tbsp"
