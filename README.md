@@ -32,8 +32,8 @@ the [Unicode License V3](./locales/UNICODE-LICENSE). That licence covers the CLD
 `locales/*.toml`, the plural rules and samples quoted in `src/convert/locales/plural.rs`, and the code
 generated from them. Nothing else:
 every hand-authored name, every refusal and its reason, and all other source in this repository is
-under the [MIT license](./LICENSE). Each locale file says in its header which of its names came from
-CLDR and which were written by hand, and records the CLDR release it was seeded from. The crate is
+under the [MIT license](./LICENSE). Each locale file records the CLDR release it was
+seeded from; CLDR-derived and hand-written names sit side by side in it and are not marked one by one. The crate is
 therefore declared `MIT AND Unicode-3.0`, meaning it *contains* material under both rather than
 being dual-licensed; a downstream distributor keeps both notices, which is the same obligation each
 licence imposes on its own.

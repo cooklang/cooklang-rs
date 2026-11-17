@@ -163,9 +163,10 @@ pub(crate) fn render_new_locale(
     writeln!(out, "#     cargo run --example show-locale-as-md -- {tag}").unwrap();
     out.push_str("# to see what it would write.\n");
     out.push_str("#\n");
-    out.push_str("# A name with no `reason` came from CLDR and is covered by the Unicode\n");
-    out.push_str("# notice in locales/UNICODE-LICENSE. Anything with a `reason` is\n");
-    out.push_str("# hand-authored and MIT.\n\n");
+    out.push_str("# Some names here came from CLDR and are covered by the Unicode notice in\n");
+    out.push_str("# locales/UNICODE-LICENSE. The rest were written or corrected by hand and are\n");
+    out.push_str("# MIT. A `reason` explains a hand-authored entry; an entry without one may\n");
+    out.push_str("# still have been edited by hand.\n\n");
     writeln!(out, "cldr_version = {}\n", quote(cldr_version)).unwrap();
 
     out.push_str("plural_rules = [\n");

@@ -3,9 +3,10 @@
 # Seeded once from CLDR 48.2.3 and hand-edited since. This file is the whole
 # truth for `he`: what it names, what it refuses, and why.
 #
-# A name with no `reason` came from CLDR and is covered by the Unicode
-# notice in locales/UNICODE-LICENSE. Anything with a `reason` is
-# hand-authored and MIT.
+# Some names here came from CLDR and are covered by the Unicode notice in
+# locales/UNICODE-LICENSE. The rest were written or corrected by hand and are
+# MIT. A `reason` explains a hand-authored entry; an entry without one may
+# still have been edited by hand.
 
 cldr_version = "48.2.3"
 
