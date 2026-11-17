@@ -936,8 +936,12 @@ resolve en "c" -> us cup
 resolve en "cL" -> centiliter
 resolve en "centiliter" -> centiliter
 resolve en "centiliters" -> centiliter
+resolve en "centilitre" -> centiliter
+resolve en "centilitres" -> centiliter
 resolve en "centimeter" -> centimeter
 resolve en "centimeters" -> centimeter
+resolve en "centimetre" -> centimeter
+resolve en "centimetres" -> centimeter
 resolve en "cl" -> centiliter
 resolve en "cm" -> centimeter
 resolve en "cup" -> us cup
@@ -948,6 +952,8 @@ resolve en "day" -> day
 resolve en "days" -> day
 resolve en "deciliter" -> deciliter
 resolve en "deciliters" -> deciliter
+resolve en "decilitre" -> deciliter
+resolve en "decilitres" -> deciliter
 resolve en "degree Celsius" -> celsius
 resolve en "degree Fahrenheit" -> fahrenheit
 resolve en "degrees Celsius" -> celsius
@@ -984,14 +990,22 @@ resolve en "lb" -> pound
 resolve en "lb." -> pound
 resolve en "liter" -> liter
 resolve en "liters" -> liter
+resolve en "litre" -> liter
+resolve en "litres" -> liter
 resolve en "m" -> meter
 resolve en "mL" -> milliliter
 resolve en "meter" -> meter
 resolve en "meters" -> meter
+resolve en "metre" -> meter
+resolve en "metres" -> meter
 resolve en "milliliter" -> milliliter
 resolve en "milliliters" -> milliliter
+resolve en "millilitre" -> milliliter
+resolve en "millilitres" -> milliliter
 resolve en "millimeter" -> millimeter
 resolve en "millimeters" -> millimeter
+resolve en "millimetre" -> millimeter
+resolve en "millimetres" -> millimeter
 resolve en "min" -> minute
 resolve en "mins" -> minute
 resolve en "minute" -> minute
@@ -1137,8 +1151,10 @@ resolve en-001 "US tbsp" -> us tablespoon
 resolve en-001 "US tsp" -> us teaspoon
 resolve en-001 "c" -> metric cup
 resolve en-001 "cL" -> centiliter
+resolve en-001 "centiliters" -> centiliter
 resolve en-001 "centilitre" -> centiliter
 resolve en-001 "centilitres" -> centiliter
+resolve en-001 "centimeters" -> centimeter
 resolve en-001 "centimetre" -> centimeter
 resolve en-001 "centimetres" -> centimeter
 resolve en-001 "cl" -> centiliter
@@ -1149,6 +1165,7 @@ resolve en-001 "d" -> day
 resolve en-001 "dL" -> deciliter
 resolve en-001 "day" -> day
 resolve en-001 "days" -> day
+resolve en-001 "deciliters" -> deciliter
 resolve en-001 "decilitre" -> deciliter
 resolve en-001 "decilitres" -> deciliter
 resolve en-001 "degree Celsius" -> celsius
@@ -1190,16 +1207,20 @@ resolve en-001 "kilograms" -> kilogram
 resolve en-001 "l" -> liter
 resolve en-001 "lb" -> pound
 resolve en-001 "lb." -> pound
+resolve en-001 "liters" -> liter
 resolve en-001 "litre" -> liter
 resolve en-001 "litres" -> liter
 resolve en-001 "m" -> meter
 resolve en-001 "mL" -> milliliter
+resolve en-001 "meters" -> meter
 resolve en-001 "metre" -> meter
 resolve en-001 "metres" -> meter
 resolve en-001 "metric cup" -> metric cup
 resolve en-001 "metric cups" -> metric cup
+resolve en-001 "milliliters" -> milliliter
 resolve en-001 "millilitre" -> milliliter
 resolve en-001 "millilitres" -> milliliter
+resolve en-001 "millimeters" -> millimeter
 resolve en-001 "millimetre" -> millimeter
 resolve en-001 "millimetres" -> millimeter
 resolve en-001 "min" -> minute
@@ -1360,8 +1381,10 @@ resolve en-AU "US tbsp" -> us tablespoon
 resolve en-AU "US tsp" -> us teaspoon
 resolve en-AU "c" -> metric cup
 resolve en-AU "cL" -> centiliter
+resolve en-AU "centiliters" -> centiliter
 resolve en-AU "centilitre" -> centiliter
 resolve en-AU "centilitres" -> centiliter
+resolve en-AU "centimeters" -> centimeter
 resolve en-AU "centimetre" -> centimeter
 resolve en-AU "centimetres" -> centimeter
 resolve en-AU "cl" -> centiliter
@@ -1372,6 +1395,7 @@ resolve en-AU "d" -> day
 resolve en-AU "dL" -> deciliter
 resolve en-AU "day" -> day
 resolve en-AU "days" -> day
+resolve en-AU "deciliters" -> deciliter
 resolve en-AU "decilitre" -> deciliter
 resolve en-AU "decilitres" -> deciliter
 resolve en-AU "degree Celsius" -> celsius
@@ -1404,10 +1428,12 @@ resolve en-AU "kilograms" -> kilogram
 resolve en-AU "l" -> liter
 resolve en-AU "lb" -> pound
 resolve en-AU "lb." -> pound
+resolve en-AU "liters" -> liter
 resolve en-AU "litre" -> liter
 resolve en-AU "litres" -> liter
 resolve en-AU "m" -> meter
 resolve en-AU "mL" -> milliliter
+resolve en-AU "meters" -> meter
 resolve en-AU "metre" -> meter
 resolve en-AU "metres" -> meter
 resolve en-AU "metric cup" -> metric cup
@@ -1415,8 +1441,10 @@ resolve en-AU "metric cups" -> metric cup
 resolve en-AU "metric tablespoon" -> metric tablespoon
 resolve en-AU "metric tablespoons" -> metric tablespoon
 resolve en-AU "metric tbsp" -> metric tablespoon
+resolve en-AU "milliliters" -> milliliter
 resolve en-AU "millilitre" -> milliliter
 resolve en-AU "millilitres" -> milliliter
+resolve en-AU "millimeters" -> millimeter
 resolve en-AU "millimetre" -> millimeter
 resolve en-AU "millimetres" -> millimeter
 resolve en-AU "min" -> minute
@@ -1575,8 +1603,10 @@ resolve en-GB "US tbsp" -> us tablespoon
 resolve en-GB "US tsp" -> us teaspoon
 resolve en-GB "c" -> metric cup
 resolve en-GB "cL" -> centiliter
+resolve en-GB "centiliters" -> centiliter
 resolve en-GB "centilitre" -> centiliter
 resolve en-GB "centilitres" -> centiliter
+resolve en-GB "centimeters" -> centimeter
 resolve en-GB "centimetre" -> centimeter
 resolve en-GB "centimetres" -> centimeter
 resolve en-GB "cl" -> centiliter
@@ -1587,6 +1617,7 @@ resolve en-GB "d" -> day
 resolve en-GB "dL" -> deciliter
 resolve en-GB "day" -> day
 resolve en-GB "days" -> day
+resolve en-GB "deciliters" -> deciliter
 resolve en-GB "decilitre" -> deciliter
 resolve en-GB "decilitres" -> deciliter
 resolve en-GB "degree Celsius" -> celsius
@@ -1628,16 +1659,20 @@ resolve en-GB "kilograms" -> kilogram
 resolve en-GB "l" -> liter
 resolve en-GB "lb" -> pound
 resolve en-GB "lb." -> pound
+resolve en-GB "liters" -> liter
 resolve en-GB "litre" -> liter
 resolve en-GB "litres" -> liter
 resolve en-GB "m" -> meter
 resolve en-GB "mL" -> milliliter
+resolve en-GB "meters" -> meter
 resolve en-GB "metre" -> meter
 resolve en-GB "metres" -> meter
 resolve en-GB "metric cup" -> metric cup
 resolve en-GB "metric cups" -> metric cup
+resolve en-GB "milliliters" -> milliliter
 resolve en-GB "millilitre" -> milliliter
 resolve en-GB "millilitres" -> milliliter
+resolve en-GB "millimeters" -> millimeter
 resolve en-GB "millimetre" -> millimeter
 resolve en-GB "millimetres" -> millimeter
 resolve en-GB "min" -> minute

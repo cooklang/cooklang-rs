@@ -20,25 +20,25 @@ plural_rules = [
 [[unit]]
 id = "liter"
 symbol = "l"
-aliases = ["liter", "liters", "L"]
+aliases = ["liter", "liters", "L", "litre", "litres"]
 long = { one = "{0} liter", other = "{0} liters" }
 
 [[unit]]
 id = "deciliter"
 symbol = "dl"
-aliases = ["deciliter", "deciliters", "dL"]
+aliases = ["deciliter", "deciliters", "dL", "decilitre", "decilitres"]
 long = { one = "{0} deciliter", other = "{0} deciliters" }
 
 [[unit]]
 id = "centiliter"
 symbol = "cl"
-aliases = ["centiliter", "centiliters", "cL"]
+aliases = ["centiliter", "centiliters", "cL", "centilitre", "centilitres"]
 long = { one = "{0} centiliter", other = "{0} centiliters" }
 
 [[unit]]
 id = "milliliter"
 symbol = "ml"
-aliases = ["milliliter", "milliliters", "mL"]
+aliases = ["milliliter", "milliliters", "mL", "millilitre", "millilitres"]
 long = { one = "{0} milliliter", other = "{0} milliliters" }
 
 [[unit]]
@@ -110,19 +110,19 @@ long = { one = "{0} pound", other = "{0} pounds" }
 [[unit]]
 id = "meter"
 symbol = "m"
-aliases = ["meter", "meters"]
+aliases = ["meter", "meters", "metre", "metres"]
 long = { one = "{0} meter", other = "{0} meters" }
 
 [[unit]]
 id = "centimeter"
 symbol = "cm"
-aliases = ["centimeter", "centimeters"]
+aliases = ["centimeter", "centimeters", "centimetre", "centimetres"]
 long = { one = "{0} centimeter", other = "{0} centimeters" }
 
 [[unit]]
 id = "millimeter"
 symbol = "mm"
-aliases = ["millimeter", "millimeters"]
+aliases = ["millimeter", "millimeters", "millimetre", "millimetres"]
 long = { one = "{0} millimeter", other = "{0} millimeters" }
 
 [[unit]]
