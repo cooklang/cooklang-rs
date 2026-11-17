@@ -1,0 +1,15 @@
+[package]
+name = "cooklang"
+version = "0.1.0"
+compiler = "0.14.1"
+#repository = ""
+#homepage = ""
+entrypoint = "src/lib.typ"
+#authors = [
+#  "",
+#]
+#categories = [ "" ]
+#license = ""
+#description = ""
+#keywords = [ "" ]
+#exclude = [ "" ]
