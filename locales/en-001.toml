@@ -30,25 +30,25 @@ plural_rules = [
 [[unit]]
 id = "liter"
 symbol = "l"
-aliases = ["litre", "litres"]
+aliases = ["litre", "litres", "L"]
 long = { one = "{0} litre", other = "{0} litres" }
 
 [[unit]]
 id = "deciliter"
 symbol = "dl"
-aliases = ["decilitre", "decilitres"]
+aliases = ["decilitre", "decilitres", "dL"]
 long = { one = "{0} decilitre", other = "{0} decilitres" }
 
 [[unit]]
 id = "centiliter"
 symbol = "cl"
-aliases = ["centilitre", "centilitres"]
+aliases = ["centilitre", "centilitres", "cL"]
 long = { one = "{0} centilitre", other = "{0} centilitres" }
 
 [[unit]]
 id = "milliliter"
 symbol = "ml"
-aliases = ["millilitre", "millilitres"]
+aliases = ["millilitre", "millilitres", "mL"]
 long = { one = "{0} millilitre", other = "{0} millilitres" }
 
 [[unit]]

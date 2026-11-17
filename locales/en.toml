@@ -29,26 +29,26 @@ plural_rules = [
 
 [[unit]]
 id = "liter"
-symbol = "L"
-aliases = ["liter", "liters", "l"]
+symbol = "l"
+aliases = ["liter", "liters", "L"]
 long = { one = "{0} liter", other = "{0} liters" }
 
 [[unit]]
 id = "deciliter"
-symbol = "dL"
-aliases = ["deciliter", "deciliters", "dl"]
+symbol = "dl"
+aliases = ["deciliter", "deciliters", "dL"]
 long = { one = "{0} deciliter", other = "{0} deciliters" }
 
 [[unit]]
 id = "centiliter"
-symbol = "cL"
-aliases = ["centiliter", "centiliters", "cl"]
+symbol = "cl"
+aliases = ["centiliter", "centiliters", "cL"]
 long = { one = "{0} centiliter", other = "{0} centiliters" }
 
 [[unit]]
 id = "milliliter"
-symbol = "mL"
-aliases = ["milliliter", "milliliters", "ml"]
+symbol = "ml"
+aliases = ["milliliter", "milliliters", "mL"]
 long = { one = "{0} milliliter", other = "{0} milliliters" }
 
 [[unit]]
