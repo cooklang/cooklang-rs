@@ -955,6 +955,7 @@ resolve en "degree Celsius" -> celsius
 resolve en "degree Fahrenheit" -> fahrenheit
 resolve en "degrees Celsius" -> celsius
 resolve en "degrees Fahrenheit" -> fahrenheit
+resolve en "dl" -> deciliter
 resolve en "feet" -> foot
 resolve en "fl oz" -> us fluid ounce
 resolve en "fl oz Imp." -> imperial fluid ounce
@@ -979,6 +980,7 @@ resolve en "inches" -> inch
 resolve en "kg" -> kilogram
 resolve en "kilogram" -> kilogram
 resolve en "kilograms" -> kilogram
+resolve en "l" -> liter
 resolve en "lb" -> pound
 resolve en "liter" -> liter
 resolve en "liters" -> liter
@@ -996,6 +998,7 @@ resolve en "millimeters" -> millimeter
 resolve en "min" -> minute
 resolve en "minute" -> minute
 resolve en "minutes" -> minute
+resolve en "ml" -> milliliter
 resolve en "mm" -> millimeter
 resolve en "ounce" -> ounce
 resolve en "ounces" -> ounce
@@ -1375,6 +1378,7 @@ resolve en-AU "degree Celsius" -> celsius
 resolve en-AU "degree Fahrenheit" -> fahrenheit
 resolve en-AU "degrees Celsius" -> celsius
 resolve en-AU "degrees Fahrenheit" -> fahrenheit
+resolve en-AU "dl" -> deciliter
 resolve en-AU "feet" -> foot
 resolve en-AU "fl oz Imp." -> imperial fluid ounce
 resolve en-AU "foot" -> foot
@@ -1395,6 +1399,7 @@ resolve en-AU "inches" -> inch
 resolve en-AU "kg" -> kilogram
 resolve en-AU "kilogram" -> kilogram
 resolve en-AU "kilograms" -> kilogram
+resolve en-AU "l" -> liter
 resolve en-AU "lb" -> pound
 resolve en-AU "litre" -> liter
 resolve en-AU "litres" -> liter
@@ -1415,6 +1420,7 @@ resolve en-AU "millimetres" -> millimeter
 resolve en-AU "mins" -> minute
 resolve en-AU "minute" -> minute
 resolve en-AU "minutes" -> minute
+resolve en-AU "ml" -> milliliter
 resolve en-AU "mm" -> millimeter
 resolve en-AU "ounce" -> ounce
 resolve en-AU "ounces" -> ounce
