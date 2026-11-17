@@ -1414,7 +1414,6 @@ resolve en-AU "foot" -> foot
 resolve en-AU "ft" -> foot
 resolve en-AU "g" -> gram
 resolve en-AU "gal" -> imperial gallon
-resolve en-AU "gal US" -> us gallon
 resolve en-AU "gal." -> imperial gallon
 resolve en-AU "gallon" -> imperial gallon
 resolve en-AU "gallons" -> imperial gallon
@@ -1502,7 +1501,6 @@ written en-AU us fluid ounce -> "US fl oz"
 written en-AU us cup -> "US c"
 written en-AU us pint -> "US pt"
 written en-AU us quart -> "US qt"
-written en-AU us gallon -> "gal US"
 written en-AU imperial fluid ounce -> "fl oz"
 written en-AU imperial pint -> "pt"
 written en-AU imperial quart -> "qt"

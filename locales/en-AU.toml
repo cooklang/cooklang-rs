@@ -88,7 +88,6 @@ long = { one = "{0} US quart", other = "{0} US quarts" }
 
 [[unit]]
 id = "us gallon"
-symbol = "gal US"
 aliases = ["US gallon", "US gallons"]
 long = { one = "{0} US gallon", other = "{0} US gallons" }
 
@@ -250,3 +249,6 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #   imperial fluid ounce -- fl oz Imp., Imp. fluid ounce, Imp. fluid ounces
 #     CLDR's marked labels, which no recipe writes. The fluid ounce is `fl oz`,
 #     `fluid ounce` or `fluid ounces`.
+#   us gallon -- gal US
+#     CLDR's marked label, in an order nothing else here uses. Read as
+#     `US gallon` or `US gallons`, and written by its identifier.
