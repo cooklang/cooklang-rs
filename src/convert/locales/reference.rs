@@ -1,5 +1,5 @@
-//! One locale as a human-readable Markdown page: what `show-locale-as-md` prints, which is what a review refusal
-//! points at.
+//! One locale as a human-readable Markdown page: what `show-locale-as-md` prints, which is what a reviewer
+//! reads (`locales/README.md`).
 
 use std::fmt::{self, Write};
 use std::sync::Arc;

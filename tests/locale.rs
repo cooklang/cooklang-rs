@@ -116,6 +116,23 @@ fn an_unreviewed_or_unknown_locale_is_a_parse_error() {
     assert!(xh.iter().any(|e| e.contains("no locale covers")), "{xh:?}");
 }
 
+/// The author of a refused recipe may have no checkout of this crate, so the error names what they can do in the
+/// recipe itself before it says where a review happens.
+#[test]
+fn a_refused_locale_says_how_to_read_the_recipe_again() {
+    let says_how = |src: &str| {
+        let errors = errors(src);
+        errors.iter().any(|e| {
+            e.contains("Remove the `locale` key") && e.contains("locales/README.md in cooklang-rs")
+        }) && !errors.iter().any(|e| e.contains("cargo run"))
+    };
+    // unreviewed, front matter and metadata line
+    assert!(says_how("---\nlocale: de-DE\n---\n@mehl{100%g}\n"));
+    assert!(says_how(">> locale: de-DE\n@mehl{100%g}\n"));
+    // unknown
+    assert!(says_how("---\nlocale: xh-ZA\n---\n@x{1%g}\n"));
+}
+
 /// Fitting units after scaling needs an audience, so a tag that gives none is refused up front rather than guessed at
 /// later (ADR 7).
 #[test]

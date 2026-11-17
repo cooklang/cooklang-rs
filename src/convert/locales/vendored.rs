@@ -105,8 +105,7 @@ pub enum Refusal {
     Unknown(String),
     #[error(
         "locale '{0}' has not been reviewed: nobody who speaks the language has confirmed \
-         its unit names. `cargo run --example show-locale-as-md -- {0}` shows what it would \
-         write, and locales/README.md says how to review it"
+         its unit names"
     )]
     Unreviewed(String),
     /// The tag names no region and no measurement system, so nothing says which units its readers want (ADR 7).
@@ -167,11 +166,6 @@ mod tests {
         assert_eq!(
             served(tag).unwrap_err(),
             Refusal::Unreviewed(tag.to_string())
-        );
-        let message = served(tag).unwrap_err().to_string();
-        assert!(
-            message.contains(&format!("show-locale-as-md -- {tag}")),
-            "{message}"
         );
         assert_eq!(
             served("xh").unwrap_err(),

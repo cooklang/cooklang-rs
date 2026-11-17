@@ -90,6 +90,20 @@ pub fn parse_events<'i>(
     )
 }
 
+/// The error a recipe gets when its `locale` cannot be served. Its author may be using an app and have no checkout of
+/// this crate, so the hint leads with what can be done in the recipe itself.
+fn refused_locale(refusal: &Refusal) -> SourceDiag {
+    let diag = error!(format!("Unsupported locale: {refusal}"));
+    match refusal {
+        // its message already names the fix: a region or a measurement system in the tag
+        Refusal::NoAudience(_) => diag,
+        Refusal::Unknown(_) | Refusal::Unreviewed(_) => diag.hint(
+            "Remove the `locale` key to read the recipe's units as they were read before it had one. To get the \
+             locale supported, see locales/README.md in cooklang-rs",
+        ),
+    }
+}
+
 /// The warning an untagged recipe gets on the new pipeline (ADR 7).
 pub const UNTAGGED_WARNING: &str =
     "This recipe has no `locale`, so its units are read as the legacy locale names them";
@@ -400,7 +414,7 @@ impl<'i> RecipeCollector<'i, '_> {
                     }
                     Ok(_) if sk == StdKey::Locale => {
                         if let Err(refusal) = self.adopt_locale(value.as_str().unwrap()) {
-                            let mut diag = error!(format!("Unsupported locale: {refusal}"));
+                            let mut diag = refused_locale(&refusal);
                             key_label(&mut diag);
                             self.ctx.error(diag);
                         }
@@ -566,10 +580,9 @@ impl<'i> RecipeCollector<'i, '_> {
                         .hint("Put `locale` in the front matter, where it applies to the whole recipe"),
                     );
                 } else if let Err(refusal) = self.adopt_locale(value_t.as_ref()) {
-                    self.ctx.error(error!(
-                        format!("Unsupported locale: {refusal}"),
-                        label!(value.span(), "this locale")
-                    ));
+                    let mut diag = refused_locale(&refusal);
+                    diag.add_label(label!(value.span(), "this locale"));
+                    self.ctx.error(diag);
                 }
             }
 
