@@ -955,9 +955,6 @@ resolve en "degree Celsius" -> celsius
 resolve en "degree Fahrenheit" -> fahrenheit
 resolve en "degrees Celsius" -> celsius
 resolve en "degrees Fahrenheit" -> fahrenheit
-resolve en "dessert spoon" -> metric dessert spoon
-resolve en "dessert spoons" -> metric dessert spoon
-resolve en "dsp" -> metric dessert spoon
 resolve en "feet" -> foot
 resolve en "fl oz" -> us fluid ounce
 resolve en "fl oz Imp." -> imperial fluid ounce
@@ -1046,7 +1043,6 @@ written en imperial fluid ounce -> "fl oz Imp."
 written en imperial pint -> "pt Imp."
 written en imperial quart -> "qt-Imp."
 written en imperial gallon -> "gal Imp."
-written en metric dessert spoon -> "dsp"
 written en metric cup -> "mc"
 written en kilogram -> "kg"
 written en gram -> "g"
@@ -1093,8 +1089,6 @@ long en imperial quart one -> "{0} Imp. quart"
 long en imperial quart other -> "{0} Imp. quarts"
 long en imperial gallon one -> "{0} Imp. gallon"
 long en imperial gallon other -> "{0} Imp. gallons"
-long en metric dessert spoon one -> "{0} dessert spoon"
-long en metric dessert spoon other -> "{0} dessert spoons"
 long en metric cup one -> "{0} metric cup"
 long en metric cup other -> "{0} metric cups"
 long en kilogram one -> "{0} kilogram"

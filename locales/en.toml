@@ -118,12 +118,6 @@ aliases = ["Imp. gallon", "Imp. gallons"]
 long = { one = "{0} Imp. gallon", other = "{0} Imp. gallons" }
 
 [[unit]]
-id = "metric dessert spoon"
-symbol = "dsp"
-aliases = ["dessert spoon", "dessert spoons"]
-long = { one = "{0} dessert spoon", other = "{0} dessert spoons" }
-
-[[unit]]
 id = "metric cup"
 symbol = "mc"
 aliases = ["metric cup", "metric cups"]
@@ -220,3 +214,11 @@ symbol = "°F"
 aliases = ["degree Fahrenheit", "degrees Fahrenheit", "℉", "ºF", "F"]
 long = { one = "{0} degree Fahrenheit", other = "{0} degrees Fahrenheit" }
 reason = "The degree sign's other spellings, and the bare letter a cook types without it; `°C` is the symbol everywhere"
+
+# Refused names. These do not resolve: a name resolves only by being listed
+# above, so this is the record of why, not a mechanism.
+#
+#   metric dessert spoon -- dsp, dessert spoon, dessert spoons
+#     The dessertspoon is a British and Commonwealth measure; an American
+#     recipe goes from the teaspoon straight to the tablespoon. It is named in
+#     locales/en-GB.toml and locales/en-001.toml.
