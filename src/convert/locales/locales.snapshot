@@ -927,6 +927,8 @@ plural el 1.5 -> other
 plural el 0 -> other
 plural el 12 -> other
 plural el 14 -> other
+resolve en "\"" -> inch
+resolve en "'" -> foot
 resolve en "C" -> celsius
 resolve en "F" -> fahrenheit
 resolve en "L" -> liter
@@ -953,6 +955,9 @@ resolve en "degrees Fahrenheit" -> fahrenheit
 resolve en "dl" -> deciliter
 resolve en "feet" -> foot
 resolve en "fl oz" -> us fluid ounce
+resolve en "fl oz." -> us fluid ounce
+resolve en "fl. oz" -> us fluid ounce
+resolve en "fl. oz." -> us fluid ounce
 resolve en "fluid ounce" -> us fluid ounce
 resolve en "fluid ounces" -> us fluid ounce
 resolve en "foot" -> foot
@@ -975,6 +980,7 @@ resolve en "kilogram" -> kilogram
 resolve en "kilograms" -> kilogram
 resolve en "l" -> liter
 resolve en "lb" -> pound
+resolve en "lb." -> pound
 resolve en "liter" -> liter
 resolve en "liters" -> liter
 resolve en "m" -> meter
@@ -993,6 +999,7 @@ resolve en "mm" -> millimeter
 resolve en "ounce" -> ounce
 resolve en "ounces" -> ounce
 resolve en "oz" -> ounce
+resolve en "oz." -> ounce
 resolve en "pint" -> us pint
 resolve en "pints" -> us pint
 resolve en "pound" -> pound
@@ -1007,10 +1014,14 @@ resolve en "second" -> second
 resolve en "seconds" -> second
 resolve en "tablespoon" -> us tablespoon
 resolve en "tablespoons" -> us tablespoon
+resolve en "tbs" -> us tablespoon
+resolve en "tbs." -> us tablespoon
 resolve en "tbsp" -> us tablespoon
+resolve en "tbsp." -> us tablespoon
 resolve en "teaspoon" -> us teaspoon
 resolve en "teaspoons" -> us teaspoon
 resolve en "tsp" -> us teaspoon
+resolve en "tsp." -> us teaspoon
 resolve en "°C" -> celsius
 resolve en "°F" -> fahrenheit
 resolve en "ºC" -> celsius
@@ -1103,6 +1114,8 @@ plural en 1.5 -> other
 plural en 0 -> other
 plural en 12 -> other
 plural en 14 -> other
+resolve en-001 "\"" -> inch
+resolve en-001 "'" -> foot
 resolve en-001 "C" -> celsius
 resolve en-001 "F" -> fahrenheit
 resolve en-001 "L" -> liter
@@ -1147,6 +1160,9 @@ resolve en-001 "dl" -> deciliter
 resolve en-001 "dsp" -> metric dessert spoon
 resolve en-001 "feet" -> foot
 resolve en-001 "fl oz" -> imperial fluid ounce
+resolve en-001 "fl oz." -> imperial fluid ounce
+resolve en-001 "fl. oz" -> imperial fluid ounce
+resolve en-001 "fl. oz." -> imperial fluid ounce
 resolve en-001 "fluid ounce" -> imperial fluid ounce
 resolve en-001 "fluid ounces" -> imperial fluid ounce
 resolve en-001 "foot" -> foot
@@ -1169,6 +1185,7 @@ resolve en-001 "kilogram" -> kilogram
 resolve en-001 "kilograms" -> kilogram
 resolve en-001 "l" -> liter
 resolve en-001 "lb" -> pound
+resolve en-001 "lb." -> pound
 resolve en-001 "litre" -> liter
 resolve en-001 "litres" -> liter
 resolve en-001 "m" -> meter
@@ -1190,6 +1207,7 @@ resolve en-001 "mm" -> millimeter
 resolve en-001 "ounce" -> ounce
 resolve en-001 "ounces" -> ounce
 resolve en-001 "oz" -> ounce
+resolve en-001 "oz." -> ounce
 resolve en-001 "pint" -> imperial pint
 resolve en-001 "pints" -> imperial pint
 resolve en-001 "pound" -> pound
@@ -1204,10 +1222,14 @@ resolve en-001 "seconds" -> second
 resolve en-001 "secs" -> second
 resolve en-001 "tablespoon" -> metric tablespoon
 resolve en-001 "tablespoons" -> metric tablespoon
+resolve en-001 "tbs" -> metric tablespoon
+resolve en-001 "tbs." -> metric tablespoon
 resolve en-001 "tbsp" -> metric tablespoon
+resolve en-001 "tbsp." -> metric tablespoon
 resolve en-001 "teaspoon" -> metric teaspoon
 resolve en-001 "teaspoons" -> metric teaspoon
 resolve en-001 "tsp" -> metric teaspoon
+resolve en-001 "tsp." -> metric teaspoon
 resolve en-001 "°C" -> celsius
 resolve en-001 "°F" -> fahrenheit
 resolve en-001 "ºC" -> celsius
@@ -1314,6 +1336,8 @@ plural en-001 1.5 -> other
 plural en-001 0 -> other
 plural en-001 12 -> other
 plural en-001 14 -> other
+resolve en-AU "\"" -> inch
+resolve en-AU "'" -> foot
 resolve en-AU "C" -> celsius
 resolve en-AU "F" -> fahrenheit
 resolve en-AU "Imp. fluid ounce" -> imperial fluid ounce
@@ -1356,6 +1380,7 @@ resolve en-AU "fl oz Imp." -> imperial fluid ounce
 resolve en-AU "foot" -> foot
 resolve en-AU "ft" -> foot
 resolve en-AU "g" -> gram
+resolve en-AU "gal" -> imperial gallon
 resolve en-AU "gal US" -> us gallon
 resolve en-AU "gal." -> imperial gallon
 resolve en-AU "gallon" -> imperial gallon
@@ -1373,6 +1398,7 @@ resolve en-AU "kilogram" -> kilogram
 resolve en-AU "kilograms" -> kilogram
 resolve en-AU "l" -> liter
 resolve en-AU "lb" -> pound
+resolve en-AU "lb." -> pound
 resolve en-AU "litre" -> liter
 resolve en-AU "litres" -> liter
 resolve en-AU "m" -> meter
@@ -1396,6 +1422,7 @@ resolve en-AU "mm" -> millimeter
 resolve en-AU "ounce" -> ounce
 resolve en-AU "ounces" -> ounce
 resolve en-AU "oz" -> ounce
+resolve en-AU "oz." -> ounce
 resolve en-AU "pint" -> imperial pint
 resolve en-AU "pints" -> imperial pint
 resolve en-AU "pound" -> pound
@@ -1409,10 +1436,14 @@ resolve en-AU "seconds" -> second
 resolve en-AU "secs" -> second
 resolve en-AU "tablespoon" -> australian tablespoon
 resolve en-AU "tablespoons" -> australian tablespoon
+resolve en-AU "tbs" -> australian tablespoon
+resolve en-AU "tbs." -> australian tablespoon
 resolve en-AU "tbsp" -> australian tablespoon
+resolve en-AU "tbsp." -> australian tablespoon
 resolve en-AU "teaspoon" -> metric teaspoon
 resolve en-AU "teaspoons" -> metric teaspoon
 resolve en-AU "tsp" -> metric teaspoon
+resolve en-AU "tsp." -> metric teaspoon
 resolve en-AU "°C" -> celsius
 resolve en-AU "°F" -> fahrenheit
 resolve en-AU "ºC" -> celsius
@@ -1519,6 +1550,8 @@ plural en-AU 1.5 -> other
 plural en-AU 0 -> other
 plural en-AU 12 -> other
 plural en-AU 14 -> other
+resolve en-GB "\"" -> inch
+resolve en-GB "'" -> foot
 resolve en-GB "C" -> celsius
 resolve en-GB "F" -> fahrenheit
 resolve en-GB "L" -> liter
@@ -1563,6 +1596,9 @@ resolve en-GB "dl" -> deciliter
 resolve en-GB "dsp" -> metric dessert spoon
 resolve en-GB "feet" -> foot
 resolve en-GB "fl oz" -> imperial fluid ounce
+resolve en-GB "fl oz." -> imperial fluid ounce
+resolve en-GB "fl. oz" -> imperial fluid ounce
+resolve en-GB "fl. oz." -> imperial fluid ounce
 resolve en-GB "fluid ounce" -> imperial fluid ounce
 resolve en-GB "fluid ounces" -> imperial fluid ounce
 resolve en-GB "foot" -> foot
@@ -1585,6 +1621,7 @@ resolve en-GB "kilogram" -> kilogram
 resolve en-GB "kilograms" -> kilogram
 resolve en-GB "l" -> liter
 resolve en-GB "lb" -> pound
+resolve en-GB "lb." -> pound
 resolve en-GB "litre" -> liter
 resolve en-GB "litres" -> liter
 resolve en-GB "m" -> meter
@@ -1606,6 +1643,7 @@ resolve en-GB "mm" -> millimeter
 resolve en-GB "ounce" -> ounce
 resolve en-GB "ounces" -> ounce
 resolve en-GB "oz" -> ounce
+resolve en-GB "oz." -> ounce
 resolve en-GB "pint" -> imperial pint
 resolve en-GB "pints" -> imperial pint
 resolve en-GB "pound" -> pound
@@ -1620,10 +1658,14 @@ resolve en-GB "seconds" -> second
 resolve en-GB "secs" -> second
 resolve en-GB "tablespoon" -> metric tablespoon
 resolve en-GB "tablespoons" -> metric tablespoon
+resolve en-GB "tbs" -> metric tablespoon
+resolve en-GB "tbs." -> metric tablespoon
 resolve en-GB "tbsp" -> metric tablespoon
+resolve en-GB "tbsp." -> metric tablespoon
 resolve en-GB "teaspoon" -> metric teaspoon
 resolve en-GB "teaspoons" -> metric teaspoon
 resolve en-GB "tsp" -> metric teaspoon
+resolve en-GB "tsp." -> metric teaspoon
 resolve en-GB "°C" -> celsius
 resolve en-GB "°F" -> fahrenheit
 resolve en-GB "ºC" -> celsius

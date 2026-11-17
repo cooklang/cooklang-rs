@@ -99,7 +99,7 @@ long = { one = "{0} US gallon", other = "{0} US gallons" }
 [[unit]]
 id = "imperial fluid ounce"
 symbol = "fl oz"
-aliases = ["fluid ounce", "fluid ounces"]
+aliases = ["fluid ounce", "fluid ounces", "fl. oz.", "fl. oz", "fl oz."]
 long = { one = "{0} fluid ounce", other = "{0} fluid ounces" }
 
 [[unit]]
@@ -123,7 +123,7 @@ long = { one = "{0} gallon", other = "{0} gallons" }
 [[unit]]
 id = "metric teaspoon"
 symbol = "tsp"
-aliases = ["teaspoon", "teaspoons"]
+aliases = ["teaspoon", "teaspoons", "tsp."]
 long = { one = "{0} teaspoon", other = "{0} teaspoons" }
 
 [[unit]]
@@ -138,7 +138,7 @@ rejected."""
 [[unit]]
 id = "metric tablespoon"
 symbol = "tbsp"
-aliases = ["tablespoon", "tablespoons"]
+aliases = ["tablespoon", "tablespoons", "tbsp.", "tbs", "tbs."]
 long = { one = "{0} tablespoon", other = "{0} tablespoons" }
 
 [[unit]]
@@ -162,13 +162,13 @@ long = { one = "{0} gram", other = "{0} grams" }
 [[unit]]
 id = "ounce"
 symbol = "oz"
-aliases = ["ounce", "ounces"]
+aliases = ["ounce", "ounces", "oz."]
 long = { one = "{0} ounce", other = "{0} ounces" }
 
 [[unit]]
 id = "pound"
 symbol = "lb"
-aliases = ["pound", "pounds"]
+aliases = ["pound", "pounds", "lb."]
 long = { one = "{0} pound", other = "{0} pounds" }
 
 [[unit]]
@@ -192,13 +192,13 @@ long = { one = "{0} millimetre", other = "{0} millimetres" }
 [[unit]]
 id = "foot"
 symbol = "ft"
-aliases = ["feet", "foot"]
+aliases = ["feet", "foot", "'"]
 long = { one = "{0} foot", other = "{0} feet" }
 
 [[unit]]
 id = "inch"
 symbol = "in"
-aliases = ["inch", "inches"]
+aliases = ["inch", "inches", "\""]
 long = { one = "{0} inch", other = "{0} inches" }
 
 [[unit]]
