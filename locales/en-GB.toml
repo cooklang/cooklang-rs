@@ -240,3 +240,6 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #   metric cup -- mc
 #     CLDR's abbreviation; no recipe writes it. The cup is `c`, `cup` or
 #     `cups`.
+#   imperial pint -- pt Imp., pint Imperial, pints Imperial
+#     CLDR's marked labels, which no recipe writes. The pint is `pt`, `pint`
+#     or `pints`.

@@ -182,3 +182,12 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #     The dessertspoon is a British and Commonwealth measure; an American
 #     recipe goes from the teaspoon straight to the tablespoon. It is named in
 #     locales/en-GB.toml and locales/en-001.toml.
+#   imperial fluid ounce -- fl oz Imp., Imp. fluid ounce, Imp. fluid ounces
+#   imperial pint -- pt Imp., pint Imperial, pints Imperial
+#   imperial quart -- qt-Imp., Imp. quart, Imp. quarts
+#   imperial gallon -- gal Imp., Imp. gallon, Imp. gallons
+#     CLDR's marked labels, which no recipe writes, for units an American
+#     recipe does not use. Each is read and written by its identifier.
+#   metric cup -- mc, metric cups
+#     `mc` is CLDR's abbreviation; no recipe writes it. Read and written by
+#     its identifier, `metric cup`.

@@ -249,6 +249,9 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #   metric dessert spoon -- US dessertspoon, US dessertspoons, US dstspn
 #     CLDR marks the Commonwealth dessert spoon as the US one, and a US
 #     dessertspoon is not what a British recipe means. The 10 ml `dsp` (line
+#   imperial pint -- pt Imp., pint Imperial, pints Imperial
+#     CLDR's marked labels, which no recipe writes. The pint is `pt`, `pint`
+#     or `pints`.
 #     154) is hand-authored in locales/en-001.toml.
 #   metric cup -- mc
 #     CLDR's abbreviation; no recipe writes it. The cup is `c`, `cup` or
