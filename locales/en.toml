@@ -15,7 +15,7 @@ cldr_version = "48.2.3"
 #
 # When someone has, record it here and the locale starts working:
 #
-#   reviewed = { date = 2026-10-06, by = "a native speaker, Lyon", sources = ["Larousse Gastronomique"] }
+#   reviewed = { date = 2026-11-17, by = "An english speaker", sources = ["https://www.kingarthurbaking.com/recipes/chocolate-chip-cookies-recipe", "https://smittenkitchen.com/2009/03/pita-bread/"] }
 #
 # `by` is a role and a place, not a name or a handle: enough to judge the
 # claim without putting a private individual in a public repository. `date` is
