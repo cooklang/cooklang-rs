@@ -1397,13 +1397,10 @@ resolve en-AU "ounce" -> ounce
 resolve en-AU "ounces" -> ounce
 resolve en-AU "oz" -> ounce
 resolve en-AU "pint" -> imperial pint
-resolve en-AU "pint Imperial" -> imperial pint
 resolve en-AU "pints" -> imperial pint
-resolve en-AU "pints Imperial" -> imperial pint
 resolve en-AU "pound" -> pound
 resolve en-AU "pounds" -> pound
 resolve en-AU "pt" -> imperial pint
-resolve en-AU "pt Imp." -> imperial pint
 resolve en-AU "qt" -> imperial quart
 resolve en-AU "quart" -> imperial quart
 resolve en-AU "quarts" -> imperial quart
@@ -1610,13 +1607,10 @@ resolve en-GB "ounce" -> ounce
 resolve en-GB "ounces" -> ounce
 resolve en-GB "oz" -> ounce
 resolve en-GB "pint" -> imperial pint
-resolve en-GB "pint Imperial" -> imperial pint
 resolve en-GB "pints" -> imperial pint
-resolve en-GB "pints Imperial" -> imperial pint
 resolve en-GB "pound" -> pound
 resolve en-GB "pounds" -> pound
 resolve en-GB "pt" -> imperial pint
-resolve en-GB "pt Imp." -> imperial pint
 resolve en-GB "qt" -> imperial quart
 resolve en-GB "quart" -> imperial quart
 resolve en-GB "quarts" -> imperial quart

@@ -101,7 +101,7 @@ long = { one = "{0} Imp. fluid ounce", other = "{0} Imp. fluid ounces" }
 [[unit]]
 id = "imperial pint"
 symbol = "pt"
-aliases = ["pint", "pint Imperial", "pints", "pints Imperial", "pt Imp."]
+aliases = ["pint", "pints"]
 long = { one = "{0} pint", other = "{0} pints" }
 
 [[unit]]
