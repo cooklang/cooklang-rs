@@ -42,7 +42,7 @@ long = { one = "{0} deciliter", other = "{0} deciliters" }
 [[unit]]
 id = "centiliter"
 symbol = "cL"
-aliases = ["centiliter", "centiliters"]
+aliases = ["centiliter", "centiliters", "cl"]
 long = { one = "{0} centiliter", other = "{0} centiliters" }
 
 [[unit]]

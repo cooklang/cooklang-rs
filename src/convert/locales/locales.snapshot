@@ -942,6 +942,7 @@ resolve en "centiliter" -> centiliter
 resolve en "centiliters" -> centiliter
 resolve en "centimeter" -> centimeter
 resolve en "centimeters" -> centimeter
+resolve en "cl" -> centiliter
 resolve en "cm" -> centimeter
 resolve en "cup" -> us cup
 resolve en "cups" -> us cup
@@ -1366,6 +1367,7 @@ resolve en-AU "centilitre" -> centiliter
 resolve en-AU "centilitres" -> centiliter
 resolve en-AU "centimetre" -> centimeter
 resolve en-AU "centimetres" -> centimeter
+resolve en-AU "cl" -> centiliter
 resolve en-AU "cm" -> centimeter
 resolve en-AU "cup" -> metric cup
 resolve en-AU "cups" -> metric cup
@@ -1454,7 +1456,7 @@ resolve en-AU "℉" -> fahrenheit
 written en-AU liter -> "L"
 written en-AU deciliter -> "dL"
 written en-AU centiliter -> "cL"
-written en-AU milliliter -> "mL"
+written en-AU milliliter -> "ml"
 written en-AU us teaspoon -> "US tsp"
 written en-AU us tablespoon -> "US tbsp"
 written en-AU us fluid ounce -> "US fl oz"

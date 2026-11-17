@@ -42,13 +42,13 @@ long = { one = "{0} decilitre", other = "{0} decilitres" }
 [[unit]]
 id = "centiliter"
 symbol = "cL"
-aliases = ["centilitre", "centilitres"]
+aliases = ["centilitre", "centilitres", "cl"]
 long = { one = "{0} centilitre", other = "{0} centilitres" }
 
 [[unit]]
 id = "milliliter"
-symbol = "mL"
-aliases = ["millilitre", "millilitres", "ml"]
+symbol = "ml"
+aliases = ["millilitre", "millilitres", "mL"]
 long = { one = "{0} millilitre", other = "{0} millilitres" }
 
 [[unit]]
