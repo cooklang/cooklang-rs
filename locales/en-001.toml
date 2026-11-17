@@ -204,7 +204,7 @@ long = { one = "{0} inch", other = "{0} inches" }
 [[unit]]
 id = "second"
 symbol = "s"
-aliases = ["second", "seconds", "secs"]
+aliases = ["second", "seconds", "secs", "sec"]
 long = { one = "{0} second", other = "{0} seconds" }
 
 [[unit]]
@@ -216,7 +216,7 @@ long = { one = "{0} minute", other = "{0} minutes" }
 [[unit]]
 id = "hour"
 symbol = "h"
-aliases = ["hour", "hours", "hrs"]
+aliases = ["hour", "hours", "hrs", "hr"]
 long = { one = "{0} hour", other = "{0} hours" }
 
 [[unit]]

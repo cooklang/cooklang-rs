@@ -972,6 +972,7 @@ resolve en "h" -> hour
 resolve en "hour" -> hour
 resolve en "hours" -> hour
 resolve en "hr" -> hour
+resolve en "hrs" -> hour
 resolve en "in" -> inch
 resolve en "inch" -> inch
 resolve en "inches" -> inch
@@ -992,6 +993,7 @@ resolve en "milliliters" -> milliliter
 resolve en "millimeter" -> millimeter
 resolve en "millimeters" -> millimeter
 resolve en "min" -> minute
+resolve en "mins" -> minute
 resolve en "minute" -> minute
 resolve en "minutes" -> minute
 resolve en "ml" -> milliliter
@@ -1012,6 +1014,7 @@ resolve en "s" -> second
 resolve en "sec" -> second
 resolve en "second" -> second
 resolve en "seconds" -> second
+resolve en "secs" -> second
 resolve en "tablespoon" -> us tablespoon
 resolve en "tablespoons" -> us tablespoon
 resolve en "tbs" -> us tablespoon
@@ -1176,6 +1179,7 @@ resolve en-001 "grams" -> gram
 resolve en-001 "h" -> hour
 resolve en-001 "hour" -> hour
 resolve en-001 "hours" -> hour
+resolve en-001 "hr" -> hour
 resolve en-001 "hrs" -> hour
 resolve en-001 "in" -> inch
 resolve en-001 "inch" -> inch
@@ -1217,6 +1221,7 @@ resolve en-001 "qt" -> imperial quart
 resolve en-001 "quart" -> imperial quart
 resolve en-001 "quarts" -> imperial quart
 resolve en-001 "s" -> second
+resolve en-001 "sec" -> second
 resolve en-001 "second" -> second
 resolve en-001 "seconds" -> second
 resolve en-001 "secs" -> second
@@ -1365,6 +1370,7 @@ resolve en-AU "cl" -> centiliter
 resolve en-AU "cm" -> centimeter
 resolve en-AU "cup" -> metric cup
 resolve en-AU "cups" -> metric cup
+resolve en-AU "d" -> day
 resolve en-AU "dL" -> deciliter
 resolve en-AU "day" -> day
 resolve en-AU "days" -> day
@@ -1387,8 +1393,10 @@ resolve en-AU "gallon" -> imperial gallon
 resolve en-AU "gallons" -> imperial gallon
 resolve en-AU "gram" -> gram
 resolve en-AU "grams" -> gram
+resolve en-AU "h" -> hour
 resolve en-AU "hour" -> hour
 resolve en-AU "hours" -> hour
+resolve en-AU "hr" -> hour
 resolve en-AU "hrs" -> hour
 resolve en-AU "in" -> inch
 resolve en-AU "inch" -> inch
@@ -1414,6 +1422,7 @@ resolve en-AU "millilitre" -> milliliter
 resolve en-AU "millilitres" -> milliliter
 resolve en-AU "millimetre" -> millimeter
 resolve en-AU "millimetres" -> millimeter
+resolve en-AU "min" -> minute
 resolve en-AU "mins" -> minute
 resolve en-AU "minute" -> minute
 resolve en-AU "minutes" -> minute
@@ -1431,6 +1440,8 @@ resolve en-AU "pt" -> imperial pint
 resolve en-AU "qt" -> imperial quart
 resolve en-AU "quart" -> imperial quart
 resolve en-AU "quarts" -> imperial quart
+resolve en-AU "s" -> second
+resolve en-AU "sec" -> second
 resolve en-AU "second" -> second
 resolve en-AU "seconds" -> second
 resolve en-AU "secs" -> second
@@ -1612,6 +1623,7 @@ resolve en-GB "grams" -> gram
 resolve en-GB "h" -> hour
 resolve en-GB "hour" -> hour
 resolve en-GB "hours" -> hour
+resolve en-GB "hr" -> hour
 resolve en-GB "hrs" -> hour
 resolve en-GB "in" -> inch
 resolve en-GB "inch" -> inch
@@ -1653,6 +1665,7 @@ resolve en-GB "qt" -> imperial quart
 resolve en-GB "quart" -> imperial quart
 resolve en-GB "quarts" -> imperial quart
 resolve en-GB "s" -> second
+resolve en-GB "sec" -> second
 resolve en-GB "second" -> second
 resolve en-GB "seconds" -> second
 resolve en-GB "secs" -> second

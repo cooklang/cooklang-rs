@@ -199,25 +199,25 @@ long = { one = "{0} inch", other = "{0} inches" }
 [[unit]]
 id = "second"
 symbol = "secs"
-aliases = ["second", "seconds"]
+aliases = ["second", "seconds", "s", "sec"]
 long = { one = "{0} second", other = "{0} seconds" }
 
 [[unit]]
 id = "minute"
 symbol = "mins"
-aliases = ["minute", "minutes"]
+aliases = ["minute", "minutes", "min"]
 long = { one = "{0} minute", other = "{0} minutes" }
 
 [[unit]]
 id = "hour"
 symbol = "hrs"
-aliases = ["hour", "hours"]
+aliases = ["hour", "hours", "h", "hr"]
 long = { one = "{0} hour", other = "{0} hours" }
 
 [[unit]]
 id = "day"
 symbol = "days"
-aliases = ["day"]
+aliases = ["day", "d"]
 long = { one = "{0} day", other = "{0} days" }
 
 [[unit]]

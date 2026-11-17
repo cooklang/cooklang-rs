@@ -140,19 +140,19 @@ long = { one = "{0} inch", other = "{0} inches" }
 [[unit]]
 id = "second"
 symbol = "s"
-aliases = ["sec", "second", "seconds"]
+aliases = ["sec", "second", "seconds", "secs"]
 long = { one = "{0} second", other = "{0} seconds" }
 
 [[unit]]
 id = "minute"
 symbol = "min"
-aliases = ["minute", "minutes"]
+aliases = ["minute", "minutes", "mins"]
 long = { one = "{0} minute", other = "{0} minutes" }
 
 [[unit]]
 id = "hour"
 symbol = "h"
-aliases = ["hour", "hours", "hr"]
+aliases = ["hour", "hours", "hr", "hrs"]
 long = { one = "{0} hour", other = "{0} hours" }
 
 [[unit]]
