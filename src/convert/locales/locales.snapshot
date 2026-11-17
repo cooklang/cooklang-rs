@@ -1203,7 +1203,6 @@ resolve en-001 "litre" -> liter
 resolve en-001 "litres" -> liter
 resolve en-001 "m" -> meter
 resolve en-001 "mL" -> milliliter
-resolve en-001 "mc" -> metric cup
 resolve en-001 "metre" -> meter
 resolve en-001 "metres" -> meter
 resolve en-001 "metric cup" -> metric cup
@@ -1411,7 +1410,6 @@ resolve en-AU "litre" -> liter
 resolve en-AU "litres" -> liter
 resolve en-AU "m" -> meter
 resolve en-AU "mL" -> milliliter
-resolve en-AU "mc" -> metric cup
 resolve en-AU "metre" -> meter
 resolve en-AU "metres" -> meter
 resolve en-AU "metric cup" -> metric cup
@@ -1627,7 +1625,6 @@ resolve en-GB "litre" -> liter
 resolve en-GB "litres" -> liter
 resolve en-GB "m" -> meter
 resolve en-GB "mL" -> milliliter
-resolve en-GB "mc" -> metric cup
 resolve en-GB "metre" -> meter
 resolve en-GB "metres" -> meter
 resolve en-GB "metric cup" -> metric cup

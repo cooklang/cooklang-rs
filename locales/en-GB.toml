@@ -137,7 +137,7 @@ long = { one = "{0} tablespoon", other = "{0} tablespoons" }
 [[unit]]
 id = "metric cup"
 symbol = "c"
-aliases = ["cup", "cups", "mc", "metric cup", "metric cups"]
+aliases = ["cup", "cups", "metric cup", "metric cups"]
 long = { one = "{0} cup", other = "{0} cups" }
 
 [[unit]]
@@ -237,3 +237,6 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #
 #   metric dessert spoon -- US dessertspoon, US dessertspoons, US dstspn
 #     As en-001; the 10 ml `dsp` is hand-authored in locales/en-GB.toml.
+#   metric cup -- mc
+#     CLDR's abbreviation; no recipe writes it. The cup is `c`, `cup` or
+#     `cups`.
