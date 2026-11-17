@@ -95,24 +95,6 @@ aliases = ["galones", "galón"]
 long = { one = "{0} galón", other = "{0} galones" }
 
 [[unit]]
-id = "imperial fluid ounce"
-symbol = "fl oz imp."
-aliases = ["onzas fluidas imperiales"]
-long = { one = "onza fluida imperial", other = "{0} onzas fluidas imperiales" }
-
-[[unit]]
-id = "imperial quart"
-symbol = "qt imp."
-aliases = ["cuarto imperial", "cuartos imperiales"]
-long = { one = "{0} cuarto imperial", other = "{0} cuartos imperiales" }
-
-[[unit]]
-id = "imperial gallon"
-symbol = "gal imp."
-aliases = ["galones imperiales", "galón imperial"]
-long = { one = "{0} galón imperial", other = "{0} galones imperiales" }
-
-[[unit]]
 id = "metric cup"
 symbol = "tza m"
 aliases = ["taza métrica", "tazas métricas"]
@@ -217,3 +199,8 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #     As es: root's English strings, not a Spanish name.
 #   metric dessert spoon -- cucharada de postre, cucharadas de postre, cdapostre
 #     As es: no Spanish value in the research file. Refused until researched.
+#   imperial fluid ounce -- fl oz imp., onza fluida imperial, onzas fluidas imperiales
+#   imperial quart -- qt imp., cuarto imperial, cuartos imperiales
+#   imperial gallon -- gal imp., galón imperial, galones imperiales
+#     CLDR's marked labels for units no recipe here writes. Each is read and
+#     written by its identifier.

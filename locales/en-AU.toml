@@ -93,12 +93,6 @@ aliases = ["US gallon", "US gallons"]
 long = { one = "{0} US gallon", other = "{0} US gallons" }
 
 [[unit]]
-id = "imperial fluid ounce"
-symbol = "fl oz Imp."
-aliases = ["Imp. fluid ounce", "Imp. fluid ounces"]
-long = { one = "{0} Imp. fluid ounce", other = "{0} Imp. fluid ounces" }
-
-[[unit]]
 id = "imperial pint"
 symbol = "pt"
 aliases = ["pint", "pints"]
@@ -246,3 +240,6 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #   imperial pint -- pt Imp., pint Imperial, pints Imperial
 #     CLDR's marked labels, which no recipe writes. The pint is `pt`, `pint`
 #     or `pints`.
+#   imperial fluid ounce -- fl oz Imp., Imp. fluid ounce, Imp. fluid ounces
+#     CLDR's marked labels, which no recipe writes. Read and written by its
+#     identifier until a reviewer says what an Australian `fl oz` is.

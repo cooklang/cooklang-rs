@@ -1345,8 +1345,6 @@ resolve en-AU "\"" -> inch
 resolve en-AU "'" -> foot
 resolve en-AU "C" -> celsius
 resolve en-AU "F" -> fahrenheit
-resolve en-AU "Imp. fluid ounce" -> imperial fluid ounce
-resolve en-AU "Imp. fluid ounces" -> imperial fluid ounce
 resolve en-AU "L" -> liter
 resolve en-AU "US c" -> us cup
 resolve en-AU "US fl oz" -> us fluid ounce
@@ -1382,7 +1380,6 @@ resolve en-AU "degrees Celsius" -> celsius
 resolve en-AU "degrees Fahrenheit" -> fahrenheit
 resolve en-AU "dl" -> deciliter
 resolve en-AU "feet" -> foot
-resolve en-AU "fl oz Imp." -> imperial fluid ounce
 resolve en-AU "foot" -> foot
 resolve en-AU "ft" -> foot
 resolve en-AU "g" -> gram
@@ -1472,7 +1469,6 @@ written en-AU us cup -> "US c"
 written en-AU us pint -> "US pt"
 written en-AU us quart -> "US qt"
 written en-AU us gallon -> "gal US"
-written en-AU imperial fluid ounce -> "fl oz Imp."
 written en-AU imperial pint -> "pt"
 written en-AU imperial quart -> "qt"
 written en-AU imperial gallon -> "gal."
@@ -1509,8 +1505,6 @@ long en-AU us quart one -> "{0} US quart"
 long en-AU us quart other -> "{0} US quarts"
 long en-AU us gallon one -> "{0} US gallon"
 long en-AU us gallon other -> "{0} US gallons"
-long en-AU imperial fluid ounce one -> "{0} Imp. fluid ounce"
-long en-AU imperial fluid ounce other -> "{0} Imp. fluid ounces"
 long en-AU imperial pint one -> "{0} pint"
 long en-AU imperial pint other -> "{0} pints"
 long en-AU imperial quart one -> "{0} quart"
@@ -2372,9 +2366,7 @@ resolve es-US "centímetros" -> centimeter
 resolve es-US "cl" -> centiliter
 resolve es-US "cm" -> centimeter
 resolve es-US "cuarto" -> us quart
-resolve es-US "cuarto imperial" -> imperial quart
 resolve es-US "cuartos" -> us quart
-resolve es-US "cuartos imperiales" -> imperial quart
 resolve es-US "cucharada" -> us tablespoon
 resolve es-US "cucharadas" -> us tablespoon
 resolve es-US "cucharadita" -> us teaspoon
@@ -2385,15 +2377,11 @@ resolve es-US "dl" -> deciliter
 resolve es-US "día" -> day
 resolve es-US "días" -> day
 resolve es-US "fl oz" -> us fluid ounce
-resolve es-US "fl oz imp." -> imperial fluid ounce
 resolve es-US "ft" -> foot
 resolve es-US "g" -> gram
 resolve es-US "gal" -> us gallon
-resolve es-US "gal imp." -> imperial gallon
 resolve es-US "galones" -> us gallon
-resolve es-US "galones imperiales" -> imperial gallon
 resolve es-US "galón" -> us gallon
-resolve es-US "galón imperial" -> imperial gallon
 resolve es-US "grado Celsius" -> celsius
 resolve es-US "grado Fahrenheit" -> fahrenheit
 resolve es-US "grados Celsius" -> celsius
@@ -2429,7 +2417,6 @@ resolve es-US "onza" -> ounce
 resolve es-US "onza fluida" -> us fluid ounce
 resolve es-US "onzas" -> ounce
 resolve es-US "onzas fluidas" -> us fluid ounce
-resolve es-US "onzas fluidas imperiales" -> imperial fluid ounce
 resolve es-US "oz" -> ounce
 resolve es-US "pie" -> foot
 resolve es-US "pies" -> foot
@@ -2439,7 +2426,6 @@ resolve es-US "pt" -> us pint
 resolve es-US "pulgada" -> inch
 resolve es-US "pulgadas" -> inch
 resolve es-US "qt" -> us quart
-resolve es-US "qt imp." -> imperial quart
 resolve es-US "s" -> second
 resolve es-US "segundo" -> second
 resolve es-US "segundos" -> second
@@ -2466,9 +2452,6 @@ written es-US us cup -> "tzas."
 written es-US us pint -> "pt"
 written es-US us quart -> "qt"
 written es-US us gallon -> "gal"
-written es-US imperial fluid ounce -> "fl oz imp."
-written es-US imperial quart -> "qt imp."
-written es-US imperial gallon -> "gal imp."
 written es-US metric cup -> "tza m"
 written es-US kilogram -> "kg"
 written es-US gram -> "g"
@@ -2507,12 +2490,6 @@ long es-US us quart one -> "{0} cuarto"
 long es-US us quart other -> "{0} cuartos"
 long es-US us gallon one -> "{0} galón"
 long es-US us gallon other -> "{0} galones"
-long es-US imperial fluid ounce one -> "onza fluida imperial"
-long es-US imperial fluid ounce other -> "{0} onzas fluidas imperiales"
-long es-US imperial quart one -> "{0} cuarto imperial"
-long es-US imperial quart other -> "{0} cuartos imperiales"
-long es-US imperial gallon one -> "{0} galón imperial"
-long es-US imperial gallon other -> "{0} galones imperiales"
 long es-US metric cup one -> "{0} taza métrica"
 long es-US metric cup other -> "{0} tazas métricas"
 long es-US kilogram one -> "{0} kilogramo"
