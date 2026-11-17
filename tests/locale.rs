@@ -142,6 +142,10 @@ fn an_untagged_recipe_is_told_to_add_a_locale() {
     let tell = |src: &str| warns_about(src, "no `locale`");
     assert!(tell("@flour{1%g}\n"));
     assert!(!tell("---\nlocale: sv-SE\n---\n@mjöl{1%g}\n"));
+    // a locale that is refused, malformed or written too late has its own diagnostic, and the recipe does have one
+    assert!(!tell("---\nlocale: xh-ZA\n---\n@x{1%g}\n"));
+    assert!(!tell("---\nlocale: sv_SE\n---\n@x{1%g}\n"));
+    assert!(!tell("@x{1%g}\n>> locale: sv-SE\n"));
     // the canonical parser is the same rule
     let canonical = CooklangParser::new(Extensions::empty()).parse("@flour{1%g}\n");
     assert!(canonical

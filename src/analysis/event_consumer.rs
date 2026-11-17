@@ -152,7 +152,6 @@ fn collect<'i, 'c>(
         input,
         extensions,
         units,
-        tagged: false,
         parse_options,
 
         content: Recipe {
@@ -183,8 +182,6 @@ struct RecipeCollector<'i, 'c> {
     extensions: Extensions,
     /// How units are read: through the recipe's own locale, or through the old converter.
     units: Units<'c>,
-    /// Whether a `locale` key has been adopted.
-    tagged: bool,
     parse_options: ParseOptions<'c>,
 
     content: Recipe,
@@ -317,7 +314,9 @@ impl<'i> RecipeCollector<'i, '_> {
 
         // on the new pipeline an untagged recipe reads the legacy locale, which is frozen; the nudge is what moves
         // recipes off it (ADR 7)
-        if matches!(self.units, Units::Locale(_)) && !self.tagged {
+        if matches!(self.units, Units::Locale(_))
+            && self.content.metadata.get(StdKey::Locale).is_none()
+        {
             self.ctx.warn(
                 warning!(UNTAGGED_WARNING)
                     .hint("Add `locale: <tag>` to the front matter, such as `locale: en-US` or `locale: sv-SE`, so its units are read and written for those readers"),
@@ -587,7 +586,6 @@ impl<'i> RecipeCollector<'i, '_> {
         // the same refusals the recipe will meet when it is scaled or listed: an unreviewed locale, and a tag that
         // determines no audience to fit units for (ADR 7)
         self.units = Units::Locale(Converter::for_tag(&tag)?);
-        self.tagged = true;
         Ok(())
     }
 
