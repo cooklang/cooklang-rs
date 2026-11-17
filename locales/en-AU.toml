@@ -93,6 +93,13 @@ aliases = ["US gallon", "US gallons"]
 long = { one = "{0} US gallon", other = "{0} US gallons" }
 
 [[unit]]
+id = "imperial fluid ounce"
+symbol = "fl oz"
+aliases = ["fluid ounce", "fluid ounces", "fl. oz.", "fl. oz", "fl oz."]
+long = { one = "{0} fluid ounce", other = "{0} fluid ounces" }
+reason = "As en-001, and as this file's own pint, quart and gallon: the bare name is the imperial unit. For an Australian reviewer to confirm."
+
+[[unit]]
 id = "imperial pint"
 symbol = "pt"
 aliases = ["pint", "pints"]
@@ -241,5 +248,5 @@ reason = "The degree sign's other spellings, and the bare letter a cook types wi
 #     CLDR's marked labels, which no recipe writes. The pint is `pt`, `pint`
 #     or `pints`.
 #   imperial fluid ounce -- fl oz Imp., Imp. fluid ounce, Imp. fluid ounces
-#     CLDR's marked labels, which no recipe writes. Read and written by its
-#     identifier until a reviewer says what an Australian `fl oz` is.
+#     CLDR's marked labels, which no recipe writes. The fluid ounce is `fl oz`,
+#     `fluid ounce` or `fluid ounces`.

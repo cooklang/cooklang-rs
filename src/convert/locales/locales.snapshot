@@ -1404,6 +1404,12 @@ resolve en-AU "degrees Celsius" -> celsius
 resolve en-AU "degrees Fahrenheit" -> fahrenheit
 resolve en-AU "dl" -> deciliter
 resolve en-AU "feet" -> foot
+resolve en-AU "fl oz" -> imperial fluid ounce
+resolve en-AU "fl oz." -> imperial fluid ounce
+resolve en-AU "fl. oz" -> imperial fluid ounce
+resolve en-AU "fl. oz." -> imperial fluid ounce
+resolve en-AU "fluid ounce" -> imperial fluid ounce
+resolve en-AU "fluid ounces" -> imperial fluid ounce
 resolve en-AU "foot" -> foot
 resolve en-AU "ft" -> foot
 resolve en-AU "g" -> gram
@@ -1497,6 +1503,7 @@ written en-AU us cup -> "US c"
 written en-AU us pint -> "US pt"
 written en-AU us quart -> "US qt"
 written en-AU us gallon -> "gal US"
+written en-AU imperial fluid ounce -> "fl oz"
 written en-AU imperial pint -> "pt"
 written en-AU imperial quart -> "qt"
 written en-AU imperial gallon -> "gal."
@@ -1533,6 +1540,8 @@ long en-AU us quart one -> "{0} US quart"
 long en-AU us quart other -> "{0} US quarts"
 long en-AU us gallon one -> "{0} US gallon"
 long en-AU us gallon other -> "{0} US gallons"
+long en-AU imperial fluid ounce one -> "{0} fluid ounce"
+long en-AU imperial fluid ounce other -> "{0} fluid ounces"
 long en-AU imperial pint one -> "{0} pint"
 long en-AU imperial pint other -> "{0} pints"
 long en-AU imperial quart one -> "{0} quart"
