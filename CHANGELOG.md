@@ -1,6 +1,7 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- (breaking) bindings: `parse_recipe` returns `Result<_, CooklangError>` instead of panicking on a recipe with a parse error, and `deref_component`, `deref_ingredient`, `deref_cookware` and `deref_timer` return it for an out-of-range index. `CooklangError::Parse` carries the rendered diagnostics
 
 ## 0.19.0 - 2026-09-30
 - (breaking) Optional ingredients and cookware (`@?name`, `#?name`) are core syntax (spec proposal 0018): the `?` marker is parsed without `Extensions::COMPONENT_MODIFIERS`. The other modifiers still need the extension
