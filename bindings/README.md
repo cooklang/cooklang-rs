@@ -79,7 +79,8 @@ This library exports methods:
 
 ```rust
     // full parsing, returns full recipe object with meta
-    parse_recipe(input: String, scaling_factor: f64) -> CooklangRecipe;
+    // a recipe with a parse error returns CooklangError::Parse with the rendered diagnostics
+    parse_recipe(input: String, scaling_factor: f64) -> Result<CooklangRecipe, CooklangError>;
     // fast metadata parsing, recipe text is not parsed
     parse_metadata(input: String, scaling_factor: f64) -> CooklangMetadata;
     // parse aisle config to use in shopping list
@@ -88,19 +89,19 @@ This library exports methods:
     // dereferences component reference to component
     // usage example:
     // let ingredient = deref_component(recipe, Item::IngredientRef { index: 0 });
-    deref_component(recipe: &CooklangRecipe, item: Item) -> Component;
+    deref_component(recipe: &CooklangRecipe, item: Item) -> Result<Component, CooklangError>;
     // dereferences ingredient reference to ingredient
     // usage example:
     // let ingredient = deref_ingredient(recipe, 0);
-    deref_ingredient(recipe: &CooklangRecipe, index: u32) -> Ingredient;
+    deref_ingredient(recipe: &CooklangRecipe, index: u32) -> Result<Ingredient, CooklangError>;
     // dereferences cookware reference to cookware
     // usage example:
     // let cookware = deref_cookware(recipe, 0);
-    deref_cookware(recipe: &CooklangRecipe, index: u32) -> Cookware;
+    deref_cookware(recipe: &CooklangRecipe, index: u32) -> Result<Cookware, CooklangError>;
     // dereferences timer reference to timer
     // usage example:
     // let timer = deref_timer(recipe, 0);
-    deref_timer(recipe: &CooklangRecipe, index: u32) -> Timer;
+    deref_timer(recipe: &CooklangRecipe, index: u32) -> Result<Timer, CooklangError>;
 
     // combines ingredient lists into one
     // usage example:
@@ -360,7 +361,7 @@ This library exports methods:
 The metadata helper functions provide convenient access to common recipe metadata fields:
 
 ```rust
-let recipe = parse_recipe(recipe_text, 1.0);
+let recipe = parse_recipe(recipe_text, 1.0)?;
 
 // Access common metadata fields
 if let Some(title) = metadata_title(&recipe) {

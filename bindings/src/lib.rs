@@ -10,6 +10,38 @@ pub mod shopping_list;
 use aisle::*;
 use model::*;
 
+/// Errors returned by recipe binding functions.
+///
+/// A recipe with a parse error used to panic inside the binding, which the
+/// caller could not tell apart from a real binding failure.
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum CooklangError {
+    /// The recipe has at least one parse error. `report` holds the rendered
+    /// diagnostics, one block per error, the same text `cook recipe read` shows.
+    #[error("failed to parse recipe:\n{report}")]
+    Parse { report: String },
+    /// A component reference points past the end of the recipe's list.
+    #[error("no {kind} at index {index}")]
+    InvalidIndex { kind: String, index: u32 },
+}
+
+fn render_report(report: &cooklang::error::SourceReport, source: &str) -> String {
+    let mut out = Vec::new();
+    // Writing into a Vec cannot fail, and the colors are off for the host UI.
+    let _ = report.write("recipe", source, false, &mut out);
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+fn component_at<T: Clone>(items: &[T], kind: &str, index: u32) -> Result<T, CooklangError> {
+    items
+        .get(index as usize)
+        .cloned()
+        .ok_or_else(|| CooklangError::InvalidIndex {
+            kind: kind.to_string(),
+            index,
+        })
+}
+
 /// Parses a Cooklang recipe from text and applies a scaling factor
 ///
 /// # Arguments
@@ -18,15 +50,28 @@ use model::*;
 ///
 /// # Returns
 /// A parsed recipe object with metadata, sections, ingredients, cookware and timers
+///
+/// # Errors
+/// [`CooklangError::Parse`] when the recipe has a parse error. Warnings alone
+/// do not fail the parse.
 #[uniffi::export]
-pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
+pub fn parse_recipe(
+    input: String,
+    scaling_factor: f64,
+) -> Result<Arc<CooklangRecipe>, CooklangError> {
     let parser = cooklang::CooklangParser::canonical();
 
-    let (mut parsed, _warnings) = parser.parse(&input).into_result().unwrap();
+    let (mut parsed, _warnings) =
+        parser
+            .parse(&input)
+            .into_result()
+            .map_err(|report| CooklangError::Parse {
+                report: render_report(&report, &input),
+            })?;
 
     parsed.scale(scaling_factor, parser.converter());
 
-    Arc::new(into_simple_recipe(&parsed))
+    Ok(Arc::new(into_simple_recipe(&parsed)))
 }
 
 /// Dereferences a component reference to get the actual component
@@ -37,20 +82,26 @@ pub fn parse_recipe(input: String, scaling_factor: f64) -> Arc<CooklangRecipe> {
 ///
 /// # Returns
 /// The actual component (Ingredient, Cookware, Timer, or Text)
+///
+/// # Errors
+/// [`CooklangError::InvalidIndex`] when a reference is out of range.
 #[uniffi::export]
-pub fn deref_component(recipe: &Arc<CooklangRecipe>, item: Item) -> Component {
-    match item {
+pub fn deref_component(
+    recipe: &Arc<CooklangRecipe>,
+    item: Item,
+) -> Result<Component, CooklangError> {
+    Ok(match item {
         Item::IngredientRef { index } => {
-            Component::IngredientComponent(recipe.ingredients.get(index as usize).unwrap().clone())
+            Component::IngredientComponent(component_at(&recipe.ingredients, "ingredient", index)?)
         }
         Item::CookwareRef { index } => {
-            Component::CookwareComponent(recipe.cookware.get(index as usize).unwrap().clone())
+            Component::CookwareComponent(component_at(&recipe.cookware, "cookware", index)?)
         }
         Item::TimerRef { index } => {
-            Component::TimerComponent(recipe.timers.get(index as usize).unwrap().clone())
+            Component::TimerComponent(component_at(&recipe.timers, "timer", index)?)
         }
         Item::Text { value } => Component::TextComponent(value),
-    }
+    })
 }
 
 /// Gets an ingredient by its index
@@ -61,9 +112,15 @@ pub fn deref_component(recipe: &Arc<CooklangRecipe>, item: Item) -> Component {
 ///
 /// # Returns
 /// The ingredient at the specified index
+///
+/// # Errors
+/// [`CooklangError::InvalidIndex`] when the index is out of range.
 #[uniffi::export]
-pub fn deref_ingredient(recipe: &Arc<CooklangRecipe>, index: u32) -> Ingredient {
-    recipe.ingredients.get(index as usize).unwrap().clone()
+pub fn deref_ingredient(
+    recipe: &Arc<CooklangRecipe>,
+    index: u32,
+) -> Result<Ingredient, CooklangError> {
+    component_at(&recipe.ingredients, "ingredient", index)
 }
 
 /// Gets cookware by its index
@@ -74,9 +131,12 @@ pub fn deref_ingredient(recipe: &Arc<CooklangRecipe>, index: u32) -> Ingredient 
 ///
 /// # Returns
 /// The cookware at the specified index
+///
+/// # Errors
+/// [`CooklangError::InvalidIndex`] when the index is out of range.
 #[uniffi::export]
-pub fn deref_cookware(recipe: &Arc<CooklangRecipe>, index: u32) -> Cookware {
-    recipe.cookware.get(index as usize).unwrap().clone()
+pub fn deref_cookware(recipe: &Arc<CooklangRecipe>, index: u32) -> Result<Cookware, CooklangError> {
+    component_at(&recipe.cookware, "cookware", index)
 }
 
 /// Gets a timer by its index
@@ -87,9 +147,12 @@ pub fn deref_cookware(recipe: &Arc<CooklangRecipe>, index: u32) -> Cookware {
 ///
 /// # Returns
 /// The timer at the specified index
+///
+/// # Errors
+/// [`CooklangError::InvalidIndex`] when the index is out of range.
 #[uniffi::export]
-pub fn deref_timer(recipe: &Arc<CooklangRecipe>, index: u32) -> Timer {
-    recipe.timers.get(index as usize).unwrap().clone()
+pub fn deref_timer(recipe: &Arc<CooklangRecipe>, index: u32) -> Result<Timer, CooklangError> {
+    component_at(&recipe.timers, "timer", index)
 }
 
 /// Parses an aisle configuration for shopping list organization
@@ -706,10 +769,11 @@ a test @step @salt{1%mg} more text
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         assert_eq!(
-            deref_component(&recipe, Item::IngredientRef { index: 1 }),
+            deref_component(&recipe, Item::IngredientRef { index: 1 }).unwrap(),
             Component::IngredientComponent(Ingredient {
                 name: "salt".to_string(),
                 amount: Some(Amount {
@@ -792,7 +856,8 @@ a test @step @salt{1%mg} more text
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         // Test title
         assert_eq!(metadata_title(&recipe), Some("Test Recipe".to_string()));
@@ -835,7 +900,8 @@ Cook something delicious
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         // Test author with URL
         let author = metadata_author(&recipe);
@@ -874,7 +940,8 @@ Test recipe content
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         let custom_keys = metadata_custom_keys(&recipe);
 
@@ -1111,7 +1178,8 @@ Cook @onions{3%large} until brown
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         let first_section = recipe.sections.get(0).expect("No sections found");
 
@@ -1165,7 +1233,8 @@ simmer for 10 minutes
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
         let first_section = recipe.sections.get(0).expect("No sections found");
         assert_eq!(first_section.blocks.len(), 2);
 
@@ -1225,7 +1294,8 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         let sections = &recipe.sections;
 
@@ -1443,7 +1513,8 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
 "#
             .to_string(),
             1.0,
-        );
+        )
+        .unwrap();
 
         let ingredient = recipe.ingredients.get(0).expect("No ingredients found");
 
@@ -1641,7 +1712,8 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
         let recipe = parse_recipe(
             "Top with @?chives and @salt, use a #?splatter guard{}.".to_string(),
             1.0,
-        );
+        )
+        .unwrap();
         let optional: Vec<_> = recipe
             .ingredients
             .iter()
@@ -1662,5 +1734,97 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
             _ => panic!("Expected recipe item"),
         }
         assert_eq!(crate::write_shopping_list(&list).unwrap(), input);
+    }
+
+    #[test]
+    fn test_parse_recipe_error_is_returned() {
+        use crate::{parse_recipe, CooklangError};
+
+        // The reproduction from the issue: an empty ingredient name is an
+        // error, not a warning, and used to panic.
+        let err = parse_recipe("Add @{} to the pan.".to_string(), 1.0)
+            .expect_err("a parse error should not produce a recipe");
+        match &err {
+            CooklangError::Parse { report } => {
+                assert!(report.contains("Invalid ingredient name"), "{report}");
+                assert!(report.contains("Add @{} to the pan."), "{report}");
+            }
+            other => panic!("expected a parse error, got {other:?}"),
+        }
+        assert!(err.to_string().starts_with("failed to parse recipe:"));
+    }
+
+    #[test]
+    fn test_parse_recipe_error_reports_every_error() {
+        use crate::{parse_recipe, CooklangError};
+
+        let err = parse_recipe("Add @{} and #{} to the pan.\n".to_string(), 2.0)
+            .expect_err("a parse error should not produce a recipe");
+        let CooklangError::Parse { report } = err else {
+            panic!("expected a parse error");
+        };
+        assert!(report.contains("Invalid ingredient name"), "{report}");
+        assert!(report.contains("Invalid cookware name"), "{report}");
+    }
+
+    #[test]
+    fn test_parse_recipe_empty_input_is_ok() {
+        use crate::parse_recipe;
+
+        let recipe = parse_recipe(String::new(), 1.0).unwrap();
+        assert!(recipe.ingredients.is_empty());
+        assert!(recipe.sections.iter().all(|s| s.blocks.is_empty()));
+    }
+
+    #[test]
+    fn test_deref_out_of_range_is_an_error() {
+        use crate::{
+            deref_component, deref_cookware, deref_ingredient, deref_timer, parse_recipe,
+            Component, CooklangError, Item,
+        };
+
+        let recipe = parse_recipe("Mix @salt{} in #bowl{} for ~{5%min}.".to_string(), 1.0).unwrap();
+
+        // The last valid index still works.
+        assert_eq!(deref_ingredient(&recipe, 0).unwrap().name, "salt");
+        assert_eq!(deref_cookware(&recipe, 0).unwrap().name, "bowl");
+        assert!(deref_timer(&recipe, 0).is_ok());
+        assert!(matches!(
+            deref_component(&recipe, Item::TimerRef { index: 0 }),
+            Ok(Component::TimerComponent(_))
+        ));
+
+        // One past the end is an error that names what was asked for.
+        assert!(matches!(
+            deref_ingredient(&recipe, 1),
+            Err(CooklangError::InvalidIndex { ref kind, index: 1 }) if kind == "ingredient"
+        ));
+        assert!(matches!(
+            deref_cookware(&recipe, 1),
+            Err(CooklangError::InvalidIndex { ref kind, index: 1 }) if kind == "cookware"
+        ));
+        assert!(matches!(
+            deref_timer(&recipe, 7),
+            Err(CooklangError::InvalidIndex { ref kind, index: 7 }) if kind == "timer"
+        ));
+        assert!(matches!(
+            deref_component(&recipe, Item::IngredientRef { index: u32::MAX }),
+            Err(CooklangError::InvalidIndex { ref kind, index: u32::MAX }) if kind == "ingredient"
+        ));
+        assert_eq!(
+            deref_cookware(&recipe, 3).unwrap_err().to_string(),
+            "no cookware at index 3"
+        );
+
+        // A text item has no index to get wrong.
+        assert!(matches!(
+            deref_component(
+                &recipe,
+                Item::Text {
+                    value: "x".to_string()
+                }
+            ),
+            Ok(Component::TextComponent(_))
+        ));
     }
 }
