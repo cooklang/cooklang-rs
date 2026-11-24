@@ -1,23 +1,28 @@
-use cooklang::{
-    Converter, CooklangParser, Extensions, Recipe,
-};
-use std::str;
+use cooklang::{Converter, CooklangParser, Extensions};
 
 // Typst WASM protocol boilerplate
 use wasm_minimal_protocol::*;
 initiate_protocol!();
 
+/// Parse a Cooklang recipe and return it serialized as JSON.
+///
+/// Errors are returned as a human readable message, which Typst shows as a
+/// compile error.
 #[wasm_func]
-pub fn parse(content: &[u8]) -> Vec<u8> {
-    // initiate cooklang parser
-    let parser: CooklangParser = CooklangParser::new(Extensions::empty(), Converter::default());
+pub fn parse(content: &[u8]) -> Result<Vec<u8>, String> {
+    let input =
+        std::str::from_utf8(content).map_err(|e| format!("recipe is not valid UTF-8: {e}"))?;
 
-    // parse the recipe
-    let parsed: cooklang::error::PassResult<Recipe> = parser.parse(str::from_utf8(content).unwrap());
+    let parser = CooklangParser::new(Extensions::empty(), Converter::default());
 
-    // unwrap the result
-    let (recipe, _warnings) = parsed.into_result().unwrap();
+    let (recipe, _warnings) = parser.parse(input).into_result().map_err(|mut report| {
+        report.remove_warnings();
+        let mut buf = Vec::new();
+        match report.write("recipe", input, false, &mut buf) {
+            Ok(()) => String::from_utf8_lossy(&buf).into_owned(),
+            Err(_) => report.to_string(),
+        }
+    })?;
 
-    // serialize to json
-    serde_json::to_vec(&recipe).unwrap()
+    serde_json::to_vec(&recipe).map_err(|e| format!("failed to serialize recipe: {e}"))
 }

@@ -1,0 +1,3 @@
+# Built by ./build.sh
+cooklang.wasm
+cooklang-core/target/

@@ -1,4 +1,4 @@
-// todo: this will have to change before publishing to something like:
+// Outside this repository, import the published package instead:
 // #import "@preview/cooklang:0.1.0": parse
 #import "../src/lib.typ": parse
 
@@ -6,7 +6,7 @@
 #let recipe-cooklang = read("Neapolitan Pizza.cook")
 #let recipe = parse(recipe-cooklang)
 
-// Define fromatting for ingredients and cookware
+// Define formatting for ingredients and cookware
 #let ingredient(body) = {
   text(fill: rgb(204, 85, 0))[*#body*]
 }

@@ -9,6 +9,7 @@ keywords = ["cooklang", "cooking", "recipes"]
 categories = ["parser-implementations"]
 repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
+exclude = ["typst/"]
 
 [dependencies]
 bitflags = { version = "2", features = ["serde"] }

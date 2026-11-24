@@ -1,7 +1,9 @@
-#let p = plugin("../cooklang-core/cooklang_core.wasm")
+#let _plugin = plugin("../cooklang.wasm")
 
+/// Parse a Cooklang recipe into a dictionary.
+///
+/// - content (str, bytes): The recipe source, e.g. `read("recipe.cook")`.
+/// -> dictionary
 #let parse(content) = {
-  // Pass cooklang recipe content to the parser and return the resulting JSON
-  // todo: do you have to check if content is bytes or string?
-  json(p.parse(bytes(content)))
+  json(_plugin.parse(bytes(content)))
 }
