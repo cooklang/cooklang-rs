@@ -1,6 +1,7 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- `Metadata::source()` reads the flat `source.name` and `source.url` keys, and `Metadata::author()` the flat `source.author` key, when `source` / `author` are missing (#159)
 
 ## 0.19.0 - 2026-09-30
 - (breaking) Optional ingredients and cookware (`@?name`, `#?name`) are core syntax (spec proposal 0018): the `?` marker is parsed without `Extensions::COMPONENT_MODIFIERS`. The other modifiers still need the extension
