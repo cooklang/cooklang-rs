@@ -295,6 +295,12 @@ pub fn ingredient_should_be_listed(this: &Ingredient) -> bool {
     this.modifiers().should_be_listed()
 }
 
+/// Whether the ingredient is marked optional (`@?name`)
+#[wasm_bindgen]
+pub fn ingredient_is_optional(this: &Ingredient) -> bool {
+    this.modifiers().is_optional()
+}
+
 #[wasm_bindgen]
 pub fn ingredient_display_name(this: &Ingredient) -> String {
     this.display_name().to_string()
@@ -303,6 +309,12 @@ pub fn ingredient_display_name(this: &Ingredient) -> String {
 #[wasm_bindgen]
 pub fn cookware_should_be_listed(this: &Cookware) -> bool {
     this.modifiers().should_be_listed()
+}
+
+/// Whether the cookware item is marked optional (`#?name`)
+#[wasm_bindgen]
+pub fn cookware_is_optional(this: &Cookware) -> bool {
+    this.modifiers().is_optional()
 }
 
 #[wasm_bindgen]
@@ -350,6 +362,7 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
                             b { (entry.ingredient.display_name()) }
                             @if !entry.quantity.is_empty() {": " (entry.quantity) }
                             @if let Some(n) = &entry.ingredient.note { " (" (n) ")" }
+                            @if entry.ingredient.modifiers().is_optional() { " " i { "(optional)" } }
                         }
                     }
                 }
@@ -364,6 +377,7 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
                             b { (entry.cookware.display_name()) }
                             @if !entry.quantity.is_empty() { ": " (entry.quantity) }
                             @if let Some(n) = &entry.cookware.note { " (" (n) ")" }
+                            @if entry.cookware.modifiers().is_optional() { " " i { "(optional)" } }
                         }
                     }
                 }

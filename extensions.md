@@ -21,10 +21,19 @@ are 5 modifiers:
   ```cooklang
   Now you can add @?thyme.
   ```
+  This one is part of the [Cooklang
+  specification](https://cooklang.org/docs/spec/#optional-ingredients-and-cookware)
+  and is always enabled, even without this extension. Only one `?` is taken,
+  so `@??thyme{}` is an optional ingredient named `?thyme`.
 - `+` **New**. Forces to create a new ingredient. This works with the
   [modes](#modes) extension.
 
 This also works (except recipe) for cookware.
+
+With the [modes](#modes) extension in `duplicate: ref` mode, optional and
+required components with the same name are not implicitly linked, because
+optionality belongs to each occurrence: `@parmesan{100%g}` and
+`@?parmesan{50%g}` stay two separate ingredients.
 
 ## Intermediate preparations
 You can refer to intermediate preparations as ingredients. For example:

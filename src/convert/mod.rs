@@ -8,6 +8,7 @@
 use std::{collections::HashMap, ops::RangeInclusive, sync::Arc};
 
 use enum_map::EnumMap;
+use finl_unicode::categories::CharacterCategories;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -142,6 +143,29 @@ impl Converter {
     pub fn find_unit(&self, unit: &str) -> Option<Arc<Unit>> {
         let uid = self.unit_index.get_unit_id(unit).ok()?;
         Some(self.all_units[uid].clone())
+    }
+
+    /// Match a registered spelling at the start of a word followed only by punctuation.
+    pub(crate) fn match_inline_unit<'a>(&self, word: &'a str) -> Option<&'a str> {
+        let index = &self.unit_index.0;
+        if index.contains_key(word) {
+            return Some(word);
+        }
+        let stem = word.trim_end_matches(char::is_punctuation);
+        match word[stem.len()..].chars().take(2).count() {
+            0 => None,
+            1 => index.contains_key(stem).then_some(stem),
+            _ => {
+                // In "tsp.)," the period belongs to the unit. Prefer the longest
+                // registered spelling and leave the remaining punctuation in the text.
+                let len = index
+                    .keys()
+                    .filter(|key| key.len() >= stem.len() && word.starts_with(key.as_ref()))
+                    .map(|key| key.len())
+                    .max()?;
+                Some(&word[..len])
+            }
+        }
     }
 
     /// Gets the fractions configuration for the given unit

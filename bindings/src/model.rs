@@ -4,7 +4,7 @@ use cooklang::metadata::{
     NameAndUrl as OriginalNameAndUrl, RecipeTime as OriginalRecipeTime,
     Servings as OriginalServings, StdKey as OriginalStdKey,
 };
-use cooklang::model::Item as OriginalItem;
+use cooklang::model::{Item as OriginalItem, RecipeReference as OriginalRecipeReference};
 use cooklang::quantity::{Quantity as OriginalQuantity, Value as OriginalValue};
 use cooklang::Recipe as OriginalRecipe;
 
@@ -84,12 +84,41 @@ pub struct BlockNote {
     pub text: String,
 }
 
+/// Represents a reference to another recipe file
+#[derive(uniffi::Record, Debug, PartialEq, Clone)]
+pub struct RecipeReference {
+    /// The recipe file name (without directory path)
+    pub name: String,
+    /// Directory path components (e.g., [".", "pasta"] for "./pasta/recipe")
+    pub components: Vec<String>,
+}
+
+impl RecipeReference {
+    /// Returns the full path as a string with the given separator
+    pub fn path(&self, separator: &str) -> String {
+        self.components.join(separator) + separator + &self.name
+    }
+}
+
+impl From<&OriginalRecipeReference> for RecipeReference {
+    fn from(reference: &OriginalRecipeReference) -> Self {
+        RecipeReference {
+            name: reference.name.clone(),
+            components: reference.components.clone(),
+        }
+    }
+}
+
 /// Represents an ingredient in the recipe
 #[derive(uniffi::Record, Debug, PartialEq, Clone)]
 pub struct Ingredient {
     pub name: String,
     pub amount: Option<Amount>,
     pub descriptor: Option<String>,
+    /// Reference to another recipe file, if this ingredient is a recipe reference
+    pub reference: Option<RecipeReference>,
+    /// Marked optional with `@?name`
+    pub optional: bool,
 }
 
 /// Represents a piece of cookware used in the recipe
@@ -97,6 +126,8 @@ pub struct Ingredient {
 pub struct Cookware {
     pub name: String,
     pub amount: Option<Amount>,
+    /// Marked optional with `#?name`
+    pub optional: bool,
 }
 
 /// Represents a timer in the recipe
@@ -360,7 +391,7 @@ pub fn expand_with_ingredients(
 }
 
 // I(dubadub) haven't found a way to export these methods with mutable argument
-fn add_to_ingredient_list(
+pub(crate) fn add_to_ingredient_list(
     list: &mut IngredientList,
     name: &String,
     quantity_to_add: &GroupedQuantity,
@@ -556,6 +587,8 @@ impl From<&cooklang::Ingredient> for Ingredient {
             name: ingredient.name.clone(),
             amount: ingredient.quantity.as_ref().map(|q| q.extract_amount()),
             descriptor: ingredient.note.clone(),
+            reference: ingredient.reference.as_ref().map(|r| r.into()),
+            optional: ingredient.modifiers().is_optional(),
         }
     }
 }
@@ -565,6 +598,7 @@ impl From<&cooklang::Cookware> for Cookware {
         Cookware {
             name: cookware.name.clone(),
             amount: cookware.quantity.as_ref().map(|q| q.extract_amount()),
+            optional: cookware.modifiers().is_optional(),
         }
     }
 }

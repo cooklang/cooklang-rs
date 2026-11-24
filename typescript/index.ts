@@ -4,8 +4,8 @@ import {
     NameAndUrl,
     RecipeTime,
     Servings, Section, Ingredient, Cookware, Timer, Quantity, ScaledRecipeWithReport, GroupedQuantity,
-    ingredient_should_be_listed, ingredient_display_name, grouped_quantity_is_empty, grouped_quantity_display,
-    cookware_should_be_listed, cookware_display_name, Content, Step, quantity_display, GroupedIndexAndQuantity,
+    ingredient_should_be_listed, ingredient_display_name, ingredient_is_optional, grouped_quantity_is_empty, grouped_quantity_display,
+    cookware_should_be_listed, cookware_display_name, cookware_is_optional, Content, Step, quantity_display, GroupedIndexAndQuantity,
     Value, Item
 } from "./pkg/cooklang_wasm.js";
 
@@ -14,10 +14,12 @@ export {
     Parser,
     ingredient_should_be_listed,
     ingredient_display_name,
+    ingredient_is_optional,
     grouped_quantity_is_empty,
     grouped_quantity_display,
     cookware_should_be_listed,
     cookware_display_name,
+    cookware_is_optional,
     quantity_display
 };
 export type {ScaledRecipeWithReport, Value, Quantity, Ingredient, Cookware, Timer, Section, Content, Step, Item} from "./pkg/cooklang_wasm.js";
@@ -375,11 +377,11 @@ export class HTMLRenderer {
                 grouped_quantity_display(quantity)
                 : null;
 
-            this.renderGroupedIngredient(ingredientName, quantityString, ingredient.note);
+            this.renderGroupedIngredient(ingredientName, quantityString, ingredient.note, ingredient_is_optional(ingredient));
         }
     }
 
-    protected renderGroupedIngredient(name: string, quantity: string | null, note: string | null) {
+    protected renderGroupedIngredient(name: string, quantity: string | null, note: string | null, optional = false) {
         this.result += "<li>";
         this.result += `<b>${name}</b>`;
 
@@ -388,6 +390,9 @@ export class HTMLRenderer {
 
         if (note)
             this.result += ` (${note})`;
+
+        if (optional)
+            this.result += " <i>(optional)</i>";
 
         this.result += "</li>";
     }
@@ -413,11 +418,11 @@ export class HTMLRenderer {
                 grouped_quantity_display(quantity)
                 : null;
 
-            this.renderGroupedCookware(cookwareName, quantityString, cookware.note);
+            this.renderGroupedCookware(cookwareName, quantityString, cookware.note, cookware_is_optional(cookware));
         }
     }
 
-    protected renderGroupedCookware(name: string, quantity: string | null, note: string | null) {
+    protected renderGroupedCookware(name: string, quantity: string | null, note: string | null, optional = false) {
         this.result += "<li>";
         this.result += `<b>${name}</b>`;
 
@@ -426,6 +431,9 @@ export class HTMLRenderer {
 
         if (note)
             this.result += ` (${note})`;
+
+        if (optional)
+            this.result += " <i>(optional)</i>";
 
         this.result += "</li>";
     }

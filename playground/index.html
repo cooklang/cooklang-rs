@@ -4,79 +4,111 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Cooklang playground</title>
+    <title>Cooklang Playground</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Ccircle cx=%229%22 cy=%228%22 r=%222.6%22/%3E%3Ccircle cx=%2216%22 cy=%226.5%22 r=%222.6%22/%3E%3Ccircle cx=%2223%22 cy=%228%22 r=%222.6%22/%3E%3Cpath d=%22M4 14h24a12 12 0 0 1-24 0z%22 fill=%22%23E15A29%22/%3E%3C/svg%3E"/>
+    <meta name="description" content="Write a Cooklang recipe and see it parsed live: ingredients, cookware, timers and steps, plus the full parser output."/>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.24.1/ace.min.js"
             integrity="sha512-b50cBUHAI9jUOcKkDpgiY5pLMlX+WLLr7S6pV841OmBFv+x6efFs3QMxRs7ggJPxLAhrgIejeVovT/JuDYCM0A=="
             crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-    <link
-            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@400;700&display=swap"
-            rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
+          rel="stylesheet"/>
     <link rel="stylesheet" href="./styles.css"/>
 </head>
 
 <body>
-<main>
-    <h1>cooklang-rs playground</h1>
-
-
-    <div id="controls">
-        <div class="inline">
-            <div>
-                <a href="https://github.com/cooklang/cooklang-rs">Repo</a> |
-                <strong>Version:</strong>
-                <pre style="display: inline;" id="version">[loading]</pre>
-                |
-            </div>
-
-            <select id="parserSelect">
-                <option value="render" selected>Render</option>
-                <option value="full">Full parse</option>
-                <option value="events">Events</option>
-                <option value="ast">AST</option>
-                <option value="stdmeta">Standard metadata</option>
-                <option value="render2">New renderer</option>
+<header class="topbar">
+    <a class="brand" href="https://cooklang.org" title="cooklang.org">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+            <circle cx="9" cy="8" r="2.6" fill="currentColor"/>
+            <circle cx="16" cy="6.5" r="2.6" fill="currentColor"/>
+            <circle cx="23" cy="8" r="2.6" fill="currentColor"/>
+            <path d="M4 14h24a12 12 0 0 1-24 0z" fill="#E15A29"/>
+        </svg>
+        <span>Cooklang <strong>Playground</strong></span>
+    </a>
+    <div class="topbar-actions">
+        <label class="select">
+            <span class="sr-only">Load an example</span>
+            <select id="exampleSelect">
+                <option value="" selected disabled>Examples…</option>
             </select>
-            <div id="servingscontainer">
-                <label for="servings">Servings</label>
-                <input type="number" name="servings" id="servings"/>
-            </div>
-            <div hidden id="jsoncontainer">
-                <input type="checkbox" name="json" id="json"/>
-                <label for="json">JSON output</label>
-            </div>
+        </label>
+        <button type="button" class="btn" id="shareBtn" title="Copy a link to this recipe">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M11 3a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 1 1-2 0V5.4l-6.3 6.3a1 1 0 0 1-1.4-1.4L14.6 4H12a1 1 0 0 1-1-1zM4 6a2 2 0 0 1 2-2h2a1 1 0 0 1 0 2H6v8h8v-2a1 1 0 1 1 2 0v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6z"/></svg>
+            <span id="shareLabel">Share</span>
+        </button>
+    </div>
+    <nav class="topbar-links">
+        <a href="https://cooklang.org/docs/spec/">Spec</a>
+        <a href="https://cooklang.org/docs/getting-started/">Guide</a>
+        <a href="https://github.com/cooklang/cooklang-rs">GitHub</a>
+        <span class="version" id="version" title="cooklang-rs version">…</span>
+    </nav>
+</header>
+
+<div class="mobile-switch" role="tablist" aria-label="View">
+    <button type="button" role="tab" data-pane="edit">Edit</button>
+    <button type="button" role="tab" data-pane="output" aria-selected="true">Preview</button>
+</div>
+
+<main class="workspace" data-mobile-pane="output">
+    <section class="pane pane-edit" aria-label="Recipe source">
+        <div class="pane-head">
+            <span class="pane-title">recipe.cook</span>
+            <span class="legend">
+                <span class="tok tok-ingredient">@ingredient</span>
+                <span class="tok tok-cookware">#cookware</span>
+                <span class="tok tok-timer">~timer</span>
+            </span>
         </div>
-        <div class="narrow">
-            <details id="extra">
-                <summary>More options</summary>
+        <div id="editor"></div>
+        <details class="cheatsheet">
+            <summary>Syntax cheat sheet</summary>
+            <dl>
+                <dt>@salt</dt><dd>ingredient (one word)</dd>
+                <dt>@plain flour{125%g}</dt><dd>ingredient with amount and unit</dd>
+                <dt>#pot</dt><dd>cookware · <code>#frying pan{}</code> for multi-word</dd>
+                <dt>~{25%minutes}</dt><dd>timer · <code>~rest{10%minutes}</code> to name it</dd>
+                <dt>-- note</dt><dd>comment to end of line · <code>[- … -]</code> block</dd>
+                <dt>== Dough ==</dt><dd>section heading</dd>
+                <dt>---</dt><dd>YAML front matter: title, servings, tags…</dd>
+            </dl>
+            <a href="https://cooklang.org/docs/spec/">Full specification →</a>
+        </details>
+    </section>
 
-                <div class="container">
-                    <div>
-                        <input type="checkbox" name="loadUnits" id="loadUnits">
-                        <label for="loadUnits">Load units</label>
-                    </div>
-
+    <section class="pane pane-output" aria-label="Parser output">
+        <div class="pane-head">
+            <div class="tabs" role="tablist" aria-label="Output">
+                <button type="button" role="tab" data-mode="preview">Preview</button>
+                <button type="button" role="tab" data-mode="full">Full parse</button>
+                <button type="button" role="tab" data-mode="events">Events</button>
+                <button type="button" role="tab" data-mode="ast">AST</button>
+                <button type="button" role="tab" data-mode="stdmeta">Metadata</button>
+            </div>
+            <div class="settings-wrap">
+                <button type="button" class="icon-btn" id="settingsBtn" aria-expanded="false" aria-controls="settings" title="Parser settings">
+                    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M11.5 1.8a1 1 0 0 0-1-.8h-1a1 1 0 0 0-1 .8l-.3 1.6a7 7 0 0 0-1.6.9L5.1 3.7a1 1 0 0 0-1.2.4l-.5.9a1 1 0 0 0 .2 1.2l1.2 1.1a7 7 0 0 0 0 1.8L3.6 10.2a1 1 0 0 0-.2 1.2l.5.9a1 1 0 0 0 1.2.4l1.5-.6a7 7 0 0 0 1.6.9l.3 1.6a1 1 0 0 0 1 .8h1a1 1 0 0 0 1-.8l.3-1.6a7 7 0 0 0 1.6-.9l1.5.6a1 1 0 0 0 1.2-.4l.5-.9a1 1 0 0 0-.2-1.2l-1.2-1.1a7 7 0 0 0 0-1.8l1.2-1.1a1 1 0 0 0 .2-1.2l-.5-.9a1 1 0 0 0-1.2-.4l-1.5.6a7 7 0 0 0-1.6-.9l-.3-1.6zM10 12.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" transform="translate(0 1.5)"/></svg>
+                </button>
+                <div class="settings" id="settings" hidden>
+                    <label class="check" id="jsoncontainer"><input type="checkbox" id="json"/> JSON output</label>
+                    <label class="check"><input type="checkbox" id="loadUnits"/> Load units</label>
                     <fieldset>
                         <legend>Extensions</legend>
                         <div id="extensions-container"></div>
                     </fieldset>
                 </div>
-            </details>
+            </div>
         </div>
-    </div>
-
-    <div class="code-panes">
-        <div id="editor"></div>
-        <div class="output-pane">
-            <pre class="codeblock" id="output"></pre>
-            <details id="errors-details">
-                <summary>Errors and warnings</summary>
-                <pre class="codeblock" id="errors"></pre>
-            </details>
-        </div>
-    </div>
+        <div class="output" id="output"></div>
+        <details class="status" id="status">
+            <summary id="statusSummary">Parsing…</summary>
+            <pre id="errors"></pre>
+        </details>
+    </section>
 </main>
 
 <script type="module" src="./main.ts"></script>

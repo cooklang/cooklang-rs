@@ -65,16 +65,38 @@ impl AisleConf<'_> {
     /// Returns a reversed configuration, where each key is an ingredient
     /// and the value is its category.
     #[deprecated = "Use `ingredients_info` instead"]
-    pub fn reverse(&self) -> HashMap<&str, &str> {
+    pub fn reverse(&self) -> HashMap<String, &str> {
         self.ingredients_info()
             .into_iter()
             .map(|(n, i)| (n, i.name))
             .collect()
     }
 
+    /// Returns the sort key (`category_index`, `ingredient_index`) for an ingredient.
+    ///
+    /// Performs case-insensitive lookup. Returns `None` if the ingredient
+    /// is not found in any category. Synonym names return the same position
+    /// as their primary name.
+    pub fn ingredient_sort_key(&self, name: &str) -> Option<(usize, usize)> {
+        let lower = name.to_lowercase();
+        for (cat_idx, category) in self.categories.iter().enumerate() {
+            for (igr_idx, ingredient) in category.ingredients.iter().enumerate() {
+                for n in &ingredient.names {
+                    if n.to_lowercase() == lower {
+                        return Some((cat_idx, igr_idx));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Returns a reversed configuration, where each ingredient has a
     /// corresponding [`IngredientInfo`]
-    pub fn ingredients_info(&self) -> HashMap<&str, IngredientInfo<'_>> {
+    ///
+    /// The keys are lowercase for case-insensitive lookups. Use
+    /// `name.to_lowercase()` when looking up ingredients.
+    pub fn ingredients_info(&self) -> HashMap<String, IngredientInfo<'_>> {
         let mut map = HashMap::with_capacity(self.len.get());
         for cat in &self.categories {
             for igr in &cat.ingredients {
@@ -88,7 +110,8 @@ impl AisleConf<'_> {
                         common_name,
                         category: cat.name,
                     };
-                    map.insert(*name, info);
+                    // Store lowercase key for case-insensitive lookups
+                    map.insert(name.to_lowercase(), info);
                 }
             }
         }
@@ -481,13 +504,31 @@ tuna|chicken of the sea
 "#;
         let a = parse(input).unwrap();
         let p = a.ingredients_info();
+        // Keys are lowercase for case-insensitive lookup
         assert_eq!(
             vec!["tuna", "tuna"],
             ["tuna", "chicken of the sea"]
                 .iter()
-                .map(|igr| p.get(igr).unwrap().common_name)
+                .map(|igr| p.get(&igr.to_lowercase()).unwrap().common_name)
                 .collect::<Vec<&str>>()
         )
+    }
+
+    #[test]
+    fn case_insensitive_lookup() {
+        let input = r#"[spices]
+chili flakes
+"#;
+        let a = parse(input).unwrap();
+        let p = a.ingredients_info();
+        // All case variants should find the same ingredient
+        assert!(p.contains_key("chili flakes"));
+        assert!(p.contains_key(&"Chili flakes".to_lowercase()));
+        assert!(p.contains_key(&"CHILI FLAKES".to_lowercase()));
+        assert_eq!(
+            p.get("chili flakes").unwrap().common_name,
+            p.get(&"Chili Flakes".to_lowercase()).unwrap().common_name
+        );
     }
 
     #[test]
@@ -634,6 +675,34 @@ apple
         assert_eq!(meat.name, "meat");
         assert_eq!(meat.ingredients.len(), 1); // only chicken
         assert_eq!(meat.ingredients[0].names, vec!["chicken"]);
+    }
+
+    #[test]
+    fn test_ingredient_sort_key() {
+        let aisle_conf = r#"
+[produce]
+apple
+banana
+carrot
+
+[dairy]
+milk
+butter | unsalted butter
+"#;
+        let aisle = parse(aisle_conf).unwrap();
+
+        // Items in aisle.conf get (category_index, ingredient_index)
+        assert_eq!(aisle.ingredient_sort_key("apple"), Some((0, 0)));
+        assert_eq!(aisle.ingredient_sort_key("banana"), Some((0, 1)));
+        assert_eq!(aisle.ingredient_sort_key("carrot"), Some((0, 2)));
+        assert_eq!(aisle.ingredient_sort_key("milk"), Some((1, 0)));
+        assert_eq!(aisle.ingredient_sort_key("butter"), Some((1, 1)));
+        // Synonyms map to the same position
+        assert_eq!(aisle.ingredient_sort_key("unsalted butter"), Some((1, 1)));
+        // Case insensitive
+        assert_eq!(aisle.ingredient_sort_key("Apple"), Some((0, 0)));
+        // Unknown ingredient returns None
+        assert_eq!(aisle.ingredient_sort_key("mystery"), None);
     }
 
     #[test]

@@ -1,19 +1,19 @@
 [package]
 name = "cooklang-bindings"
-version = "0.17.4"
+version = "0.19.0"
 edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Cooklang Uniffi bindings"
 license = "MIT"
-keywords = ["cooklang", "unuffi"]
+keywords = ["cooklang", "uniffi"]
 repository = "https://github.com/cooklang/cooklang-rs"
 readme = "README.md"
 
 [dependencies]
 anyhow = "1.0"
-cooklang = { path = "..", default-features = false, features = ["aisle"] }
-uniffi = "0.28.1"
-clap_derive = { version = "4.0.0-rc.1" }
+cooklang = { path = "..", default-features = false, features = ["aisle", "shopping_list"] }
+thiserror = "2"
+uniffi = "0.32.2"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

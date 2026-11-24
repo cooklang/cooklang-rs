@@ -3,10 +3,10 @@ import PackageDescription
 import class Foundation.ProcessInfo
 
 var package = Package(
-    name: "cooklang-rs",
+    name: "CooklangParser",
     platforms: [
-        .macOS(.v10_15),
         .iOS(.v15),
+        .macOS(.v12),
     ],
     products: [
         .library(
@@ -25,8 +25,8 @@ var package = Package(
             path: "swift/Tests/CooklangParserTests"),
         .binaryTarget(
             name: "CooklangParserFFI",
-            url: "https://github.com/cooklang/cooklang-rs/releases/download/v0.17.4/CooklangParserFFI.xcframework.zip",
-            checksum: "145f07a7c60c2a9932bfa05ddd21540b600258ea697dbbfe37bb6f095b5855cb"),
+            url: "https://github.com/cooklang/cooklang-rs/releases/download/v0.19.0/CooklangParserFFI.xcframework.zip",
+            checksum: "dcd657ea6793f878737f06c41df754d4c7b92fe06d856f62da8002393a14e60a"),
     ]
 )
 

@@ -24,6 +24,8 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
+use indexmap::IndexMap;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -40,12 +42,12 @@ use crate::{
 /// format.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PantryConf {
-    /// Map of sections to their items (BTreeMap for consistent ordering)
+    /// Map of sections to their items (`IndexMap` to preserve file order)
     #[serde(flatten)]
-    pub sections: BTreeMap<String, Vec<PantryItem>>,
+    pub sections: IndexMap<String, Vec<PantryItem>>,
 
     /// Index for fast ingredient lookups (lowercase name -> (section, index))
-    /// Using BTreeMap for better cache locality and predictable iteration
+    /// Using `BTreeMap` for better cache locality and predictable iteration
     #[serde(skip)]
     ingredient_index: BTreeMap<String, Vec<(String, usize)>>,
 }
@@ -185,7 +187,7 @@ impl PantryConf {
                 let lowercase_name = item.name().to_lowercase();
                 self.ingredient_index
                     .entry(lowercase_name)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push((section_name.clone(), idx));
             }
         }
@@ -327,7 +329,7 @@ fn parse_core(
             message: "Expected TOML table at root".to_string(),
         })?;
 
-    let mut sections = BTreeMap::new();
+    let mut sections = IndexMap::new();
     let mut general_items = Vec::new(); // For top-level items
 
     for (section_name, section_value) in toml_table {
@@ -508,6 +510,22 @@ fn parse_core(
         sections.insert("general".to_string(), general_items);
     }
 
+    // Normalize WithAttributes-with-no-attributes back to Simple, so
+    // `write` → `parse` round-trips preserve the item variant.
+    for items in sections.values_mut() {
+        for item in items.iter_mut() {
+            if let PantryItem::WithAttributes(attrs) = item {
+                if attrs.bought.is_none()
+                    && attrs.expire.is_none()
+                    && attrs.quantity.is_none()
+                    && attrs.low.is_none()
+                {
+                    *item = PantryItem::Simple(attrs.name.clone());
+                }
+            }
+        }
+    }
+
     // Build the index for fast lookups
     let mut ingredient_index = BTreeMap::new();
     for (section_name, items) in &sections {
@@ -656,11 +674,74 @@ pub fn parse_lenient(input: &str) -> PassResult<PantryConf> {
     }
 }
 
+/// Serialize a [`PantryConf`] to a TOML string.
+///
+/// Uses `toml_edit` so that keys are properly escaped (including non-ASCII
+/// characters) and item attributes are written as inline tables.
+pub fn to_toml_string(conf: &PantryConf) -> String {
+    let mut doc = toml_edit::DocumentMut::new();
+
+    // General items go at the top level as plain strings (the parser treats
+    // top-level inline tables as section headers, not items).
+    if let Some(general_items) = conf.sections.get("general") {
+        for item in general_items {
+            doc[item.name()] = general_item_to_toml_item(item);
+        }
+    }
+
+    for (section_name, items) in &conf.sections {
+        if section_name == "general" {
+            continue;
+        }
+        let mut table = toml_edit::Table::new();
+        for item in items {
+            table[item.name()] = item_to_toml_item(item);
+        }
+        doc[section_name] = toml_edit::Item::Table(table);
+    }
+
+    doc.to_string()
+}
+
 /// Write a [`PantryConf`] in TOML format
 pub fn write(conf: &PantryConf, mut write: impl std::io::Write) -> std::io::Result<()> {
-    let toml_string = toml::to_string_pretty(conf)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    write.write_all(toml_string.as_bytes())
+    write.write_all(to_toml_string(conf).as_bytes())
+}
+
+/// Convert a pantry item to an inline-table `toml_edit::Item` for use
+/// inside a `[section]`.
+fn item_to_toml_item(item: &PantryItem) -> toml_edit::Item {
+    match item {
+        PantryItem::Simple(_) => toml_edit::value(toml_edit::InlineTable::new()),
+        PantryItem::WithAttributes(attrs) => {
+            let mut table = toml_edit::InlineTable::new();
+            if let Some(qty) = &attrs.quantity {
+                table.insert("quantity", qty.as_str().into());
+            }
+            if let Some(bought) = &attrs.bought {
+                table.insert("bought", bought.as_str().into());
+            }
+            if let Some(expire) = &attrs.expire {
+                table.insert("expire", expire.as_str().into());
+            }
+            if let Some(low) = &attrs.low {
+                table.insert("low", low.as_str().into());
+            }
+            toml_edit::value(table)
+        }
+    }
+}
+
+/// Convert a pantry item to a plain-string `toml_edit::Item` for use at the
+/// top level ("general" section).  The parser only supports `key = "string"`
+/// at the top level.
+fn general_item_to_toml_item(item: &PantryItem) -> toml_edit::Item {
+    match item {
+        PantryItem::Simple(_) => toml_edit::value(""),
+        PantryItem::WithAttributes(attrs) => {
+            toml_edit::value(attrs.quantity.as_deref().unwrap_or(""))
+        }
+    }
 }
 
 /// Error generated by [`parse`].
@@ -671,7 +752,7 @@ pub enum PantryConfError {
 }
 
 impl RichError for PantryConfError {
-    fn labels(&self) -> Cow<[Label]> {
+    fn labels(&self) -> Cow<'_, [Label]> {
         use crate::error::label;
         match self {
             PantryConfError::Parse { .. } => vec![label!(Span::new(0, 0))],
@@ -679,7 +760,7 @@ impl RichError for PantryConfError {
         .into()
     }
 
-    fn hints(&self) -> Cow<[CowStr]> {
+    fn hints(&self) -> Cow<'_, [CowStr]> {
         match self {
             PantryConfError::Parse { .. } => {
                 vec!["Check TOML syntax".into()]
@@ -987,7 +1068,7 @@ rice = "5%kg"
     #[test]
     fn test_index_performance() {
         // Create a large pantry to test performance
-        let mut sections = BTreeMap::new();
+        let mut sections = IndexMap::new();
 
         // Add 100 sections with 100 items each = 10,000 items
         for section_num in 0..100 {

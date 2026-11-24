@@ -219,6 +219,31 @@ fn multiple_temperatures() {
     );
 }
 
+#[test_case("Heat to 230°C, or 200°C with convection."
+    => ["Heat to ", "[230 °C]", ", or ", "[200 °C]", " with convection."]; "compact temperatures")]
+#[test_case("Add 1ml." => ["Add ", "[1 ml]", "."]; "compact volume")]
+#[test_case("Add (240 ml)." => ["Add (", "[240 ml]", ")."]; "closing parenthesis")]
+#[test_case("Cut into 1/2-inch cubes." => ["Cut into 1/2-inch cubes."]; "fractional adjective")]
+#[test_case("Cut into 1/2-inch (1.3 cm) cubes."
+    => ["Cut into 1/2-inch (", "[1.3 cm]", ") cubes."]; "measurement after a fraction")]
+#[test_case("Add (1 tsp.), then stir."
+    => ["Add (", "[1 tsp.]", "), then stir."]; "punctuated unit symbol")]
+fn inline_quantity_boundaries(input: &str) -> Vec<String> {
+    let parser = CooklangParser::new(Extensions::INLINE_QUANTITIES, Default::default());
+    let recipe = parser.parse(input).unwrap_output();
+    let Content::Step(step) = &recipe.sections[0].content[0] else {
+        panic!("expected a recipe step");
+    };
+    step.items
+        .iter()
+        .map(|item| match item {
+            Item::Text { value } => value.clone(),
+            Item::InlineQuantity { index } => format!("[{}]", recipe.inline_quantities[*index]),
+            other => panic!("unexpected step item: {other:?}"),
+        })
+        .collect()
+}
+
 #[test]
 fn no_steps_component_mode() {
     let input = indoc! {r#"

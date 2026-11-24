@@ -518,8 +518,7 @@ fn write_report(
         let mut colored_labels = Vec::with_capacity(labels.len());
         for (s, t) in labels.iter() {
             let c = cg.next();
-            let mut l = codesnake::Label::new(s.range())
-                .with_style(move |s| s.paint(c).whenever(cond).to_string());
+            let mut l = codesnake::Label::new(s.range()).with_style(color.then_some(c));
             if let Some(text) = t {
                 l = l.with_text(text)
             }
@@ -532,6 +531,10 @@ fn write_report(
         };
 
         let mut prev_empty = false;
+        let block = block.with_paint(|f, style, x| match style {
+            Some(c) => write!(f, "{}", x.paint(*c)),
+            None => write!(f, "{x}"),
+        });
         let block = block.map_code(|s| {
             let sub = usize::from(core::mem::replace(&mut prev_empty, s.is_empty()));
             let s = s.replace('\t', "    ");

@@ -1064,12 +1064,19 @@ impl<'i> RecipeCollector<'i, '_> {
         let new_name = unicase::UniCase::new(new.name());
 
         let all = C::all(&self.content);
+        // Optionality belongs to each occurrence, so an implicit reference
+        // only links components that are both optional or both required.
+        // An explicit reference (&) keeps inheriting from any definition.
+        let explicit_ref = new.modifiers().contains(Modifiers::REF);
+        let new_optional = new.modifiers().contains(Modifiers::OPT);
         // find the LAST component with the same name, lazy
         let same_name_cell = std::cell::OnceCell::new();
         let same_name = || {
             *same_name_cell.get_or_init(|| {
                 C::all(&self.content).iter().rposition(|other: &C| {
                     !other.modifiers().contains(Modifiers::REF)
+                        && (explicit_ref
+                            || other.modifiers().contains(Modifiers::OPT) == new_optional)
                         && new_name == unicase::UniCase::new(other.name())
                 })
             })
@@ -1371,7 +1378,7 @@ fn find_inline_quantity<'a>(
         let w1 = eat_word(text, &mut i)?; // if no words, no more quantities
         let first_non_digit =
             w1.find(|c: char| !c.is_ascii_digit() && c != '.' && !c.is_whitespace());
-        let (mut number, mut unit) = if let Some(mid) = first_non_digit {
+        let (number, unit_word) = if let Some(mid) = first_non_digit {
             // split after number for unit
             w1.split_at(mid)
         } else {
@@ -1381,20 +1388,16 @@ fn find_inline_quantity<'a>(
             (w1, w2)
         };
 
-        number = number.trim();
-        unit = unit.trim();
-
         #[cfg(debug_assertions)]
         {
             debug_assert!(prev < i); // to be sure no infinite loop
             prev = i;
         }
 
-        let after = &text[i..];
         let Ok(mut number) = number.parse::<f64>() else {
             continue;
         };
-        if converter.find_unit(unit).is_none() {
+        let Some(unit) = converter.match_inline_unit(unit_word) else {
             continue;
         };
 
@@ -1403,6 +1406,8 @@ fn find_inline_quantity<'a>(
         }
 
         let q = Quantity::new(Value::from(number), Some(unit.to_string()));
+        let unit_start = i - unit_word.len();
+        let after = &text[unit_start + unit.len()..];
         return Some((before, q, after));
     }
 
@@ -1605,6 +1610,59 @@ mod tests {
         assert_eq!(
             "./Sicilian-style Scottadito Lamb Chops",
             reference.path("/")
+        );
+    }
+
+    #[test]
+    fn test_find_inline_quantity() {
+        let conv = Converter::bundled();
+        assert_eq!(
+            find_inline_quantity("1ml", &conv),
+            Some((
+                "",
+                Quantity {
+                    value: 1.0.into(),
+                    unit: Some("ml".into()),
+                    scalable: false
+                },
+                ""
+            ))
+        );
+        assert_eq!(
+            find_inline_quantity("1 ml", &conv),
+            Some((
+                "",
+                Quantity {
+                    value: 1.0.into(),
+                    unit: Some("ml".into()),
+                    scalable: false
+                },
+                ""
+            ))
+        );
+        assert_eq!(
+            find_inline_quantity("1ml.", &conv),
+            Some((
+                "",
+                Quantity {
+                    value: 1.0.into(),
+                    unit: Some("ml".into()),
+                    scalable: false
+                },
+                "."
+            ))
+        );
+        assert_eq!(
+            find_inline_quantity("1 ml.", &conv),
+            Some((
+                "",
+                Quantity {
+                    value: 1.0.into(),
+                    unit: Some("ml".into()),
+                    scalable: false
+                },
+                "."
+            ))
         );
     }
 }

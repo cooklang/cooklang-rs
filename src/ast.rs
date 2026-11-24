@@ -32,7 +32,7 @@ pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<
     let mut ctx = SourceReport::empty();
     for event in events {
         match event {
-            Event::YAMLFrontMatter(_) => todo!(),
+            Event::YAMLFrontMatter(yaml) => blocks.push(Block::FrontMatter(yaml)),
             Event::Metadata { key, value } => blocks.push(Block::Metadata { key, value }),
             Event::Section { name } => blocks.push(Block::Section { name }),
             Event::Start(_kind) => items.clear(),
@@ -70,4 +70,35 @@ pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<
     }
     let ast = Ast { blocks };
     PassResult::new(Some(ast), ctx)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{parser::PullParser, Extensions};
+
+    #[test]
+    fn frontmatter_becomes_a_block() {
+        let input = "---\ntitle: Pancakes\nservings: 2\n---\nCrack the @eggs{3}.\n";
+        let (ast, _report) = build_ast(PullParser::new(input, Extensions::all())).into_tuple();
+        let ast = ast.expect("ast");
+        match &ast.blocks[0] {
+            Block::FrontMatter(yaml) => {
+                assert_eq!(yaml.text_trimmed(), "title: Pancakes\nservings: 2")
+            }
+            other => panic!("expected front matter first, got {other:?}"),
+        }
+        assert!(matches!(ast.blocks[1], Block::Step { .. }));
+    }
+
+    #[test]
+    fn no_frontmatter_no_block() {
+        let (ast, _) =
+            build_ast(PullParser::new("Crack the @eggs{3}.\n", Extensions::all())).into_tuple();
+        assert!(!ast
+            .expect("ast")
+            .blocks
+            .iter()
+            .any(|b| matches!(b, Block::FrontMatter(_))));
+    }
 }

@@ -5,6 +5,7 @@ use cooklang::metadata::StdKey as OriginalStdKey;
 
 pub mod aisle;
 pub mod model;
+pub mod shopping_list;
 
 use aisle::*;
 use model::*;
@@ -102,6 +103,8 @@ pub fn deref_timer(recipe: &Arc<CooklangRecipe>, index: u32) -> Timer {
 pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
     let mut categories: Vec<AisleCategory> = Vec::new();
     let mut cache: AisleReverseCategory = AisleReverseCategory::default();
+    let mut common_names: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     // Use the lenient parser that handles duplicates as warnings
     let result = parse_lenient(&input);
@@ -131,16 +134,22 @@ pub fn parse_aisle_config(input: String) -> Arc<AisleConf> {
         // building cache
         category.ingredients.iter().for_each(|i| {
             cache.insert(i.name.clone(), category.name.clone());
+            common_names.insert(i.name.to_lowercase(), i.name.clone());
 
             i.aliases.iter().for_each(|a| {
                 cache.insert(a.to_string(), category.name.clone());
+                common_names.insert(a.to_lowercase(), i.name.clone());
             });
         });
 
         categories.push(category);
     });
 
-    let config = AisleConf { categories, cache };
+    let config = AisleConf {
+        categories,
+        cache,
+        common_names,
+    };
 
     Arc::new(config)
 }
@@ -176,6 +185,24 @@ pub fn combine_ingredients_selected(
     expand_with_ingredients(ingredients, &mut combined, indices);
 
     combined
+}
+
+/// Replaces ingredient names with their common names from aisle configuration
+///
+/// # Arguments
+/// * `list` - The ingredient list to normalize
+/// * `aisle` - The aisle configuration containing common name mappings
+///
+/// # Returns
+/// A new ingredient list with names replaced by their common names
+#[uniffi::export]
+pub fn use_common_names(list: IngredientList, aisle: &AisleConf) -> IngredientList {
+    let mut normalized: IngredientList = IngredientList::default();
+    for (ingredient_name, quantity) in list.iter() {
+        let common_name = aisle.common_name_for(ingredient_name.clone());
+        add_to_ingredient_list(&mut normalized, &common_name, &quantity);
+    }
+    normalized
 }
 
 // Metadata helper functions
@@ -554,6 +581,114 @@ fn parse_fraction(s: &str) -> Option<f64> {
     None
 }
 
+// ---------------------------------------------------------------------------
+// Shopping list functions
+// ---------------------------------------------------------------------------
+
+/// Parses a `.shopping-list` file into a ShoppingList structure
+///
+/// The format supports recipe references (lines starting with `./`) and
+/// free-hand ingredients, with indentation-based nesting for sub-recipes.
+///
+/// # Arguments
+/// * `input` - The raw shopping list text
+///
+/// # Returns
+/// A parsed ShoppingList, or an error string if parsing fails
+#[uniffi::export]
+pub fn parse_shopping_list(
+    input: String,
+) -> Result<shopping_list::ShoppingList, shopping_list::ShoppingListError> {
+    shopping_list::parse_shopping_list_impl(&input)
+}
+
+/// Serializes a ShoppingList back to the `.shopping-list` text format
+///
+/// # Arguments
+/// * `list` - The shopping list to serialize
+///
+/// # Returns
+/// The formatted text, or an error string if serialization fails
+#[uniffi::export]
+pub fn write_shopping_list(
+    list: &shopping_list::ShoppingList,
+) -> Result<String, shopping_list::ShoppingListError> {
+    shopping_list::write_shopping_list_impl(list)
+}
+
+/// Parses a `.shopping-checked` log file into a list of check entries
+///
+/// The format is an append-only log with `+ name` (checked) and `- name`
+/// (unchecked) entries.
+///
+/// # Arguments
+/// * `input` - The raw checked log text
+///
+/// # Returns
+/// A list of check/uncheck entries in order
+#[uniffi::export]
+pub fn parse_shopping_checked(input: String) -> Vec<shopping_list::CheckEntry> {
+    shopping_list::parse_checked_impl(&input)
+}
+
+/// Replays a checked log and returns the set of currently checked ingredient
+/// names (lowercased)
+///
+/// Later entries override earlier ones for the same ingredient.
+///
+/// # Arguments
+/// * `entries` - The check log entries to replay
+///
+/// # Returns
+/// Set of ingredient names that are currently checked
+#[uniffi::export]
+pub fn shopping_checked_set(entries: &[shopping_list::CheckEntry]) -> Vec<String> {
+    // UniFFI doesn't expose HashSet, so we return a Vec. Sort for
+    // deterministic ordering across the FFI boundary.
+    let mut names: Vec<String> = shopping_list::checked_set_impl(entries)
+        .into_iter()
+        .collect();
+    names.sort();
+    names
+}
+
+/// Serializes a single check entry to string format
+///
+/// # Arguments
+/// * `entry` - The check entry to serialize
+///
+/// # Returns
+/// The formatted string (e.g., `"+ salt\n"` or `"- pepper\n"`)
+#[uniffi::export]
+pub fn write_shopping_check_entry(
+    entry: &shopping_list::CheckEntry,
+) -> Result<String, shopping_list::ShoppingListError> {
+    shopping_list::write_check_entry_impl(entry)
+}
+
+/// Compacts a checked log against the set of currently-visible ingredient
+/// names.
+///
+/// Removes entries for ingredients that are no longer in the shopping list,
+/// and collapses the log so each ingredient appears at most once.
+///
+/// # Arguments
+/// * `entries` - The current check log entries
+/// * `current_ingredients` - The fully-aggregated ingredient names as shown
+///   to the user. A raw on-disk `ShoppingList` only stores recipe
+///   references, so callers must expand recipes first and pass the
+///   resulting ingredient names here.
+///
+/// # Returns
+/// A compacted list of check entries
+#[uniffi::export]
+pub fn compact_shopping_checked(
+    entries: &[shopping_list::CheckEntry],
+    current_ingredients: &[String],
+) -> Vec<shopping_list::CheckEntry> {
+    shopping_list::compact_checked_impl(entries, current_ingredients)
+}
+
 uniffi::setup_scaffolding!();
 
 #[cfg(test)]
@@ -581,7 +716,9 @@ a test @step @salt{1%mg} more text
                     quantity: Value::Number { value: 1.0 },
                     units: Some("mg".to_string())
                 }),
-                descriptor: None
+                descriptor: None,
+                reference: None,
+                optional: false
             })
         );
 
@@ -619,7 +756,9 @@ a test @step @salt{1%mg} more text
                 Ingredient {
                     name: "step".to_string(),
                     amount: None,
-                    descriptor: None
+                    descriptor: None,
+                    reference: None,
+                    optional: false
                 },
                 Ingredient {
                     name: "salt".to_string(),
@@ -627,7 +766,9 @@ a test @step @salt{1%mg} more text
                         quantity: Value::Number { value: 1.0 },
                         units: Some("mg".to_string())
                     }),
-                    descriptor: None
+                    descriptor: None,
+                    reference: None,
+                    optional: false
                 },
             ]
         );
@@ -809,6 +950,8 @@ dried oregano
                     units: Some("g".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "pepper".to_string(),
@@ -817,6 +960,8 @@ dried oregano
                     units: Some("mg".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "salt".to_string(),
@@ -825,6 +970,8 @@ dried oregano
                     units: Some("kg".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
+                optional: false,
             },
             Ingredient {
                 name: "pepper".to_string(),
@@ -833,6 +980,8 @@ dried oregano
                     units: Some("tsp".to_string()),
                 }),
                 descriptor: None,
+                reference: None,
+                optional: false,
             },
         ];
 
@@ -877,6 +1026,77 @@ dried oregano
                 ),
             ])
         );
+    }
+
+    #[test]
+    fn test_use_common_names() {
+        use crate::{
+            combine_ingredients, parse_aisle_config, use_common_names, Amount, Ingredient, Value,
+        };
+
+        let ingredients = vec![
+            Ingredient {
+                name: "apples".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Number { value: 3.0 },
+                    units: None,
+                }),
+                descriptor: None,
+                reference: None,
+                optional: false,
+            },
+            Ingredient {
+                name: "eggs".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Number { value: 2.0 },
+                    units: None,
+                }),
+                descriptor: None,
+                reference: None,
+                optional: false,
+            },
+            Ingredient {
+                name: "salt".to_string(),
+                amount: Some(Amount {
+                    quantity: Value::Number { value: 1.0 },
+                    units: Some("tsp".to_string()),
+                }),
+                descriptor: None,
+                reference: None,
+                optional: false,
+            },
+        ];
+
+        let aisle = parse_aisle_config(
+            r#"
+[fruit and veg]
+apple gala | apples
+aubergine
+
+[milk and dairy]
+egg | eggs
+"#
+            .to_string(),
+        );
+
+        let combined = combine_ingredients(&ingredients);
+
+        // "apples" should exist before common names
+        assert!(combined.contains_key("apples"));
+        assert!(combined.contains_key("eggs"));
+
+        let normalized = use_common_names(combined, &aisle);
+
+        // "apples" should be replaced by common name "apple gala"
+        assert!(normalized.contains_key("apple gala"));
+        assert!(!normalized.contains_key("apples"));
+
+        // "eggs" should be replaced by common name "egg"
+        assert!(normalized.contains_key("egg"));
+        assert!(!normalized.contains_key("eggs"));
+
+        // "salt" not in aisle config, should stay as is
+        assert!(normalized.contains_key("salt"));
     }
 
     #[test]
@@ -1211,5 +1431,236 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
                 value: "pinch".to_string()
             }
         );
+    }
+
+    #[test]
+    fn test_recipe_reference() {
+        use crate::{parse_recipe, RecipeReference};
+
+        let recipe = parse_recipe(
+            r#"
+Serve the @./pasta/spaghetti{1%portion} with sauce
+"#
+            .to_string(),
+            1.0,
+        );
+
+        let ingredient = recipe.ingredients.get(0).expect("No ingredients found");
+
+        assert_eq!(ingredient.name, "spaghetti");
+        assert_eq!(
+            ingredient.reference,
+            Some(RecipeReference {
+                name: "spaghetti".to_string(),
+                components: vec![".".to_string(), "pasta".to_string()],
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_shopping_list() {
+        use crate::shopping_list::ShoppingListItem;
+
+        let list = crate::parse_shopping_list(
+            "./Breakfast/Easy Pancakes{2}\n  ./Shared/Guacamole\n./Thai Green Curry\n".to_string(),
+        )
+        .unwrap();
+
+        assert_eq!(list.items.len(), 2);
+
+        // First item: Easy Pancakes with multiplier and one child
+        match &list.items[0] {
+            ShoppingListItem::Recipe {
+                path,
+                multiplier,
+                children,
+                ..
+            } => {
+                assert_eq!(path, "Breakfast/Easy Pancakes");
+                assert_eq!(*multiplier, Some(2.0));
+                assert_eq!(children.len(), 1);
+                match &children[0] {
+                    ShoppingListItem::Recipe {
+                        path, multiplier, ..
+                    } => {
+                        assert_eq!(path, "Shared/Guacamole");
+                        assert_eq!(*multiplier, None);
+                    }
+                    _ => panic!("Expected recipe child"),
+                }
+            }
+            _ => panic!("Expected recipe item"),
+        }
+
+        // Second item: Thai Green Curry, no children
+        match &list.items[1] {
+            ShoppingListItem::Recipe {
+                path,
+                multiplier,
+                children,
+                ..
+            } => {
+                assert_eq!(path, "Thai Green Curry");
+                assert_eq!(*multiplier, None);
+                assert!(children.is_empty());
+            }
+            _ => panic!("Expected recipe item"),
+        }
+    }
+
+    #[test]
+    fn test_write_shopping_list() {
+        use crate::shopping_list::{ShoppingList, ShoppingListItem};
+
+        let list = ShoppingList {
+            items: vec![
+                ShoppingListItem::Recipe {
+                    path: "Breakfast/Pancakes".to_string(),
+                    multiplier: Some(2.0),
+                    children: vec![ShoppingListItem::Recipe {
+                        path: "Shared/Syrup".to_string(),
+                        multiplier: None,
+                        children: vec![],
+                        optional: false,
+                    }],
+                    optional: false,
+                },
+                ShoppingListItem::Ingredient {
+                    name: "salt".to_string(),
+                    quantity: Some("2%tsp".to_string()),
+                    optional: false,
+                },
+            ],
+        };
+
+        let output = crate::write_shopping_list(&list).unwrap();
+        assert_eq!(
+            output,
+            "./Breakfast/Pancakes{2}\n  ./Shared/Syrup\nsalt{2%tsp}\n"
+        );
+    }
+
+    #[test]
+    fn test_shopping_list_roundtrip() {
+        let input =
+            "./Meal Plan.menu\n  ./Breakfast/Pancakes{2}\n    ./Shared/Guacamole\n  ./Dinner/Curry\n";
+        let list = crate::parse_shopping_list(input.to_string()).unwrap();
+        let output = crate::write_shopping_list(&list).unwrap();
+        assert_eq!(output, input);
+    }
+
+    #[test]
+    fn test_parse_shopping_checked() {
+        use crate::shopping_list::CheckEntry;
+
+        let entries =
+            crate::parse_shopping_checked("+ salt\n+ pepper\n- salt\n+ garlic\n".to_string());
+
+        assert_eq!(entries.len(), 4);
+        assert!(matches!(&entries[0], CheckEntry::Checked { name } if name == "salt"));
+        assert!(matches!(&entries[1], CheckEntry::Checked { name } if name == "pepper"));
+        assert!(matches!(&entries[2], CheckEntry::Unchecked { name } if name == "salt"));
+        assert!(matches!(&entries[3], CheckEntry::Checked { name } if name == "garlic"));
+    }
+
+    #[test]
+    fn test_shopping_checked_set() {
+        use crate::shopping_list::CheckEntry;
+
+        let entries = vec![
+            CheckEntry::Checked {
+                name: "salt".to_string(),
+            },
+            CheckEntry::Checked {
+                name: "pepper".to_string(),
+            },
+            CheckEntry::Unchecked {
+                name: "salt".to_string(),
+            },
+        ];
+
+        let checked = crate::shopping_checked_set(&entries);
+        // salt was unchecked, pepper stays checked
+        assert!(!checked.contains(&"salt".to_string()));
+        assert!(checked.contains(&"pepper".to_string()));
+    }
+
+    #[test]
+    fn test_write_shopping_check_entry() {
+        use crate::shopping_list::CheckEntry;
+
+        let entry = CheckEntry::Checked {
+            name: "salt".to_string(),
+        };
+        assert_eq!(
+            crate::write_shopping_check_entry(&entry).unwrap(),
+            "+ salt\n"
+        );
+
+        let entry = CheckEntry::Unchecked {
+            name: "pepper".to_string(),
+        };
+        assert_eq!(
+            crate::write_shopping_check_entry(&entry).unwrap(),
+            "- pepper\n"
+        );
+    }
+
+    #[test]
+    fn test_compact_shopping_checked() {
+        use crate::shopping_list::CheckEntry;
+
+        let entries = vec![
+            CheckEntry::Checked {
+                name: "salt".to_string(),
+            },
+            CheckEntry::Checked {
+                name: "pepper".to_string(),
+            },
+            CheckEntry::Checked {
+                name: "removed ingredient".to_string(),
+            },
+        ];
+
+        // Caller has already aggregated the user-visible ingredient names
+        // (e.g. by expanding recipe references and categorizing against an
+        // aisle config). Only "salt" is currently in the list.
+        let current_ingredients = vec!["salt".to_string()];
+
+        let compacted = crate::compact_shopping_checked(&entries, &current_ingredients);
+        // Only "salt" should remain — it's checked and still in the list.
+        // "pepper" and "removed ingredient" are not in the list.
+        assert_eq!(compacted.len(), 1);
+        assert!(matches!(&compacted[0], CheckEntry::Checked { name } if name == "salt"));
+    }
+
+    #[test]
+    fn test_optional_components() {
+        use crate::{parse_recipe, parse_shopping_list, shopping_list::ShoppingListItem};
+
+        let recipe = parse_recipe(
+            "Top with @?chives and @salt, use a #?splatter guard{}.".to_string(),
+            1.0,
+        );
+        let optional: Vec<_> = recipe
+            .ingredients
+            .iter()
+            .map(|i| (i.name.as_str(), i.optional))
+            .collect();
+        assert_eq!(optional, vec![("chives", true), ("salt", false)]);
+        assert!(recipe.cookware[0].optional);
+
+        let input = "./Breakfast/Eggs on toast{2}\n  ? chives\n".to_string();
+        let list = parse_shopping_list(input.clone()).unwrap();
+        match &list.items[0] {
+            ShoppingListItem::Recipe { children, .. } => {
+                assert!(matches!(
+                    &children[0],
+                    ShoppingListItem::Ingredient { name, optional: true, .. } if name == "chives"
+                ));
+            }
+            _ => panic!("Expected recipe item"),
+        }
+        assert_eq!(crate::write_shopping_list(&list).unwrap(), input);
     }
 }

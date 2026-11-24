@@ -1,36 +1,68 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
+      version:
+        description: 'Release version (e.g., 0.17.12)'
+        required: true
+        type: string
       dry_run:
         description: 'Dry run (skip release creation and publishing)'
         required: false
-        default: 'false'
+        default: false
+        type: boolean
+      npm_only:
+        description: 'Only publish the npm package (retry for an existing release)'
+        required: false
+        default: false
         type: boolean
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Build iOS/macOS artifacts on macOS
+  # Prepare release - set version outputs
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      version_tag: ${{ steps.set-version.outputs.version_tag }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set version outputs
+        id: set-version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+  # Build iOS artifacts on macOS
   build-ios:
-    name: Build iOS/macOS
+    name: Build iOS
+    needs: prepare-release
+    if: ${{ github.event.inputs.npm_only != 'true' }}
     runs-on: macos-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,aarch64-apple-darwin,x86_64-apple-darwin
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -41,9 +73,9 @@ jobs:
           key: ${{ runner.os }}-ios-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-ios-cargo-
 
-      - name: Build iOS/macOS targets
+      - name: Build iOS targets
         run: |
-          targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "x86_64-apple-ios" "aarch64-apple-darwin" "x86_64-apple-darwin")
+          targets=("aarch64-apple-ios" "aarch64-apple-ios-sim" "aarch64-apple-darwin" "x86_64-apple-darwin")
           for target in "${targets[@]}"; do
             echo "Building for $target..."
             cargo build --release --target $target -p cooklang-bindings
@@ -53,10 +85,9 @@ jobs:
         working-directory: bindings
         run: |
           mkdir -p out
-          CURRENT_ARCH=$(rustc --version --verbose | grep host | cut -f2 -d' ')
           cargo run --features="uniffi/cli" --bin uniffi-bindgen generate \
             --config uniffi.toml \
-            --library ../target/$CURRENT_ARCH/release/libcooklang_bindings.a \
+            --library ../target/aarch64-apple-ios/release/libcooklang_bindings.a \
             --language swift \
             --out-dir out
 
@@ -76,18 +107,8 @@ jobs:
           # Target paths
           AARCH64_APPLE_IOS_PATH="../target/aarch64-apple-ios/release"
           AARCH64_APPLE_IOS_SIM_PATH="../target/aarch64-apple-ios-sim/release"
-          X86_64_APPLE_IOS_PATH="../target/x86_64-apple-ios/release"
           AARCH64_APPLE_DARWIN_PATH="../target/aarch64-apple-darwin/release"
           X86_64_APPLE_DARWIN_PATH="../target/x86_64-apple-darwin/release"
-
-          # Merge libraries with lipo
-          echo "Merging libraries with lipo..."
-          lipo -create $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME \
-                       $X86_64_APPLE_IOS_PATH/$LIBRARY_NAME \
-               -output $OUT_PATH/sim-$LIBRARY_NAME
-          lipo -create $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
-                       $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
-               -output $OUT_PATH/macos-$LIBRARY_NAME
 
           # Create framework template
           rm -rf $OUT_PATH/$FRAMEWORK_NAME
@@ -137,31 +158,20 @@ jobs:
           rm -rf $OUT_PATH/frameworks
           mkdir -p $OUT_PATH/frameworks/sim
           mkdir -p $OUT_PATH/frameworks/ios
-          mkdir -p $OUT_PATH/frameworks/macos
           cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/sim/
           cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/ios/
-          cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/macos/
-          mv $OUT_PATH/sim-$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
-          mv $OUT_PATH/macos-$LIBRARY_NAME $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+          cp $AARCH64_APPLE_IOS_SIM_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/sim/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
           cp $AARCH64_APPLE_IOS_PATH/$LIBRARY_NAME $OUT_PATH/frameworks/ios/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
 
-          # Convert macOS framework to versioned bundle structure
-          echo "Converting macOS framework to versioned bundle structure..."
-          MACOS_FRAMEWORK_PATH="$OUT_PATH/frameworks/macos/$FRAMEWORK_NAME"
-          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Headers"
-          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Modules"
-          mkdir -p "$MACOS_FRAMEWORK_PATH/Versions/A/Resources"
-          mv "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/$FRAMEWORK_LIBRARY_NAME"
-          mv "$MACOS_FRAMEWORK_PATH/Headers/$HEADER_NAME" "$MACOS_FRAMEWORK_PATH/Versions/A/Headers/$HEADER_NAME"
-          mv "$MACOS_FRAMEWORK_PATH/Modules/module.modulemap" "$MACOS_FRAMEWORK_PATH/Versions/A/Modules/module.modulemap"
-          mv "$MACOS_FRAMEWORK_PATH/Info.plist" "$MACOS_FRAMEWORK_PATH/Versions/A/Resources/Info.plist"
-          rmdir "$MACOS_FRAMEWORK_PATH/Headers"
-          rmdir "$MACOS_FRAMEWORK_PATH/Modules"
-          ln -s A "$MACOS_FRAMEWORK_PATH/Versions/Current"
-          ln -s Versions/Current/$FRAMEWORK_LIBRARY_NAME "$MACOS_FRAMEWORK_PATH/$FRAMEWORK_LIBRARY_NAME"
-          ln -s Versions/Current/Headers "$MACOS_FRAMEWORK_PATH/Headers"
-          ln -s Versions/Current/Modules "$MACOS_FRAMEWORK_PATH/Modules"
-          ln -s Versions/Current/Resources "$MACOS_FRAMEWORK_PATH/Resources"
+          mkdir -p $OUT_PATH/frameworks/macos
+          cp -r $OUT_PATH/$FRAMEWORK_NAME $OUT_PATH/frameworks/macos/
+          lipo -create \
+            $AARCH64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
+            $X86_64_APPLE_DARWIN_PATH/$LIBRARY_NAME \
+            -output $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/$FRAMEWORK_LIBRARY_NAME
+          # The Info.plist template carries an iOS-only MinimumOSVersion; drop it from the macOS slice.
+          /usr/libexec/PlistBuddy -c "Delete :MinimumOSVersion" \
+            $OUT_PATH/frameworks/macos/$FRAMEWORK_NAME/Info.plist 2>/dev/null || true
 
           # Create xcframework
           echo "Creating xcframework..."
@@ -178,18 +188,28 @@ jobs:
           zip -r ../../CooklangParserFFI.xcframework.zip CooklangParserFFI.xcframework
 
       - name: Upload iOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-artifacts
           path: CooklangParserFFI.xcframework.zip
 
+      - name: Upload Swift wrapper
+        uses: actions/upload-artifact@v7
+        with:
+          name: swift-wrapper
+          path: bindings/out/CooklangParser.swift
+
   # Build Android artifacts on Linux
   build-android:
     name: Build Android
+    needs: prepare-release
+    if: ${{ github.event.inputs.npm_only != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -197,7 +217,7 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Cache Rust dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin/
@@ -209,7 +229,10 @@ jobs:
           restore-keys: ${{ runner.os }}-android-cargo-
 
       - name: Setup Android NDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          # the default also installs `tools`, which cmdline-tools 16 no longer has
+          packages: 'platform-tools'
 
       - name: Install NDK
         run: |
@@ -230,16 +253,31 @@ jobs:
           cargo ndk --target armv7-linux-androideabi --platform 21 build --release
           cargo ndk --target x86_64-linux-android --platform 21 build --release
 
+      - name: Build host library for bindings generation
+        working-directory: bindings
+        run: cargo build --lib
+
       - name: Generate Kotlin bindings
         working-directory: bindings
         run: |
           rm -rf out/kotlin
           mkdir -p out/kotlin
+          # Use debug host library (not stripped) so uniffi-bindgen can read metadata symbols.
+          # The release profile has strip=true which removes symbols uniffi-bindgen needs.
           ../target/release/uniffi-bindgen generate \
             --config uniffi.toml \
-            --library ../target/aarch64-linux-android/release/libcooklang_bindings.so \
+            --library ../target/debug/libcooklang_bindings.so \
             --language kotlin \
             --out-dir out/kotlin
+
+          # Verify bindings were generated
+          KT_COUNT=$(find out/kotlin -name "*.kt" | wc -l)
+          if [ "$KT_COUNT" -eq 0 ]; then
+            echo "ERROR: No Kotlin bindings were generated!"
+            exit 1
+          fi
+          echo "Generated $KT_COUNT Kotlin binding file(s):"
+          find out/kotlin -name "*.kt" -exec ls -la {} \;
 
       - name: Organize JNI libraries
         run: |
@@ -256,8 +294,17 @@ jobs:
           # Copy JNI libs
           cp -R target/android/jniLibs/* target/android/parser/src/main/jniLibs/
 
-          # Copy Kotlin bindings
-          find bindings/out/kotlin -name "*.kt" -exec cp {} target/android/parser/src/main/kotlin/ \;
+          # Copy Kotlin bindings (preserve directory structure)
+          cp -r bindings/out/kotlin/* target/android/parser/src/main/kotlin/
+
+          # Verify Kotlin bindings were copied
+          KT_COUNT=$(find target/android/parser/src/main/kotlin -name "*.kt" | wc -l)
+          if [ "$KT_COUNT" -eq 0 ]; then
+            echo "ERROR: No Kotlin bindings found in Android module!"
+            exit 1
+          fi
+          echo "Kotlin bindings in Android module:"
+          find target/android/parser/src/main/kotlin -name "*.kt" -exec ls -la {} \;
 
           # Create build.gradle.kts
           cat > target/android/parser/build.gradle.kts << 'EOF'
@@ -302,6 +349,7 @@ jobs:
           dependencies {
               implementation("net.java.dev.jna:jna:5.14.0@aar")
               implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+              implementation("androidx.core:core-ktx:1.9.0")
           }
           EOF
 
@@ -331,55 +379,121 @@ jobs:
           zip -r ../../cooklang-parser-android.zip parser jniLibs
 
       - name: Upload Android artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-artifacts
           path: cooklang-parser-android.zip
 
-  # Create GitHub Release
-  release:
-    name: Create Release
-    needs: [build-ios, build-android]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+  # Update Package.swift with correct checksum
+  update-package-swift:
+    name: Update Package.swift
+    needs: [prepare-release, build-ios]
+    runs-on: macos-latest
     permissions:
       contents: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download iOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
+        with:
+          name: ios-artifacts
+
+      - name: Download Swift wrapper
+        uses: actions/download-artifact@v8
+        with:
+          name: swift-wrapper
+
+      - name: Compute checksum
+        id: checksum
+        run: |
+          CHECKSUM=$(swift package compute-checksum CooklangParserFFI.xcframework.zip)
+          echo "checksum=${CHECKSUM}" >> $GITHUB_OUTPUT
+          echo "Computed checksum: ${CHECKSUM}"
+
+      - name: Update Package.swift
+        run: |
+          VERSION="${{ needs.prepare-release.outputs.version_tag }}"
+          CHECKSUM="${{ steps.checksum.outputs.checksum }}"
+
+          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/[^\"]*\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
+          sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
+
+          echo "Updated Package.swift:"
+          grep -A2 "binaryTarget" Package.swift | head -5
+
+      - name: Update Swift wrapper
+        run: |
+          cp CooklangParser.swift swift/Sources/CooklangParser/CooklangParser.swift
+
+      - name: Commit Package.swift and Swift wrapper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add Package.swift swift/Sources/CooklangParser/CooklangParser.swift
+          git commit -m "Update Package.swift for ${{ needs.prepare-release.outputs.version_tag }}" || echo "No changes to commit"
+          git push origin HEAD:main
+
+  # Create GitHub Release
+  create-release:
+    name: Create Release
+    needs: [prepare-release, build-ios, build-android, update-package-swift]
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.dry_run != 'true' }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download iOS artifacts
+        uses: actions/download-artifact@v8
         with:
           name: ios-artifacts
 
       - name: Download Android artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: android-artifacts
 
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Create and push tag
+        run: |
+          VERSION_TAG="${{ needs.prepare-release.outputs.version_tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create tag at current commit (which includes updated Package.swift)
+          git tag "${VERSION_TAG}"
+          git push origin "${VERSION_TAG}"
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
-          name: Release ${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ needs.prepare-release.outputs.version_tag }}
+          name: Release ${{ needs.prepare-release.outputs.version_tag }}
           draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+          prerelease: ${{ contains(github.event.inputs.version, 'alpha') || contains(github.event.inputs.version, 'beta') || contains(github.event.inputs.version, 'rc') }}
           generate_release_notes: true
           files: |
             CooklangParserFFI.xcframework.zip
             cooklang-parser-android.zip
           body: |
-            ## Cooklang Parser Release ${{ steps.version.outputs.VERSION }}
+            ## Cooklang Parser Release ${{ needs.prepare-release.outputs.version_tag }}
 
-            ### iOS/macOS (Swift Package Manager)
+            ### iOS (Swift Package Manager)
 
             Add to your `Package.swift` or Xcode project:
             ```swift
-            .package(url: "https://github.com/cooklang/cooklang-rs.git", from: "${{ steps.version.outputs.VERSION }}")
+            .package(url: "https://github.com/cooklang/cooklang-rs.git", from: "${{ needs.prepare-release.outputs.version_tag }}")
             ```
 
             Or download `CooklangParserFFI.xcframework.zip` for manual integration.
@@ -387,9 +501,6 @@ jobs:
             **Supported architectures:**
             - iOS arm64 (devices)
             - iOS arm64 (simulator, Apple Silicon)
-            - iOS x86_64 (simulator, Intel)
-            - macOS arm64 (Apple Silicon)
-            - macOS x86_64 (Intel)
 
             ### Android (GitHub Packages Maven)
 
@@ -410,7 +521,7 @@ jobs:
 
             Add to your `build.gradle.kts`:
             ```kotlin
-            implementation("com.github.cooklang:parser:${{ steps.version.outputs.VERSION }}")
+            implementation("org.cooklang:parser:${{ needs.prepare-release.outputs.version_tag }}")
             ```
 
             Or download `cooklang-parser-android.zip` for manual integration.
@@ -426,7 +537,7 @@ jobs:
 
             ```toml
             [dependencies]
-            cooklang = "${{ steps.version.outputs.VERSION }}"
+            cooklang = "${{ needs.prepare-release.outputs.version }}"
             ```
 
             ### TypeScript/JavaScript (npm)
@@ -437,74 +548,23 @@ jobs:
 
             See the README for detailed integration instructions.
 
-  # Update Package.swift for Swift Package Manager
-  update-swift-package:
-    name: Update Package.swift
-    needs: [release]
-    runs-on: macos-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Download iOS zip and compute checksum
-        id: checksum
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          URL="https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip"
-
-          echo "Downloading from: ${URL}"
-          curl -fsSL "$URL" -o ios.zip
-
-          CHECKSUM=$(swift package compute-checksum ios.zip)
-          echo "Checksum: ${CHECKSUM}"
-          echo "CHECKSUM=${CHECKSUM}" >> $GITHUB_OUTPUT
-
-      - name: Update Package.swift
-        run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          CHECKSUM="${{ steps.checksum.outputs.CHECKSUM }}"
-
-          # Update the URL and checksum in Package.swift
-          sed -i '' "s|url: \"https://github.com/cooklang/cooklang-rs/releases/download/v[^/]*/CooklangParserFFI.xcframework.zip\"|url: \"https://github.com/cooklang/cooklang-rs/releases/download/${VERSION}/CooklangParserFFI.xcframework.zip\"|" Package.swift
-          sed -i '' "s|checksum: \"[^\"]*\"|checksum: \"${CHECKSUM}\"|" Package.swift
-
-          echo "Updated Package.swift:"
-          cat Package.swift
-
-      - name: Commit and push Package.swift
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add Package.swift
-          git commit -m "Update Package.swift for ${{ steps.version.outputs.VERSION }}" || echo "No changes to commit"
-          git push origin main
-
   # Publish Android package to GitHub Packages
   publish-android:
     name: Publish Android to GitHub Packages
-    needs: [build-android, release]
+    needs: [prepare-release, build-android, create-release]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    if: ${{ github.event.inputs.dry_run != 'true' }}
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          ref: main
 
       - name: Download Android artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: android-artifacts
 
@@ -513,27 +573,34 @@ jobs:
           mkdir -p target/android
           unzip cooklang-parser-android.zip -d target/android/
 
-      - name: Get version from tag
-        id: version
-        run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          # Verify Kotlin sources are present
+          KT_COUNT=$(find target/android/parser/src/main/kotlin -name "*.kt" | wc -l)
+          if [ "$KT_COUNT" -eq 0 ]; then
+            echo "ERROR: No Kotlin sources found in extracted artifacts!"
+            echo "Contents of parser directory:"
+            find target/android/parser -type f
+            exit 1
+          fi
+          echo "Found $KT_COUNT Kotlin source file(s)"
 
       - name: Setup JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          # the default also installs `tools`, which cmdline-tools 16 no longer has
+          packages: 'platform-tools'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Configure Android library for publishing
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
+          VERSION="${{ needs.prepare-release.outputs.version }}"
           ANDROID_DIR="target/android/parser"
 
           # Create settings.gradle.kts with plugin management
@@ -563,7 +630,7 @@ jobs:
               id("maven-publish")
           }
 
-          group = "com.github.cooklang"
+          group = "org.cooklang"
           version = "${VERSION}"
 
           android {
@@ -612,12 +679,13 @@ jobs:
           dependencies {
               implementation("net.java.dev.jna:jna:5.14.0@aar")
               implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+              implementation("androidx.core:core-ktx:1.9.0")
           }
 
           publishing {
               publications {
                   register<MavenPublication>("release") {
-                      groupId = "com.github.cooklang"
+                      groupId = "org.cooklang"
                       artifactId = "parser"
                       version = "${VERSION}"
 
@@ -686,51 +754,85 @@ jobs:
   # Publish Rust crate to crates.io
   publish-rust:
     name: Publish to crates.io
-    needs: [build-ios, build-android]
+    needs: [prepare-release, build-ios, build-android]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    if: ${{ github.event.inputs.dry_run != 'true' }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Authenticate to crates.io
+        uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
       - name: Publish to crates.io
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
         run: cargo publish --no-verify
 
   # Publish TypeScript package to npm
   publish-typescript:
     name: Publish to npm
-    needs: [build-ios, build-android]
+    needs: [prepare-release, build-ios, build-android]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') && github.event.inputs.dry_run != 'true'
+    if: >-
+      ${{ !cancelled() && github.event.inputs.dry_run != 'true' &&
+      (github.event.inputs.npm_only == 'true' ||
+      (needs.build-ios.result == 'success' && needs.build-android.result == 'success')) }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          ref: main
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          # npm@latest (needed for OIDC trusted publishing) requires node >= 22
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm for OIDC trusted publishing support
+        run: npm install -g npm@latest
 
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked || true
+
+      - name: Sync package.json version
+        working-directory: typescript
+        run: npm version "${{ needs.prepare-release.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Build TypeScript package
         working-directory: typescript
         run: |
           npm ci
+          npm run build-wasm
           npm run build
+
+      # Publish the exact tarball we verified, so a missing pkg/ (e.g. an
+      # ignore file excluding it, as happened with 0.19.0) fails the release.
+      - name: Pack and verify npm tarball
+        working-directory: typescript
+        run: |
+          npm pack --ignore-scripts
+          for f in pkg/cooklang_wasm.js pkg/cooklang_wasm_bg.js pkg/cooklang_wasm_bg.wasm; do
+            tar tzf cooklang-cooklang-*.tgz | grep -qx "package/$f" || { echo "::error::npm tarball is missing $f"; exit 1; }
+          done
 
       - name: Publish to npm
         working-directory: typescript
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
+        run: npm publish ./cooklang-cooklang-*.tgz --provenance --access public

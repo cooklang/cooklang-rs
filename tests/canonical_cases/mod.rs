@@ -794,6 +794,121 @@ source: 'Recipe # 5
   '
 "#
 ; "InvalidSingleWordCookware")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Garnish with '
+    - name: fresh thyme
+      optional: true
+      quantity: 2
+      type: ingredient
+      units: sprigs
+source: 'Garnish with @?fresh thyme{2%sprigs}
+
+  '
+"#
+; "OptionalIngredient")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Top with '
+    - name: chives
+      optional: true
+      quantity: some
+      type: ingredient
+      units: ''
+source: 'Top with @?chives
+
+  '
+"#
+; "OptionalSingleWordIngredient")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Use a '
+    - name: splatter guard
+      optional: true
+      quantity: 1
+      type: cookware
+    - type: text
+      value: ' if you have one'
+source: 'Use a #?splatter guard{} if you have one
+
+  '
+"#
+; "OptionalCookware")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Stir '
+    - name: parmesan
+      quantity: 100
+      type: ingredient
+      units: g
+    - type: text
+      value: ' in, top with '
+    - name: parmesan
+      optional: true
+      quantity: 50
+      type: ingredient
+      units: g
+source: 'Stir @parmesan{100%g} in, top with @?parmesan{50%g}
+
+  '
+"#
+; "OptionalAndRequiredSameIngredient")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Add '
+    - name: ?thyme
+      optional: true
+      quantity: some
+      type: ingredient
+      units: ''
+source: 'Add @??thyme{}
+
+  '
+"#
+; "OptionalMarkerOnlyOnce")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: Add @? thyme
+source: 'Add @? thyme
+
+  '
+"#
+; "OptionalMarkerFollowedBySpace")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Did you add the '
+    - name: salt
+      quantity: some
+      type: ingredient
+      units: ''
+    - type: text
+      value: '?'
+source: 'Did you add the @salt{}?
+
+  '
+"#
+; "QuestionMarkAfterIngredient")]
 fn canonical(input: &str) {
     let test_case: TestCase = serde_yaml::from_str(input).expect("Bad YAML input");
     runner(test_case);

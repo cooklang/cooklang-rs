@@ -1,6 +1,8 @@
 //! Cooklang canonical tests https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 
-use cooklang::{quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Recipe};
+use cooklang::{
+    quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Modifiers, Recipe,
+};
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -29,10 +31,14 @@ enum TestStepItem {
         name: String,
         quantity: TestValue,
         units: String,
+        #[serde(default)]
+        optional: bool,
     },
     Cookware {
         name: String,
         quantity: TestValue,
+        #[serde(default)]
+        optional: bool,
     },
     Timer {
         name: String,
@@ -103,7 +109,7 @@ impl TestStepItem {
                 let i = &recipe.ingredients[index];
                 assert!(i.relation.is_definition());
                 assert!(i.relation.referenced_from().is_empty());
-                assert!(i.modifiers().is_empty());
+                assert!((i.modifiers() - Modifiers::OPT).is_empty());
                 assert!(i.alias.is_none());
                 assert!(i.note.is_none());
                 let quantity = i
@@ -120,13 +126,14 @@ impl TestStepItem {
                     name: i.name.clone(),
                     quantity,
                     units,
+                    optional: i.modifiers().is_optional(),
                 }
             }
             Item::Cookware { index } => {
                 let i = &recipe.cookware[index];
                 assert!(i.relation.is_definition());
                 assert!(i.relation.referenced_from().is_empty());
-                assert!(i.modifiers().is_empty());
+                assert!((i.modifiers() - Modifiers::OPT).is_empty());
                 assert!(i.alias.is_none());
                 assert!(i.note.is_none());
                 let quantity = i
@@ -137,6 +144,7 @@ impl TestStepItem {
                 Self::Cookware {
                     name: i.name.clone(),
                     quantity,
+                    optional: i.modifiers().is_optional(),
                 }
             }
             Item::Timer { index } => {
