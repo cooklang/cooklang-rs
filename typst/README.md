@@ -64,9 +64,9 @@ error: plugin errored with: Error: Empty quantity value
 
 Warnings are ignored.
 
-## Building the plugin
+## Building from source
 
-The package needs `cooklang.wasm` next to `typst.toml`. It isn't checked in;
+The published package ships `cooklang.wasm`. In the source repository it isn't checked in;
 build it with:
 
 ```sh
