@@ -173,7 +173,12 @@ impl ActivePath {
         let toggles = labels
             .toggles
             .iter()
-            .map(|t| (t.clone(), selection.toggles.get(t).copied().unwrap_or(false)))
+            .map(|t| {
+                (
+                    t.clone(),
+                    selection.toggles.get(t).copied().unwrap_or(false),
+                )
+            })
             .collect();
         Self {
             current,
@@ -377,41 +382,39 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
     let mut live: Vec<usize> = Vec::new();
     let mut pending_list: Vec<usize> = Vec::new();
 
-    let add_input = |steps: &mut Vec<GraphStep>, to: usize, from: usize, carry: bool, u: Option<Use>| {
-        if from == to {
-            return;
-        }
-        let existing = steps[to]
-            .inputs
-            .iter()
-            .position(|i| matches!(i, Input::Step { from: f, .. } if *f == from));
-        let idx = match existing {
-            Some(i) => i,
-            None => {
-                steps[to].inputs.push(Input::Step {
-                    from,
-                    carry: false,
-                    uses: Vec::new(),
-                });
-                steps[from].consumers.push(to);
-                steps[to].inputs.len() - 1
+    let add_input =
+        |steps: &mut Vec<GraphStep>, to: usize, from: usize, carry: bool, u: Option<Use>| {
+            if from == to {
+                return;
+            }
+            let existing = steps[to]
+                .inputs
+                .iter()
+                .position(|i| matches!(i, Input::Step { from: f, .. } if *f == from));
+            let idx = match existing {
+                Some(i) => i,
+                None => {
+                    steps[to].inputs.push(Input::Step {
+                        from,
+                        carry: false,
+                        uses: Vec::new(),
+                    });
+                    steps[from].consumers.push(to);
+                    steps[to].inputs.len() - 1
+                }
+            };
+            if let Input::Step { carry: c, uses, .. } = &mut steps[to].inputs[idx] {
+                *c |= carry;
+                if let Some(u) = u {
+                    uses.push(u);
+                }
             }
         };
-        if let Input::Step {
-            carry: c, uses, ..
-        } = &mut steps[to].inputs[idx]
-        {
-            *c |= carry;
-            if let Some(u) = u {
-                uses.push(u);
-            }
-        }
-    };
 
     // the last step of the line that `start` begins, before `cur` (rule 23)
     let line_end = |carry_next: &HashMap<usize, usize>, mut s: usize, cur: usize| -> usize {
         while let Some(&n) = carry_next.get(&s) {
-            if n == cur || n > cur {
+            if n >= cur {
                 break;
             }
             s = n;
@@ -480,8 +483,12 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                     written.insert(i, k);
                     written_keys.insert(key.clone(), k);
                     if names.contains_key(&key) {
-                        reports.push(report(5, ReportLevel::Warning, k,
-                            format!("'{}' is both an ingredient and a product.", ing.name)));
+                        reports.push(report(
+                            5,
+                            ReportLevel::Warning,
+                            k,
+                            format!("'{}' is both an ingredient and a product.", ing.name),
+                        ));
                     }
                     continue;
                 }
@@ -515,8 +522,16 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                         match names.get(&key).copied() {
                             Some(e) => {
                                 if let Some(by) = entries[e].used_up_by {
-                                    reports.push(report(8, ReportLevel::Error, k, format!(
-                                        "'{}' is used after step {} used it up.", u.name, by + 1)));
+                                    reports.push(report(
+                                        8,
+                                        ReportLevel::Error,
+                                        k,
+                                        format!(
+                                            "'{}' is used after step {} used it up.",
+                                            u.name,
+                                            by + 1
+                                        ),
+                                    ));
                                 }
                                 let from = entries[e].node;
                                 add_input(&mut steps, k, from, false, Some(u.clone()));
@@ -527,8 +542,15 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                             }
                             None => {
                                 // declared later in the file, or on an inactive path
-                                reports.push(report(6, ReportLevel::Error, k, format!(
-                                    "'{}' is used, but nothing of that name is made before it.", u.name)));
+                                reports.push(report(
+                                    6,
+                                    ReportLevel::Error,
+                                    k,
+                                    format!(
+                                        "'{}' is used, but nothing of that name is made before it.",
+                                        u.name
+                                    ),
+                                ));
                                 steps[k].inputs.push(Input::Missing { ingredient: i });
                             }
                         }
@@ -580,15 +602,23 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                 let prod = &recipe.products[p];
                 let key = product_key(&prod.name);
                 if written_keys.contains_key(&key) {
-                    reports.push(report(5, ReportLevel::Warning, k, format!(
-                        "'{}' names a product and an ingredient.", prod.name)));
+                    reports.push(report(
+                        5,
+                        ReportLevel::Warning,
+                        k,
+                        format!("'{}' names a product and an ingredient.", prod.name),
+                    ));
                 }
                 if let Some(&old) = names.get(&key) {
                     if whole_used.contains(&key) {
                         entries[old].handed_on = true;
                     } else if entries[old].section != Some(si) {
-                        reports.push(report(5, ReportLevel::Warning, k, format!(
-                            "'{}' is named twice.", prod.name)));
+                        reports.push(report(
+                            5,
+                            ReportLevel::Warning,
+                            k,
+                            format!("'{}' is named twice.", prod.name),
+                        ));
                     }
                 }
                 names.insert(key.clone(), entries.len());
@@ -606,7 +636,11 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
             }
             if !step.products.is_empty() {
                 for key in &whole_used {
-                    if step.products.iter().any(|&p| product_key(&recipe.products[p].name) == *key) {
+                    if step
+                        .products
+                        .iter()
+                        .any(|&p| product_key(&recipe.products[p].name) == *key)
+                    {
                         continue;
                     }
                     if let Some(&e) = names.get(key) {
@@ -616,7 +650,9 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
             } else {
                 // rule 8: a name goes on to what the step makes
                 for key in whole_used {
-                    let Some(&old) = names.get(&key) else { continue };
+                    let Some(&old) = names.get(&key) else {
+                        continue;
+                    };
                     entries[old].handed_on = true;
                     let (name, section) = (entries[old].name.clone(), entries[old].section);
                     names.insert(key.clone(), entries.len());
@@ -645,9 +681,17 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                         unreachable!()
                     };
                     if last_step.products.len() >= 2 {
-                        reports.push(report(18, ReportLevel::Warning, last, format!(
-                            "Section '{}' names '{}', but its last step names {} products.",
-                            sec.name.clone().unwrap_or_default(), prod.name, last_step.products.len())));
+                        reports.push(report(
+                            18,
+                            ReportLevel::Warning,
+                            last,
+                            format!(
+                                "Section '{}' names '{}', but its last step names {} products.",
+                                sec.name.clone().unwrap_or_default(),
+                                prod.name,
+                                last_step.products.len()
+                            ),
+                        ));
                     }
                     let key = product_key(&prod.name);
                     if let Some(&old) = names.get(&key) {
@@ -697,11 +741,19 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
         }
         let made_count = count_of(e.quantity.as_ref());
         if let Some(made) = made_count {
-            let taken: f64 = e.uses.iter().filter_map(|(_, u)| count_of(u.quantity.as_ref())).sum();
+            let taken: f64 = e
+                .uses
+                .iter()
+                .filter_map(|(_, u)| count_of(u.quantity.as_ref()))
+                .sum();
             let rest_whole = e.uses.iter().any(|(_, u)| u.quantity.is_none());
             if taken > made {
-                reports.push(report(14, ReportLevel::Warning, e.node, format!(
-                    "{taken} of '{}' are used, {made} were made.", e.name)));
+                reports.push(report(
+                    14,
+                    ReportLevel::Warning,
+                    e.node,
+                    format!("{taken} of '{}' are used, {made} were made.", e.name),
+                ));
             }
             if e.uses.is_empty() {
                 by_products.push(by_product(e, ByProductKind::Unused, None));
@@ -711,7 +763,10 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
             continue;
         }
         if e.uses.is_empty() {
-            if !by_products.iter().any(|b| b.step == e.node && product_key(&b.name) == e.key) {
+            if !by_products
+                .iter()
+                .any(|b| b.step == e.node && product_key(&b.name) == e.key)
+            {
                 by_products.push(by_product(e, ByProductKind::Unused, None));
             }
         } else if e.uses.iter().all(|(_, u)| u.quantity.is_some()) {
@@ -722,8 +777,16 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                 if q.unit().is_none() {
                     if let Value::Number(n) = q.value() {
                         if n.value() > 1.0 {
-                            reports.push(report(14, ReportLevel::Warning, *k, format!(
-                                "A share of {} of '{}' is more than the whole.", n.value(), e.name)));
+                            reports.push(report(
+                                14,
+                                ReportLevel::Warning,
+                                *k,
+                                format!(
+                                    "A share of {} of '{}' is more than the whole.",
+                                    n.value(),
+                                    e.name
+                                ),
+                            ));
                         }
                     }
                 }
@@ -741,7 +804,12 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
     }
 }
 
-fn active_ingredients(items: &[Item], path: &ActivePath, chosen: &mut Vec<Option<usize>>, out: &mut Vec<usize>) {
+fn active_ingredients(
+    items: &[Item],
+    path: &ActivePath,
+    chosen: &mut Vec<Option<usize>>,
+    out: &mut Vec<usize>,
+) {
     for i in items {
         match i {
             Item::Ingredient { index } => out.push(*index),
@@ -783,7 +851,11 @@ fn by_product(e: &Entry, kind: ByProductKind, left: Option<f64>) -> ByProduct {
 }
 
 fn display_name(name: &str) -> String {
-    name.split_once(':').map(|(a, _)| a).unwrap_or(name).trim().to_string()
+    name.split_once(':')
+        .map(|(a, _)| a)
+        .unwrap_or(name)
+        .trim()
+        .to_string()
 }
 
 fn report(rule: u8, level: ReportLevel, step: usize, message: String) -> Report {

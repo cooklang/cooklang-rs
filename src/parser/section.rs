@@ -34,7 +34,8 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
         // the name ends where the first attribute starts
         let starts = |i: usize, toks: &[Token]| -> bool {
             let t = toks[i];
-            (t.kind == T![?] && label_len(block, &toks[i..]).is_some()
+            (t.kind == T![?]
+                && label_len(block, &toks[i..]).is_some()
                 && (i == 0 || toks[i - 1].kind == T![ws]))
                 || (t.kind == T![~] && toks.get(i + 1).map(|n| n.kind) == Some(T!['{']))
                 || is_punct(block, t, "[")

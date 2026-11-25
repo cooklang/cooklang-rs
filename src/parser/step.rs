@@ -236,7 +236,10 @@ fn pipe_ahead(bp: &BlockParser) -> Option<usize> {
 
 /// One option: a component, `{qty}` taking the first option's name, or
 /// `(@a{} + @b{})`. Returns its events.
-fn parse_option<'i>(bp: &mut BlockParser<'_, 'i>, first: Option<&Event<'i>>) -> Option<Vec<Event<'i>>> {
+fn parse_option<'i>(
+    bp: &mut BlockParser<'_, 'i>,
+    first: Option<&Event<'i>>,
+) -> Option<Vec<Event<'i>>> {
     match bp.peek() {
         T![@] => bp.with_recover(ingredient).map(|e| vec![e]),
         T![#] => bp.with_recover(cookware).map(|e| vec![e]),

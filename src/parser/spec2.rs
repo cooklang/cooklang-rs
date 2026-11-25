@@ -87,9 +87,12 @@ pub(crate) fn find_tail_arrow(_bp: &BlockParser, tokens: &[Token]) -> Option<usi
 /// A tail that starts with `#` names no product (kept for locations).
 pub(crate) fn parse_tail<'i>(bp: &mut BlockParser<'_, 'i>, tail: &[Token]) -> Vec<ProductDecl<'i>> {
     let trimmed: Vec<Token> = tail.to_vec();
-    let first = trimmed
-        .iter()
-        .find(|t| !matches!(t.kind, T![ws] | T![newline] | T![line comment] | T![block comment]));
+    let first = trimmed.iter().find(|t| {
+        !matches!(
+            t.kind,
+            T![ws] | T![newline] | T![line comment] | T![block comment]
+        )
+    });
     match first {
         None => return Vec::new(),
         Some(t) if t.kind == T![#] => return Vec::new(),
@@ -116,7 +119,10 @@ pub(crate) fn parse_tail<'i>(bp: &mut BlockParser<'_, 'i>, tail: &[Token]) -> Ve
         let brace = part.iter().position(|t| t.kind == T!['{']);
         let (name_toks, quantity) = match brace {
             Some(b) => {
-                let close = part[b..].iter().position(|t| t.kind == T!['}']).map(|c| b + c);
+                let close = part[b..]
+                    .iter()
+                    .position(|t| t.kind == T!['}'])
+                    .map(|c| b + c);
                 match close {
                     Some(c) => {
                         let q = &part[b + 1..c];

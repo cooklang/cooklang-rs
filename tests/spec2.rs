@@ -9,7 +9,11 @@ fn parser() -> CooklangParser {
 
 #[test]
 fn nameless_quantity_parses_and_is_hidden() {
-    let r = parser().parse("Cut into @{9} squares.").into_result().unwrap().0;
+    let r = parser()
+        .parse("Cut into @{9} squares.")
+        .into_result()
+        .unwrap()
+        .0;
     assert_eq!(r.ingredients.len(), 1);
     assert_eq!(r.ingredients[0].name, "");
     assert!(!r.ingredients[0].modifiers().should_be_listed());
@@ -30,7 +34,10 @@ fn text_timer_is_a_condition() {
         .0;
     assert_eq!(r.timers.len(), 2);
     let steps = &r.sections[0].content;
-    assert!(matches!(steps[0].unwrap_step().items[1], Item::Timer { index: 0 }));
+    assert!(matches!(
+        steps[0].unwrap_step().items[1],
+        Item::Timer { index: 0 }
+    ));
 }
 
 // ---------------------------------------------------------------- helpers
@@ -53,7 +60,9 @@ fn inputs(r: &Recipe, sel: &Selection) -> Vec<String> {
                 .iter()
                 .map(|i| match i {
                     Input::Ingredient { ingredient, .. } => r.ingredients[*ingredient].name.clone(),
-                    Input::Missing { ingredient } => format!("?{}", r.ingredients[*ingredient].name),
+                    Input::Missing { ingredient } => {
+                        format!("?{}", r.ingredients[*ingredient].name)
+                    }
                     Input::Step { from, uses, .. } => {
                         let u: Vec<String> = uses
                             .iter()
@@ -76,7 +85,9 @@ fn inputs(r: &Recipe, sel: &Selection) -> Vec<String> {
 }
 
 fn step_text(r: &Recipe, section: usize, content: usize) -> String {
-    let Content::Step(st) = &r.sections[section].content[content] else { panic!() };
+    let Content::Step(st) = &r.sections[section].content[content] else {
+        panic!()
+    };
     st.items
         .iter()
         .map(|i| match i {
@@ -146,9 +157,19 @@ fn tart_matches_the_proposal_table() {
     assert_eq!(g.by_products[0].name, "whites");
     assert_eq!(g.by_products[0].kind, ByProductKind::Count);
     assert_eq!(g.by_products[0].left, Some(1.0));
-    assert!(g.reports.iter().all(|r| r.level == ReportLevel::Info), "{:?}", g.reports);
+    assert!(
+        g.reports.iter().all(|r| r.level == ReportLevel::Info),
+        "{:?}",
+        g.reports
+    );
     // products stay off the ingredient list
-    assert!(r.ingredients.iter().filter(|i| i.relation.is_product_reference()).count() == 7);
+    assert!(
+        r.ingredients
+            .iter()
+            .filter(|i| i.relation.is_product_reference())
+            .count()
+            == 7
+    );
 }
 
 #[test]
@@ -214,9 +235,16 @@ fn product_named_like_an_ingredient() {
 
 #[test]
 fn own_section_name_is_what_is_made_so_far() {
-    let r = recipe("= Dough -> dough\n\nMix @flour{}.\n\nRest the @&dough{}.\n\n= Bake\n\nBake the @&dough{}.");
-    assert_eq!(inputs(&r, &Selection::default()), vec!["flour", "S1 | S1[dough]", "S2[dough]"]
-        .into_iter().map(|s| s.replace("S1 | S1[dough]", "S1[dough]")).collect::<Vec<_>>());
+    let r = recipe(
+        "= Dough -> dough\n\nMix @flour{}.\n\nRest the @&dough{}.\n\n= Bake\n\nBake the @&dough{}.",
+    );
+    assert_eq!(
+        inputs(&r, &Selection::default()),
+        vec!["flour", "S1 | S1[dough]", "S2[dough]"]
+            .into_iter()
+            .map(|s| s.replace("S1 | S1[dough]", "S1[dough]"))
+            .collect::<Vec<_>>()
+    );
 }
 
 #[test]
@@ -230,7 +258,10 @@ fn part_e_ingredient_written_earlier() {
     assert!(g.reports.iter().any(|x| x.rule == 23), "{:?}", g.reports);
     // with the butter named, nothing is reported
     let r = recipe("Melt @butter{100%g} in a #small pan{}. -> melted butter\n\nWhisk @eggs{2} with @sugar{80%g}. -> egg mix\n\nPour the @&melted butter{} into the @&egg mix{}.");
-    assert_eq!(inputs(&r, &Selection::default())[2], "S1[melted butter] | S2[egg mix]");
+    assert_eq!(
+        inputs(&r, &Selection::default())[2],
+        "S1[melted butter] | S2[egg mix]"
+    );
 }
 
 #[test]
@@ -246,7 +277,10 @@ fn shares_and_rest() {
 #[test]
 fn step_actions() {
     let r = recipe("In a #bowl{}, `whisk` the @eggs{3}. `Fold in` the @flour{100%g}.");
-    assert_eq!(step_text(&r, 0, 0), "In a [bowl], `whisk` the <eggs>. `Fold in` the <flour>.");
+    assert_eq!(
+        step_text(&r, 0, 0),
+        "In a [bowl], `whisk` the <eggs>. `Fold in` the <flour>."
+    );
 }
 
 #[test]
@@ -254,12 +288,31 @@ fn backticks_that_are_text() {
     // a pair holding an ingredient is text, and its closer opens nothing
     let r = recipe("Add `the @salt{}` now and `stir`.");
     assert_eq!(step_text(&r, 0, 0), "Add `the <salt>` now and `stir`.");
-    let Content::Step(st) = &r.sections[0].content[0] else { panic!() };
-    assert_eq!(st.items.iter().filter(|i| matches!(i, Item::Action { .. })).count(), 1);
+    let Content::Step(st) = &r.sections[0].content[0] else {
+        panic!()
+    };
+    assert_eq!(
+        st.items
+            .iter()
+            .filter(|i| matches!(i, Item::Action { .. }))
+            .count(),
+        1
+    );
     // a lone backtick and an empty pair are text
-    for src in ["A lone ` stays.", "Empty `` too.", "Across `two\nlines` is text."] {
+    for src in [
+        "A lone ` stays.",
+        "Empty `` too.",
+        "Across `two\nlines` is text.",
+    ] {
         let r = recipe(src);
-        assert!(!r.sections[0].content[0].unwrap_step().items.iter().any(|i| matches!(i, Item::Action { .. })), "{src}");
+        assert!(
+            !r.sections[0].content[0]
+                .unwrap_step()
+                .items
+                .iter()
+                .any(|i| matches!(i, Item::Action { .. })),
+            "{src}"
+        );
     }
 }
 
@@ -268,20 +321,31 @@ fn backticks_that_are_text() {
 #[test]
 fn groups_and_labels() {
     let r = recipe("Fry @smoked bacon{200%g}|@pancetta|@smoked tofu{}?vegetarian in a #pan{}.");
-    let Content::Step(st) = &r.sections[0].content[0] else { panic!() };
-    let Item::Group { options } = &st.items[1] else { panic!("{:?}", st.items) };
+    let Content::Step(st) = &r.sections[0].content[0] else {
+        panic!()
+    };
+    let Item::Group { options } = &st.items[1] else {
+        panic!("{:?}", st.items)
+    };
     assert_eq!(options.len(), 3);
     assert_eq!(options[2].label.as_deref(), Some("vegetarian"));
     assert_eq!(inputs(&r, &Selection::default()), vec!["smoked bacon"]);
-    let veg = Selection { toggles: [("vegetarian".into(), true)].into(), ..Default::default() };
+    let veg = Selection {
+        toggles: [("vegetarian".into(), true)].into(),
+        ..Default::default()
+    };
     assert_eq!(inputs(&r, &veg), vec!["smoked tofu"]);
 }
 
 #[test]
 fn bracket_option_and_reason() {
     let r = recipe("Add @egg{1}|(@flax{1%tbsp} + @water{3%tbsp})[if vegan] and stir.");
-    let Content::Step(st) = &r.sections[0].content[0] else { panic!() };
-    let Item::Group { options } = &st.items[1] else { panic!("{:?}", st.items) };
+    let Content::Step(st) = &r.sections[0].content[0] else {
+        panic!()
+    };
+    let Item::Group { options } = &st.items[1] else {
+        panic!("{:?}", st.items)
+    };
     assert_eq!(options[1].items.len(), 2);
     assert_eq!(options[1].reason.as_deref(), Some("if vegan"));
 }
@@ -289,7 +353,10 @@ fn bracket_option_and_reason() {
 #[test]
 fn brackets_without_a_pipe_are_text() {
     let r = recipe("Season (@salt{} and @pepper{}) to taste.");
-    assert_eq!(step_text(&r, 0, 0), "Season (<salt> and <pepper>) to taste.");
+    assert_eq!(
+        step_text(&r, 0, 0),
+        "Season (<salt> and <pepper>) to taste."
+    );
 }
 
 #[test]
@@ -301,9 +368,15 @@ fn reason_only_after_an_option() {
 #[test]
 fn name_taken_from_first_option() {
     let r = recipe("Add @bread flour{500%g}|{450%g}?sourdough.");
-    let Content::Step(st) = &r.sections[0].content[0] else { panic!() };
-    let Item::Group { options } = &st.items[1] else { panic!() };
-    let Item::Ingredient { index } = options[1].items[0] else { panic!() };
+    let Content::Step(st) = &r.sections[0].content[0] else {
+        panic!()
+    };
+    let Item::Group { options } = &st.items[1] else {
+        panic!()
+    };
+    let Item::Ingredient { index } = options[1].items[0] else {
+        panic!()
+    };
     assert_eq!(r.ingredients[index].name, "bread flour");
 }
 
@@ -315,8 +388,21 @@ fn step_and_section_labels_form_choices() {
     assert_eq!(g.labels.choices.len(), 2);
     assert_eq!(g.labels.choices[0].name, "pastry");
     assert_eq!(g.labels.choices[1].options, vec!["fresh", "dry"]);
-    assert_eq!(inputs(&r, &Selection::default()), vec!["shortcrust", "S1[pastry]", "S3 | fresh yeast"]);
-    let shop = Selection { choices: [("pastry".into(), "shop-bought".into()), ("yeast".into(), "dry".into())].into(), ..Default::default() };
-    assert_eq!(inputs(&r, &shop), vec!["ready-rolled pastry", "S2[pastry]", "S3 | dry yeast"]);
+    assert_eq!(
+        inputs(&r, &Selection::default()),
+        vec!["shortcrust", "S1[pastry]", "S3 | fresh yeast"]
+    );
+    let shop = Selection {
+        choices: [
+            ("pastry".into(), "shop-bought".into()),
+            ("yeast".into(), "dry".into()),
+        ]
+        .into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        inputs(&r, &shop),
+        vec!["ready-rolled pastry", "S2[pastry]", "S3 | dry yeast"]
+    );
     assert!(g.reports.iter().all(|x| x.rule != 5));
 }

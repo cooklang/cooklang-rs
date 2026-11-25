@@ -151,6 +151,75 @@ Just an extra rule that makes timers like `~name` invalid.
 [^2]: Currently this is done in the analysis pass. So in the AST there is no
 concept of inline quantities.
 
+## Spec 2.0 drafts
+
+These extensions follow open proposals to the Cooklang spec. They are on in
+`Extensions::all()` and off in `Extensions::COMPAT`, and `Extensions::SPEC_2`
+turns on all five. The syntax may change with the proposals.
+
+### Products (`PRODUCTS`, proposal 0027, cooklang/spec#165)
+
+`-> name` at the end of a step, or on a section line, names what it makes.
+`@&name{}` uses it in a later step; `@&name{100%g}` and `@&name{1/2}` use part
+of it. A step may name two products, each with the amount made:
+`-> yolks{4} + whites{4}`, `= Curd -> curd{600%g}`.
+
+```cooklang
+Separate @eggs{4}. -> yolks{4} + whites{4}
+
+= Curd -> curd
+
+Whisk @lemon juice{150%ml} with the @&yolks{}.
+```
+
+- The product is in `Recipe::products`; a step lists the products it names in
+  `Step::products`, a section in `Section::product`.
+- A use is an ingredient whose relation references
+  `IngredientReferenceTarget::Product`. It is never listed.
+- The arrow starts the tail only with white space before it, and the last one
+  in a step wins. A tail that starts with `#` names nothing.
+- A use with nothing named before it is a warning, not an error, and the use
+  is kept off the lists.
+- `@&name{}` naming an ingredient written earlier is the same ingredient as it
+  now is (Part E). Under this extension a note on such a reference is allowed,
+  and `as written:canonical` names are matched by the canonical half.
+
+`cooklang::spec2::graph` builds the graph the proposal describes: what goes
+into each step (ingredients, products used, the step it carries on from),
+the dish, the by-products, and the reports of the proposal (a use before the
+product, a name used after it was used up, a product named like an ingredient,
+and the others).
+
+### Step actions (`STEP_ACTIONS`, proposal 0029, cooklang/spec#167)
+
+Text between two backticks in a step is an action: `Item::Action`. The pair
+closes on its line, holds no component and is not empty; otherwise the
+backticks are text. A backtick is its own token under every extension set.
+
+### Alternatives and labels (`ALTERNATIVES`, proposal 0025, cooklang/spec#162)
+
+- `@butter{}|@ghee{}`, `@haddock{500%g}|@cod`, `@flour{500%g}|{450%g}?sourdough`,
+  `@egg{1}|(@flax{1%tbsp} + @water{3%tbsp})[if vegan]`: an `Item::Group` of
+  options, each with its items, label and reason.
+- `@chilli{1%tsp}?spicy`: a group with one labelled option.
+- `?label:` at the start of a step and `?label` as the last word of a section
+  name: `Step::label`, `Section::label`.
+- `cooklang::spec2::labels` forms choices (front matter `choices`, or
+  `?choice=option`) and toggles; `spec2::ActivePath` says which labels and
+  options are active for a selection.
+
+Section lines may also carry `~{-1%day}` and `[list]`, kept in
+`Section::attributes`.
+
+### Nameless quantities (`NAMELESS_QUANTITIES`, proposal 0030, cooklang/spec#168)
+
+`@{9}` and `@{=500%ml}`: an ingredient with an empty name, marked hidden.
+
+### Text timers (`TEXT_TIMERS`)
+
+`~{golden}` and `~{reduced by half}`: a timer whose value is text is a condition
+to wait for, not an error.
+
 ### Name with URL
 
 Example: `Mom's Cookbook <https://moms-cookbook.url>` -> name: `Mom's Cookbook` url: `https://moms-cookbook.url/`

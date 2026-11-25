@@ -143,7 +143,9 @@ impl<'i> RecipeCollector<'i, '_> {
                 } => {
                     self.step_counter = 1;
                     if !self.current_section.is_empty() {
-                        self.content.sections.push(std::mem::take(&mut self.current_section));
+                        self.content
+                            .sections
+                            .push(std::mem::take(&mut self.current_section));
                     }
                     self.current_section =
                         Section::new(name.map(|t| t.text_trimmed().into_owned()));
@@ -1091,8 +1093,8 @@ impl<'i> RecipeCollector<'i, '_> {
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 let located_quantity = located_timer.quantity.as_ref().unwrap();
                 // `~{golden}`, `~{roughly 50 % larger}`: a condition to wait for
-                let text_condition = quantity.value().is_text()
-                    && self.extensions.contains(Extensions::TEXT_TIMERS);
+                let text_condition =
+                    quantity.value().is_text() && self.extensions.contains(Extensions::TEXT_TIMERS);
                 if quantity.value().is_text() && !text_condition {
                     self.ctx.error(error!(
                         format!("Timer value is text: {}", quantity.value()),
@@ -1663,6 +1665,13 @@ fn parse_reference(name: &str) -> Option<RecipeReference> {
     }
 }
 
+/// Key used to match a product use with its name: the canonical half of
+/// `as written:canonical`, without case.
+pub(crate) fn product_key(name: &str) -> String {
+    let canonical = name.rsplit_once(':').map(|(_, c)| c).unwrap_or(name);
+    canonical.trim().to_lowercase()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1809,11 +1818,4 @@ mod tests {
             ))
         );
     }
-}
-
-/// Key used to match a product use with its name: the canonical half of
-/// `as written:canonical`, without case.
-pub(crate) fn product_key(name: &str) -> String {
-    let canonical = name.rsplit_once(':').map(|(_, c)| c).unwrap_or(name);
-    canonical.trim().to_lowercase()
 }

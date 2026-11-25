@@ -118,7 +118,9 @@ impl Section {
     /// Whether the section line carries `[list]`: its lines define
     /// ingredients and are not steps.
     pub fn is_list(&self) -> bool {
-        self.attributes.iter().any(|a| a.trim().eq_ignore_ascii_case("list"))
+        self.attributes
+            .iter()
+            .any(|a| a.trim().eq_ignore_ascii_case("list"))
     }
 }
 
