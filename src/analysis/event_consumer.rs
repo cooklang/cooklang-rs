@@ -968,7 +968,10 @@ impl<'i> RecipeCollector<'i, '_> {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 let located_quantity = located_timer.quantity.as_ref().unwrap();
-                if quantity.value().is_text() {
+                let text_condition = quantity.value().is_text()
+                    && quantity.unit().is_none()
+                    && self.extensions.contains(Extensions::TEXT_TIMERS);
+                if quantity.value().is_text() && !text_condition {
                     self.ctx.error(error!(
                         format!("Timer value is text: {}", quantity.value()),
                         label!(located_quantity.value.span(), "expected a number here")

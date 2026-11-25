@@ -353,12 +353,22 @@ fn ingredient<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
 
     // Build text(s) and checks
     let (name, alias) = parse_alias(INGREDIENT, bp, body.name, name_offset);
-    check_empty_name(INGREDIENT, bp, &name);
+    // `@{4}`: a quantity with no name (spec proposal 0030)
+    let nameless = bp.extension(Extensions::NAMELESS_QUANTITIES)
+        && name.is_text_empty()
+        && body.quantity.is_some();
+    if !nameless {
+        check_empty_name(INGREDIENT, bp, &name);
+    }
 
     let ParsedModifiers {
-        flags: modifiers,
+        flags: mut modifiers,
         intermediate_data,
     } = parse_modifiers(bp, modifiers_tokens, modifiers_pos);
+    if nameless {
+        // never listed
+        *modifiers |= Modifiers::HIDDEN;
+    }
 
     let quantity = body
         .quantity

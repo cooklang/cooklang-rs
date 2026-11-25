@@ -133,6 +133,29 @@ bitflags! {
         /// This extensions also enables [`Self::COMPONENT_MODIFIERS`].
         const INTERMEDIATE_PREPARATIONS = 1 << 11 | Self::COMPONENT_MODIFIERS.bits();
 
+        /// Spec proposal 0027: `-> name` names what a step or section makes,
+        /// `@&name{}` uses it later. Products are kept off the ingredient list.
+        /// This extension also enables [`Self::COMPONENT_MODIFIERS`].
+        const PRODUCTS                 = 1 << 12 | Self::COMPONENT_MODIFIERS.bits();
+        /// Spec proposal 0029: text between backticks in a step is an action.
+        const STEP_ACTIONS             = 1 << 13;
+        /// Spec proposal 0025: `@a{}|@b{}` alternatives, `?label` on
+        /// components, steps (`?label:`) and sections, `[reason]` on options.
+        const ALTERNATIVES             = 1 << 14;
+        /// Spec proposal 0030: `@{4}` and `@{=500%ml}`, a quantity with no
+        /// ingredient name. It scales (unless locked) and is never listed.
+        const NAMELESS_QUANTITIES      = 1 << 15;
+        /// A timer whose value is text (`~{golden}`) is a condition to wait
+        /// for, not an error.
+        const TEXT_TIMERS              = 1 << 16;
+
+        /// Every spec 2.0 draft extension above.
+        const SPEC_2 = Self::PRODUCTS.bits()
+                        | Self::STEP_ACTIONS.bits()
+                        | Self::ALTERNATIVES.bits()
+                        | Self::NAMELESS_QUANTITIES.bits()
+                        | Self::TEXT_TIMERS.bits();
+
         /// Enables a subset of extensions to maximize compatibility with other
         /// cooklang parsers.
         ///
