@@ -41,6 +41,36 @@ pub struct Recipe {
     pub timers: Vec<Timer>,
     /// All the inline quantities
     pub inline_quantities: Vec<Quantity>,
+    /// Products named with `-> name` (spec proposal 0027, extension
+    /// [`PRODUCTS`](crate::Extensions::PRODUCTS)). Uses are ingredients whose
+    /// relation references [`IngredientReferenceTarget::Product`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub products: Vec<Product>,
+}
+
+/// Something a step or a section makes, named with `-> name`
+/// (spec proposal 0027)
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
+pub struct Product {
+    /// Name as written
+    pub name: String,
+    /// The amount made, as measured by the author: `-> stock{2%l}`
+    pub quantity: Option<Quantity>,
+    /// Where it is named
+    pub made_by: ProductSource,
+}
+
+/// Where a [`Product`] is named
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ProductSource {
+    /// At the end of a step: index into [`Recipe::sections`] and into that
+    /// section's [`Section::content`]
+    Step { section: usize, content: usize },
+    /// On a section line: what the section's last step makes
+    Section { section: usize },
 }
 
 /// A section holding steps
@@ -51,6 +81,16 @@ pub struct Section {
     pub name: Option<String>,
     /// Content inside
     pub content: Vec<Content>,
+    /// `= Pastry ?homemade`: used only when the label is active
+    /// (spec proposal 0025)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    /// `= Dough -> dough`: index into [`Recipe::products`] (spec proposal 0027)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product: Option<usize>,
+    /// `[list]`, `~{-1%day}` and other attributes written on the section line
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attributes: Vec<String>,
 }
 
 impl Section {
@@ -58,14 +98,27 @@ impl Section {
         Self {
             name,
             content: Vec::new(),
+            label: None,
+            product: None,
+            attributes: Vec::new(),
         }
     }
 
     /// Check if the section is empty
     ///
-    /// A section is empty when it has no name and no content.
+    /// A section is empty when it has no name, no content, no label and no
+    /// product.
     pub fn is_empty(&self) -> bool {
-        self.name.is_none() && self.content.is_empty()
+        self.name.is_none()
+            && self.content.is_empty()
+            && self.label.is_none()
+            && self.product.is_none()
+    }
+
+    /// Whether the section line carries `[list]`: its lines define
+    /// ingredients and are not steps.
+    pub fn is_list(&self) -> bool {
+        self.attributes.iter().any(|a| a.trim().eq_ignore_ascii_case("list"))
     }
 }
 
@@ -127,6 +180,16 @@ pub struct Step {
     /// The step numbers start at 1 in each section and increase with non
     /// text step.
     pub number: u32,
+
+    /// `?label:` at the start: used only when the label is active
+    /// (spec proposal 0025)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+
+    /// `-> a + b` at the end: indices into [`Recipe::products`]
+    /// (spec proposal 0027)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub products: Vec<usize>,
 }
 
 /// A step item
@@ -153,6 +216,28 @@ pub enum Item {
     InlineQuantity {
         index: usize,
     },
+    /// A step action between backticks (spec proposal 0029)
+    Action {
+        value: String,
+    },
+    /// Options of one slot, `@a{}|@b{}`, or one labelled component
+    /// (spec proposal 0025). Which option is active depends on the labels
+    /// chosen; see [`crate::spec2`].
+    Group {
+        options: Vec<GroupOption>,
+    },
+}
+
+/// One option of an [`Item::Group`]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
+pub struct GroupOption {
+    /// One component, or several for `(@a{} + @b{})`
+    pub items: Vec<Item>,
+    /// `?label`: the option is used when the label is active
+    pub label: Option<String>,
+    /// `[reason]`: when to pick it, display text
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -425,6 +510,9 @@ pub enum IngredientReferenceTarget {
     Step,
     /// Section in the current recipe
     Section,
+    /// Product named with `-> name`: index into [`Recipe::products`]
+    /// (spec proposal 0027)
+    Product,
 }
 
 impl IngredientRelation {
@@ -499,6 +587,13 @@ impl IngredientRelation {
         use IngredientReferenceTarget as Target;
         self.references_to()
             .is_some_and(|(_, target)| matches!(target, Target::Step | Target::Section))
+    }
+
+    /// Checks if the relation is a use of a product named with `-> name`
+    /// (spec proposal 0027)
+    pub fn is_product_reference(&self) -> bool {
+        self.references_to()
+            .is_some_and(|(_, target)| target == IngredientReferenceTarget::Product)
     }
 
     /// Check if the relation is a definition

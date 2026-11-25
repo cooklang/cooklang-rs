@@ -34,7 +34,7 @@ pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<
         match event {
             Event::YAMLFrontMatter(yaml) => blocks.push(Block::FrontMatter(yaml)),
             Event::Metadata { key, value } => blocks.push(Block::Metadata { key, value }),
-            Event::Section { name } => blocks.push(Block::Section { name }),
+            Event::Section { name, .. } => blocks.push(Block::Section { name }),
             Event::Start(_kind) => items.clear(),
             Event::End(kind) => {
                 match kind {
@@ -64,6 +64,13 @@ pub fn build_ast<'i>(events: impl Iterator<Item = Event<'i>>) -> PassResult<Ast<
             Event::Ingredient(c) => items.push(Item::Ingredient(Box::new(c))),
             Event::Cookware(c) => items.push(Item::Cookware(Box::new(c))),
             Event::Timer(c) => items.push(Item::Timer(Box::new(c))),
+            Event::Action(t) => items.push(Item::Action(t)),
+            // the AST keeps the spec 2.0 structure only through the model
+            Event::StepLabel(_)
+            | Event::Products(_)
+            | Event::GroupStart
+            | Event::GroupOption { .. }
+            | Event::GroupEnd => {}
             Event::Error(e) => ctx.push(e),
             Event::Warning(w) => ctx.push(w),
         }

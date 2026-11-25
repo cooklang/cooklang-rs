@@ -37,6 +37,8 @@ pub enum Item<'a> {
     Ingredient(Box<Located<Ingredient<'a>>>),
     Cookware(Box<Located<Cookware<'a>>>),
     Timer(Box<Located<Timer<'a>>>),
+    /// A step action between backticks (spec proposal 0029)
+    Action(Text<'a>),
 }
 
 impl Item<'_> {
@@ -47,6 +49,7 @@ impl Item<'_> {
             Item::Ingredient(c) => c.span(),
             Item::Cookware(c) => c.span(),
             Item::Timer(c) => c.span(),
+            Item::Action(t) => t.span(),
         }
     }
 }
@@ -67,6 +70,14 @@ pub struct Ingredient<'a> {
     pub alias: Option<Text<'a>>,
     pub quantity: Option<Located<Quantity<'a>>>,
     pub note: Option<Text<'a>>,
+}
+
+/// A product named after `->` (spec proposal 0027)
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ProductDecl<'a> {
+    pub name: Text<'a>,
+    /// The amount made, as measured by the author: `-> stock{2%l}`
+    pub quantity: Option<Located<Quantity<'a>>>,
 }
 
 /// Cookware [`Item`]

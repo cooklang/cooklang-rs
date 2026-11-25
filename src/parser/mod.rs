@@ -55,6 +55,7 @@ mod block_parser;
 mod frontmatter;
 mod metadata;
 mod model;
+mod spec2;
 mod quantity;
 mod section;
 mod step;
@@ -92,7 +93,16 @@ pub enum Event<'i> {
     /// Metadata entry (single line block)
     Metadata { key: Text<'i>, value: Text<'i> },
     /// Section (single line block)
-    Section { name: Option<Text<'i>> },
+    ///
+    /// `product`, `label` and `attributes` are only filled by the spec 2.0
+    /// extensions ([`PRODUCTS`](crate::Extensions::PRODUCTS),
+    /// [`ALTERNATIVES`](crate::Extensions::ALTERNATIVES)).
+    Section {
+        name: Option<Text<'i>>,
+        product: Option<ProductDecl<'i>>,
+        label: Option<Text<'i>>,
+        attributes: Vec<Text<'i>>,
+    },
     /// Start of an element that can contain others.
     ///
     /// If this is emitted, a later [`Event::End`] of the same kind is
@@ -111,6 +121,26 @@ pub enum Event<'i> {
     Cookware(Located<Cookware<'i>>),
     /// Timer item
     Timer(Located<Timer<'i>>),
+
+    /// A step action between backticks (spec proposal 0029)
+    Action(Text<'i>),
+    /// `?label:` at the start of a step (spec proposal 0025). Emitted right
+    /// after [`Event::Start`].
+    StepLabel(Text<'i>),
+    /// `-> name` at the end of a step (spec proposal 0027). Emitted right
+    /// before [`Event::End`].
+    Products(Vec<ProductDecl<'i>>),
+    /// Start of a group of options `@a{}|@b{}`, or of one labelled component
+    /// (spec proposal 0025). The components of each option follow, each option
+    /// closed by [`Event::GroupOption`].
+    GroupStart,
+    /// Closes one option of a group.
+    GroupOption {
+        label: Option<Text<'i>>,
+        reason: Option<Text<'i>>,
+    },
+    /// End of a group.
+    GroupEnd,
 
     /// Parser error
     ///

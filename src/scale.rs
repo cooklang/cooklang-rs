@@ -64,6 +64,12 @@ impl Recipe {
             .iter_mut()
             .filter_map(|i| i.quantity.as_mut())
             .for_each(scale_quantity);
+        // an amount written on a product scales as an ingredient's does
+        // (spec proposal 0027, rule 13)
+        self.products
+            .iter_mut()
+            .filter_map(|p| p.quantity.as_mut())
+            .for_each(scale_quantity);
     }
 
     /// Scale to a specific number of servings

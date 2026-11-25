@@ -68,6 +68,7 @@ pub fn parse_events<'i, 'c>(
             cookware: Default::default(),
             timers: Default::default(),
             inline_quantities: Default::default(),
+            products: Default::default(),
         },
         current_section: Section::default(),
 
@@ -78,6 +79,9 @@ pub fn parse_events<'i, 'c>(
         ctx: SourceReport::empty(),
 
         locations: Default::default(),
+        step_label: None,
+        step_products: Vec::new(),
+        group: None,
         step_counter: 1,
     };
     col.parse_events(events)
@@ -100,6 +104,10 @@ struct RecipeCollector<'i, 'c> {
 
     locations: Locations<'i>,
     step_counter: u32,
+    // spec 2.0 drafts: the step being built
+    step_label: Option<String>,
+    step_products: Vec<usize>,
+    group: Option<(Vec<GroupOption>, Vec<Item>)>,
 }
 
 #[derive(Default)]
@@ -127,13 +135,72 @@ impl<'i> RecipeCollector<'i, '_> {
                     self.process_frontmatter(yaml_text);
                 }
                 Event::Metadata { key, value } => self.metadata(key, value),
-                Event::Section { name } => {
+                Event::Section {
+                    name,
+                    product,
+                    label,
+                    attributes,
+                } => {
                     self.step_counter = 1;
                     if !self.current_section.is_empty() {
-                        self.content.sections.push(self.current_section);
+                        self.content.sections.push(std::mem::take(&mut self.current_section));
                     }
                     self.current_section =
                         Section::new(name.map(|t| t.text_trimmed().into_owned()));
+                    self.current_section.label = label.map(|t| t.text_trimmed().to_lowercase());
+                    self.current_section.attributes = attributes
+                        .into_iter()
+                        .map(|t| t.text_trimmed().into_owned())
+                        .collect();
+                    if let Some(p) = product {
+                        let made_by = ProductSource::Section {
+                            section: self.content.sections.len(),
+                        };
+                        self.current_section.product = Some(self.product(p, made_by));
+                    }
+                }
+                Event::StepLabel(label) => {
+                    self.step_label = Some(label.text_trimmed().to_lowercase());
+                }
+                Event::Products(decls) => {
+                    let made_by = ProductSource::Step {
+                        section: self.content.sections.len(),
+                        content: self.current_section.content.len(),
+                    };
+                    for p in decls {
+                        let index = self.product(p, made_by);
+                        self.step_products.push(index);
+                    }
+                }
+                Event::GroupStart => {
+                    self.group = Some((Vec::new(), Vec::new()));
+                }
+                Event::GroupOption { label, reason } => {
+                    if let Some((options, items)) = &mut self.group {
+                        options.push(GroupOption {
+                            items: std::mem::take(items),
+                            label: label.map(|t| t.text_trimmed().to_lowercase()),
+                            reason: reason.map(|t| t.text_trimmed().into_owned()),
+                        });
+                    }
+                }
+                Event::GroupEnd => {
+                    if let Some((options, _)) = self.group.take() {
+                        match &mut current_block {
+                            Some(BlockBuffer::Step(items)) => items.push(Item::Group { options }),
+                            Some(BlockBuffer::Text(text)) => {
+                                // text mode: show the first option's items as text
+                                for o in options.iter().take(1) {
+                                    for i in &o.items {
+                                        if let Item::Text { value } = i {
+                                            text.push_str(value)
+                                        }
+                                    }
+                                }
+                            }
+                            None => {}
+                        }
+                    }
                 }
                 Event::Start(kind) => {
                     let buffer = if self.define_mode == DefineMode::Text {
@@ -153,6 +220,8 @@ impl<'i> RecipeCollector<'i, '_> {
                             Content::Step(Step {
                                 items,
                                 number: self.step_counter,
+                                label: self.step_label.take(),
+                                products: std::mem::take(&mut self.step_products),
                             })
                         }
                         Some(BlockBuffer::Text(text)) => {
@@ -179,8 +248,17 @@ impl<'i> RecipeCollector<'i, '_> {
                 item @ (Event::Text(_)
                 | Event::Ingredient(_)
                 | Event::Cookware(_)
-                | Event::Timer(_)) => match &mut current_block {
-                    Some(BlockBuffer::Step(items)) => self.in_step(item, items),
+                | Event::Timer(_)
+                | Event::Action(_)) => match &mut current_block {
+                    Some(BlockBuffer::Step(items)) => {
+                        // inside a group, items go to the option being read
+                        if let Some((options, mut group_items)) = self.group.take() {
+                            self.in_step(item, &mut group_items);
+                            self.group = Some((options, group_items));
+                        } else {
+                            self.in_step(item, items)
+                        }
+                    }
                     Some(BlockBuffer::Text(text)) => self.in_text(item, text),
                     None => panic!("Content outside block"),
                 },
@@ -535,6 +613,9 @@ impl<'i> RecipeCollector<'i, '_> {
             Event::Timer(i) => items.push(Item::Timer {
                 index: self.timer(i),
             }),
+            Event::Action(t) => items.push(Item::Action {
+                value: t.text_trimmed().into_owned(),
+            }),
 
             _ => panic!("Unexpected event in step: {item:?}"),
         };
@@ -543,6 +624,7 @@ impl<'i> RecipeCollector<'i, '_> {
     fn in_text(&mut self, ev: Event<'i>, s: &mut String) {
         match ev {
             Event::Text(t) => s.push_str(t.text().as_ref()),
+            Event::Action(t) => s.push_str(t.text().as_ref()),
             Event::Ingredient(_) | Event::Cookware(_) | Event::Timer(_) => {
                 assert_eq!(
                     self.define_mode,
@@ -589,7 +671,20 @@ impl<'i> RecipeCollector<'i, '_> {
             ),
         };
 
-        if let Some(inter_data) = ingredient.intermediate_data {
+        // `@&name{}` naming a product (spec proposal 0027)
+        let product_ref = if self.extensions.contains(Extensions::PRODUCTS)
+            && new_igr.modifiers.contains(Modifiers::REF)
+            && ingredient.intermediate_data.is_none()
+        {
+            self.find_product(&new_igr.name)
+        } else {
+            None
+        };
+
+        if let Some(index) = product_ref {
+            new_igr.relation =
+                IngredientRelation::reference(index, IngredientReferenceTarget::Product);
+        } else if let Some(inter_data) = ingredient.intermediate_data {
             assert!(new_igr.modifiers().contains(Modifiers::REF));
             let invalid_modifiers = Modifiers::RECIPE | Modifiers::HIDDEN | Modifiers::NEW;
             if new_igr.modifiers().intersects(invalid_modifiers) {
@@ -679,7 +774,14 @@ impl<'i> RecipeCollector<'i, '_> {
                 }
             }
 
-            if let Some(note) = &located_ingredient.note {
+            // Under spec proposal 0027 Part E, `@&butter{30%g}(cold, cubed)`
+            // takes part of the butter, and the note says how that part is
+            // prepared.
+            if let Some(note) = located_ingredient
+                .note
+                .as_ref()
+                .filter(|_| !self.extensions.contains(Extensions::PRODUCTS))
+            {
                 self.ctx.error(note_reference_error(
                     note.span(),
                     implicit,
@@ -961,6 +1063,26 @@ impl<'i> RecipeCollector<'i, '_> {
         self.content.cookware.len() - 1
     }
 
+    fn product(&mut self, decl: parser::ProductDecl<'i>, made_by: ProductSource) -> usize {
+        let quantity = decl.quantity.map(|q| self.quantity(q, true));
+        self.content.products.push(Product {
+            name: decl.name.text_trimmed().into_owned(),
+            quantity,
+            made_by,
+        });
+        self.content.products.len() - 1
+    }
+
+    /// The last product with this name. A name written `as written:canonical`
+    /// is looked up by its canonical half.
+    fn find_product(&self, name: &str) -> Option<usize> {
+        let key = product_key(name);
+        self.content
+            .products
+            .iter()
+            .rposition(|p| product_key(&p.name) == key)
+    }
+
     fn timer(&mut self, timer: Located<parser::Timer<'i>>) -> usize {
         let located_timer = timer.clone();
         let (timer, _span) = timer.take_pair();
@@ -968,8 +1090,8 @@ impl<'i> RecipeCollector<'i, '_> {
             let quantity = self.quantity(q, false);
             if self.extensions.contains(Extensions::ADVANCED_UNITS) {
                 let located_quantity = located_timer.quantity.as_ref().unwrap();
+                // `~{golden}`, `~{roughly 50 % larger}`: a condition to wait for
                 let text_condition = quantity.value().is_text()
-                    && quantity.unit().is_none()
                     && self.extensions.contains(Extensions::TEXT_TIMERS);
                 if quantity.value().is_text() && !text_condition {
                     self.ctx.error(error!(
@@ -977,7 +1099,7 @@ impl<'i> RecipeCollector<'i, '_> {
                         label!(located_quantity.value.span(), "expected a number here")
                     ));
                 }
-                if let Some(unit_text) = quantity.unit() {
+                if let Some(unit_text) = quantity.unit().filter(|_| !text_condition) {
                     let unit_span = located_quantity.unit.as_ref().unwrap().span();
                     match quantity.unit_info(self.converter) {
                         Some(unit) => {
@@ -1064,7 +1186,10 @@ impl<'i> RecipeCollector<'i, '_> {
         location: Span,
         modifiers_location: Span,
     ) -> Option<(usize, bool)> {
-        let new_name = unicase::UniCase::new(new.name());
+        // under PRODUCTS, `as written:canonical` is matched by its canonical half
+        let by_key = self.extensions.contains(Extensions::PRODUCTS);
+        let new_key = product_key(new.name());
+        let new_name = unicase::UniCase::new(if by_key { new_key.as_str() } else { new.name() });
 
         let all = C::all(&self.content);
         // Optionality belongs to each occurrence, so an implicit reference
@@ -1080,7 +1205,11 @@ impl<'i> RecipeCollector<'i, '_> {
                     !other.modifiers().contains(Modifiers::REF)
                         && (explicit_ref
                             || other.modifiers().contains(Modifiers::OPT) == new_optional)
-                        && new_name == unicase::UniCase::new(other.name())
+                        && if by_key {
+                            new_name == unicase::UniCase::new(product_key(other.name()).as_str())
+                        } else {
+                            new_name == unicase::UniCase::new(other.name())
+                        }
                 })
             })
         };
@@ -1204,6 +1333,18 @@ impl<'i> RecipeCollector<'i, '_> {
 
             // extra reference checks
             Some((references_to, implicit))
+        } else if self.extensions.contains(Extensions::PRODUCTS) && C::container() == "ingredient" {
+            // spec proposal 0027: a use with nothing named before it is
+            // reported, and the file still parses. The use is kept off the lists.
+            *new.modifiers_mut() |= Modifiers::HIDDEN;
+            self.ctx.warn(
+                warning!(
+                    format!("Nothing called '{}' is made or written before this", new.name()),
+                    label!(location)
+                )
+                .hint("Name it with `-> name` on an earlier step or section, or write the ingredient first"),
+            );
+            None
         } else {
             self.ctx.error({
                 let mut e = error!(
@@ -1668,4 +1809,11 @@ mod tests {
             ))
         );
     }
+}
+
+/// Key used to match a product use with its name: the canonical half of
+/// `as written:canonical`, without case.
+pub(crate) fn product_key(name: &str) -> String {
+    let canonical = name.rsplit_once(':').map(|(_, c)| c).unwrap_or(name);
+    canonical.trim().to_lowercase()
 }

@@ -166,6 +166,9 @@ impl TestStepItem {
                 }
             }
             Item::InlineQuantity { index: _ } => panic!("Unexpected inline quantity"),
+            Item::Action { .. } | Item::Group { .. } => {
+                panic!("Unexpected spec 2.0 item in a canonical test")
+            }
         }
     }
 }

@@ -93,7 +93,7 @@ fn is_word_char(c: char) -> bool {
         c if c.is_alphabetic() => true, // quick return true
         ' ' | '\n' | '\r' | '\t' | '0'..='9' | '.' => false, // common chars that break a word
         '>' | ':' | '@' | '#' | '~' | '?' | '+' | '-' | '/' | '*' | '&' | '|' | '=' | '%' | '{'
-        | '}' | '(' | ')' => false,
+        | '}' | '(' | ')' | '`' => false,
         c if c.is_separator_space() || c.is_punctuation() => false, // '\' (escape) is punctuation and not common, so I will leave it here
         _ => true,
     }
@@ -151,6 +151,8 @@ impl Cursor<'_> {
             '.' => TokenKind::Dot,
 
             c if is_whitespace(c) => self.whitespace(),
+            // a backtick opens or closes a step action (spec proposal 0029)
+            '`' => TokenKind::Punctuation,
             c if c.is_punctuation() => TokenKind::Punctuation,
 
             // anything else, word

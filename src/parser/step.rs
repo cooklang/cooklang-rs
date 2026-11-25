@@ -6,36 +6,271 @@ use crate::{
 };
 
 use super::{
-    error, mt, quantity::parse_quantity, token_stream::Token, tokens_span, warning, BlockKind,
-    BlockParser, Event,
+    error, mt,
+    quantity::parse_quantity,
+    spec2::{find_tail_arrow, is_backtick, parse_tail, take_label, take_reason},
+    token_stream::Token,
+    tokens_span, warning, BlockKind, BlockParser, Event,
 };
 
 pub(crate) fn parse_step(bp: &mut BlockParser<'_, '_>) {
     bp.event(Event::Start(BlockKind::Step));
 
-    while !bp.rest().is_empty() {
-        let component = match bp.peek() {
-            T![@] => bp.with_recover(ingredient),
-            T![#] => bp.with_recover(cookware),
-            T![~] => bp.with_recover(timer),
-            _ => None,
-        };
-        if let Some(ev) = component {
-            bp.event(ev)
-        } else {
-            let start = bp.current_offset();
-            let tokens = bp.capture_slice(|bp| {
-                bp.bump_any(); // consume the first token, this avoids entering an infinite loop
-                bp.consume_while(|t| !matches!(t, T![@] | T![#] | T![~]));
-            });
-            let text = bp.text(start, tokens);
-            if !text.fragments().is_empty() {
-                bp.event(Event::Text(text));
+    // `?label:` at the very start of the step (spec proposal 0025)
+    if bp.extension(Extensions::ALTERNATIVES) {
+        if let Some(label) = bp.with_recover(|bp| {
+            let label = take_label(bp)?;
+            bp.consume(T![:])?;
+            bp.consume_while(|t| t == T![ws]);
+            Some(label)
+        }) {
+            bp.event(Event::StepLabel(label));
+        }
+    }
+
+    // `-> name` at the end of the step (spec proposal 0027)
+    let tail_at = if bp.extension(Extensions::PRODUCTS) {
+        find_tail_arrow(bp, bp.rest()).map(|i| bp.current + i)
+    } else {
+        None
+    };
+
+    match tail_at {
+        None => step_items(bp),
+        Some(arrow) => {
+            let head = &bp.tokens()[bp.current..arrow];
+            if !head.is_empty() {
+                let mut sub = BlockParser::new(head, bp.input, &mut *bp.events, bp.extensions);
+                step_items(&mut sub);
+                sub.finish();
+            }
+            bp.current = arrow + 2;
+            let tail = bp.consume_rest();
+            let products = parse_tail(bp, tail);
+            if !products.is_empty() {
+                bp.event(Event::Products(products));
             }
         }
     }
 
     bp.event(Event::End(BlockKind::Step));
+}
+
+fn step_items(bp: &mut BlockParser<'_, '_>) {
+    let actions = bp.extension(Extensions::STEP_ACTIONS);
+    let alternatives = bp.extension(Extensions::ALTERNATIVES);
+
+    while !bp.rest().is_empty() {
+        let next = bp.rest()[0];
+        if actions && is_backtick(bp, next) {
+            if let Some(ev) = bp.with_recover(action) {
+                bp.event(ev);
+                continue;
+            }
+        }
+        if alternatives && matches!(next.kind, T![@] | T![#] | T![~] | T!['(']) {
+            if component_or_group(bp) {
+                continue;
+            }
+        } else {
+            let component = match bp.peek() {
+                T![@] => bp.with_recover(ingredient),
+                T![#] => bp.with_recover(cookware),
+                T![~] => bp.with_recover(timer),
+                _ => None,
+            };
+            if let Some(ev) = component {
+                bp.event(ev);
+                continue;
+            }
+        }
+        let start = bp.current_offset();
+        let tokens = bp.capture_slice(|bp| {
+            bp.bump_any(); // consume the first token, this avoids entering an infinite loop
+            while let Some(t) = bp.rest().first().copied() {
+                if matches!(t.kind, T![@] | T![#] | T![~])
+                    || (alternatives && t.kind == T!['('])
+                    || (actions && is_backtick(bp, t))
+                {
+                    break;
+                }
+                bp.current += 1;
+            }
+        });
+        let text = bp.text(start, tokens);
+        if !text.fragments().is_empty() {
+            bp.event(Event::Text(text));
+        }
+    }
+}
+
+/// `` `Fold in` `` (spec proposal 0029). The pair closes on its line, holds
+/// no component and is not empty; otherwise the backticks are text.
+fn action<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
+    let open = bp.bump_any();
+    let rest = bp.rest();
+    let mut i = 0;
+    loop {
+        let t = *rest.get(i)?;
+        if is_backtick(bp, t) {
+            break;
+        }
+        if matches!(t.kind, T![newline] | T![@] | T![#] | T![~]) {
+            return None;
+        }
+        i += 1;
+    }
+    let inner = &rest[..i];
+    if inner.iter().all(|t| t.kind == T![ws]) {
+        return None;
+    }
+    bp.current += i + 1;
+    Some(Event::Action(bp.text(open.span.end(), inner)))
+}
+
+/// One component, a labelled component, or a group of options
+/// `@a{}|@b{}|(@c{} + @d{})` (spec proposal 0025). Returns false, consuming
+/// nothing, when there is no component here.
+fn component_or_group(bp: &mut BlockParser<'_, '_>) -> bool {
+    let start = bp.current;
+    let Some(first) = parse_option(bp, None) else {
+        bp.current = start;
+        return false;
+    };
+    let mut options = vec![first];
+    let label = take_label(bp);
+    let before_reason = bp.current;
+    let reason = take_reason(bp);
+    let mut meta = vec![(label, reason)];
+
+    while let Some(skip) = pipe_ahead(bp) {
+        let save = bp.current;
+        bp.current += skip;
+        match parse_option(bp, options[0].first()) {
+            Some(opt) => {
+                options.push(opt);
+                let label = take_label(bp);
+                let reason = take_reason(bp);
+                meta.push((label, reason));
+            }
+            None => {
+                bp.current = save;
+                break;
+            }
+        }
+    }
+
+    let first_is_bracket = options[0].len() > 1;
+    if options.len() == 1 && meta[0].0.is_none() {
+        if first_is_bracket {
+            // round brackets are a group only when a `|` touches them
+            bp.current = start;
+            return false;
+        }
+        // a reason is only read after an option or a labelled component
+        if meta[0].1.is_some() {
+            bp.current = before_reason;
+        }
+        for ev in options.pop().unwrap() {
+            bp.event(ev);
+        }
+        return true;
+    }
+
+    bp.event(Event::GroupStart);
+    for (opt, (label, reason)) in options.into_iter().zip(meta) {
+        for ev in opt {
+            bp.event(ev);
+        }
+        bp.event(Event::GroupOption { label, reason });
+    }
+    bp.event(Event::GroupEnd);
+    true
+}
+
+/// If a `|` follows (spaces and one line break allowed on either side) and
+/// then something that can be an option, the number of tokens up to it.
+fn pipe_ahead(bp: &BlockParser) -> Option<usize> {
+    let rest = bp.rest();
+    let mut i = 0;
+    let mut newlines = 0;
+    let skip_ws = |i: &mut usize, newlines: &mut usize| {
+        while let Some(t) = rest.get(*i) {
+            match t.kind {
+                T![ws] => *i += 1,
+                T![newline] if *newlines == 0 => {
+                    *newlines += 1;
+                    *i += 1
+                }
+                _ => break,
+            }
+        }
+    };
+    skip_ws(&mut i, &mut newlines);
+    if rest.get(i)?.kind != T![|] {
+        return None;
+    }
+    i += 1;
+    newlines = 0;
+    skip_ws(&mut i, &mut newlines);
+    matches!(rest.get(i)?.kind, T![@] | T![#] | T![~] | T!['{'] | T!['(']).then_some(i)
+}
+
+/// One option: a component, `{qty}` taking the first option's name, or
+/// `(@a{} + @b{})`. Returns its events.
+fn parse_option<'i>(bp: &mut BlockParser<'_, 'i>, first: Option<&Event<'i>>) -> Option<Vec<Event<'i>>> {
+    match bp.peek() {
+        T![@] => bp.with_recover(ingredient).map(|e| vec![e]),
+        T![#] => bp.with_recover(cookware).map(|e| vec![e]),
+        T![~] => bp.with_recover(timer).map(|e| vec![e]),
+        T!['{'] => {
+            let first = first?;
+            bp.with_recover(|bp| {
+                let open = bp.consume(T!['{'])?;
+                let q = bp.until(|t| t == T!['}'])?;
+                let close = bp.bump(T!['}']);
+                let q_not_empty = q.iter().any(|t| t.kind != T![ws]);
+                let quantity = q_not_empty.then(|| parse_quantity(bp, q).quantity);
+                let span = open.span.start()..close.span.end();
+                match first {
+                    Event::Ingredient(i) => {
+                        let mut i = i.clone().into_inner();
+                        i.quantity = quantity;
+                        i.note = None;
+                        Some(vec![Event::Ingredient(Located::new(i, span))])
+                    }
+                    Event::Cookware(c) => {
+                        let mut c = c.clone().into_inner();
+                        c.quantity = quantity;
+                        c.note = None;
+                        Some(vec![Event::Cookware(Located::new(c, span))])
+                    }
+                    _ => None,
+                }
+            })
+        }
+        T!['('] => bp.with_recover(|bp| {
+            bp.consume(T!['('])?;
+            let mut events = Vec::new();
+            loop {
+                bp.consume_while(|t| t == T![ws]);
+                let ev = match bp.peek() {
+                    T![@] => bp.with_recover(ingredient)?,
+                    T![#] => bp.with_recover(cookware)?,
+                    _ => return None,
+                };
+                events.push(ev);
+                bp.consume_while(|t| t == T![ws]);
+                if bp.consume(T![+]).is_some() {
+                    continue;
+                }
+                bp.consume(T![')'])?;
+                break;
+            }
+            (events.len() >= 2).then_some(events)
+        }),
+        _ => None,
+    }
 }
 
 struct Body<'t> {
@@ -453,7 +688,9 @@ fn timer<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> {
 
     let mut quantity = body.quantity.map(|tokens| {
         let q = parse_quantity(bp, tokens);
-        if q.quantity.unit.is_none() {
+        let text_condition = bp.extension(Extensions::TEXT_TIMERS)
+            && matches!(*q.quantity.value.value, crate::quantity::Value::Text(_));
+        if q.quantity.unit.is_none() && !text_condition {
             bp.warn(
                 warning!(
                     "Invalid timer quantity: missing unit",
