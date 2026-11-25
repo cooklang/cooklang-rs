@@ -164,10 +164,21 @@ fn component_or_group(bp: &mut BlockParser<'_, '_>) -> bool {
     while let Some(skip) = pipe_ahead(bp) {
         let save = bp.current;
         bp.current += skip;
+        let inherits_name = bp.rest().first().is_some_and(|t| t.kind == T!['{']);
         match parse_option(bp, options[0].first()) {
             Some(opt) => {
                 options.push(opt);
                 let label = take_label(bp);
+                if inherits_name && label.is_none() {
+                    // 0025 rule 5: nothing else says when to use it
+                    bp.warn(
+                        warning!(
+                            "An option with only an amount needs a label",
+                            label!(tokens_span(&bp.parsed()[save..]))
+                        )
+                        .hint("Add `?label` after it, as in `@flour{500%g}|{450%g}?sourdough`"),
+                    );
+                }
                 let reason = take_reason(bp);
                 meta.push((label, reason));
             }

@@ -24,8 +24,10 @@
 //! # use cooklang::{CooklangParser, Converter, Extensions};
 //! // Create a parser
 //! // (this is the default configuration)
-//! let parser = CooklangParser::new(Extensions::all(), Converter::default());
+//! let parser = CooklangParser::new(Extensions::default(), Converter::default());
 //! # assert_eq!(parser, CooklangParser::default());
+//! // Every extension, the spec 2.0 drafts included
+//! let spec2 = CooklangParser::new(Extensions::all(), Converter::default());
 //! ```
 //!
 //! Then use the parser:
@@ -175,9 +177,13 @@ bitflags! {
 }
 
 impl Default for Extensions {
-    /// Enables all extensions
+    /// Enables all extensions except the spec 2.0 drafts
+    /// ([`Self::SPEC_2`]), which change how arrows, backticks, `|` and `?`
+    /// in prose are read. Ask for them with [`Extensions::all`].
     fn default() -> Self {
-        Self::all()
+        Self::all().difference(Self::from_bits_retain(
+            (1 << 12) | (1 << 13) | (1 << 14) | (1 << 15) | (1 << 16),
+        ))
     }
 }
 

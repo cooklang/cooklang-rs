@@ -566,13 +566,18 @@ pub fn graph(recipe: &Recipe, selection: &Selection) -> Graph {
                         u.ingredient_ref = true;
                         // rule 23: a line that ended by naming a product holds the
                         // ingredient, and the product's name is the one to use
-                        if from != src {
+                        {
                             let Content::Step(end_step) =
                                 &recipe.sections[steps[from].section].content[steps[from].content]
                             else {
                                 unreachable!()
                             };
-                            if let Some(&p) = end_step.products.first() {
+                            let made = end_step
+                                .products
+                                .first()
+                                .copied()
+                                .or(steps[from].section_product);
+                            if let Some(p) = made {
                                 reports.push(report(23, ReportLevel::Warning, k, format!(
                                     "The {} went into step {}, which makes '{}'. Use @&{}{{}} instead.",
                                     u.name, from + 1, recipe.products[p].name, recipe.products[p].name)));

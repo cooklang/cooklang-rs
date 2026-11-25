@@ -10,7 +10,41 @@ pub(crate) fn section<'i>(block: &mut BlockParser<'_, 'i>) -> Option<Event<'i>> 
     block.consume(T![=])?;
     block.consume_while(|t| t == T![=]);
     let name_pos = block.current_offset();
-    let mut name_tokens = block.consume_while(|t| t != T![=]);
+    let mut name_tokens = if block.extension(Extensions::PRODUCTS)
+        || block.extension(Extensions::ALTERNATIVES)
+    {
+        // an `=` inside braces (`{=600%g}`) or a label (`?pastry=homemade`)
+        // does not end the name
+        let rest = block.rest();
+        let is_word = |i: usize| {
+            rest.get(i)
+                .is_some_and(|t| matches!(t.kind, T![word] | T![int] | T![zeroint]))
+        };
+        let in_label = |i: usize| {
+            let mut j = i;
+            while j > 0 && matches!(rest[j - 1].kind, T![word] | T![int] | T![zeroint] | T![-]) {
+                j -= 1;
+            }
+            j > 0 && j < i && rest[j - 1].kind == T![?] && is_word(i + 1)
+        };
+        let mut depth = 0usize;
+        let mut end = rest.len();
+        for (i, t) in rest.iter().enumerate() {
+            match t.kind {
+                T!['{'] => depth += 1,
+                T!['}'] => depth = depth.saturating_sub(1),
+                T![=] if depth == 0 && !in_label(i) => {
+                    end = i;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        block.current += end;
+        &rest[..end]
+    } else {
+        block.consume_while(|t| t != T![=])
+    };
 
     // spec 2.0: `= Name ?label ~{anchor} [list] -> product`
     let mut product: Option<ProductDecl<'i>> = None;

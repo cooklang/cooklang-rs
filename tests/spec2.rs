@@ -406,3 +406,136 @@ fn step_and_section_labels_form_choices() {
     );
     assert!(g.reports.iter().all(|x| x.rule != 5));
 }
+
+// ---------------------------------------------------------------- more rows of the tables
+
+#[test]
+fn rule_23_own_case() {
+    let r = recipe("Melt @butter{100%g}. -> melted butter\n\nAdd the @&butter{}.");
+    let g = spec2::graph(&r, &Selection::default());
+    assert!(g.reports.iter().any(|x| x.rule == 23), "{:?}", g.reports);
+}
+
+#[test]
+fn section_lines_with_an_equals_sign() {
+    let r = recipe("= Pastry ?pastry=homemade -> pastry\n\nRoll out @shortcrust{350%g}.\n\n= Curd -> curd{=600%g}\n\nCook @lemon juice{150%ml}.");
+    assert_eq!(r.sections.len(), 2);
+    assert_eq!(r.sections[0].name.as_deref(), Some("Pastry"));
+    assert_eq!(r.sections[0].label.as_deref(), Some("pastry=homemade"));
+    assert_eq!(r.sections[1].name.as_deref(), Some("Curd"));
+    let p = &r.products[r.sections[1].product.unwrap()];
+    assert_eq!(p.name, "curd");
+    assert!(p.quantity.is_some());
+    // fenced
+    let r = recipe("== Curd -> curd{=600%g} ==\n\nCook @lemon juice{150%ml}.");
+    assert_eq!(r.sections[0].name.as_deref(), Some("Curd"));
+    // still not a section
+    let r = recipe("= a = b\n\nMix @x{}.");
+    assert!(r.sections[0].name.is_none());
+}
+
+#[test]
+fn tail_on_its_own_line() {
+    let r = recipe("Bake for ~{20%minutes}.\n-> loaf");
+    assert_eq!(r.products[0].name, "loaf");
+}
+
+#[test]
+fn half_then_the_rest() {
+    let r = recipe(
+        "Boil @potatoes{1%kg}. -> potatoes\n\nMash @&potatoes{1/2}.\n\nRoast the @&potatoes{}.",
+    );
+    let g = spec2::graph(&r, &Selection::default());
+    assert!(g.by_products.is_empty(), "{:?}", g.by_products);
+}
+
+#[test]
+fn pasta_hands_its_name_on() {
+    let r = recipe("Boil @spaghetti{500%g}. -> pasta\n\nDrain the @&pasta{}. -> pasta + pasta water{250%ml}\n\nToss the @&pasta{} with @&pasta water{60%ml}.");
+    let g = spec2::graph(&r, &Selection::default());
+    assert!(
+        g.reports.iter().all(|x| x.rule != 5 && x.rule != 8),
+        "{:?}",
+        g.reports
+    );
+    assert_eq!(
+        inputs(&r, &Selection::default())[2],
+        "S2[pasta, pasta water 60 ml]"
+    );
+}
+
+#[test]
+fn unused_product_is_a_by_product() {
+    let r = recipe("Separate @eggs{2}. -> yolks + whites\n\nWhisk the @&yolks{}.");
+    let g = spec2::graph(&r, &Selection::default());
+    assert_eq!(g.by_products.len(), 1);
+    assert_eq!(g.by_products[0].name, "whites");
+    assert_eq!(g.by_products[0].kind, ByProductKind::Unused);
+}
+
+#[test]
+fn timer_options_and_labelled_timer() {
+    let r = recipe("Bake for ~{40%minutes}|~{12%minutes}?air-fryer. Rest ~{12%hours}?sourdough.");
+    let Content::Step(st) = &r.sections[0].content[0] else {
+        panic!()
+    };
+    let groups: Vec<_> = st
+        .items
+        .iter()
+        .filter_map(|i| match i {
+            Item::Group { options } => Some(options),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(groups.len(), 2);
+    assert_eq!(groups[0].len(), 2);
+    assert_eq!(groups[1].len(), 1);
+    let g = spec2::graph(&r, &Selection::default());
+    assert_eq!(g.steps[0].chosen, vec![Some(0), None]);
+    let sel = Selection {
+        toggles: [("air-fryer".into(), true), ("sourdough".into(), true)].into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        spec2::graph(&r, &sel).steps[0].chosen,
+        vec![Some(1), Some(0)]
+    );
+}
+
+#[test]
+fn amount_only_option_needs_a_label() {
+    let res = parser().parse("Add @flour{500%g}|{450%g}.");
+    assert!(res
+        .report()
+        .warnings()
+        .any(|w| w.message.contains("needs a label")));
+}
+
+#[test]
+fn default_parser_reads_arrows_and_backticks_as_text() {
+    let r = cooklang::parse("Turn 180 -> 160 and `stir`.")
+        .into_output()
+        .unwrap();
+    assert!(r.products.is_empty());
+    assert!(!r.sections[0].content[0]
+        .unwrap_step()
+        .items
+        .iter()
+        .any(|i| matches!(i, Item::Action { .. })));
+}
+
+#[test]
+fn every_prefix_parses_without_a_panic() {
+    let extra = "---\nchoices:\n  pastry:\n    homemade: x\n---\n= Pastry ?homemade ~{-1%day} [list] -> pastry{=2%l}\n\n?yeast=fresh: `Mix` @a{1}|(@b{2} + @c{3})[why]?x, @{4}, ~{golden}|~{2%min}?y -> p{4} + q\n\n`Add` @&p{1/2} and @&q{} `` ` ->";
+    for src in [TART, extra] {
+        for (i, _) in src.char_indices() {
+            let prefix = &src[..i];
+            let res = std::panic::catch_unwind(|| {
+                if let Some(r) = parser().parse(prefix).into_output() {
+                    spec2::graph(&r, &Selection::default());
+                }
+            });
+            assert!(res.is_ok(), "panic on prefix {prefix:?}");
+        }
+    }
+}

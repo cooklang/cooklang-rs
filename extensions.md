@@ -154,8 +154,22 @@ concept of inline quantities.
 ## Spec 2.0 drafts
 
 These extensions follow open proposals to the Cooklang spec. They are on in
-`Extensions::all()` and off in `Extensions::COMPAT`, and `Extensions::SPEC_2`
-turns on all five. The syntax may change with the proposals.
+`Extensions::all()`, and off in `Extensions::default()` (so in
+`cooklang::parse` and `CooklangParser::default`) and in `Extensions::COMPAT`:
+they change how arrows, backticks, `|` and `?` written in prose are read.
+`Extensions::SPEC_2` turns on all five. The syntax may change with the
+proposals.
+
+Not done yet:
+
+- 0027: the ingredient and shopping lists were not changed for rule 25 (a
+  reference with an amount takes part of the ingredient), and the rule 14 check
+  of amounts with units against the amount made is not there.
+- 0029: optional actions (`` `Garnish?` ``) and which ingredients belong to
+  which action (Part D).
+- 0025: labels on notes (`> ?sourdough: …`), metadata an option replaces
+  (`time`, `servings`, `yield` under `choices`), and toggle defaults set in
+  front matter.
 
 ### Products (`PRODUCTS`, proposal 0027, cooklang/spec#165)
 
