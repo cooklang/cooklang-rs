@@ -164,9 +164,14 @@ impl Metadata {
     /// This *who* wrote the recipe.
     ///
     /// The `author` key [`as_name_and_url`](CooklangValueExt::as_name_and_url).
+    /// Or, if missing, the flat `source.author` key the same way.
     pub fn author(&self) -> Option<NameAndUrl> {
-        self.get(StdKey::Author)
-            .and_then(CooklangValueExt::as_name_and_url)
+        match self.get(StdKey::Author) {
+            Some(author) => author.as_name_and_url(),
+            None => self
+                .get("source.author")
+                .and_then(CooklangValueExt::as_name_and_url),
+        }
     }
 
     /// Source
@@ -174,9 +179,21 @@ impl Metadata {
     /// This *where* the recipe was obtained from.
     ///
     /// The `source` key [`as_name_and_url`](CooklangValueExt::as_name_and_url).
+    /// Or, if missing, the flat `source.name` and `source.url` keys.
     pub fn source(&self) -> Option<NameAndUrl> {
-        self.get(StdKey::Source)
-            .and_then(CooklangValueExt::as_name_and_url)
+        match self.get(StdKey::Source) {
+            Some(source) => source.as_name_and_url(),
+            None => {
+                let name = self
+                    .get("source.name")
+                    .and_then(CooklangValueExt::as_str_like);
+                let url = self
+                    .get("source.url")
+                    .and_then(CooklangValueExt::as_str_like);
+                let source = NameAndUrl::new(name.as_deref(), url.as_deref());
+                (source.name.is_some() || source.url.is_some()).then_some(source)
+            }
+        }
     }
 
     /// Time it takes to prepare/cook the recipe
@@ -936,6 +953,60 @@ mod tests {
         t(StdKey::Cuisine);
         t(StdKey::Diet);
         t(StdKey::Images);
+    }
+
+    fn meta(yaml: &str) -> Metadata {
+        Metadata {
+            map: serde_yaml::from_str(yaml).unwrap(),
+        }
+    }
+
+    fn name_and_url(name: Option<&str>, url: Option<&str>) -> Option<NameAndUrl> {
+        Some(NameAndUrl::new(name, url))
+    }
+
+    #[test]
+    fn source_nested_and_flat() {
+        let url = Some("https://example.org/recipe");
+        let nested = meta("source:\n  name: Book\n  url: https://example.org/recipe\n");
+        assert_eq!(nested.source(), name_and_url(Some("Book"), url));
+
+        let flat = meta("source.name: Book\nsource.url: https://example.org/recipe\n");
+        assert_eq!(flat.source(), name_and_url(Some("Book"), url));
+
+        let name_only = meta("source.name: Book\n");
+        assert_eq!(name_only.source(), name_and_url(Some("Book"), None));
+
+        let url_only = meta("source.url: https://example.org/recipe\n");
+        assert_eq!(url_only.source(), name_and_url(None, url));
+
+        // `source` wins when both forms are present
+        let both = meta("source: Other <https://example.com>\nsource.name: Book\n");
+        assert_eq!(
+            both.source(),
+            name_and_url(Some("Other"), Some("https://example.com"))
+        );
+
+        assert_eq!(meta("source.name: \"  \"\n").source(), None);
+        assert_eq!(meta("title: Soup\n").source(), None);
+    }
+
+    #[test]
+    fn author_falls_back_to_flat_source_author() {
+        let flat = meta("source.author: Layo Paskin\n");
+        assert_eq!(flat.author(), name_and_url(Some("Layo Paskin"), None));
+
+        let with_url = meta("source.author: Layo <https://example.org/layo>\n");
+        assert_eq!(
+            with_url.author(),
+            name_and_url(Some("Layo"), Some("https://example.org/layo"))
+        );
+
+        // `author` wins when both are present
+        let both = meta("author: Ana\nsource.author: Layo Paskin\n");
+        assert_eq!(both.author(), name_and_url(Some("Ana"), None));
+
+        assert_eq!(meta("source.name: Book\n").author(), None);
     }
 
     #[test]
