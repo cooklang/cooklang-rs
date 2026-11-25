@@ -498,6 +498,20 @@ pub(crate) fn into_item(item: &OriginalItem) -> Item {
         OriginalItem::InlineQuantity { index: _ } => Item::Text {
             value: "".to_string(),
         },
+        // spec 2.0 drafts; the mobile parser runs without these extensions,
+        // so these only show up for callers that turn them on
+        OriginalItem::Action { value } => Item::Text {
+            value: value.to_string(),
+        },
+        OriginalItem::Group { options } => options
+            .iter()
+            .find(|o| o.label.is_none())
+            .or(options.first())
+            .and_then(|o| o.items.first())
+            .map(into_item)
+            .unwrap_or(Item::Text {
+                value: "".to_string(),
+            }),
     }
 }
 

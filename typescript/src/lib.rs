@@ -171,6 +171,35 @@ impl Parser {
         data
     }
 
+    /// Parses with the spec 2.0 drafts and returns, as JSON,
+    /// `{ recipe, graph, diagnostics }`: the recipe model, its graph on the
+    /// path `selection` picks (`{"choices": {...}, "toggles": {...}}`, or
+    /// empty for the defaults), and the parser's errors and warnings as
+    /// `{ level, message }`. The recipe is `null` when the parser gave up.
+    pub fn parse_spec2(&self, input: &str, selection: &str) -> String {
+        let selection: cooklang::spec2::Selection =
+            serde_json::from_str(selection).unwrap_or_default();
+        let (recipe, report) = self.parser.parse(input).into_tuple();
+        let diagnostics: Vec<serde_json::Value> = report
+            .iter()
+            .map(|d| {
+                serde_json::json!({
+                    "level": if d.is_error() { "error" } else { "warning" },
+                    "message": d.message.to_string(),
+                })
+            })
+            .collect();
+        let graph = recipe
+            .as_ref()
+            .map(|r| cooklang::spec2::graph(r, &selection));
+        serde_json::json!({
+            "recipe": recipe,
+            "graph": graph,
+            "diagnostics": diagnostics,
+        })
+        .to_string()
+    }
+
     /// returns vector of indices in r.recipe.ingredients and their quantities
     pub fn group_ingredients(&self, r: &ScaledRecipeWithReport) -> Vec<GroupedIndexAndQuantity> {
         r.recipe
@@ -448,6 +477,12 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
                                 }
                                 Item::Text { value } => {
                                     (value)
+                                }
+                                Item::Action { value } => {
+                                    b.action { (value) }
+                                }
+                                Item::Group { options } => {
+                                    span.group { "[" (options.len()) " options]" }
                                 }
                             }
                         }
