@@ -1,7 +1,13 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+## 0.20.0 - 2026-11-25
 - `Metadata::source()` reads the flat `source.name` and `source.url` keys, and `Metadata::author()` the flat `source.author` key, when `source` / `author` are missing (#159)
+- Inline quantities keep unit symbols and surrounding punctuation: `230°C, or 200°C` finds both temperatures with their `°`, and trailing `.`, `,`, `)` stay in the step text instead of being dropped. `1/2-inch` is no longer read as `1 inch` (#100, #156 by @gerardo)
+- Typst package for importing `.cook` files into Typst documents, in `typst/` (#84 by @padalev)
+- (breaking) Dependency upgrades that change public types: `enum-map` 3 (`UnitsFile` prefixes), `strum` 0.28 (`FromStr` errors for unit enums). bindings: `uniffi` 0.32, so the generated Swift and Kotlin code changes
+- npm: the package ships its wasm bindings again (#143, published as npm-only 0.19.1)
 
 ## 0.19.0 - 2026-09-30
 - (breaking) Optional ingredients and cookware (`@?name`, `#?name`) are core syntax (spec proposal 0018): the `?` marker is parsed without `Extensions::COMPONENT_MODIFIERS`. The other modifiers still need the extension
