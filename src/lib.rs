@@ -86,6 +86,7 @@ pub mod scale;
 #[cfg(feature = "shopping_list")]
 pub mod shopping_list;
 pub mod span;
+pub mod spec2;
 pub mod text;
 
 mod lexer;

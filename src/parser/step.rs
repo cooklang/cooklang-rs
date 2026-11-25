@@ -60,13 +60,16 @@ fn step_items(bp: &mut BlockParser<'_, '_>) {
     let actions = bp.extension(Extensions::STEP_ACTIONS);
     let alternatives = bp.extension(Extensions::ALTERNATIVES);
 
+    // a backtick that closed a pair which turned out to be text opens nothing
+    let mut not_opener: Option<usize> = None;
     while !bp.rest().is_empty() {
         let next = bp.rest()[0];
-        if actions && is_backtick(bp, next) {
+        if actions && is_backtick(bp, next) && not_opener != Some(bp.current) {
             if let Some(ev) = bp.with_recover(action) {
                 bp.event(ev);
                 continue;
             }
+            not_opener = closing_backtick(bp);
         }
         if alternatives && matches!(next.kind, T![@] | T![#] | T![~] | T!['(']) {
             if component_or_group(bp) {
@@ -102,6 +105,21 @@ fn step_items(bp: &mut BlockParser<'_, '_>) {
             bp.event(Event::Text(text));
         }
     }
+}
+
+/// Position of the backtick that closes the one at the parser's position, on
+/// the same line.
+fn closing_backtick(bp: &BlockParser) -> Option<usize> {
+    let rest = bp.rest();
+    for (i, t) in rest.iter().enumerate().skip(1) {
+        if t.kind == T![newline] {
+            return None;
+        }
+        if is_backtick(bp, *t) {
+            return Some(bp.current + i);
+        }
+    }
+    None
 }
 
 /// `` `Fold in` `` (spec proposal 0029). The pair closes on its line, holds

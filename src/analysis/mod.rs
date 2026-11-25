@@ -9,6 +9,7 @@ use crate::{
 };
 
 mod event_consumer;
+pub(crate) use event_consumer::product_key;
 
 pub use event_consumer::parse_events;
 
