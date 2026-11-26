@@ -237,3 +237,35 @@ servings: "varies"
         _ => panic!("Expected numeric value"),
     }
 }
+
+#[test]
+fn test_scaling_lock_on_numeric_ingredient_does_not_warn() {
+    let input = r#"---
+servings: 2
+---
+
+Add @salt{=1%tsp} and @flour{200%g}."#;
+
+    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let (mut recipe, warnings) = parser.parse(input).into_result().unwrap();
+    assert!(warnings.is_empty(), "unexpected warnings: {warnings:?}");
+
+    recipe.scale_to_servings(4, parser.converter()).unwrap();
+    let value = |i: usize| {
+        recipe.ingredients[i]
+            .quantity
+            .as_ref()
+            .unwrap()
+            .value()
+            .to_string()
+    };
+    assert_eq!(value(0), "1");
+    assert_eq!(value(1), "400");
+}
+
+#[test]
+fn test_scaling_lock_on_timer_still_warns() {
+    let parser = CooklangParser::new(Extensions::all(), Converter::default());
+    let (_, warnings) = parser.parse("Wait ~{=10%minutes}.").into_result().unwrap();
+    assert!(!warnings.is_empty());
+}
