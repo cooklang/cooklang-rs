@@ -175,6 +175,70 @@ impl Display for Quantity {
     }
 }
 
+/// `{`, `}` and line breaks would end the braces or the line: spaces instead.
+fn brace_safe(text: &str) -> String {
+    text.chars()
+        .map(|c| {
+            if matches!(c, '{' | '}' | '\n' | '\r') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect()
+}
+
+impl Number {
+    /// The number in Cooklang syntax, exactly: a regular number in its
+    /// shortest round-trip form (never rounded like [`Display`]), a fraction
+    /// as `num/den` or `whole num/den`, or its exact value when the fraction
+    /// carries an error.
+    fn to_cooklang(self) -> String {
+        match self {
+            Number::Regular(n) => format!("{n}"),
+            Number::Fraction {
+                whole,
+                num,
+                den,
+                err: 0.0,
+            } => match (whole, num) {
+                (whole, 0) => format!("{whole}"),
+                (0, num) => format!("{num}/{den}"),
+                (whole, num) => format!("{whole} {num}/{den}"),
+            },
+            Number::Fraction { .. } => format!("{}", self.value()),
+        }
+    }
+}
+
+impl Value {
+    fn to_cooklang(&self) -> String {
+        match self {
+            Value::Number(n) => n.to_cooklang(),
+            Value::Range { start, end } => {
+                format!("{}-{}", start.to_cooklang(), end.to_cooklang())
+            }
+            Value::Text(t) => brace_safe(t),
+        }
+    }
+}
+
+impl Quantity {
+    /// The quantity in Cooklang brace syntax, without the braces: `2%l`,
+    /// `1/2%cup`, `3`, `a pinch`, `1-2%cup`.
+    ///
+    /// A quantity read from a shopping list reads back as the same value.
+    /// Numbers are written in full precision, never rounded like
+    /// [`Display`]. `{`, `}` and line breaks are written as spaces.
+    pub fn to_cooklang(&self) -> String {
+        let value = self.value.to_cooklang();
+        match &self.unit {
+            Some(unit) => format!("{value}%{}", brace_safe(unit)),
+            None => value,
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -742,5 +806,94 @@ mod tests {
             assert!((num.value() - value).abs() < 10e-9);
         }
         num
+    }
+
+    fn q(value: Value, unit: Option<&str>) -> Quantity {
+        Quantity::new(value, unit.map(str::to_string))
+    }
+
+    #[test]
+    fn to_cooklang_numbers() {
+        assert_eq!(
+            q(Value::Number(Number::Regular(2.0)), Some("l")).to_cooklang(),
+            "2%l"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(1.5)), Some("kg")).to_cooklang(),
+            "1.5%kg"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(0.0004)), Some("kg")).to_cooklang(),
+            "0.0004%kg"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(1.0 / 3.0)), None).to_cooklang(),
+            "0.3333333333333333"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(3.0)), None).to_cooklang(),
+            "3"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(1e21)), None).to_cooklang(),
+            "1000000000000000000000"
+        );
+    }
+
+    #[test]
+    fn to_cooklang_fractions() {
+        let half = Number::Fraction {
+            whole: 0,
+            num: 1,
+            den: 2,
+            err: 0.0,
+        };
+        let one_and_half = Number::Fraction {
+            whole: 1,
+            num: 1,
+            den: 2,
+            err: 0.0,
+        };
+        let lossy = Number::Fraction {
+            whole: 0,
+            num: 1,
+            den: 3,
+            err: 0.01,
+        };
+        assert_eq!(q(Value::Number(half), Some("cup")).to_cooklang(), "1/2%cup");
+        assert_eq!(
+            q(Value::Number(one_and_half), Some("cup")).to_cooklang(),
+            "1 1/2%cup"
+        );
+        // A fraction carrying an error is written as its exact value.
+        assert_eq!(
+            q(Value::Number(lossy), None).to_cooklang(),
+            format!("{}", 1.0 / 3.0 + 0.01)
+        );
+    }
+
+    #[test]
+    fn to_cooklang_ranges_and_text() {
+        let range = Value::Range {
+            start: Number::Regular(1.0),
+            end: Number::Regular(2.0),
+        };
+        assert_eq!(q(range, Some("cup")).to_cooklang(), "1-2%cup");
+        assert_eq!(
+            q(Value::Text("a pinch".into()), None).to_cooklang(),
+            "a pinch"
+        );
+        assert_eq!(
+            q(Value::Text("1-2".into()), Some("cup")).to_cooklang(),
+            "1-2%cup"
+        );
+    }
+
+    #[test]
+    fn to_cooklang_never_breaks_the_braces_or_the_line() {
+        assert_eq!(
+            q(Value::Text("a {big}\npinch".into()), Some("c}u\rp")).to_cooklang(),
+            "a  big  pinch%c u p"
+        );
     }
 }
