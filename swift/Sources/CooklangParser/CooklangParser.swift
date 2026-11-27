@@ -481,6 +481,22 @@ fileprivate struct FfiConverterUInt32: FfiConverterPrimitive {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterFloat: FfiConverterPrimitive {
+    typealias FfiType = Float
+    typealias SwiftType = Float
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Float {
+        return try lift(readFloat(&buf))
+    }
+
+    public static func write(_ value: Float, into buf: inout [UInt8]) {
+        writeFloat(&buf, lower(value))
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterDouble: FfiConverterPrimitive {
     typealias FfiType = Double
     typealias SwiftType = Double
@@ -1357,6 +1373,138 @@ public func FfiConverterTypeIngredient_lower(_ value: Ingredient) -> RustBuffer 
 }
 
 
+public struct IngredientAisleMatch: Equatable, Hashable {
+    public let name: String
+    public let commonName: String
+    public let category: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(name: String, commonName: String, category: String) {
+        self.name = name
+        self.commonName = commonName
+        self.category = category
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension IngredientAisleMatch: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeIngredientAisleMatch: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IngredientAisleMatch {
+        return
+            try IngredientAisleMatch(
+                name: FfiConverterString.read(from: &buf), 
+                commonName: FfiConverterString.read(from: &buf), 
+                category: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: IngredientAisleMatch, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterString.write(value.commonName, into: &buf)
+        FfiConverterString.write(value.category, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientAisleMatch_lift(_ buf: RustBuffer) throws -> IngredientAisleMatch {
+    return try FfiConverterTypeIngredientAisleMatch.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientAisleMatch_lower(_ value: IngredientAisleMatch) -> RustBuffer {
+    return FfiConverterTypeIngredientAisleMatch.lower(value)
+}
+
+
+public struct IngredientAmount: Equatable, Hashable {
+    public let value: Double
+    public let unit: String?
+    /**
+     * Cooklang quantity syntax ("2%l"); `None` if it rounds to zero.
+     */
+    public let quantity: String?
+    /**
+     * "2 l", "x3".
+     */
+    public let chipText: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(value: Double, unit: String?, 
+        /**
+         * Cooklang quantity syntax ("2%l"); `None` if it rounds to zero.
+         */quantity: String?, 
+        /**
+         * "2 l", "x3".
+         */chipText: String) {
+        self.value = value
+        self.unit = unit
+        self.quantity = quantity
+        self.chipText = chipText
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension IngredientAmount: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeIngredientAmount: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IngredientAmount {
+        return
+            try IngredientAmount(
+                value: FfiConverterDouble.read(from: &buf), 
+                unit: FfiConverterOptionString.read(from: &buf), 
+                quantity: FfiConverterOptionString.read(from: &buf), 
+                chipText: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: IngredientAmount, into buf: inout [UInt8]) {
+        FfiConverterDouble.write(value.value, into: &buf)
+        FfiConverterOptionString.write(value.unit, into: &buf)
+        FfiConverterOptionString.write(value.quantity, into: &buf)
+        FfiConverterString.write(value.chipText, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientAmount_lift(_ buf: RustBuffer) throws -> IngredientAmount {
+    return try FfiConverterTypeIngredientAmount.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientAmount_lower(_ value: IngredientAmount) -> RustBuffer {
+    return FfiConverterTypeIngredientAmount.lower(value)
+}
+
+
 /**
  * A name with an optional URL (used for author/source)
  */
@@ -1411,6 +1559,84 @@ public func FfiConverterTypeNameAndUrl_lift(_ buf: RustBuffer) throws -> NameAnd
 #endif
 public func FfiConverterTypeNameAndUrl_lower(_ value: NameAndUrl) -> RustBuffer {
     return FfiConverterTypeNameAndUrl.lower(value)
+}
+
+
+public struct ParsedIngredient: Equatable, Hashable {
+    public let name: String
+    public let amount: IngredientAmount?
+    public let size: String?
+    public let prep: String?
+    public let comment: String?
+    public let confidence: Float
+    public let source: IngredientParseSource
+    public let aisleMatch: IngredientAisleMatch?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(name: String, amount: IngredientAmount?, size: String?, prep: String?, comment: String?, confidence: Float, source: IngredientParseSource, aisleMatch: IngredientAisleMatch?) {
+        self.name = name
+        self.amount = amount
+        self.size = size
+        self.prep = prep
+        self.comment = comment
+        self.confidence = confidence
+        self.source = source
+        self.aisleMatch = aisleMatch
+    }
+
+    
+
+    
+}
+
+#if compiler(>=6)
+extension ParsedIngredient: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeParsedIngredient: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ParsedIngredient {
+        return
+            try ParsedIngredient(
+                name: FfiConverterString.read(from: &buf), 
+                amount: FfiConverterOptionTypeIngredientAmount.read(from: &buf), 
+                size: FfiConverterOptionString.read(from: &buf), 
+                prep: FfiConverterOptionString.read(from: &buf), 
+                comment: FfiConverterOptionString.read(from: &buf), 
+                confidence: FfiConverterFloat.read(from: &buf), 
+                source: FfiConverterTypeIngredientParseSource.read(from: &buf), 
+                aisleMatch: FfiConverterOptionTypeIngredientAisleMatch.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ParsedIngredient, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterOptionTypeIngredientAmount.write(value.amount, into: &buf)
+        FfiConverterOptionString.write(value.size, into: &buf)
+        FfiConverterOptionString.write(value.prep, into: &buf)
+        FfiConverterOptionString.write(value.comment, into: &buf)
+        FfiConverterFloat.write(value.confidence, into: &buf)
+        FfiConverterTypeIngredientParseSource.write(value.source, into: &buf)
+        FfiConverterOptionTypeIngredientAisleMatch.write(value.aisleMatch, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeParsedIngredient_lift(_ buf: RustBuffer) throws -> ParsedIngredient {
+    return try FfiConverterTypeParsedIngredient.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeParsedIngredient_lower(_ value: ParsedIngredient) -> RustBuffer {
+    return FfiConverterTypeParsedIngredient.lower(value)
 }
 
 
@@ -1976,6 +2202,146 @@ public func FfiConverterTypeComponent_lower(_ value: Component) -> RustBuffer {
     return FfiConverterTypeComponent.lower(value)
 }
 
+
+
+
+public enum IngredientParseSource: Equatable, Hashable {
+    
+    case rules
+    case model
+
+
+
+
+
+}
+
+#if compiler(>=6)
+extension IngredientParseSource: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeIngredientParseSource: FfiConverterRustBuffer {
+    typealias SwiftType = IngredientParseSource
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IngredientParseSource {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .rules
+        
+        case 2: return .model
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: IngredientParseSource, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .rules:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .model:
+            writeInt(&buf, Int32(2))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientParseSource_lift(_ buf: RustBuffer) throws -> IngredientParseSource {
+    return try FfiConverterTypeIngredientParseSource.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientParseSource_lower(_ value: IngredientParseSource) -> RustBuffer {
+    return FfiConverterTypeIngredientParseSource.lower(value)
+}
+
+
+
+/**
+ * Two quantities that cannot be summed (different units, or no number).
+ */
+public 
+enum IngredientQuantityError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
+
+    
+    
+    case NotAddable
+
+    
+
+    
+
+    
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+    
+}
+
+#if compiler(>=6)
+extension IngredientQuantityError: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeIngredientQuantityError: FfiConverterRustBuffer {
+    typealias SwiftType = IngredientQuantityError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IngredientQuantityError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        
+
+        
+        case 1: return .NotAddable
+
+         default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: IngredientQuantityError, into buf: inout [UInt8]) {
+        switch value {
+
+        
+
+        
+        
+        case .NotAddable:
+            writeInt(&buf, Int32(1))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientQuantityError_lift(_ buf: RustBuffer) throws -> IngredientQuantityError {
+    return try FfiConverterTypeIngredientQuantityError.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeIngredientQuantityError_lower(_ value: IngredientQuantityError) -> RustBuffer {
+    return FfiConverterTypeIngredientQuantityError.lower(value)
+}
 
 
 /**
@@ -2838,6 +3204,54 @@ fileprivate struct FfiConverterOptionTypeAmount: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeIngredientAisleMatch: FfiConverterRustBuffer {
+    typealias SwiftType = IngredientAisleMatch?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeIngredientAisleMatch.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeIngredientAisleMatch.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterOptionTypeIngredientAmount: FfiConverterRustBuffer {
+    typealias SwiftType = IngredientAmount?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeIngredientAmount.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeIngredientAmount.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeNameAndUrl: FfiConverterRustBuffer {
     typealias SwiftType = NameAndUrl?
 
@@ -3100,6 +3514,31 @@ fileprivate struct FfiConverterSequenceTypeIngredient: FfiConverterRustBuffer {
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeIngredient.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeParsedIngredient: FfiConverterRustBuffer {
+    typealias SwiftType = [ParsedIngredient]
+
+    public static func write(_ value: [ParsedIngredient], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeParsedIngredient.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ParsedIngredient] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [ParsedIngredient]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeParsedIngredient.read(from: &buf))
         }
         return seq
     }
@@ -3826,6 +4265,61 @@ public func writeShoppingList(list: ShoppingList)throws  -> String  {
     )
 })
 }
+/**
+ * The sum of two stored quantities ("2%l" + "1%l" = "3%l"). `None` only
+ * means "no quantity" (both absent); quantities that cannot be added are
+ * an error, so a caller keeps two lines instead of losing an amount.
+ */
+public func addIngredientQuantities(a: String?, b: String?)throws  -> String?  {
+    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeIngredientQuantityError_lift) {
+        uniffiCallStatus in
+    uniffi_cooklang_bindings_fn_func_add_ingredient_quantities(
+        FfiConverterOptionString.lower(a),
+        FfiConverterOptionString.lower(b),uniffiCallStatus
+    )
+})
+}
+public func cleanedIngredientName(raw: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_cooklang_bindings_fn_func_cleaned_ingredient_name(
+        FfiConverterString.lower(raw),uniffiCallStatus
+    )
+})
+}
+public func ingredientEditText(name: String, quantity: String?) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_cooklang_bindings_fn_func_ingredient_edit_text(
+        FfiConverterString.lower(name),
+        FfiConverterOptionString.lower(quantity),uniffiCallStatus
+    )
+})
+}
+/**
+ * Parses one typed ingredient line. `aisle_text` is the aisle.conf content.
+ */
+public func parseIngredient(line: String, aisleText: String?) -> ParsedIngredient  {
+    return try!  FfiConverterTypeParsedIngredient_lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_cooklang_bindings_fn_func_parse_ingredient(
+        FfiConverterString.lower(line),
+        FfiConverterOptionString.lower(aisleText),uniffiCallStatus
+    )
+})
+}
+/**
+ * Parses pasted text, one result per kept line.
+ */
+public func parseIngredientList(text: String, aisleText: String?) -> [ParsedIngredient]  {
+    return try!  FfiConverterSequenceTypeParsedIngredient.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_cooklang_bindings_fn_func_parse_ingredient_list(
+        FfiConverterString.lower(text),
+        FfiConverterOptionString.lower(aisleText),uniffiCallStatus
+    )
+})
+}
 
 private enum InitializationResult {
     case ok
@@ -3924,6 +4418,21 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_cooklang_bindings_checksum_func_write_shopping_list() != 59115) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_cooklang_bindings_checksum_func_add_ingredient_quantities() != 25648) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_cooklang_bindings_checksum_func_cleaned_ingredient_name() != 25754) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_cooklang_bindings_checksum_func_ingredient_edit_text() != 23764) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_cooklang_bindings_checksum_func_parse_ingredient() != 7308) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_cooklang_bindings_checksum_func_parse_ingredient_list() != 42686) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_cooklang_bindings_checksum_method_aisleconf_categories() != 25004) {
