@@ -340,6 +340,28 @@ impl From<OriginalRecipeTime> for RecipeTime {
     }
 }
 
+/// A quantity as the bindings show it.
+pub(crate) fn quantity_to_amount(q: &OriginalQuantity) -> Amount {
+    q.extract_amount()
+}
+
+/// An [`Amount`] back to a quantity. Numbers become regular numbers, so a
+/// fraction read and written back is written as a decimal (`1/2%cup` becomes
+/// `0.5%cup`). [`Value::Empty`] is no quantity.
+pub(crate) fn amount_to_quantity(a: &Amount) -> Option<OriginalQuantity> {
+    use cooklang::quantity::Number;
+    let value = match &a.quantity {
+        Value::Number { value } => OriginalValue::Number(Number::Regular(*value)),
+        Value::Range { start, end } => OriginalValue::Range {
+            start: Number::Regular(*start),
+            end: Number::Regular(*end),
+        },
+        Value::Text { value } => OriginalValue::Text(value.clone()),
+        Value::Empty => return None,
+    };
+    Some(OriginalQuantity::new(value, a.units.clone()))
+}
+
 trait Amountable {
     fn extract_amount(&self) -> Amount;
 }
