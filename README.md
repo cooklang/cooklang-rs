@@ -28,5 +28,6 @@ mobile apps and desktop editor, which share recipes through
 ## Releasing
 
 A release bumps the version in `Cargo.toml`, `bindings/Cargo.toml` and
-`ingredient-parser/Cargo.toml` (including its `cooklang` dependency version),
-then updates `Cargo.lock` and `CHANGELOG.md`.
+`ingredient-parser/Cargo.toml`, plus the `cooklang` dependency version in
+`ingredient-parser/Cargo.toml` and the `cooklang-ingredient-parser = { version = ... }`
+requirement in `bindings/Cargo.toml`. It then updates `Cargo.lock` and `CHANGELOG.md`.
