@@ -14,21 +14,26 @@ pub(crate) fn split_lines(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// Foundation's `.whitespaces` also covers the zero-width space.
+fn is_space(c: char) -> bool {
+    c.is_whitespace() || c == '\u{200B}'
+}
+
 fn without_list_marker(line: &str) -> String {
-    let mut text = line.trim();
+    let mut text = line.trim_matches(is_space);
     if let Some(rest) = ["-", "*", "\u{2013}"]
         .iter()
         .find_map(|m| starts_marker(text, m))
     {
-        text = rest.trim();
+        text = rest.trim_matches(is_space);
     } else if let Some(rest) = text.strip_prefix('\u{2022}') {
-        text = rest.trim();
+        text = rest.trim_matches(is_space);
     }
     if let Some(rest) = ["[ ]", "[x]", "[X]"]
         .iter()
         .find_map(|b| text.strip_prefix(b))
     {
-        text = rest.trim();
+        text = rest.trim_matches(is_space);
     }
     text.to_owned()
 }
@@ -87,5 +92,17 @@ mod tests {
     #[test]
     fn keeps_a_hyphen_inside_a_name() {
         assert_eq!(split_lines("Coca-Cola\n-Zero"), ["Coca-Cola", "-Zero"]);
+    }
+
+    #[test]
+    fn trims_zero_width_spaces_like_foundation() {
+        assert_eq!(split_lines("Milk 2 l\u{200B}"), ["Milk 2 l"]);
+        assert_eq!(split_lines("\u{200B}- Milk 2 l"), ["Milk 2 l"]);
+        assert_eq!(
+            split_lines("\u{200B}## Dairy\n- \u{200B}\n\u{200B}\u{200B}"),
+            Vec::<String>::new()
+        );
+        assert_eq!(split_lines("- \u{200B}[ ] Milk"), ["Milk"]);
+        assert_eq!(split_lines("-\u{200B}Milk"), ["-\u{200B}Milk"]);
     }
 }

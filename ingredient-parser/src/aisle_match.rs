@@ -2,10 +2,15 @@
 
 use crate::AisleMatch;
 use cooklang::aisle::AisleConf;
+use unicode_normalization::UnicodeNormalization;
+
+fn fold(text: &str) -> String {
+    text.nfc().collect::<String>().to_lowercase()
+}
 
 /// The lowercase word and the singulars it may be the plural of.
 fn forms(word: &str) -> Vec<String> {
-    let word = word.to_lowercase();
+    let word = fold(word);
     let mut forms = vec![word.clone()];
     if let Some(stem) = word.strip_suffix("ies") {
         if !stem.is_empty() {
@@ -50,8 +55,8 @@ pub(crate) fn find(aisle: &AisleConf, name: &str) -> Option<AisleMatch> {
         common_name: common.to_owned(),
         category: category.to_owned(),
     };
-    let lower = name.to_lowercase();
-    if let Some(entry) = entries().find(|(_, _, n)| n.to_lowercase() == lower) {
+    let lower = fold(name);
+    if let Some(entry) = entries().find(|(_, _, n)| fold(n) == lower) {
         return Some(to_match(entry));
     }
     let mine = forms(name);
@@ -111,5 +116,29 @@ mod tests {
         assert_eq!(matched("bread"), None);
         assert_eq!(matched("glass"), None);
         assert_eq!(matched(""), None);
+    }
+
+    fn category_of(aisle: &str, name: &str) -> Option<String> {
+        find(&cooklang::aisle::parse(aisle).unwrap(), name).map(|m| m.category)
+    }
+
+    #[test]
+    fn exact_beats_plural() {
+        let aisle = "[a]\ntomatoes\n\n[b]\ntomato\n";
+        assert_eq!(category_of(aisle, "tomato"), Some("b".into()));
+        assert_eq!(category_of(aisle, "Tomatoes"), Some("a".into()));
+    }
+
+    #[test]
+    fn a_prefix_is_not_a_match() {
+        assert_eq!(category_of("[a]\nglas\n", "glass"), None);
+    }
+
+    #[test]
+    fn composed_and_decomposed_accents_match() {
+        assert_eq!(
+            category_of("[a]\nCr\u{e8}me\n", "Cre\u{300}me"),
+            Some("a".into())
+        );
     }
 }
