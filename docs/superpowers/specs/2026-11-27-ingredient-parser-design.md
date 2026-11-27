@@ -107,8 +107,9 @@ pub struct ModelError(pub String);
 pub const MODEL_CONFIDENCE_THRESHOLD: f32 = 0.80;
 
 impl Amount {
-    /// Cooklang quantity syntax: "2%l", "3", "2%cans".
-    pub fn to_quantity(&self) -> String;
+    /// Cooklang quantity syntax: "2%l", "3", "2%cans". `None` when the
+    /// value rounds to "0" at six decimals.
+    pub fn to_quantity(&self) -> Option<String>;
     /// "2 l", "x3" for a count.
     pub fn chip_text(&self) -> String;
     /// "2 l", "3" for a count.
@@ -131,7 +132,7 @@ pub fn edit_text(name: &str, quantity: Option<&str>) -> String;
 pub fn cleaned_name(raw: &str) -> String;
 ```
 
-`parse_ingredient_list` splits on line breaks, drops a leading bullet (`-`, `*`, `–`, `•`, when followed by whitespace or ending the line) and then a checkbox (`[ ]`, `[x]`, `[X]`), skips lines that are blank after that, and parses each remaining line. One result per kept line, in order.
+`parse_ingredient_list` splits on line breaks, drops a leading bullet (`-`, `*`, `–` when followed by whitespace or ending the line; `•` always) and then a checkbox (`[ ]`, `[x]`, `[X]`), skips lines that are blank after that and Markdown heading lines (one to six `#`, alone or followed by whitespace), and parses each remaining line. One result per kept line, in order.
 
 All public data types derive `Debug`, `Clone`, `PartialEq`, `serde::Serialize` and `serde::Deserialize`.
 
@@ -141,7 +142,10 @@ Whitespace (any Unicode whitespace, including no-break spaces) splits words.
 
 ### 1. Rules
 
-Ported unchanged from the iOS recogniser:
+Ported unchanged from the iOS recogniser at `mobile-app-ios` commit `a6f8a1d1`:
+
+- A `,` or `;` ending the last word is dropped ("bread,", "Milk 2 l,").
+- Punctuation that only separates the name from the amount goes with the amount: a word made only of `, ; : - – —` is dropped, and `, ; :` glued to the name's edge next to the amount are trimmed ("potato, 2 kg", "Milk - 2 l", "2 kg - potatoes"). Punctuation inside a name stays ("garlic, 1 head", "Mix 50:50").
 
 - **End first:** the last word as a number glued to a unit ("2l", "1.5kg", "1/2kg", "3шт"); else the second-to-last word a number and the last word a unit ("2 l"); else the last word a number (a count).
 - **Then start:** the same, mirrored ("2l milk", "2 l milk", "3 lemons").
@@ -168,7 +172,7 @@ A unit the model gives is looked up in the unit table and stored in its short fo
 After the name is found, and only when `aisle` is given, it is compared with every name and alias in the aisle configuration:
 
 - ignoring case (Unicode lowercase);
-- and ignoring simple English plurals, by comparing both sides after reducing them: a final `ies` becomes `y`; a final `es` after `s`, `x`, `z`, `ch`, `sh` or `o` is dropped; otherwise a final `s` not preceded by `s` is dropped. "Tomato" matches `tomatoes`, "Berry" matches `berries`, "Lemon" matches `lemons`. "Glass" keeps its `s`.
+- and ignoring simple English plurals. Each side's forms are the lowercase word plus, where they apply, the word with a final `ies` turned into `y`, with a final `es` dropped after `s`, `x`, `z`, `ch`, `sh` or `o`, and with a final `s` dropped when not after another `s`. Two names match when their forms share one. "Tomato" matches `tomatoes`, "Berry" matches `berries`, "cookie" matches `cookies`, "Lemon" matches `lemons`; "glass" does not match `glas`.
 
 An exact case-insensitive match wins over a plural match. Among matches of the same kind, the first in file order wins. On a match, `name` becomes the configuration's spelling and `aisle_match` is filled.
 
