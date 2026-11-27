@@ -45,7 +45,8 @@ pub enum ShoppingListItem {
     /// (`? name{quantity}`); its quantity is the final amount to buy.
     ///
     /// The quantity is read with the recipe quantity grammar. Written back,
-    /// numbers are decimals: a `1/2%cup` read and written becomes `0.5%cup`.
+    /// numbers are decimals: a `1/2%cup` read and written becomes `0.5%cup`,
+    /// but a fraction whose decimal would be long stays one (`1/3%cup`).
     /// `Value::Empty` writes no quantity.
     Ingredient {
         name: String,

@@ -123,7 +123,8 @@ pub fn ingredient_edit_text(name: String, quantity: Option<Amount>) -> String {
 
 /// An amount in Cooklang brace syntax, without the braces, as a shopping
 /// list stores it: "2%l", "3", "a pinch". Numbers are decimals, so a
-/// fraction is written "0.5%cup". `""` for `Value::Empty`.
+/// fraction is written "0.5%cup", except one whose decimal would be long:
+/// "1/3%cup". `""` for `Value::Empty`.
 #[uniffi::export]
 pub fn amount_to_cooklang(amount: Amount) -> String {
     amount_to_quantity(&amount)
@@ -190,6 +191,16 @@ mod tests {
         use crate::model::Value;
         assert_eq!(amount_to_cooklang(amount(2.0, None)), "2");
         assert_eq!(amount_to_cooklang(amount(0.5, Some("cup"))), "0.5%cup");
+        assert_eq!(
+            amount_to_cooklang(amount(1.0 / 3.0, Some("cup"))),
+            "1/3%cup"
+        );
+        assert_eq!(amount_to_cooklang(amount(2.0 / 3.0 * 2.0, None)), "1 1/3");
+        assert_eq!(amount_to_cooklang(amount(0.1 + 0.2, None)), "0.3");
+        assert_eq!(
+            amount_to_cooklang(amount(1.0 / 7.0, None)),
+            "0.14285714285714285"
+        );
         assert_eq!(
             amount_to_cooklang(Amount {
                 quantity: Value::Range {

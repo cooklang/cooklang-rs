@@ -345,21 +345,64 @@ pub(crate) fn quantity_to_amount(q: &OriginalQuantity) -> Amount {
     q.extract_amount()
 }
 
-/// An [`Amount`] back to a quantity. Numbers become regular numbers, so a
-/// fraction read and written back is written as a decimal (`1/2%cup` becomes
-/// `0.5%cup`). [`Value::Empty`] is no quantity.
+/// An [`Amount`] back to a quantity. [`Value::Empty`] is no quantity.
+///
+/// Numbers become regular numbers, so a fraction with a short decimal form
+/// read and written back is written as that decimal (`1/2%cup` becomes
+/// `0.5%cup`). A number whose shortest decimal form has more than 6 decimals
+/// and that is a fraction with a denominator up to 16 (`1/3`, `2/3`,
+/// `1 1/3`) is written as that fraction instead of a long decimal
+/// (`0.3333333333333333`).
 pub(crate) fn amount_to_quantity(a: &Amount) -> Option<OriginalQuantity> {
-    use cooklang::quantity::Number;
     let value = match &a.quantity {
-        Value::Number { value } => OriginalValue::Number(Number::Regular(*value)),
+        Value::Number { value } => OriginalValue::Number(number_from_f64(*value)),
         Value::Range { start, end } => OriginalValue::Range {
-            start: Number::Regular(*start),
-            end: Number::Regular(*end),
+            start: number_from_f64(*start),
+            end: number_from_f64(*end),
         },
         Value::Text { value } => OriginalValue::Text(value.clone()),
         Value::Empty => return None,
     };
     Some(OriginalQuantity::new(value, a.units.clone()))
+}
+
+/// A number for writing: a fraction when the decimal would be long and the
+/// value is a fraction with a small denominator, else a regular number.
+/// A fraction with a short decimal (a denominator of only 2s and 5s, like
+/// `0.30000000000000004` for `3/10`) is written as that short decimal.
+fn number_from_f64(value: f64) -> cooklang::quantity::Number {
+    use cooklang::quantity::Number;
+    let shortest = format!("{value}");
+    let decimals = shortest.split_once('.').map_or(0, |(_, d)| d.len());
+    if decimals > 6 {
+        if let Some(Number::Fraction {
+            whole,
+            num,
+            den,
+            err,
+        }) = Number::new_approx(value, 1e-9, 16, u32::MAX - 1)
+        {
+            if num != 0 && err.abs() <= 1e-9 * value {
+                let mut d = den;
+                while d % 2 == 0 {
+                    d /= 2;
+                }
+                while d % 5 == 0 {
+                    d /= 5;
+                }
+                if d == 1 {
+                    return Number::Regular(whole as f64 + num as f64 / den as f64);
+                }
+                return Number::Fraction {
+                    whole,
+                    num,
+                    den,
+                    err: 0.0,
+                };
+            }
+        }
+    }
+    Number::Regular(value)
 }
 
 trait Amountable {

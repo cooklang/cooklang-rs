@@ -1562,6 +1562,27 @@ Serve the @./pasta/spaghetti{1%portion} with sauce
     }
 
     #[test]
+    fn test_shopping_list_thirds_are_written_as_fractions() {
+        for (input, output) in [
+            ("x{1/3%cup}\n", "x{1/3%cup}\n"),
+            ("x{2/3}\n", "x{2/3}\n"),
+            ("x{1 1/3%cup}\n", "x{1 1/3%cup}\n"),
+            ("x{1/2}\n", "x{0.5}\n"),
+            ("x{0.333333%cup}\n", "x{0.333333%cup}\n"),
+            ("x{0.3333334%cup}\n", "x{0.3333334%cup}\n"),
+            ("x{1.5}\n", "x{1.5}\n"),
+            ("x{0.25}\n", "x{0.25}\n"),
+        ] {
+            let list = crate::parse_shopping_list(input.to_string()).unwrap();
+            assert_eq!(
+                crate::write_shopping_list(&list).unwrap(),
+                output,
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
     fn test_shopping_list_fraction_is_written_as_a_decimal() {
         let list = crate::parse_shopping_list("cream{1/2%cup}\n".to_string()).unwrap();
         assert_eq!(
