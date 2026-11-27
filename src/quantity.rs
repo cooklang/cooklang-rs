@@ -18,7 +18,6 @@ use crate::convert::{ConvertError, Converter, PhysicalQuantity, Unit};
 pub struct Quantity {
     pub(crate) value: Value,
     pub(crate) unit: Option<String>,
-    #[serde(default)]
     pub(crate) scalable: bool,
 }
 
@@ -71,6 +70,7 @@ impl Value {
 /// assert_eq!(num.value(), 2.501);
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Number {
     /// A regular number

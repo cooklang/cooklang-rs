@@ -32,7 +32,7 @@ export {
     ingredient_amount_chip,
     quantity_to_cooklang
 };
-export type {ScaledRecipeWithReport, Value, Quantity, Ingredient, Cookware, Timer, Section, Content, Step, Item, ParsedIngredient, Amount, AisleMatch, ParseSource} from "./pkg/cooklang_wasm.js";
+export type {ScaledRecipeWithReport, Value, Number, Quantity, Ingredient, Cookware, Timer, Section, Content, Step, Item, ParsedIngredient, Amount, AisleMatch, ParseSource} from "./pkg/cooklang_wasm.js";
 
 // ============================================================================
 // Numeric Value Extraction Helpers
