@@ -335,12 +335,19 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
 /// anything that isn't a number) is the quantity. Where the grammar reports
 /// an error (`1/0`, a number too big for a fraction) the value is kept as the
 /// text written instead of the grammar's placeholder, and so is a number too
-/// large for an `f64`. `None` for text with neither a value nor a unit:
-/// empty, `%` or `=`.
-#[cfg(feature = "shopping_list")]
+/// large for an `f64`. Text ending in an unpaired `\` (which escapes nothing)
+/// is kept whole as a text value. `None` for text with neither a value nor a
+/// unit: empty, `%` or `=`.
 pub(crate) fn parse_quantity_text(text: &str) -> Option<crate::quantity::Quantity> {
     if text.trim().is_empty() {
         return None;
+    }
+    let trailing_backslashes = text.chars().rev().take_while(|&c| c == '\\').count();
+    if trailing_backslashes % 2 == 1 {
+        return Some(crate::quantity::Quantity::new(
+            Value::Text(text.trim().to_string()),
+            None,
+        ));
     }
     let tokens = super::token_stream::TokenStream::new(text).collect::<Vec<_>>();
     let mut events = std::collections::VecDeque::new();
@@ -525,6 +532,14 @@ mod tests {
     }
 
     #[test]
+    fn escaped_multibyte_char() {
+        let (q, _, r) = t!("\\½%\\🧂", Extensions::empty());
+        assert_eq!(q.value.value.into_inner(), Value::Text("½".into()));
+        assert_eq!(q.unit.unwrap().text_trimmed(), "🧂");
+        assert!(r.is_empty());
+    }
+
+    #[test]
     fn range_value() {
         let (q, _, _) = t!("2-3");
         assert_eq!(
@@ -626,7 +641,6 @@ mod tests {
         n
     }
 
-    #[cfg(feature = "shopping_list")]
     mod text {
         use crate::quantity::{Number as QNumber, Quantity as Q, Value as QValue};
 
@@ -686,10 +700,10 @@ mod tests {
         fn quantity_text_with_only_a_unit_is_text_or_empty_but_never_panics() {
             // "%l": no value. Whatever the grammar makes of it, it must not panic
             // and must keep the unit if it keeps anything.
-            let q = text_q("%l");
-            if let Some(q) = q {
-                assert_eq!(q.unit(), Some("l"));
-            }
+            assert_eq!(
+                text_q("%l"),
+                Some(Q::new(QValue::Text("".into()), Some("l".into())))
+            );
         }
 
         #[test]

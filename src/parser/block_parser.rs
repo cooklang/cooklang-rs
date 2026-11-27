@@ -153,7 +153,12 @@ impl<'t, 'i> BlockParser<'t, 'i> {
                 }
                 T![escaped] => {
                     t.append_str(&self.input[start..end], start);
-                    debug_assert_eq!(token.len(), 2, "unexpected escaped token length");
+                    // "\" and the char it escapes, which may be more than
+                    // one byte, or a lone "\" at the end of the input
+                    debug_assert!(
+                        self.input[token.span.range()].chars().count() <= 2,
+                        "unexpected escaped token length"
+                    );
                     start = token.span.start() + 1; // skip "\"
                     end = token.span.end()
                 }

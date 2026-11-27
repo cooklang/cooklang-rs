@@ -528,6 +528,25 @@ mod tests {
 
     #[cfg(feature = "shopping_list")]
     #[test]
+    fn shopping_items_convert_units_when_merging() {
+        use crate::shopping_list::{parse, ShoppingListItem};
+        let list = parse("milk{1%l}\nmilk{500%ml}\n").unwrap();
+        let converter = Converter::bundled();
+        let mut ingredients = IngredientList::default();
+        for item in &list.items {
+            if let ShoppingListItem::Ingredient(item) = item {
+                ingredients.add_shopping_item(item, &converter);
+            }
+        }
+        let listed: Vec<(&str, String)> = ingredients
+            .iter()
+            .map(|(name, quantity)| (name.as_str(), quantity.to_string()))
+            .collect();
+        assert_eq!(listed, [("milk", "1.5 l".to_string())]);
+    }
+
+    #[cfg(feature = "shopping_list")]
+    #[test]
     fn shopping_items_keep_their_names_and_merge() {
         use crate::shopping_list::{parse, ShoppingListItem};
         let list =

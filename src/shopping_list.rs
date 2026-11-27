@@ -1067,6 +1067,109 @@ olive oil{4%l}
         );
     }
 
+    /// Text the reader unescapes or reads as syntax is escaped when written,
+    /// so a rewrite never changes a quantity or breaks the file.
+    #[test]
+    fn escaped_quantities_survive_a_rewrite() {
+        let cases: &[(&str, &str, Option<&str>)] = &[
+            // (line, text value, unit)
+            ("x{[\\-00}", "[-00", None),
+            ("x{2%[\\-x}", "", None), // number: checked below by Debug only
+            ("x{a\\-\\-b}", "a--b", None),
+            ("x{1%\\-\\-b}", "", None),
+            ("x{a\\%b}", "a%b", None),
+            ("x{2\\%l}", "2%l", None),
+            ("x{\\=2}", "=2", None),
+            ("x{2\\}", "2\\", None),
+            ("x{a\\\\b}", "a\\b", None),
+            ("x{==1}", "=1", None),
+            ("x{a\\}", "a\\", None),
+            ("x{\\}", "\\", None),
+            ("x{\\2}", "2", None),
+            ("x{\\1/2}", "1/2", None),
+            ("x{a\\-b}", "a-b", None),
+            ("x{\\½}", "½", None),
+            ("x{\\🧂1%l}", "🧂1", Some("l")),
+            ("x{\\\u{a0}2}", "", None),
+        ];
+        for &(line, text, unit) in cases {
+            let input = format!("{line}\n");
+            let once = parse(&input).unwrap();
+            let ShoppingListItem::Ingredient(item) = &once.items[0] else {
+                panic!("{line}: expected an ingredient");
+            };
+            assert_eq!(item.name, "x", "{line}");
+            if !text.is_empty() {
+                assert_eq!(
+                    item.quantity,
+                    Some(Quantity::new(
+                        text.to_string().into(),
+                        unit.map(String::from)
+                    )),
+                    "{line}"
+                );
+            }
+            let mut out = Vec::new();
+            write(&once, &mut out).unwrap();
+            let written = String::from_utf8(out).unwrap();
+            let twice = parse(&written).unwrap_or_else(|e| panic!("{line} -> {written:?}: {e}"));
+            assert_eq!(
+                format!("{once:?}"),
+                format!("{twice:?}"),
+                "{line} -> {written:?}"
+            );
+            let mut again = Vec::new();
+            write(&twice, &mut again).unwrap();
+            assert_eq!(written, String::from_utf8(again).unwrap(), "{line}");
+        }
+    }
+
+    /// Any text quantity and unit made of characters the reader treats
+    /// specially survives being written to a list and read back.
+    #[test]
+    fn text_quantities_survive_a_list_rewrite() {
+        const PIECES: &[&str] = &[
+            "\\", "%", "=", "-", "[", "]", "0", "1", "/", ".", " ", "a", "--", "[-", "-]", "1/2",
+            "==", "#", "?", "@",
+        ];
+        let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let piece = |next: &mut dyn FnMut() -> u64| -> String {
+            let n = next();
+            let s: String = (0..1 + n % 5)
+                .map(|_| PIECES[(next() % PIECES.len() as u64) as usize])
+                .collect();
+            s.split(' ')
+                .filter(|w| !w.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        for _ in 0..20_000 {
+            let text = piece(&mut next);
+            let unit = Some(piece(&mut next)).filter(|u| !u.is_empty() && next() % 2 == 0);
+            if text.is_empty() && unit.is_none() {
+                continue;
+            }
+            let list = ShoppingList {
+                items: vec![ShoppingListItem::Ingredient(IngredientItem {
+                    name: "x".into(),
+                    quantity: Some(Quantity::new(text.into(), unit)),
+                    optional: false,
+                })],
+            };
+            let mut out = Vec::new();
+            write(&list, &mut out).unwrap();
+            let written = String::from_utf8(out).unwrap();
+            let back = parse(&written).unwrap_or_else(|e| panic!("{written:?}: {e}"));
+            assert_eq!(format!("{back:?}"), format!("{list:?}"), "{written:?}");
+        }
+    }
+
     #[test]
     fn parse_write_parse_is_stable() {
         for input in [
@@ -1082,12 +1185,17 @@ olive oil{4%l}
             "j{%}\n",
             "k{%l}\n",
             "l{2%a%b}\n",
+            "m{a\\%b}\n",
+            "n{\\=2}\n",
+            "o{a\\-\\-b}\n",
+            "p{\\2}\n",
         ] {
             let once = parse(input).unwrap();
             let mut out = Vec::new();
             write(&once, &mut out).unwrap();
             let twice = parse(std::str::from_utf8(&out).unwrap()).unwrap();
             assert_eq!(once, twice, "{input}");
+            assert_eq!(format!("{once:?}"), format!("{twice:?}"), "{input}");
             let mut again = Vec::new();
             write(&twice, &mut again).unwrap();
             assert_eq!(out, again, "{input}");
