@@ -484,21 +484,28 @@ pub fn parse_ingredient_list(
 }
 
 /// The line that makes an item from a name and a stored quantity: "Milk" and
-/// "2%l" give "Milk 2 l".
+/// 2 l give "Milk 2 l".
 #[wasm_bindgen]
-pub fn ingredient_edit_text(name: &str, quantity: Option<String>) -> String {
-    cooklang_ingredient_parser::edit_text(name, quantity.as_deref())
+pub fn ingredient_edit_text(name: &str, quantity: Option<quantity::Quantity>) -> String {
+    cooklang_ingredient_parser::edit_text(name, quantity.as_ref())
 }
 
-/// The sum of two stored quantities ("2%l" + "1%l" = "3%l"). `null` means no
+/// The sum of two stored quantities (2 l + 1 l = 3 l). `undefined` means no
 /// quantity (both absent); quantities that cannot be added throw.
 #[wasm_bindgen]
 pub fn add_ingredient_quantities(
-    a: Option<String>,
-    b: Option<String>,
-) -> Result<Option<String>, JsError> {
-    cooklang_ingredient_parser::add_quantities(a.as_deref(), b.as_deref())
+    a: Option<quantity::Quantity>,
+    b: Option<quantity::Quantity>,
+) -> Result<Option<quantity::Quantity>, JsError> {
+    cooklang_ingredient_parser::add_quantities(a.as_ref(), b.as_ref())
         .map_err(|_| JsError::new("the two quantities cannot be added"))
+}
+
+/// A quantity in Cooklang brace syntax, without the braces, as a shopping
+/// list stores it: "2%l", "1/2%cup", "a pinch".
+#[wasm_bindgen]
+pub fn quantity_to_cooklang(quantity: quantity::Quantity) -> String {
+    quantity.to_cooklang()
 }
 
 /// An ingredient name as a typed line would write it, without its amount.
@@ -507,9 +514,10 @@ pub fn cleaned_ingredient_name(raw: &str) -> String {
     cooklang_ingredient_parser::cleaned_name(raw)
 }
 
-/// The stored quantity ("2%l") of a parsed amount; `null` if it rounds to zero.
+/// The quantity to store for a parsed amount, its value rounded to six
+/// decimals; `undefined` if it rounds to zero.
 #[wasm_bindgen]
-pub fn ingredient_amount_quantity(value: f64, unit: Option<String>) -> Option<String> {
+pub fn ingredient_amount_quantity(value: f64, unit: Option<String>) -> Option<quantity::Quantity> {
     cooklang_ingredient_parser::Amount { value, unit }.to_quantity()
 }
 
