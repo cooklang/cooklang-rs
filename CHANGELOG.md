@@ -4,10 +4,9 @@
 - (breaking) Shopping lists: `IngredientItem.quantity` is an `Option<Quantity>`, parsed with the recipe quantity grammar (no extensions) and written back with the new `Quantity::to_cooklang`. A quantity never makes a line fail to parse: what the grammar can't read as a number stays text. Rewriting a list normalises spellings (`0.50%kg` → `0.5%kg`, `2%` → `2`, `{}` → no braces, extra spaces collapsed, `{` inside text → a space); values are unchanged, and text is escaped so it reads back as the same text. The JSON shape of `IngredientItem` changes accordingly (`quantity` was a string)
 - Names of free-hand shopping list items are never read as Cooklang: `#1 flour`, `~ramen` and `@milk` keep their names
 - `IngredientList::add_shopping_item` adds a free-hand shopping list item under its own name
-- `Quantity`'s `scalable` field defaults to `false` when deserialising
 - Fix a debug-build panic on `\` followed by a multi-byte character (`\½`)
 - (breaking) `cooklang-ingredient-parser`: `Amount::to_quantity`, `Amount::from_quantity`, `add_quantities` and `edit_text` work on `Quantity` instead of strings
-- (breaking) bindings: shopping list ingredient quantities and the ingredient parser's quantities are `Amount` records; `amount_to_cooklang` gives the stored form. A fraction an app reads and writes back is written as a decimal (`1/2` → `0.5`). typescript: the same functions take and return `Quantity`; `quantity_to_cooklang` gives the stored form
+- (breaking) bindings: shopping list ingredient quantities and the ingredient parser's quantities are `Amount` records; `amount_to_cooklang` gives the stored form. A fraction an app reads and writes back is written as a decimal (`1/2` → `0.5`), except one whose decimal would be long (`1/3` stays `1/3`). typescript: the same functions take and return `Quantity`; `quantity_to_cooklang` gives the stored form; `Number` is typed (and exported), so a `Quantity` can be built in TypeScript
 
 ## 0.21.0 - 2026-11-27
 - New crate `cooklang-ingredient-parser`: parses typed ingredient lines ("Milk 2 l") into a name and amount, with aisle matching and an optional model hook; exposed in the Swift/Kotlin bindings and the JS package.
