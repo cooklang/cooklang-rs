@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {parse_ingredient, parse_ingredient_list, ingredient_edit_text} from "../index.js";
+import {parse_ingredient, parse_ingredient_list, ingredient_edit_text, add_ingredient_quantities, cleaned_ingredient_name, ingredient_amount_quantity, ingredient_amount_chip} from "../index.js";
 
 describe("ingredient parser", () => {
     it("reads an amount at the end", () => {
@@ -21,5 +21,22 @@ describe("ingredient parser", () => {
 
     it("builds the edit text", () => {
         expect(ingredient_edit_text("Milk", "2%l")).toEqual("Milk 2 l");
+    });
+
+    it("adds stored quantities", () => {
+        expect(add_ingredient_quantities("2%l", "1%l")).toEqual("3%l");
+        expect(add_ingredient_quantities(undefined, undefined)).toBeUndefined();
+        expect(() => add_ingredient_quantities("2%l", "2")).toThrow("cannot be added");
+    });
+
+    it("cleans a name", () => {
+        expect(cleaned_ingredient_name("  tomatoes  ")).toEqual("tomatoes");
+    });
+
+    it("writes an amount as a quantity and a chip", () => {
+        expect(ingredient_amount_quantity(2, "l")).toEqual("2%l");
+        expect(ingredient_amount_quantity(3, undefined)).toEqual("3");
+        expect(ingredient_amount_chip(2, "l")).toEqual("2 l");
+        expect(ingredient_amount_chip(3, undefined)).toEqual("x3");
     });
 });
