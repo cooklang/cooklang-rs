@@ -31,9 +31,14 @@ The text between the braces is parsed with the recipe quantity grammar and `Exte
 | `{3}` | `Number(3)`, no unit |
 | `{a pinch}` | `Text("a pinch")` |
 | `{1-2%cup}` | `Text("1-2")`, unit `cup` (ranges need `RANGE_VALUES`) |
-| `{}` | `None`, as an empty quantity in a recipe |
+| `{}`, `{ }`, `{%}`, `{=}` | `None`, as an empty quantity in a recipe |
+| `{%l}` | `Text("")`, unit `l` |
+| `{=2}` | `Number(2)`; the scaling lock means nothing on a list and is dropped |
+| `{1/0%cup}` | `Text("1/0")`, unit `cup` (a grammar error keeps the value's own text) |
+| a number too large for an `f64` | `Text` of its digits |
+| text ending in an odd number of `\` | `Text` of the whole trimmed content, no unit |
 
-A line never fails to parse because of its quantity. Whatever the grammar reports as an error or a warning for the brace content, the item gets the quantity the grammar produced, or, when it produced none, `Text` of the trimmed content with no unit, so that text another tool wrote survives. Errors about the name (an empty name, a top-level selection line) stay errors, as today.
+A line never fails to parse because of its quantity. Whatever the grammar reports as an error or a warning for the brace content, the item gets the quantity the grammar produced; where the grammar reports an error for the value, the value is kept as its own text, with the unit, so that text another tool wrote survives. Errors about the name (an empty name, a top-level selection line) stay errors, as today.
 
 The parsing goes through the crate's own quantity grammar, not through a recipe round trip, so the name is never parsed as Cooklang.
 
@@ -51,12 +56,12 @@ impl Quantity {
 
 - `Number::Regular` is written in Rust's shortest round-trip form (`format!("{n}")` on the `f64`), never with the 3-decimal rounding of `Display`. Every value the parser reads, and every value `cooklang-ingredient-parser` writes (six decimals at most), comes back unchanged.
 - `Number::Fraction` is written `num/den` or `whole num/den`.
-- `Value::Range` is written `start-end` (only reachable when a caller builds one).
-- `Value::Text` is written as is.
+- `Value::Range` is written `start-end` (only reachable when a caller builds one; it reads back as text, as ranges need an extension).
+- `Value::Text` and the unit are escaped so the reader gives back the same text: `\` → `\\`, `}` → `\}`, `-` after `-` or `[` → `\-` (no `--` or `[-` comments), and in a value `%` → `\%`, a leading `=` → `\=`, and a leading `\` on text the grammar would otherwise read as a number (`\2`). Text the grammar already reads as text is written unchanged (`a pinch`, `1-2`, `1,5`).
 - The unit follows a `%`.
-- A text value or unit containing `{`, `}` or a line break cannot be written back faithfully. These are replaced by spaces when writing, and a test pins that.
+- `{` and line breaks cannot be written inside braces (the line reader looks for the last `{`): they become spaces. Text is trimmed and runs of spaces collapse to one, as the reader does.
 
-Consequence, accepted in the conversation: a file rewritten by the crate is normalised. `0.50%kg` becomes `0.5%kg`, `2 %l` becomes `2%l`, and `2%` becomes `2`. Values stay the same; only spellings change.
+Consequence, accepted in the conversation: a file rewritten by the crate is normalised. `0.50%kg` becomes `0.5%kg`, `2 %l` becomes `2%l`, and `2%` becomes `2`. Values stay the same; only spellings change, except for `{` and line breaks in text, a dropped scaling lock, and spacing in text ending in an odd number of `\`.
 
 ### 4. Adding a shopping list item to an `IngredientList`
 
@@ -85,9 +90,9 @@ The crate's dependency on `cooklang` gains the `shopping_list` feature only if a
 
 ### 6. Bindings
 
-- **uniffi.** The bindings' shopping list `IngredientItem` record's `quantity: Option<String>` becomes `Option<Amount>`, the record recipes already use (`Amount { quantity: Value, units }`). Reading maps `Quantity` to `Amount` as recipe ingredients do. Writing maps it back: `Value::Number { value }` becomes `Number::Regular(value)`, so a fraction an app reads and writes back is written as a decimal (`1/2` becomes `0.5`). That is accepted; it changes no value.
+- **uniffi.** The bindings' shopping list `IngredientItem` record's `quantity: Option<String>` becomes `Option<Amount>`, the record recipes already use (`Amount { quantity: Value, units }`). Reading maps `Quantity` to `Amount` as recipe ingredients do. Writing maps it back: `Value::Number { value }` becomes `Number::Regular(value)`, so a fraction an app reads and writes back is written as a decimal (`1/2` becomes `0.5`), except that a value whose shortest decimal needs more than six places and is a simple fraction (denominator up to 16) is written as that fraction, so `1/3` stays `1/3`. `Value::Empty` gives no quantity. `amount_to_cooklang` gives an `Amount`'s stored form. That is accepted; it changes no value.
 - **Ingredient-parser functions** in the bindings (`add_ingredient_quantities`, `ingredient_edit_text`, `IngredientAmount.quantity`) take and give `Amount` instead of strings.
-- **wasm.** The same shape through tsify: `quantity` becomes the `Quantity` type the recipe API already exports.
+- **wasm.** The same shape through tsify: `quantity` becomes the `Quantity` type the recipe API already exports. `Number` gets a tsify type, so JS callers can build a `Quantity` that type-checks; `quantity_to_cooklang` gives the stored form.
 
 ### 7. Version and rollout
 
