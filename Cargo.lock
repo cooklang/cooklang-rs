@@ -326,6 +326,7 @@ version = "0.1.0"
 dependencies = [
  "ansi-to-html",
  "cooklang",
+ "cooklang-ingredient-parser",
  "git2",
  "maud",
  "serde",

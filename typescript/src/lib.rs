@@ -458,3 +458,33 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
     }
         .into_string()
 }
+
+/// Parses one typed ingredient line; `aisle_text` is the aisle.conf content.
+#[wasm_bindgen]
+pub fn parse_ingredient(
+    line: &str,
+    aisle_text: Option<String>,
+) -> cooklang_ingredient_parser::ParsedIngredient {
+    let aisle = aisle_text
+        .as_deref()
+        .and_then(|t| cooklang::aisle::parse_lenient(t).into_output());
+    cooklang_ingredient_parser::parse_ingredient(line, aisle.as_ref(), None)
+}
+
+/// Parses pasted text, one result per kept line.
+#[wasm_bindgen]
+pub fn parse_ingredient_list(
+    text: &str,
+    aisle_text: Option<String>,
+) -> Vec<cooklang_ingredient_parser::ParsedIngredient> {
+    let aisle = aisle_text
+        .as_deref()
+        .and_then(|t| cooklang::aisle::parse_lenient(t).into_output());
+    cooklang_ingredient_parser::parse_ingredient_list(text, aisle.as_ref(), None)
+}
+
+/// The stored form of an amount ("2%l"), for callers that only have the parse.
+#[wasm_bindgen]
+pub fn ingredient_edit_text(name: &str, quantity: Option<String>) -> String {
+    cooklang_ingredient_parser::edit_text(name, quantity.as_deref())
+}
