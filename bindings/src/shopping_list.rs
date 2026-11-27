@@ -5,6 +5,8 @@ use cooklang::shopping_list::{
 };
 use std::collections::HashSet;
 
+use crate::model::{amount_to_quantity, quantity_to_amount, Amount};
+
 /// Errors returned by shopping list binding functions.
 ///
 /// UniFFI does not support returning plain `String` as an error across the FFI
@@ -41,9 +43,14 @@ pub enum ShoppingListItem {
     /// A free-hand ingredient with a name and optional quantity.
     /// `optional` marks an accepted optional ingredient of the parent recipe
     /// (`? name{quantity}`); its quantity is the final amount to buy.
+    ///
+    /// The quantity is read with the recipe quantity grammar. Written back,
+    /// numbers are decimals: a `1/2%cup` read and written becomes `0.5%cup`,
+    /// but a fraction whose decimal would be long stays one (`1/3%cup`).
+    /// `Value::Empty` writes no quantity.
     Ingredient {
         name: String,
-        quantity: Option<String>,
+        quantity: Option<Amount>,
         optional: bool,
     },
 }
@@ -80,7 +87,7 @@ impl From<&OriginalShoppingListItem> for ShoppingListItem {
             },
             OriginalShoppingListItem::Ingredient(i) => ShoppingListItem::Ingredient {
                 name: i.name.clone(),
-                quantity: i.quantity.clone(),
+                quantity: i.quantity.as_ref().map(quantity_to_amount),
                 optional: i.optional,
             },
         }
@@ -135,7 +142,7 @@ impl From<&ShoppingListItem> for OriginalShoppingListItem {
                 optional,
             } => OriginalShoppingListItem::Ingredient(OriginalIngredientItem {
                 name: name.clone(),
-                quantity: quantity.clone(),
+                quantity: quantity.as_ref().and_then(amount_to_quantity),
                 optional: *optional,
             }),
         }

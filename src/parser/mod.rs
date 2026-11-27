@@ -55,7 +55,7 @@ mod block_parser;
 mod frontmatter;
 mod metadata;
 mod model;
-mod quantity;
+pub(crate) mod quantity;
 mod section;
 mod step;
 mod text_block;

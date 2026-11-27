@@ -8,7 +8,7 @@ import {
     cookware_should_be_listed, cookware_display_name, cookware_is_optional, Content, Step, quantity_display, GroupedIndexAndQuantity,
     Value, Item,
     parse_ingredient, parse_ingredient_list, ingredient_edit_text, ParsedIngredient,
-    add_ingredient_quantities, cleaned_ingredient_name, ingredient_amount_quantity, ingredient_amount_chip
+    add_ingredient_quantities, cleaned_ingredient_name, ingredient_amount_quantity, ingredient_amount_chip, quantity_to_cooklang
 } from "./pkg/cooklang_wasm.js";
 
 export {
@@ -29,9 +29,10 @@ export {
     add_ingredient_quantities,
     cleaned_ingredient_name,
     ingredient_amount_quantity,
-    ingredient_amount_chip
+    ingredient_amount_chip,
+    quantity_to_cooklang
 };
-export type {ScaledRecipeWithReport, Value, Quantity, Ingredient, Cookware, Timer, Section, Content, Step, Item, ParsedIngredient, Amount, AisleMatch, ParseSource} from "./pkg/cooklang_wasm.js";
+export type {ScaledRecipeWithReport, Value, Number, Quantity, Ingredient, Cookware, Timer, Section, Content, Step, Item, ParsedIngredient, Amount, AisleMatch, ParseSource} from "./pkg/cooklang_wasm.js";
 
 // ============================================================================
 // Numeric Value Extraction Helpers

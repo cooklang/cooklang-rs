@@ -70,6 +70,7 @@ impl Value {
 /// assert_eq!(num.value(), 2.501);
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
 #[serde(tag = "type", content = "value", rename_all = "camelCase")]
 pub enum Number {
     /// A regular number
@@ -172,6 +173,114 @@ impl Display for Quantity {
             unit.fmt(f)?;
         }
         Ok(())
+    }
+}
+
+/// Text written so the quantity reader gives it back as it is.
+///
+/// - `{` and line breaks would start the braces anew or end the line:
+///   spaces instead. `}` would end the braces: `\}`.
+/// - `\` escapes the next character when read: `\\`.
+/// - `--` and `[-` open a comment: a `-` after `-` or `[` is `\-`.
+/// - In a value (`in_value`), `%` would start the unit (`\%`) and a leading
+///   `=` would be read as a scaling lock (`\=`).
+fn escape_text(text: &str, in_value: bool) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut leading = true;
+    for c in text.chars() {
+        let c = if matches!(c, '{' | '\n' | '\r') {
+            ' '
+        } else {
+            c
+        };
+        match c {
+            '\\' => out.push_str("\\\\"),
+            '}' => out.push_str("\\}"),
+            '%' if in_value => out.push_str("\\%"),
+            '=' if in_value && leading => out.push_str("\\="),
+            '-' if matches!(out.chars().next_back(), Some('-' | '[')) => out.push_str("\\-"),
+            c => out.push(c),
+        }
+        if !c.is_whitespace() {
+            leading = false;
+        }
+    }
+    out
+}
+
+/// A text value written so it is not read back as a number: `2` is `\2`.
+fn escape_text_value(text: &str) -> String {
+    let escaped = escape_text(text, true);
+    let reads_as_number = matches!(
+        crate::parser::quantity::parse_quantity_text(&escaped).map(|q| q.value),
+        Some(Value::Number(_) | Value::Range { .. })
+    );
+    if reads_as_number {
+        // escape the number's first char, never a (maybe multi-byte) space
+        let start = escaped.len() - escaped.trim_start().len();
+        format!("{}\\{}", &escaped[..start], &escaped[start..])
+    } else {
+        escaped
+    }
+}
+
+impl Number {
+    /// The number in Cooklang syntax, exactly: a regular number in its
+    /// shortest round-trip form (never rounded like [`Display`]), a fraction
+    /// as `num/den` or `whole num/den`, or its exact value when the fraction
+    /// carries an error.
+    fn to_cooklang(self) -> String {
+        match self {
+            Number::Regular(n) => format!("{n}"),
+            Number::Fraction {
+                whole,
+                num,
+                den,
+                err: 0.0,
+            } => match (whole, num) {
+                (whole, 0) => format!("{whole}"),
+                (0, num) => format!("{num}/{den}"),
+                (whole, num) => format!("{whole} {num}/{den}"),
+            },
+            Number::Fraction { .. } => format!("{}", self.value()),
+        }
+    }
+}
+
+impl Value {
+    fn to_cooklang(&self) -> String {
+        match self {
+            Value::Number(n) => escape_text(&n.to_cooklang(), false),
+            Value::Range { start, end } => escape_text(
+                &format!("{}-{}", start.to_cooklang(), end.to_cooklang()),
+                false,
+            ),
+            Value::Text(t) => escape_text_value(t),
+        }
+    }
+}
+
+impl Quantity {
+    /// The quantity in Cooklang brace syntax, without the braces: `2%l`,
+    /// `1/2%cup`, `3`, `a pinch`, `1-2%cup`.
+    ///
+    /// A quantity read from a shopping list, or a text quantity, reads back
+    /// as the same value and unit. Text that would be read as syntax is
+    /// escaped (`\%`, `\=`, `\-`, `\\`, `\2` for the text `2`). Numbers are
+    /// written in full precision, never rounded like [`Display`].
+    ///
+    /// Not guaranteed to read back the same: `{` and line breaks (written as
+    /// spaces), whitespace at either end or repeated inside text and units
+    /// (the reader trims and collapses it), an empty unit, an empty text
+    /// without a unit, ranges (read as text, as shopping lists have no range
+    /// values), and negative, NaN or infinite numbers or fractions with a zero
+    /// denominator.
+    pub fn to_cooklang(&self) -> String {
+        let value = self.value.to_cooklang();
+        match &self.unit {
+            Some(unit) => format!("{value}%{}", escape_text(unit, false)),
+            None => value,
+        }
     }
 }
 
@@ -742,5 +851,185 @@ mod tests {
             assert!((num.value() - value).abs() < 10e-9);
         }
         num
+    }
+
+    fn q(value: Value, unit: Option<&str>) -> Quantity {
+        Quantity::new(value, unit.map(str::to_string))
+    }
+
+    #[test]
+    fn to_cooklang_numbers() {
+        assert_eq!(
+            q(Value::Number(Number::Regular(2.0)), Some("l")).to_cooklang(),
+            "2%l"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(1.5)), Some("kg")).to_cooklang(),
+            "1.5%kg"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(0.0004)), Some("kg")).to_cooklang(),
+            "0.0004%kg"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(1.0 / 3.0)), None).to_cooklang(),
+            "0.3333333333333333"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(3.0)), None).to_cooklang(),
+            "3"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(1e21)), None).to_cooklang(),
+            "1000000000000000000000"
+        );
+    }
+
+    #[test]
+    fn to_cooklang_fractions() {
+        let half = Number::Fraction {
+            whole: 0,
+            num: 1,
+            den: 2,
+            err: 0.0,
+        };
+        let one_and_half = Number::Fraction {
+            whole: 1,
+            num: 1,
+            den: 2,
+            err: 0.0,
+        };
+        let lossy = Number::Fraction {
+            whole: 0,
+            num: 1,
+            den: 3,
+            err: 0.01,
+        };
+        assert_eq!(q(Value::Number(half), Some("cup")).to_cooklang(), "1/2%cup");
+        assert_eq!(
+            q(Value::Number(one_and_half), Some("cup")).to_cooklang(),
+            "1 1/2%cup"
+        );
+        // A fraction carrying an error is written as its exact value.
+        assert_eq!(
+            q(Value::Number(lossy), None).to_cooklang(),
+            format!("{}", 1.0 / 3.0 + 0.01)
+        );
+    }
+
+    #[test]
+    fn to_cooklang_ranges_and_text() {
+        let range = Value::Range {
+            start: Number::Regular(1.0),
+            end: Number::Regular(2.0),
+        };
+        assert_eq!(q(range, Some("cup")).to_cooklang(), "1-2%cup");
+        assert_eq!(
+            q(Value::Text("a pinch".into()), None).to_cooklang(),
+            "a pinch"
+        );
+        assert_eq!(
+            q(Value::Text("1-2".into()), Some("cup")).to_cooklang(),
+            "1-2%cup"
+        );
+    }
+
+    #[test]
+    fn to_cooklang_never_breaks_the_braces_or_the_line() {
+        assert_eq!(
+            q(Value::Text("a {big}\npinch".into()), Some("c}u\rp")).to_cooklang(),
+            "a  big\\} pinch%c\\}u p"
+        );
+    }
+
+    fn read_back(q: &Quantity) -> Option<Quantity> {
+        crate::parser::quantity::parse_quantity_text(&q.to_cooklang())
+    }
+
+    #[test]
+    fn to_cooklang_escapes_what_the_reader_would_take_as_syntax() {
+        let t = |s: &str| q(Value::Text(s.into()), None);
+        assert_eq!(t("a--b").to_cooklang(), "a-\\-b");
+        assert_eq!(t("[- open").to_cooklang(), "[\\- open");
+        assert_eq!(t("a%b").to_cooklang(), "a\\%b");
+        assert_eq!(t("=2").to_cooklang(), "\\=2");
+        assert_eq!(t("a=b").to_cooklang(), "a=b");
+        assert_eq!(t("a\\b").to_cooklang(), "a\\\\b");
+        assert_eq!(t("2").to_cooklang(), "\\2");
+        assert_eq!(t("1/2").to_cooklang(), "\\1/2");
+        assert_eq!(t(".5").to_cooklang(), "\\.5");
+        // Text the reader already reads as text needs no escape.
+        assert_eq!(t("1-2").to_cooklang(), "1-2");
+        assert_eq!(t("1,5").to_cooklang(), "1,5");
+        assert_eq!(t("1/0").to_cooklang(), "1/0");
+        assert_eq!(t("01").to_cooklang(), "01");
+        assert_eq!(
+            q(Value::Text("1".into()), Some("a--b")).to_cooklang(),
+            "\\1%a-\\-b"
+        );
+        assert_eq!(
+            q(Value::Number(Number::Regular(2.0)), Some("a%b")).to_cooklang(),
+            "2%a%b"
+        );
+        for q in [
+            t("a--b"),
+            t("[- open"),
+            t("a%b"),
+            t("=2"),
+            t("2"),
+            t("a\\b"),
+        ] {
+            assert_eq!(format!("{:?}", read_back(&q)), format!("{:?}", Some(&q)));
+        }
+    }
+
+    /// Every text value and unit built from characters the reader treats
+    /// specially reads back as the same text and unit.
+    #[test]
+    fn to_cooklang_text_property() {
+        const PIECES: &[&str] = &[
+            "\\", "%", "=", "-", "[", "]", "{", "0", "1", "2", "/", ".", " ", "a", "b", "--", "[-",
+            "-]", "\\-", "1/2", "1 1/2", "==", "}", "\\}",
+        ];
+        let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        // What the reader can give back: no braces, trimmed, single spaces.
+        let normal = |s: String| -> String {
+            s.replace('{', "")
+                .split(' ')
+                .filter(|w| !w.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let mut checked = 0;
+        let piece = |next: &mut dyn FnMut() -> u64| -> String {
+            let n = next();
+            (0..1 + n % 5)
+                .map(|_| PIECES[(next() % PIECES.len() as u64) as usize])
+                .collect()
+        };
+        for _ in 0..20_000 {
+            let text = normal(piece(&mut next));
+            let unit = (next() % 3 != 0)
+                .then(|| normal(piece(&mut next)))
+                .filter(|u| !u.is_empty());
+            if text.is_empty() && unit.is_none() {
+                continue;
+            }
+            let q = q(Value::Text(text), unit.as_deref());
+            assert_eq!(
+                format!("{:?}", read_back(&q)),
+                format!("{:?}", Some(&q)),
+                "written {:?}",
+                q.to_cooklang()
+            );
+            checked += 1;
+        }
+        assert!(checked > 10_000);
     }
 }

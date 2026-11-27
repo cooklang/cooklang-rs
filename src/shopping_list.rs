@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::error::{CowStr, Label, RichError};
+use crate::quantity::Quantity;
 use crate::span::Span;
 
 /// A shopping list containing recipe references and free-hand ingredients
@@ -51,8 +52,12 @@ pub struct RecipeItem {
 pub struct IngredientItem {
     /// Name of the ingredient
     pub name: String,
-    /// Optional quantity string (e.g. "4%l", "500%g", "2")
-    pub quantity: Option<String>,
+    /// Optional quantity (`4%l`, `500%g`, `2`, `a pinch` in the file).
+    ///
+    /// Parsed from the text between the braces alone with the recipe quantity
+    /// grammar and no extensions, so `1-2` is text and the name is never read
+    /// as Cooklang; written back with [`Quantity::to_cooklang`].
+    pub quantity: Option<Quantity>,
     /// Accepted optional ingredient of the parent recipe, written as a
     /// selection line (`? name{quantity}`). The quantity is the final amount
     /// to buy and must not be scaled by the parent's multiplier.
@@ -325,20 +330,23 @@ fn parse_recipe_line(line: &ParsedLine<'_>) -> Result<(String, Option<f64>), Sho
 
 fn parse_ingredient_line(
     line: &ParsedLine<'_>,
-) -> Result<(String, Option<String>), ShoppingListError> {
+) -> Result<(String, Option<Quantity>), ShoppingListError> {
     let content = line.content;
 
     if let Some(brace_start) = content.rfind('{') {
         if content.ends_with('}') {
             let name = normalize_whitespace(&content[..brace_start]);
-            let quantity = content[brace_start + 1..content.len() - 1].to_string();
+            let quantity_text = &content[brace_start + 1..content.len() - 1];
             if name.is_empty() {
                 return Err(ShoppingListError::Parse {
                     span: Span::new(line.offset, line.offset + content.len()),
                     message: "ingredient name cannot be empty".to_string(),
                 });
             }
-            Ok((name, Some(quantity)))
+            Ok((
+                name,
+                crate::parser::quantity::parse_quantity_text(quantity_text),
+            ))
         } else {
             Ok((normalize_whitespace(content), None))
         }
@@ -388,7 +396,7 @@ fn write_items(
             ShoppingListItem::Ingredient(ingredient) => {
                 write!(w, "{indent}{marker}{}", ingredient.name)?;
                 if let Some(q) = &ingredient.quantity {
-                    write!(w, "{{{q}}}")?;
+                    write!(w, "{{{}}}", q.to_cooklang())?;
                 }
                 writeln!(w)?;
             }
@@ -537,6 +545,10 @@ fn collect_ingredient_names_from_items(items: &[ShoppingListItem], names: &mut V
 mod tests {
     use super::*;
 
+    fn qty(text: &str) -> Option<Quantity> {
+        crate::parser::quantity::parse_quantity_text(text)
+    }
+
     #[test]
     fn empty_input() {
         let list = parse("").unwrap();
@@ -576,7 +588,7 @@ mod tests {
         match &list.items[0] {
             ShoppingListItem::Ingredient(i) => {
                 assert_eq!(i.name, "free hand ingredient");
-                assert_eq!(i.quantity.as_deref(), Some("4%l"));
+                assert_eq!(i.quantity, qty("4%l"));
             }
             _ => panic!("expected ingredient"),
         }
@@ -749,7 +761,7 @@ salt";
                 match &r.children[0] {
                     ShoppingListItem::Ingredient(i) => {
                         assert_eq!(i.name, "flour");
-                        assert_eq!(i.quantity.as_deref(), Some("500%g"));
+                        assert_eq!(i.quantity, qty("500%g"));
                     }
                     _ => panic!("expected ingredient child"),
                 }
@@ -833,7 +845,7 @@ olive oil{4%l}";
             vec![
                 ShoppingListItem::Ingredient(IngredientItem {
                     name: "chilli flakes".into(),
-                    quantity: Some("2%pinch".into()),
+                    quantity: qty("2%pinch"),
                     optional: true,
                 }),
                 ShoppingListItem::Ingredient(IngredientItem {
@@ -871,7 +883,7 @@ olive oil{4%l}";
             sauce.children,
             vec![ShoppingListItem::Ingredient(IngredientItem {
                 name: "parsley".into(),
-                quantity: Some("10%g".into()),
+                quantity: qty("10%g"),
                 optional: true,
             })]
         );
@@ -938,7 +950,7 @@ olive oil{4%l}";
                         }),
                         ShoppingListItem::Ingredient(IngredientItem {
                             name: "chilli flakes".into(),
-                            quantity: Some("2%pinch".into()),
+                            quantity: qty("2%pinch"),
                             optional: true,
                         }),
                         ShoppingListItem::Recipe(RecipeItem {
@@ -952,7 +964,7 @@ olive oil{4%l}";
                 }),
                 ShoppingListItem::Ingredient(IngredientItem {
                     name: "olive oil".into(),
-                    quantity: Some("4%l".into()),
+                    quantity: qty("4%l"),
                     // not allowed at the top level, ignored
                     optional: true,
                 }),
@@ -976,6 +988,223 @@ olive oil{4%l}
             panic!("expected recipe");
         };
         assert_eq!(r.children.len(), 3);
+    }
+
+    #[test]
+    fn quantities_are_parsed_and_names_are_not() {
+        let list =
+            parse("#1 flour{2}\n~ramen\n@milk{1%l}\nsalt{a pinch}\nflour{1-2%cup}\n").unwrap();
+        let items: Vec<(&str, Option<String>)> = list
+            .items
+            .iter()
+            .map(|item| match item {
+                ShoppingListItem::Ingredient(i) => (
+                    i.name.as_str(),
+                    i.quantity.as_ref().map(|q| q.to_cooklang()),
+                ),
+                _ => unreachable!(),
+            })
+            .collect();
+        assert_eq!(
+            items,
+            [
+                ("#1 flour", Some("2".to_string())),
+                ("~ramen", None),
+                ("@milk", Some("1%l".to_string())),
+                ("salt", Some("a pinch".to_string())),
+                ("flour", Some("1-2%cup".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_rewrite_normalises_spellings_but_keeps_values() {
+        let list =
+            parse("butter{0.50%kg}\nmilk{ 2 % l }\neggs{2%}\njam{=1%jar}\nfoil{}\n").unwrap();
+        let mut out = Vec::new();
+        write(&list, &mut out).unwrap();
+        assert_eq!(
+            String::from_utf8(out).unwrap(),
+            "butter{0.5%kg}\nmilk{2%l}\neggs{2}\njam{1%jar}\nfoil\n"
+        );
+    }
+
+    #[test]
+    fn a_quantity_too_large_for_a_number_is_kept_as_text() {
+        let digits = "9".repeat(310);
+        let input = format!("x{{{digits}}}\ny{{{digits}%g}}\n");
+        let list = parse(&input).unwrap();
+        let ShoppingListItem::Ingredient(x) = &list.items[0] else {
+            panic!("expected ingredient");
+        };
+        assert_eq!(x.quantity, Some(Quantity::new(digits.clone().into(), None)));
+        let mut out = Vec::new();
+        write(&list, &mut out).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), input);
+    }
+
+    #[test]
+    fn a_rewrite_keeps_quantities_in_normal_form_byte_for_byte() {
+        let input = "a{2%l}\nb{1/2%cup}\nc{1 1/2%cup}\nd{a pinch}\ne{1-2%cup}\nf{1,5%kg}\ng{1/0}\nh{%l}\ni{0.0004%kg}\nj\n";
+        let mut out = Vec::new();
+        write(&parse(input).unwrap(), &mut out).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), input);
+    }
+
+    #[test]
+    fn a_selection_line_quantity_is_parsed_too() {
+        let list = parse("./Soup{2}\n  ? cream{100%ml}\n").unwrap();
+        let ShoppingListItem::Recipe(recipe) = &list.items[0] else {
+            panic!()
+        };
+        let ShoppingListItem::Ingredient(cream) = &recipe.children[0] else {
+            panic!()
+        };
+        assert!(cream.optional);
+        assert_eq!(
+            cream.quantity.as_ref().map(|q| q.to_cooklang()).as_deref(),
+            Some("100%ml")
+        );
+    }
+
+    /// Text the reader unescapes or reads as syntax is escaped when written,
+    /// so a rewrite never changes a quantity or breaks the file.
+    #[test]
+    fn escaped_quantities_survive_a_rewrite() {
+        let cases: &[(&str, &str, Option<&str>)] = &[
+            // (line, text value, unit)
+            ("x{[\\-00}", "[-00", None),
+            ("x{2%[\\-x}", "", None), // number: checked below by Debug only
+            ("x{a\\-\\-b}", "a--b", None),
+            ("x{1%\\-\\-b}", "", None),
+            ("x{a\\%b}", "a%b", None),
+            ("x{2\\%l}", "2%l", None),
+            ("x{\\=2}", "=2", None),
+            ("x{2\\}", "2\\", None),
+            ("x{a\\\\b}", "a\\b", None),
+            ("x{==1}", "=1", None),
+            ("x{a\\}", "a\\", None),
+            ("x{\\}", "\\", None),
+            ("x{\\2}", "2", None),
+            ("x{\\1/2}", "1/2", None),
+            ("x{a\\-b}", "a-b", None),
+            ("x{\\½}", "½", None),
+            ("x{\\🧂1%l}", "🧂1", Some("l")),
+            ("x{\\}}", "}", None),
+            ("x{}}", "}", None),
+            ("x{a\\}b}", "a}b", None),
+            ("x{2%a\\}b}", "", None),
+            ("x{a}b}", "a}b", None),
+            ("x{\\\u{a0}2}", "", None),
+        ];
+        for &(line, text, unit) in cases {
+            let input = format!("{line}\n");
+            let once = parse(&input).unwrap();
+            let ShoppingListItem::Ingredient(item) = &once.items[0] else {
+                panic!("{line}: expected an ingredient");
+            };
+            assert_eq!(item.name, "x", "{line}");
+            if !text.is_empty() {
+                assert_eq!(
+                    item.quantity,
+                    Some(Quantity::new(
+                        text.to_string().into(),
+                        unit.map(String::from)
+                    )),
+                    "{line}"
+                );
+            }
+            let mut out = Vec::new();
+            write(&once, &mut out).unwrap();
+            let written = String::from_utf8(out).unwrap();
+            let twice = parse(&written).unwrap_or_else(|e| panic!("{line} -> {written:?}: {e}"));
+            assert_eq!(
+                format!("{once:?}"),
+                format!("{twice:?}"),
+                "{line} -> {written:?}"
+            );
+            let mut again = Vec::new();
+            write(&twice, &mut again).unwrap();
+            assert_eq!(written, String::from_utf8(again).unwrap(), "{line}");
+        }
+    }
+
+    /// Any text quantity and unit made of characters the reader treats
+    /// specially survives being written to a list and read back.
+    #[test]
+    fn text_quantities_survive_a_list_rewrite() {
+        const PIECES: &[&str] = &[
+            "\\", "%", "=", "-", "[", "]", "0", "1", "/", ".", " ", "a", "--", "[-", "-]", "1/2",
+            "==", "#", "?", "@", "}", "\\}",
+        ];
+        let mut seed = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        let piece = |next: &mut dyn FnMut() -> u64| -> String {
+            let n = next();
+            let s: String = (0..1 + n % 5)
+                .map(|_| PIECES[(next() % PIECES.len() as u64) as usize])
+                .collect();
+            s.split(' ')
+                .filter(|w| !w.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        for _ in 0..20_000 {
+            let text = piece(&mut next);
+            let unit = Some(piece(&mut next)).filter(|u| !u.is_empty() && next() % 2 == 0);
+            if text.is_empty() && unit.is_none() {
+                continue;
+            }
+            let list = ShoppingList {
+                items: vec![ShoppingListItem::Ingredient(IngredientItem {
+                    name: "x".into(),
+                    quantity: Some(Quantity::new(text.into(), unit)),
+                    optional: false,
+                })],
+            };
+            let mut out = Vec::new();
+            write(&list, &mut out).unwrap();
+            let written = String::from_utf8(out).unwrap();
+            let back = parse(&written).unwrap_or_else(|e| panic!("{written:?}: {e}"));
+            assert_eq!(format!("{back:?}"), format!("{list:?}"), "{written:?}");
+        }
+    }
+
+    #[test]
+    fn parse_write_parse_is_stable() {
+        for input in [
+            "a{2%l}\n",
+            "b{1/2%cup}\n",
+            "c{a pinch}\n",
+            "d{1-2%cup}\n",
+            "e{0.50%kg}\n",
+            "f\n",
+            "g{1,5%kg}\n",
+            "h{1/0}\n",
+            "i{=2%l}\n",
+            "j{%}\n",
+            "k{%l}\n",
+            "l{2%a%b}\n",
+            "m{a\\%b}\n",
+            "n{\\=2}\n",
+            "o{a\\-\\-b}\n",
+            "p{\\2}\n",
+        ] {
+            let once = parse(input).unwrap();
+            let mut out = Vec::new();
+            write(&once, &mut out).unwrap();
+            let twice = parse(std::str::from_utf8(&out).unwrap()).unwrap();
+            assert_eq!(once, twice, "{input}");
+            assert_eq!(format!("{once:?}"), format!("{twice:?}"), "{input}");
+            let mut again = Vec::new();
+            write(&twice, &mut again).unwrap();
+            assert_eq!(out, again, "{input}");
+        }
     }
 
     #[test]
