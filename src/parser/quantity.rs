@@ -334,8 +334,9 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
 /// Never fails: whatever the grammar makes of the text (text values for
 /// anything that isn't a number) is the quantity. Where the grammar reports
 /// an error (`1/0`, a number too big for a fraction) the value is kept as the
-/// text written instead of the grammar's placeholder. `None` for text with
-/// neither a value nor a unit: empty, `%` or `=`.
+/// text written instead of the grammar's placeholder, and so is a number too
+/// large for an `f64`. `None` for text with neither a value nor a unit:
+/// empty, `%` or `=`.
 #[cfg(feature = "shopping_list")]
 pub(crate) fn parse_quantity_text(text: &str) -> Option<crate::quantity::Quantity> {
     if text.trim().is_empty() {
@@ -352,7 +353,14 @@ pub(crate) fn parse_quantity_text(text: &str) -> Option<crate::quantity::Quantit
         .any(|event| matches!(event, super::Event::Error(_)));
     let quantity = parsed.quantity.into_inner();
     let (value, value_span) = quantity.value.value.take_pair();
-    let value = if failed {
+    // A number too large for an f64 is infinite and would be written as
+    // `inf`: keep it as written, like a grammar error.
+    let not_finite = match &value {
+        Value::Number(n) => !n.value().is_finite(),
+        Value::Range { start, end } => !start.value().is_finite() || !end.value().is_finite(),
+        Value::Text(_) => false,
+    };
+    let value = if failed || not_finite {
         Value::Text(text[value_span.range()].trim().to_string())
     } else {
         value

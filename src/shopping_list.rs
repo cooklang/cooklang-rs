@@ -1030,6 +1030,20 @@ olive oil{4%l}
     }
 
     #[test]
+    fn a_quantity_too_large_for_a_number_is_kept_as_text() {
+        let digits = "9".repeat(310);
+        let input = format!("x{{{digits}}}\ny{{{digits}%g}}\n");
+        let list = parse(&input).unwrap();
+        let ShoppingListItem::Ingredient(x) = &list.items[0] else {
+            panic!("expected ingredient");
+        };
+        assert_eq!(x.quantity, Some(Quantity::new(digits.clone().into(), None)));
+        let mut out = Vec::new();
+        write(&list, &mut out).unwrap();
+        assert_eq!(String::from_utf8(out).unwrap(), input);
+    }
+
+    #[test]
     fn a_rewrite_keeps_quantities_in_normal_form_byte_for_byte() {
         let input = "a{2%l}\nb{1/2%cup}\nc{1 1/2%cup}\nd{a pinch}\ne{1-2%cup}\nf{1,5%kg}\ng{1/0}\nh{%l}\ni{0.0004%kg}\nj\n";
         let mut out = Vec::new();
