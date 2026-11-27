@@ -64,7 +64,7 @@ name = "convert"
 harness = false
 
 [workspace]
-members = [".", "typescript", "bindings", "fuzz"]
+members = [".", "typescript", "bindings", "fuzz", "ingredient-parser"]
 
 [profile.release]
 codegen-units = 1

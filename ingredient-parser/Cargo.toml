@@ -1,0 +1,25 @@
+[package]
+name = "cooklang-ingredient-parser"
+version = "0.20.0"
+edition = "2021"
+authors = ["dubadub <dubovskoy.a@gmail.com>"]
+description = "Turns a typed ingredient line into a name and an amount, for Cooklang apps"
+license = "MIT"
+repository = "https://github.com/cooklang/cooklang-rs"
+keywords = ["cooklang", "ingredients", "parser", "shopping-list"]
+categories = ["parser-implementations"]
+
+[dependencies]
+cooklang = { version = "0.20.0", path = "..", default-features = false, features = ["aisle"] }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+unicode-normalization = "0.1"
+tsify = { version = "0.5", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+ts = ["dep:tsify", "dep:wasm-bindgen"]
+
+[dev-dependencies]
+cooklang = { path = "..", default-features = false, features = ["aisle", "shopping_list"] }
+test-case = "3.2.1"
