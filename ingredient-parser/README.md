@@ -8,7 +8,10 @@ use cooklang_ingredient_parser::parse_ingredient;
 
 let parsed = parse_ingredient("Sugar 1.5kg", None, None);
 assert_eq!(parsed.name, "Sugar");
-assert_eq!(parsed.amount.unwrap().to_quantity().as_deref(), Some("1.5%kg"));
+assert_eq!(
+    parsed.amount.unwrap().to_quantity().map(|q| q.to_cooklang()).as_deref(),
+    Some("1.5%kg")
+);
 ```
 
 - The amount can be at the end or the start ("Milk 2 l", "2l milk"), in six

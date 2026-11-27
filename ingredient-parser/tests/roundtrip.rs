@@ -2,9 +2,19 @@
 //! as one item with that name and quantity; `edit_text` reads back through
 //! the rules as the same item.
 
+use cooklang::quantity::Quantity;
 use cooklang::shopping_list::{self, IngredientItem, ShoppingList, ShoppingListItem};
 use cooklang_ingredient_parser::{cleaned_name, edit_text, parse_ingredient};
 use test_case::test_case;
+
+/// The quantity a shopping list line `x{text}` holds.
+fn q(text: &str) -> Option<Quantity> {
+    let list = shopping_list::parse(&format!("x{{{text}}}\n")).unwrap();
+    match list.items.into_iter().next()? {
+        ShoppingListItem::Ingredient(item) if item.name == "x" => item.quantity,
+        _ => None,
+    }
+}
 
 #[test_case("Tomatoes {ripe}")]
 #[test_case("salt -- sea")]
@@ -27,7 +37,7 @@ fn a_cleaned_name_reads_back_from_the_shopping_list(raw: &str) {
     let items = vec![
         ShoppingListItem::Ingredient(IngredientItem {
             name: name.clone(),
-            quantity: Some("2%l".into()),
+            quantity: q("2%l"),
             optional: false,
         }),
         ShoppingListItem::Ingredient(IngredientItem {
@@ -48,10 +58,15 @@ fn a_cleaned_name_reads_back_from_the_shopping_list(raw: &str) {
 #[test_case("Sugar", Some("1.5%kg"))]
 #[test_case("Bread", None)]
 fn edit_text_reads_back_as_the_same_item(name: &str, quantity: Option<&str>) {
-    let parsed = parse_ingredient(&edit_text(name, quantity), None, None);
+    let stored = quantity.map(|text| q(text).expect(text));
+    let parsed = parse_ingredient(&edit_text(name, stored.as_ref()), None, None);
     assert_eq!(parsed.name, name);
     assert_eq!(
-        parsed.amount.and_then(|a| a.to_quantity()).as_deref(),
+        parsed
+            .amount
+            .and_then(|a| a.to_quantity())
+            .map(|q| q.to_cooklang())
+            .as_deref(),
         quantity
     );
 }
