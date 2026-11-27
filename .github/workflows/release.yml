@@ -776,7 +776,9 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: cargo publish --no-verify
+        run: |
+          cargo publish --no-verify -p cooklang
+          cargo publish --no-verify -p cooklang-ingredient-parser
 
   # Publish TypeScript package to npm
   publish-typescript:

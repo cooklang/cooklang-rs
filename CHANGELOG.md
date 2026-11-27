@@ -1,6 +1,7 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- New crate `cooklang-ingredient-parser`: parses typed ingredient lines ("Milk 2 l") into a name and amount, with aisle matching and an optional model hook; exposed in the Swift/Kotlin bindings and the JS package.
 
 ## 0.20.0 - 2026-11-25
 - `Metadata::source()` reads the flat `source.name` and `source.url` keys, and `Metadata::author()` the flat `source.author` key, when `source` / `author` are missing (#159)
