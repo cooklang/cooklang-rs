@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+## 0.22.0 - 2026-11-27
 - (breaking) Shopping lists: `IngredientItem.quantity` is an `Option<Quantity>`, parsed with the recipe quantity grammar (no extensions) and written back with the new `Quantity::to_cooklang`. A quantity never makes a line fail to parse: what the grammar can't read as a number stays text. Rewriting a list normalises spellings (`0.50%kg` → `0.5%kg`, `2%` → `2`, `{}` → no braces, extra spaces collapsed, `{` inside text → a space); values are unchanged, and text is escaped so it reads back as the same text. The JSON shape of `IngredientItem` changes accordingly (`quantity` was a string)
 - Names of free-hand shopping list items are never read as Cooklang: `#1 flour`, `~ramen` and `@milk` keep their names
 - `IngredientList::add_shopping_item` adds a free-hand shopping list item under its own name
