@@ -458,3 +458,63 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
     }
         .into_string()
 }
+
+/// Parses one typed ingredient line; `aisle_text` is the aisle.conf content.
+#[wasm_bindgen]
+pub fn parse_ingredient(
+    line: &str,
+    aisle_text: Option<String>,
+) -> cooklang_ingredient_parser::ParsedIngredient {
+    let aisle = aisle_text
+        .as_deref()
+        .and_then(|t| cooklang::aisle::parse_lenient(t).into_output());
+    cooklang_ingredient_parser::parse_ingredient(line, aisle.as_ref(), None)
+}
+
+/// Parses pasted text, one result per kept line.
+#[wasm_bindgen]
+pub fn parse_ingredient_list(
+    text: &str,
+    aisle_text: Option<String>,
+) -> Vec<cooklang_ingredient_parser::ParsedIngredient> {
+    let aisle = aisle_text
+        .as_deref()
+        .and_then(|t| cooklang::aisle::parse_lenient(t).into_output());
+    cooklang_ingredient_parser::parse_ingredient_list(text, aisle.as_ref(), None)
+}
+
+/// The line that makes an item from a name and a stored quantity: "Milk" and
+/// "2%l" give "Milk 2 l".
+#[wasm_bindgen]
+pub fn ingredient_edit_text(name: &str, quantity: Option<String>) -> String {
+    cooklang_ingredient_parser::edit_text(name, quantity.as_deref())
+}
+
+/// The sum of two stored quantities ("2%l" + "1%l" = "3%l"). `null` means no
+/// quantity (both absent); quantities that cannot be added throw.
+#[wasm_bindgen]
+pub fn add_ingredient_quantities(
+    a: Option<String>,
+    b: Option<String>,
+) -> Result<Option<String>, JsError> {
+    cooklang_ingredient_parser::add_quantities(a.as_deref(), b.as_deref())
+        .map_err(|_| JsError::new("the two quantities cannot be added"))
+}
+
+/// An ingredient name as a typed line would write it, without its amount.
+#[wasm_bindgen]
+pub fn cleaned_ingredient_name(raw: &str) -> String {
+    cooklang_ingredient_parser::cleaned_name(raw)
+}
+
+/// The stored quantity ("2%l") of a parsed amount; `null` if it rounds to zero.
+#[wasm_bindgen]
+pub fn ingredient_amount_quantity(value: f64, unit: Option<String>) -> Option<String> {
+    cooklang_ingredient_parser::Amount { value, unit }.to_quantity()
+}
+
+/// The chip text of a parsed amount: "2 l", "x3".
+#[wasm_bindgen]
+pub fn ingredient_amount_chip(value: f64, unit: Option<String>) -> String {
+    cooklang_ingredient_parser::Amount { value, unit }.chip_text()
+}

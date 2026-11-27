@@ -24,3 +24,10 @@ This parser powers [CookCLI](https://github.com/cooklang/cookcli), the
 [Cooklang playground](https://cooklang.github.io/cooklang-rs/), and the Cook
 mobile apps and desktop editor, which share recipes through
 [Cook Cloud sync](https://cook.md/).
+
+## Releasing
+
+A release bumps the version in `Cargo.toml`, `bindings/Cargo.toml` and
+`ingredient-parser/Cargo.toml`, plus the `cooklang` dependency version in
+`ingredient-parser/Cargo.toml` and the `cooklang-ingredient-parser = { version = ... }`
+requirement in `bindings/Cargo.toml`. It then updates `Cargo.lock` and `CHANGELOG.md`.

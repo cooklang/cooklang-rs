@@ -4,6 +4,7 @@ use cooklang::aisle::parse_lenient;
 use cooklang::metadata::StdKey as OriginalStdKey;
 
 pub mod aisle;
+pub mod ingredient_parser;
 pub mod model;
 pub mod shopping_list;
 
