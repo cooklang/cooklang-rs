@@ -60,3 +60,6 @@ pub enum ParseSource {
     Rules,
     Model,
 }
+mod name;
+
+pub use name::cleaned_name;
