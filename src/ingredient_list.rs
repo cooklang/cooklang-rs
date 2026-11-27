@@ -336,6 +336,22 @@ impl IngredientList {
         self.0.entry(name).or_default().merge(quantity, converter)
     }
 
+    /// Add a free-hand shopping list item under its own name, its quantity
+    /// merged with the same name's as [`add_ingredient`](Self::add_ingredient)
+    /// does. An item without a quantity adds an empty one, so it is listed.
+    #[cfg(feature = "shopping_list")]
+    pub fn add_shopping_item(
+        &mut self,
+        item: &crate::shopping_list::IngredientItem,
+        converter: &Converter,
+    ) {
+        let mut quantity = GroupedQuantity::empty();
+        if let Some(q) = &item.quantity {
+            quantity.add(q, converter);
+        }
+        self.add_ingredient(item.name.clone(), &quantity, converter);
+    }
+
     /// Cheks if the list is empty
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
@@ -509,6 +525,36 @@ impl Iterator for CategorizedIntoIter {
 mod tests {
     use super::*;
     use crate::{CooklangParser, Extensions};
+
+    #[cfg(feature = "shopping_list")]
+    #[test]
+    fn shopping_items_keep_their_names_and_merge() {
+        use crate::shopping_list::{parse, ShoppingListItem};
+        let list =
+            parse("#1 flour{2}\n~ramen\n@milk{1%l}\nmilk{500%ml}\n@milk{1%l}\nsalt{a pinch}\n")
+                .unwrap();
+        let converter = Converter::empty();
+        let mut ingredients = IngredientList::default();
+        for item in &list.items {
+            if let ShoppingListItem::Ingredient(item) = item {
+                ingredients.add_shopping_item(item, &converter);
+            }
+        }
+        let listed: Vec<(&str, String)> = ingredients
+            .iter()
+            .map(|(name, quantity)| (name.as_str(), quantity.to_string()))
+            .collect();
+        assert_eq!(
+            listed,
+            [
+                ("#1 flour", "2".to_string()),
+                ("~ramen", "".to_string()),
+                ("@milk", "2 l".to_string()),
+                ("milk", "500 ml".to_string()),
+                ("salt", "a pinch".to_string()),
+            ]
+        );
+    }
 
     #[test]
     fn test_categorize_preserves_aisle_order() {
