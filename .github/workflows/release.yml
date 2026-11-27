@@ -776,9 +776,21 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        # The first publish of cooklang-ingredient-parser must be done by hand
+        # with an API token, because trusted-publishing tokens cannot create
+        # new crates; then add this workflow as its trusted publisher on
+        # crates.io. Reruns skip a crate whose version is already published.
         run: |
-          cargo publish --no-verify -p cooklang
-          cargo publish --no-verify -p cooklang-ingredient-parser
+          for crate in cooklang cooklang-ingredient-parser; do
+            version="$(cargo metadata --no-deps --format-version 1 \
+              | jq -r --arg c "$crate" '.packages[] | select(.name == $c) | .version')"
+            if curl -sf -A "cooklang-rs-release (github.com/cooklang/cooklang-rs)" \
+              "https://crates.io/api/v1/crates/${crate}/${version}" > /dev/null; then
+              echo "${crate} ${version} is already on crates.io, skipping"
+            else
+              cargo publish --no-verify -p "$crate"
+            fi
+          done
 
   # Publish TypeScript package to npm
   publish-typescript:
