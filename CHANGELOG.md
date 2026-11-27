@@ -1,6 +1,8 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+
+## 0.21.0 - 2026-11-27
 - New crate `cooklang-ingredient-parser`: parses typed ingredient lines ("Milk 2 l") into a name and amount, with aisle matching and an optional model hook; exposed in the Swift/Kotlin bindings and the JS package.
 
 ## 0.20.0 - 2026-11-25
