@@ -328,6 +328,45 @@ fn float(tokens: &[Token], bp: &BlockParser) -> Result<f64, SourceDiag> {
     })
 }
 
+/// Parse the text between an ingredient's braces on its own, with no
+/// extensions: the quantity of a shopping list line.
+///
+/// Never fails: whatever the grammar makes of the text (text values for
+/// anything that isn't a number) is the quantity. Where the grammar reports
+/// an error (`1/0`, a number too big for a fraction) the value is kept as the
+/// text written instead of the grammar's placeholder. `None` for text with
+/// neither a value nor a unit: empty, `%` or `=`.
+#[cfg(feature = "shopping_list")]
+pub(crate) fn parse_quantity_text(text: &str) -> Option<crate::quantity::Quantity> {
+    if text.trim().is_empty() {
+        return None;
+    }
+    let tokens = super::token_stream::TokenStream::new(text).collect::<Vec<_>>();
+    let mut events = std::collections::VecDeque::new();
+    let mut bp = BlockParser::new(&tokens, text, &mut events, Extensions::empty());
+    let parsed = parse_quantity(&mut bp, &tokens);
+    bp.consume_rest();
+    bp.finish();
+    let failed = events
+        .iter()
+        .any(|event| matches!(event, super::Event::Error(_)));
+    let quantity = parsed.quantity.into_inner();
+    let (value, value_span) = quantity.value.value.take_pair();
+    let value = if failed {
+        Value::Text(text[value_span.range()].trim().to_string())
+    } else {
+        value
+    };
+    let unit = quantity
+        .unit
+        .map(|unit| unit.text_trimmed().into_owned())
+        .filter(|unit| !unit.is_empty());
+    if unit.is_none() && matches!(&value, Value::Text(t) if t.is_empty()) {
+        return None;
+    }
+    Some(crate::quantity::Quantity::new(value, unit))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -577,5 +616,126 @@ mod tests {
         };
         assert!(r.is_empty(), "source error");
         n
+    }
+
+    #[cfg(feature = "shopping_list")]
+    mod text {
+        use crate::quantity::{Number as QNumber, Quantity as Q, Value as QValue};
+
+        fn text_q(input: &str) -> Option<Q> {
+            super::super::parse_quantity_text(input)
+        }
+
+        fn num_q(n: f64, unit: Option<&str>) -> Option<Q> {
+            Some(Q::new(
+                QValue::Number(QNumber::Regular(n)),
+                unit.map(str::to_string),
+            ))
+        }
+
+        #[test]
+        fn quantity_text_table() {
+            assert_eq!(text_q("2%l"), num_q(2.0, Some("l")));
+            assert_eq!(text_q(" 2 % l "), num_q(2.0, Some("l")));
+            assert_eq!(text_q("3"), num_q(3.0, None));
+            assert_eq!(text_q("0.50%kg"), num_q(0.5, Some("kg")));
+            assert!(matches!(
+                text_q("1/2%cup").unwrap().value(),
+                QValue::Number(QNumber::Fraction {
+                    whole: 0,
+                    num: 1,
+                    den: 2,
+                    err: 0.0
+                })
+            ));
+            assert!(matches!(
+                text_q("1 1/2%cup").unwrap().value(),
+                QValue::Number(QNumber::Fraction {
+                    whole: 1,
+                    num: 1,
+                    den: 2,
+                    err: 0.0
+                })
+            ));
+            assert_eq!(
+                text_q("a pinch"),
+                Some(Q::new(QValue::Text("a pinch".into()), None))
+            );
+            assert_eq!(
+                text_q("1-2%cup"),
+                Some(Q::new(QValue::Text("1-2".into()), Some("cup".into())))
+            );
+            assert_eq!(
+                text_q("1,5%kg").unwrap().value(),
+                &QValue::Text("1,5".into())
+            );
+            assert_eq!(text_q("2%"), num_q(2.0, None));
+            assert_eq!(text_q(""), None);
+            assert_eq!(text_q("   "), None);
+        }
+
+        #[test]
+        fn quantity_text_with_only_a_unit_is_text_or_empty_but_never_panics() {
+            // "%l": no value. Whatever the grammar makes of it, it must not panic
+            // and must keep the unit if it keeps anything.
+            let q = text_q("%l");
+            if let Some(q) = q {
+                assert_eq!(q.unit(), Some("l"));
+            }
+        }
+
+        #[test]
+        fn quantity_text_without_value_or_unit_is_none() {
+            assert_eq!(text_q("%"), None);
+            assert_eq!(text_q("="), None);
+            assert_eq!(text_q(" % "), None);
+        }
+
+        #[test]
+        fn quantity_text_keeps_what_the_grammar_rejects_as_text() {
+            let text = |s: &str| Some(Q::new(QValue::Text(s.into()), None));
+            assert_eq!(text_q("1/0"), text("1/0"));
+            assert_eq!(
+                text_q("1/0%cup"),
+                Some(Q::new(QValue::Text("1/0".into()), Some("cup".into())))
+            );
+            assert_eq!(text_q("4294967296/2"), text("4294967296/2"));
+            assert_eq!(text_q("01"), text("01"));
+            assert_eq!(text_q("1.5.5"), text("1.5.5"));
+        }
+
+        #[test]
+        fn quantity_text_scaling_lock_is_dropped() {
+            assert_eq!(text_q("=2%l"), num_q(2.0, Some("l")));
+        }
+
+        #[test]
+        fn quantity_text_written_back_reads_the_same() {
+            for input in [
+                "2%l",
+                "1/2%cup",
+                "1 1/2%cup",
+                "2 0/3",
+                ".5",
+                "0.0004%kg",
+                "a pinch",
+                "1-2%cup",
+                "1,5%kg",
+                "%l",
+                "1/0",
+                "1/0%cup",
+                "4294967296/2",
+                "01",
+                "1.5.5",
+                "2%a%b",
+                "100000000000000000000000",
+            ] {
+                let once = text_q(input).unwrap();
+                let written = once.to_cooklang();
+                let twice = text_q(&written).unwrap();
+                assert_eq!(once, twice, "{input}");
+                assert_eq!(written, twice.to_cooklang(), "{input}");
+            }
+        }
     }
 }
