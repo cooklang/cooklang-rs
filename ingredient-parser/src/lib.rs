@@ -4,10 +4,12 @@
 //! Cooklang app that takes typed or pasted ingredients reads them through
 //! [`parse_ingredient`], so they all agree on the name and write the same
 //! stored quantity. See `docs/superpowers/specs/2026-11-27-ingredient-parser-design.md`.
+mod name;
 mod number;
 mod quantity;
 mod units;
 
+pub use name::cleaned_name;
 pub use quantity::{add_quantities, edit_text, NotAddable};
 
 use serde::{Deserialize, Serialize};
@@ -62,9 +64,6 @@ pub enum ParseSource {
     Rules,
     Model,
 }
-mod name;
-
-pub use name::cleaned_name;
 mod aisle_match;
 mod list;
 mod model;

@@ -64,7 +64,14 @@ fn the_name_is_cleaned() {
 #[test]
 fn the_model_is_not_asked_when_the_rules_found_an_amount_at_the_end_or_no_number_leads() {
     let model = FakeModel::new(Ok(tomatoes(0.99)));
-    for line in ["Milk 2 l", "Bread", "7up", "Lemons 3"] {
+    for line in [
+        "Milk 2 l",
+        "Bread",
+        "7up",
+        "Lemons 3",
+        "2 milk 3",
+        "1,5 kg flour",
+    ] {
         let parsed = parse_ingredient(line, None, Some(&model));
         assert_eq!(parsed.source, ParseSource::Rules, "{line}");
     }
@@ -129,6 +136,18 @@ fn a_weak_or_unusable_model_answer_is_ignored() {
             ..tomatoes(0.99)
         }),
         Ok(tomatoes(f32::NAN)),
+        Ok(ModelParse {
+            quantity: None,
+            ..tomatoes(0.99)
+        }),
+        Ok(ModelParse {
+            quantity: Some("1 3/2".into()),
+            ..tomatoes(0.99)
+        }),
+        Ok(ModelParse {
+            quantity: Some("0 1/2".into()),
+            ..tomatoes(0.99)
+        }),
         Err(ModelError("no runtime".into())),
     ];
     for answer in answers {
@@ -162,4 +181,73 @@ fn a_list_is_one_result_per_kept_line() {
 #[test]
 fn a_blank_line_has_an_empty_name() {
     assert_eq!(parse_ingredient("   ", None, None).name, "");
+}
+
+#[test]
+fn lines_with_a_leading_amount_the_rules_cannot_place_are_asked() {
+    for line in [
+        "3 lemons",
+        "2l milk",
+        "\u{00BD} cup sugar",
+        "1\u{00BD} cups sugar",
+    ] {
+        let model = FakeModel::new(Ok(tomatoes(0.99)));
+        parse_ingredient(line, None, Some(&model));
+        assert_eq!(model.asked.borrow().as_slice(), [line]);
+    }
+}
+
+#[test]
+fn a_size_copied_into_the_unit_slot_is_a_count() {
+    let answer = ModelParse {
+        quantity: Some("6".into()),
+        unit: Some("large".into()),
+        size: Some("large".into()),
+        name: "eggs".into(),
+        prep: None,
+        comment: None,
+        confidence: 0.95,
+    };
+    let parsed = parse_ingredient("6 large eggs", None, Some(&FakeModel::new(Ok(answer))));
+    assert_eq!(parsed.name, "eggs");
+    assert_eq!(
+        parsed.amount,
+        Some(Amount {
+            value: 6.0,
+            unit: None
+        })
+    );
+    assert_eq!(parsed.size.as_deref(), Some("large"));
+}
+
+#[test]
+fn size_and_comment_are_carried_over() {
+    let answer = ModelParse {
+        size: Some("large".into()),
+        comment: Some("for frying".into()),
+        ..tomatoes(0.9)
+    };
+    let parsed = parse_ingredient(
+        "2 cans chopped tomatoes",
+        None,
+        Some(&FakeModel::new(Ok(answer))),
+    );
+    assert_eq!(parsed.size.as_deref(), Some("large"));
+    assert_eq!(parsed.comment.as_deref(), Some("for frying"));
+}
+
+#[test]
+fn a_model_unit_cannot_open_a_comment() {
+    let answer = ModelParse {
+        unit: Some("-- tin".into()),
+        ..tomatoes(0.9)
+    };
+    let parsed = parse_ingredient("2 -- tin tomatoes", None, Some(&FakeModel::new(Ok(answer))));
+    assert_eq!(
+        parsed.amount,
+        Some(Amount {
+            value: 2.0,
+            unit: Some("- tin".into())
+        })
+    );
 }

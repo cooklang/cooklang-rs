@@ -145,7 +145,7 @@ mod tests {
     #[test_case("inf" => None)]
     #[test_case("+1" => None)]
     #[test_case("NaN" => None)]
-    #[test_case("１" => None)]
+    #[test_case("１" => None; "fullwidth digit")]
     fn reads_numbers(token: &str) -> Option<f64> {
         number(token)
     }

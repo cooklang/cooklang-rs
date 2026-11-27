@@ -16,7 +16,7 @@ pub trait IngredientModel {
 /// What a model returns; field for field `ingredient_tagger::ParsedIngredient`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelParse {
-    /// "2", "1 1/2", "1-2".
+    /// "2", "1.5", "1 1/2". Ranges such as "1-2" are refused.
     pub quantity: Option<String>,
     pub unit: Option<String>,
     pub size: Option<String>,
@@ -26,7 +26,7 @@ pub struct ModelParse {
     pub confidence: f32,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 #[error("ingredient model failed: {0}")]
 pub struct ModelError(pub String);
 
@@ -42,33 +42,46 @@ pub(crate) fn should_ask(line: &str, rules: &RulesResult) -> bool {
     let Some(first) = line.split_whitespace().next() else {
         return false;
     };
-    typed_number(first).is_some() || glued_amount(first).is_some()
+    if first.contains(',') {
+        return false;
+    }
+    typed_number(first).is_some() || glued_amount(first).is_some() || is_vulgar_amount(first)
+}
+
+/// "½", "1½", "2 ⅓" style first words: ASCII digits, ".", "/" and at least
+/// one vulgar fraction character.
+fn is_vulgar_amount(word: &str) -> bool {
+    let vulgar = |c: char| matches!(c, '\u{00BC}'..='\u{00BE}' | '\u{2153}'..='\u{215E}');
+    word.chars().any(vulgar)
+        && word
+            .chars()
+            .all(|c| c.is_ascii_digit() || matches!(c, '.' | '/') || vulgar(c))
 }
 
 /// The model's answer as a parse, or `None` when it must not be used.
 pub(crate) fn accept(answer: Result<ModelParse, ModelError>) -> Option<ParsedIngredient> {
     let answer = answer.ok()?;
-    // `>=` is false for NaN, so a NaN confidence is refused too.
-    if !(answer.confidence >= MODEL_CONFIDENCE_THRESHOLD) {
+    if answer.confidence.is_nan() || answer.confidence < MODEL_CONFIDENCE_THRESHOLD {
         return None;
     }
     let name = cleaned_name(&answer.name);
     if name.is_empty() {
         return None;
     }
-    let value = match answer
+    // The model is only asked about lines that start with a number.
+    let quantity = answer
         .quantity
         .as_deref()
         .map(str::trim)
-        .filter(|q| !q.is_empty())
-    {
-        None => None,
-        Some(quantity) => Some(model_number(quantity)?),
+        .filter(|q| !q.is_empty())?;
+    let value = model_number(quantity)?;
+    // The tagger copies a size into the unit slot when there is no unit.
+    let unit = match (answer.unit.as_deref(), answer.size.as_deref()) {
+        (Some(unit), Some(size)) if unit.trim().eq_ignore_ascii_case(size.trim()) => None,
+        (Some(unit), _) => model_unit(unit),
+        (None, _) => None,
     };
-    let amount = value.map(|value| Amount {
-        value,
-        unit: answer.unit.as_deref().and_then(model_unit),
-    });
+    let amount = Some(Amount { value, unit });
     Some(ParsedIngredient {
         name,
         amount,
@@ -87,25 +100,23 @@ fn model_number(quantity: &str) -> Option<f64> {
     match parts.as_slice() {
         [single] => number(single),
         [whole_part, fraction] if fraction.contains('/') => {
-            Some(whole(whole_part)? + number(fraction)?)
+            let whole_part = whole(whole_part).filter(|w| *w > 0.0)?;
+            Some(whole_part + typed_number(fraction)?)
         }
         _ => None,
     }
 }
 
 /// A table unit in its short form; a piece word is a count (`None`); any
-/// other unit as given, without `%`, `{`, `}` and with single spaces.
+/// other unit cleaned like a name, without `%`.
 fn model_unit(unit: &str) -> Option<String> {
     match match_unit(unit) {
         Some(UnitMatch::Unit(stored)) => Some(stored.to_owned()),
         Some(UnitMatch::Count) => None,
         None => {
-            let kept: String = unit
-                .chars()
-                .filter(|c| !matches!(c, '%' | '{' | '}'))
-                .collect();
-            let kept = kept.split_whitespace().collect::<Vec<_>>().join(" ");
-            (!kept.is_empty()).then_some(kept)
+            let kept = cleaned_name(unit).replace('%', "");
+            let kept = kept.trim();
+            (!kept.is_empty()).then(|| kept.to_owned())
         }
     }
 }
