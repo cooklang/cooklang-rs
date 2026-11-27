@@ -156,16 +156,21 @@ Ported unchanged from the iOS recogniser at `mobile-app-ios` commit `a6f8a1d1`:
 
 ### 2. Model
 
-Only when `model` is given, and only when the line's **first word is a typed number or a number glued to a table unit**, and the rules did **not** take their amount from the end of the line. "2 cans chopped tomatoes", "1 1/2 cups flour, sifted" and "3 lemons" ask the model. "Milk 2 l", "7up" and "Bread" do not.
+Only when `model` is given, and only when the rules did **not** take their amount from the end of the line, and the line's first word:
+
+- is a typed number, a number glued to a table unit, or made only of ASCII digits, `.`, `/` and Unicode vulgar fractions (U+00BC–U+00BE, U+2153–U+215E) with at least one of those fractions ("½", "1½");
+- and contains no `,`. The tagger splits words at commas, so it cannot read "1,5"; the rules already read a decimal comma.
+
+"2 cans chopped tomatoes", "1 1/2 cups flour, sifted", "3 lemons", "2l milk" and "½ cup sugar" ask the model. "Milk 2 l", "2 milk 3", "1,5 kg flour", "7up" and "Bread" do not.
 
 The model's answer replaces the rules' answer when all of these hold:
 
 - `parse_line` returned `Ok`;
-- `confidence >= MODEL_CONFIDENCE_THRESHOLD`;
+- `confidence` is not NaN and is at least `MODEL_CONFIDENCE_THRESHOLD`;
 - `name` is not empty after `cleaned_name`;
-- `quantity` is absent, or reads as one positive number: whole, decimal, any fraction, or mixed ("1 1/2"). A range ("1-2") or text fails this check.
+- `quantity` is present and reads as one positive number: whole, decimal, any fraction, or mixed with a whole part above zero and a fraction below one ("1 1/2"). A range ("1-2"), text, "1 3/2" and "0 1/2" fail this check. A missing quantity fails too: the model is only asked about lines that start with a number, so it is a mis-tag.
 
-A unit the model gives is looked up in the unit table and stored in its short form when found ("teaspoons" gives `tsp`), otherwise kept as given, with `%`, `{` and `}` removed. `size`, `prep` and `comment` are copied over, and `source` is `Model`. Otherwise the rules' answer stands, and a model error is ignored.
+A unit the model gives is looked up in the unit table and stored in its short form when found ("teaspoons" gives `tsp`); a piece word gives a count. A unit equal to the answer's `size`, ignoring case, gives a count too: the tagger copies a size into the unit slot when there is no unit, and "6 large eggs" is six eggs, not `6%large`. Any other unit is kept after `cleaned_name` with `%` removed, so it cannot open a comment or break the quantity braces. `size`, `prep` and `comment` are copied over, and `source` is `Model`. Otherwise the rules' answer stands, and a model error is ignored.
 
 ### 3. Aisle match
 
@@ -218,7 +223,7 @@ A follow-up in that repository, not part of this crate: `ingredient-tagger` depe
 - **Aisle:** exact, case and plural matches against a small aisle.conf; alias versus common name; no match without `aisle`; exact beats plural; aisle match after a model answer.
 - **Lists:** bullets, checkboxes, blank lines.
 - **Quantities:** `to_quantity` / `from_quantity` round trips; `add_quantities` (same unit sums, different unit or text is `NotAddable`); `edit_text` for counts, table units, other units and text quantities; every `edit_text` result with a quantity parses back to the same name and quantity.
-- **Round trip through the parser:** for hostile names (braces, `--`, `[-`, `./`, `? `, zero-width characters), `cleaned_name` output written as a `.shopping-list` free-hand line and as `@name{}` reads back through `cooklang` as a single ingredient with that name.
+- **Round trip through the parser** (also with zero-width characters): for hostile names (braces, `--`, `[-`, `./`, `? `, zero-width characters), `cleaned_name` output written as a `.shopping-list` free-hand line and as `@name{}` reads back through `cooklang` as a single ingredient with that name.
 
 ## Out of scope
 
