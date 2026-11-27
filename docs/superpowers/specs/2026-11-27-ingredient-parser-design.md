@@ -33,7 +33,7 @@ The model cannot be a dependency of this crate: it is 29 MB, needs the ONNX Runt
 ## Crate
 
 - Directory `ingredient-parser/` in the `cooklang-rs` workspace, next to `bindings` and `typescript`. Package `cooklang-ingredient-parser`, versioned with `cooklang`.
-- Depends on `cooklang` (`default-features = false`, `features = ["aisle"]`) for `AisleConf`, plus `serde` and `thiserror`.
+- Depends on `cooklang` (`default-features = false`, `features = ["aisle"]`) for `AisleConf`, plus `serde`, `thiserror` and `unicode-normalization` (unit and aisle matching compare NFC text, as Swift's `String` does).
 - No `unsafe`, no I/O, no global state, no ML dependencies.
 
 ## API
@@ -134,7 +134,7 @@ pub fn cleaned_name(raw: &str) -> String;
 
 `parse_ingredient_list` splits on line breaks, drops a leading bullet (`-`, `*`, `–` when followed by whitespace or ending the line; `•` always) and then a checkbox (`[ ]`, `[x]`, `[X]`), skips lines that are blank after that and Markdown heading lines (one to six `#`, alone or followed by whitespace), and parses each remaining line. One result per kept line, in order.
 
-All public data types derive `Debug`, `Clone`, `PartialEq`, `serde::Serialize` and `serde::Deserialize`.
+All public data types derive `Debug`, `Clone`, `PartialEq`, `serde::Serialize` and `serde::Deserialize`; the error type `NotAddable` derives only the first three.
 
 ## Parsing one line
 
@@ -176,14 +176,14 @@ A unit the model gives is looked up in the unit table and stored in its short fo
 
 After the name is found, and only when `aisle` is given, it is compared with every name and alias in the aisle configuration:
 
-- ignoring case (Unicode lowercase);
+- ignoring case (Unicode lowercase, after NFC normalization);
 - and ignoring simple English plurals. Each side's forms are the lowercase word plus, where they apply, the word with a final `ies` turned into `y`, with a final `es` dropped after `s`, `x`, `z`, `ch`, `sh` or `o`, and with a final `s` dropped when not after another `s`. Two names match when their forms share one. "Tomato" matches `tomatoes`, "Berry" matches `berries`, "cookie" matches `cookies`, "Lemon" matches `lemons`; "glass" does not match `glas`.
 
 An exact case-insensitive match wins over a plural match. Among matches of the same kind, the first in file order wins. On a match, `name` becomes the configuration's spelling and `aisle_match` is filled.
 
 ## Unit table
 
-One file, `units.rs`: each stored short form with its aliases. Copied word for word from the iOS `ManualItemUnits.swift` (en, ru, de, es, fr, pt-BR): `g`, `kg`, `ml`, `l`, `tsp`, `tbsp`, `cup`, `oz`, `lb`, and piece words that make a count. Matching ignores case and any trailing full stops. A unit test fails if one alias is listed under two units.
+One file, `units.rs`: each stored short form with its aliases. Copied word for word from the iOS `ManualItemUnits.swift` (en, ru, de, es, fr, pt-BR): `g`, `kg`, `ml`, `l`, `tsp`, `tbsp`, `cup`, `oz`, `lb`, and piece words that make a count. Matching ignores case, Unicode composition (NFC) and any trailing full stops. A unit test fails if one alias is listed under two units.
 
 ## Stored quantity and numbers
 
@@ -210,9 +210,9 @@ A follow-up in that repository, not part of this crate: `ingredient-tagger` depe
 
 ## Bindings
 
-- `bindings/` (uniffi): `parse_ingredient(line, aisle_text: Option<String>)`, `parse_ingredient_list`, `add_quantities`, `edit_text`, `cleaned_name`, and the records above. The bindings' own `AisleConf` record is a flattened cache, not `cooklang::aisle::AisleConf`, so they take the aisle file's text and parse it with `cooklang::aisle::parse_lenient`, as `parse_aisle_config` does. A model is not exposed yet; the iOS and Android apps would pass one through a uniffi callback interface when they ship one.
-- `typescript/` (wasm): the same functions, taking the aisle text the same way, through the existing `tsify` setup. No model.
-- The release workflow publishes `cooklang-ingredient-parser` to crates.io before `cooklang-bindings` and alongside `cooklang`.
+- `bindings/` (uniffi): `parse_ingredient(line, aisle_text: Option<String>)`, `parse_ingredient_list`, `add_ingredient_quantities` (throws `IngredientQuantityError.NotAddable`; `nil` only for no quantity), `ingredient_edit_text`, `cleaned_ingredient_name`, and the records above, prefixed `Ingredient…` where the bindings already have a record of that name. `IngredientAmount` also carries `quantity` (stored form) and `chip_text`. The bindings' own `AisleConf` record is a flattened cache, not `cooklang::aisle::AisleConf`, so they take the aisle file's text and parse it with `cooklang::aisle::parse_lenient`, as `parse_aisle_config` does. A model is not exposed yet; the iOS and Android apps would pass one through a uniffi callback interface when they ship one.
+- `typescript/` (wasm): `parse_ingredient`, `parse_ingredient_list`, `add_ingredient_quantities` (throws), `ingredient_edit_text`, `cleaned_ingredient_name`, and `ingredient_amount_quantity` / `ingredient_amount_chip` for the stored form and chip of a parsed amount, taking the aisle text the same way, through the existing `tsify` setup. No model.
+- The release workflow publishes `cooklang-ingredient-parser` to crates.io right after `cooklang`, skipping a version that is already published. Its first publish is done by hand: trusted-publishing tokens cannot create a crate.
 
 ## Testing
 
