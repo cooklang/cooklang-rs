@@ -6,6 +6,19 @@ use crate::number::{format_number, number};
 use crate::units::{match_unit, UnitMatch};
 use crate::Amount;
 
+/// Trims like Swift's `CharacterSet.whitespaces`: spaces and tabs, not line breaks.
+fn trim_spaces(text: &str) -> &str {
+    text.trim_matches(|c: char| {
+        c == '\t'
+            || c == '\u{200B}'
+            || (c.is_whitespace()
+                && !matches!(
+                    c,
+                    '\n' | '\u{0B}' | '\u{0C}' | '\r' | '\u{85}' | '\u{2028}' | '\u{2029}'
+                ))
+    })
+}
+
 impl Amount {
     /// Cooklang quantity syntax, `"2%l"` or `"3"` for a count. `None` when the
     /// value is not above zero or rounds to `"0"` at six decimals.
@@ -48,10 +61,10 @@ impl Amount {
         if first.contains(',') {
             return None;
         }
-        let value = number(first.trim())?;
+        let value = number(trim_spaces(first))?;
         let unit = parts
             .next()
-            .map(str::trim)
+            .map(trim_spaces)
             .filter(|unit| !unit.is_empty())
             .map(str::to_owned);
         Some(Amount { value, unit })
@@ -75,7 +88,10 @@ pub fn add_quantities(a: Option<&str>, b: Option<&str>) -> Result<Option<String>
             if a.unit != b.unit {
                 return Err(NotAddable);
             }
-            let sum = Amount { value: a.value + b.value, unit: a.unit };
+            let sum = Amount {
+                value: a.value + b.value,
+                unit: a.unit,
+            };
             sum.to_quantity().map(Some).ok_or(NotAddable)
         }
         _ => Err(NotAddable),
@@ -87,10 +103,8 @@ fn editable_amount(quantity: &str) -> Option<Amount> {
     let amount = Amount::from_quantity(quantity)?;
     match &amount.unit {
         None => Some(amount),
-        Some(unit) => {
-            matches!(match_unit(unit), Some(UnitMatch::Unit(stored)) if stored == unit)
-                .then_some(amount)
-        }
+        Some(unit) => matches!(match_unit(unit), Some(UnitMatch::Unit(stored)) if stored == unit)
+            .then_some(amount),
     }
 }
 
@@ -110,39 +124,76 @@ mod tests {
     use super::*;
 
     fn amount(value: f64, unit: Option<&str>) -> Amount {
-        Amount { value, unit: unit.map(str::to_owned) }
+        Amount {
+            value,
+            unit: unit.map(str::to_owned),
+        }
     }
 
     #[test]
     fn stored_form() {
         assert_eq!(amount(2.0, Some("l")).to_quantity().as_deref(), Some("2%l"));
-        assert_eq!(amount(1.5, Some("kg")).to_quantity().as_deref(), Some("1.5%kg"));
-        assert_eq!(amount(0.5, Some("kg")).to_quantity().as_deref(), Some("0.5%kg"));
+        assert_eq!(
+            amount(1.5, Some("kg")).to_quantity().as_deref(),
+            Some("1.5%kg")
+        );
+        assert_eq!(
+            amount(0.5, Some("kg")).to_quantity().as_deref(),
+            Some("0.5%kg")
+        );
         assert_eq!(amount(3.0, None).to_quantity().as_deref(), Some("3"));
         assert_eq!(amount(0.0, Some("g")).to_quantity(), None);
         assert_eq!(amount(-1.0, Some("l")).to_quantity(), None);
         assert_eq!(amount(f64::INFINITY, None).to_quantity(), None);
         assert_eq!(amount(0.0000001, Some("g")).to_quantity(), None);
-        assert_eq!(amount(0.000001, Some("g")).to_quantity().as_deref(), Some("0.000001%g"));
+        assert_eq!(
+            amount(0.000001, Some("g")).to_quantity().as_deref(),
+            Some("0.000001%g")
+        );
     }
 
     #[test]
     fn reads_stored_form() {
         assert_eq!(Amount::from_quantity("2%l"), Some(amount(2.0, Some("l"))));
-        assert_eq!(Amount::from_quantity("1.5%kg"), Some(amount(1.5, Some("kg"))));
+        assert_eq!(
+            Amount::from_quantity("1.5%kg"),
+            Some(amount(1.5, Some("kg")))
+        );
         assert_eq!(Amount::from_quantity("3"), Some(amount(3.0, None)));
         assert_eq!(Amount::from_quantity("a pinch"), None);
         assert_eq!(Amount::from_quantity("200 ml"), None);
         assert_eq!(Amount::from_quantity(""), None);
-        assert_eq!(Amount::from_quantity("1/2%cup"), Some(amount(0.5, Some("cup"))));
-        assert_eq!(Amount::from_quantity("3/2%cup"), Some(amount(1.5, Some("cup"))));
+        assert_eq!(
+            Amount::from_quantity("1/2%cup"),
+            Some(amount(0.5, Some("cup")))
+        );
+        assert_eq!(
+            Amount::from_quantity("3/2%cup"),
+            Some(amount(1.5, Some("cup")))
+        );
         assert_eq!(Amount::from_quantity("0%g"), None);
         assert_eq!(Amount::from_quantity("-1%l"), None);
         assert_eq!(Amount::from_quantity("0x10"), None);
-        assert_eq!(Amount::from_quantity(" 2 % l "), Some(amount(2.0, Some("l"))));
+        assert_eq!(
+            Amount::from_quantity(" 2 % l "),
+            Some(amount(2.0, Some("l")))
+        );
         assert_eq!(Amount::from_quantity("2%"), Some(amount(2.0, None)));
         assert_eq!(Amount::from_quantity("1,000%g"), None);
         assert_eq!(Amount::from_quantity("1,5%kg"), None);
+    }
+
+    #[test]
+    fn trims_spaces_but_not_line_breaks() {
+        assert_eq!(Amount::from_quantity("2\n%l"), None);
+        assert_eq!(
+            Amount::from_quantity("2\u{200B}%l"),
+            Some(amount(2.0, Some("l")))
+        );
+        assert_eq!(
+            Amount::from_quantity("2%l\u{200B}"),
+            Some(amount(2.0, Some("l")))
+        );
     }
 
     #[test]
@@ -163,15 +214,24 @@ mod tests {
 
     #[test]
     fn adds_quantities() {
-        assert_eq!(add_quantities(Some("2%l"), Some("1%l")), Ok(Some("3%l".into())));
-        assert_eq!(add_quantities(Some("1.5%kg"), Some("0.5%kg")), Ok(Some("2%kg".into())));
+        assert_eq!(
+            add_quantities(Some("2%l"), Some("1%l")),
+            Ok(Some("3%l".into()))
+        );
+        assert_eq!(
+            add_quantities(Some("1.5%kg"), Some("0.5%kg")),
+            Ok(Some("2%kg".into()))
+        );
         assert_eq!(add_quantities(Some("3"), Some("2")), Ok(Some("5".into())));
         assert_eq!(add_quantities(None, None), Ok(None));
         assert_eq!(add_quantities(Some("2%l"), Some("500%ml")), Err(NotAddable));
         assert_eq!(add_quantities(Some("2%l"), Some("2")), Err(NotAddable));
         assert_eq!(add_quantities(Some("2%l"), None), Err(NotAddable));
         assert_eq!(add_quantities(None, Some("2")), Err(NotAddable));
-        assert_eq!(add_quantities(Some("a pinch"), Some("a pinch")), Err(NotAddable));
+        assert_eq!(
+            add_quantities(Some("a pinch"), Some("a pinch")),
+            Err(NotAddable)
+        );
         assert_eq!(add_quantities(Some("2%L"), Some("2%l")), Err(NotAddable));
     }
 

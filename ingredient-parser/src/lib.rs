@@ -5,8 +5,8 @@
 //! [`parse_ingredient`], so they all agree on the name and write the same
 //! stored quantity. See `docs/superpowers/specs/2026-11-27-ingredient-parser-design.md`.
 mod number;
-mod units;
 mod quantity;
+mod units;
 
 pub use quantity::{add_quantities, edit_text, NotAddable};
 
@@ -23,7 +23,9 @@ pub struct ParsedIngredient {
     pub amount: Option<Amount>,
     /// "large", "small". Only a model fills `size`, `prep` and `comment`.
     pub size: Option<String>,
+    /// Preparation ("chopped"). Only a model fills it.
     pub prep: Option<String>,
+    /// Anything else the line says. Only a model fills it.
     pub comment: Option<String>,
     /// 1.0 for rules; the model's own score otherwise.
     pub confidence: f32,
