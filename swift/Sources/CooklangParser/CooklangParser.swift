@@ -1435,9 +1435,10 @@ public struct IngredientAmount: Equatable, Hashable {
     public let value: Double
     public let unit: String?
     /**
-     * Cooklang quantity syntax ("2%l"); `None` if it rounds to zero.
+     * The quantity to store, its value rounded to six decimals; `None` if it
+     * rounds to zero. [`amount_to_cooklang`] writes it ("2%l").
      */
-    public let quantity: String?
+    public let quantity: Amount?
     /**
      * "2 l", "x3".
      */
@@ -1447,8 +1448,9 @@ public struct IngredientAmount: Equatable, Hashable {
     // declare one manually.
     public init(value: Double, unit: String?, 
         /**
-         * Cooklang quantity syntax ("2%l"); `None` if it rounds to zero.
-         */quantity: String?, 
+         * The quantity to store, its value rounded to six decimals; `None` if it
+         * rounds to zero. [`amount_to_cooklang`] writes it ("2%l").
+         */quantity: Amount?, 
         /**
          * "2 l", "x3".
          */chipText: String) {
@@ -1476,7 +1478,7 @@ public struct FfiConverterTypeIngredientAmount: FfiConverterRustBuffer {
             try IngredientAmount(
                 value: FfiConverterDouble.read(from: &buf), 
                 unit: FfiConverterOptionString.read(from: &buf), 
-                quantity: FfiConverterOptionString.read(from: &buf), 
+                quantity: FfiConverterOptionTypeAmount.read(from: &buf), 
                 chipText: FfiConverterString.read(from: &buf)
         )
     }
@@ -1484,7 +1486,7 @@ public struct FfiConverterTypeIngredientAmount: FfiConverterRustBuffer {
     public static func write(_ value: IngredientAmount, into buf: inout [UInt8]) {
         FfiConverterDouble.write(value.value, into: &buf)
         FfiConverterOptionString.write(value.unit, into: &buf)
-        FfiConverterOptionString.write(value.quantity, into: &buf)
+        FfiConverterOptionTypeAmount.write(value.quantity, into: &buf)
         FfiConverterString.write(value.chipText, into: &buf)
     }
 }
@@ -2780,8 +2782,13 @@ public indirect enum ShoppingListItem: Equatable, Hashable {
      * A free-hand ingredient with a name and optional quantity.
      * `optional` marks an accepted optional ingredient of the parent recipe
      * (`? name{quantity}`); its quantity is the final amount to buy.
+     *
+     * The quantity is read with the recipe quantity grammar. Written back,
+     * numbers are decimals: a `1/2%cup` read and written becomes `0.5%cup`,
+     * but a fraction whose decimal would be long stays one (`1/3%cup`).
+     * `Value::Empty` writes no quantity.
      */
-    case ingredient(name: String, quantity: String?, optional: Bool
+    case ingredient(name: String, quantity: Amount?, optional: Bool
     )
 
 
@@ -2807,7 +2814,7 @@ public struct FfiConverterTypeShoppingListItem: FfiConverterRustBuffer {
         case 1: return .recipe(path: try FfiConverterString.read(from: &buf), multiplier: try FfiConverterOptionDouble.read(from: &buf), children: try FfiConverterSequenceTypeShoppingListItem.read(from: &buf), optional: try FfiConverterBool.read(from: &buf)
         )
         
-        case 2: return .ingredient(name: try FfiConverterString.read(from: &buf), quantity: try FfiConverterOptionString.read(from: &buf), optional: try FfiConverterBool.read(from: &buf)
+        case 2: return .ingredient(name: try FfiConverterString.read(from: &buf), quantity: try FfiConverterOptionTypeAmount.read(from: &buf), optional: try FfiConverterBool.read(from: &buf)
         )
         
         default: throw UniffiInternalError.unexpectedEnumCase
@@ -2829,7 +2836,7 @@ public struct FfiConverterTypeShoppingListItem: FfiConverterRustBuffer {
         case let .ingredient(name,quantity,optional):
             writeInt(&buf, Int32(2))
             FfiConverterString.write(name, into: &buf)
-            FfiConverterOptionString.write(quantity, into: &buf)
+            FfiConverterOptionTypeAmount.write(quantity, into: &buf)
             FfiConverterBool.write(optional, into: &buf)
             
         }
@@ -4266,16 +4273,30 @@ public func writeShoppingList(list: ShoppingList)throws  -> String  {
 })
 }
 /**
- * The sum of two stored quantities ("2%l" + "1%l" = "3%l"). `None` only
- * means "no quantity" (both absent); quantities that cannot be added are
- * an error, so a caller keeps two lines instead of losing an amount.
+ * The sum of two stored quantities (2 l + 1 l = 3 l). `None` only means
+ * "no quantity" (both absent); quantities that cannot be added are an
+ * error, so a caller keeps two lines instead of losing an amount.
  */
-public func addIngredientQuantities(a: String?, b: String?)throws  -> String?  {
-    return try  FfiConverterOptionString.lift(try rustCallWithError(FfiConverterTypeIngredientQuantityError_lift) {
+public func addIngredientQuantities(a: Amount?, b: Amount?)throws  -> Amount?  {
+    return try  FfiConverterOptionTypeAmount.lift(try rustCallWithError(FfiConverterTypeIngredientQuantityError_lift) {
         uniffiCallStatus in
     uniffi_cooklang_bindings_fn_func_add_ingredient_quantities(
-        FfiConverterOptionString.lower(a),
-        FfiConverterOptionString.lower(b),uniffiCallStatus
+        FfiConverterOptionTypeAmount.lower(a),
+        FfiConverterOptionTypeAmount.lower(b),uniffiCallStatus
+    )
+})
+}
+/**
+ * An amount in Cooklang brace syntax, without the braces, as a shopping
+ * list stores it: "2%l", "3", "a pinch". Numbers are decimals, so a
+ * fraction is written "0.5%cup", except one whose decimal would be long:
+ * "1/3%cup". `""` for `Value::Empty`.
+ */
+public func amountToCooklang(amount: Amount) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_cooklang_bindings_fn_func_amount_to_cooklang(
+        FfiConverterTypeAmount_lower(amount),uniffiCallStatus
     )
 })
 }
@@ -4287,12 +4308,16 @@ public func cleanedIngredientName(raw: String) -> String  {
     )
 })
 }
-public func ingredientEditText(name: String, quantity: String?) -> String  {
+/**
+ * The line that edits an item ("Milk 2 l"), or the name alone when the
+ * rules would not read the quantity back the same.
+ */
+public func ingredientEditText(name: String, quantity: Amount?) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
         uniffiCallStatus in
     uniffi_cooklang_bindings_fn_func_ingredient_edit_text(
         FfiConverterString.lower(name),
-        FfiConverterOptionString.lower(quantity),uniffiCallStatus
+        FfiConverterOptionTypeAmount.lower(quantity),uniffiCallStatus
     )
 })
 }
@@ -4420,13 +4445,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_cooklang_bindings_checksum_func_write_shopping_list() != 59115) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_cooklang_bindings_checksum_func_add_ingredient_quantities() != 25648) {
+    if (uniffi_cooklang_bindings_checksum_func_add_ingredient_quantities() != 37902) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_cooklang_bindings_checksum_func_amount_to_cooklang() != 35862) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_cooklang_bindings_checksum_func_cleaned_ingredient_name() != 25754) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_cooklang_bindings_checksum_func_ingredient_edit_text() != 23764) {
+    if (uniffi_cooklang_bindings_checksum_func_ingredient_edit_text() != 6398) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_cooklang_bindings_checksum_func_parse_ingredient() != 7308) {
