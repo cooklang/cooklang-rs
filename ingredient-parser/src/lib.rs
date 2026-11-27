@@ -5,3 +5,4 @@
 //! [`parse_ingredient`], so they all agree on the name and write the same
 //! stored quantity. See `docs/superpowers/specs/2026-11-27-ingredient-parser-design.md`.
 mod number;
+mod units;
