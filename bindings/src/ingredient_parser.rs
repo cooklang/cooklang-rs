@@ -88,14 +88,23 @@ pub fn parse_ingredient_list(text: String, aisle_text: Option<String>) -> Vec<Pa
         .collect()
 }
 
-/// The sum of two stored quantities, or `None` when they cannot be added.
-/// `Some(None)` cannot be expressed in uniffi, so two absent quantities
-/// also give `None`; callers treat that as "keep one line".
+/// Two quantities that cannot be summed (different units, or no number).
+#[derive(uniffi::Error, Debug, thiserror::Error)]
+pub enum IngredientQuantityError {
+    #[error("the two quantities cannot be added")]
+    NotAddable,
+}
+
+/// The sum of two stored quantities ("2%l" + "1%l" = "3%l"). `None` only
+/// means "no quantity" (both absent); quantities that cannot be added are
+/// an error, so a caller keeps two lines instead of losing an amount.
 #[uniffi::export]
-pub fn add_ingredient_quantities(a: Option<String>, b: Option<String>) -> Option<String> {
+pub fn add_ingredient_quantities(
+    a: Option<String>,
+    b: Option<String>,
+) -> Result<Option<String>, IngredientQuantityError> {
     parser::add_quantities(a.as_deref(), b.as_deref())
-        .ok()
-        .flatten()
+        .map_err(|_| IngredientQuantityError::NotAddable)
 }
 
 #[uniffi::export]
@@ -123,12 +132,13 @@ mod tests {
     #[test]
     fn adds_quantities() {
         assert_eq!(
-            add_ingredient_quantities(Some("2%l".into()), Some("1%l".into())),
+            add_ingredient_quantities(Some("2%l".into()), Some("1%l".into())).unwrap(),
             Some("3%l".into())
         );
-        assert_eq!(
+        assert!(matches!(
             add_ingredient_quantities(Some("2%l".into()), Some("2".into())),
-            None
-        );
+            Err(IngredientQuantityError::NotAddable)
+        ));
+        assert_eq!(add_ingredient_quantities(None, None).unwrap(), None);
     }
 }
