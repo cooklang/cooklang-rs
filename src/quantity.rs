@@ -178,8 +178,8 @@ impl Display for Quantity {
 
 /// Text written so the quantity reader gives it back as it is.
 ///
-/// - `{`, `}` and line breaks would end the braces or the line: spaces
-///   instead.
+/// - `{` and line breaks would start the braces anew or end the line:
+///   spaces instead. `}` would end the braces: `\}`.
 /// - `\` escapes the next character when read: `\\`.
 /// - `--` and `[-` open a comment: a `-` after `-` or `[` is `\-`.
 /// - In a value (`in_value`), `%` would start the unit (`\%`) and a leading
@@ -188,13 +188,14 @@ fn escape_text(text: &str, in_value: bool) -> String {
     let mut out = String::with_capacity(text.len());
     let mut leading = true;
     for c in text.chars() {
-        let c = if matches!(c, '{' | '}' | '\n' | '\r') {
+        let c = if matches!(c, '{' | '\n' | '\r') {
             ' '
         } else {
             c
         };
         match c {
             '\\' => out.push_str("\\\\"),
+            '}' => out.push_str("\\}"),
             '%' if in_value => out.push_str("\\%"),
             '=' if in_value && leading => out.push_str("\\="),
             '-' if matches!(out.chars().next_back(), Some('-' | '[')) => out.push_str("\\-"),
@@ -268,8 +269,8 @@ impl Quantity {
     /// escaped (`\%`, `\=`, `\-`, `\\`, `\2` for the text `2`). Numbers are
     /// written in full precision, never rounded like [`Display`].
     ///
-    /// Not guaranteed to read back the same: `{`, `}` and line breaks (written
-    /// as spaces), whitespace at either end or repeated inside text and units
+    /// Not guaranteed to read back the same: `{` and line breaks (written as
+    /// spaces), whitespace at either end or repeated inside text and units
     /// (the reader trims and collapses it), an empty unit, an empty text
     /// without a unit, ranges (read as text, as shopping lists have no range
     /// values), and negative, NaN or infinite numbers or fractions with a zero
@@ -937,7 +938,7 @@ mod tests {
     fn to_cooklang_never_breaks_the_braces_or_the_line() {
         assert_eq!(
             q(Value::Text("a {big}\npinch".into()), Some("c}u\rp")).to_cooklang(),
-            "a  big  pinch%c u p"
+            "a  big\\} pinch%c\\}u p"
         );
     }
 
@@ -988,7 +989,7 @@ mod tests {
     fn to_cooklang_text_property() {
         const PIECES: &[&str] = &[
             "\\", "%", "=", "-", "[", "]", "{", "0", "1", "2", "/", ".", " ", "a", "b", "--", "[-",
-            "-]", "\\-", "1/2", "1 1/2", "==",
+            "-]", "\\-", "1/2", "1 1/2", "==", "}", "\\}",
         ];
         let mut seed = 0x9e37_79b9_7f4a_7c15_u64;
         let mut next = move || {

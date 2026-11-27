@@ -1090,6 +1090,11 @@ olive oil{4%l}
             ("x{a\\-b}", "a-b", None),
             ("x{\\½}", "½", None),
             ("x{\\🧂1%l}", "🧂1", Some("l")),
+            ("x{\\}}", "}", None),
+            ("x{}}", "}", None),
+            ("x{a\\}b}", "a}b", None),
+            ("x{2%a\\}b}", "", None),
+            ("x{a}b}", "a}b", None),
             ("x{\\\u{a0}2}", "", None),
         ];
         for &(line, text, unit) in cases {
@@ -1130,7 +1135,7 @@ olive oil{4%l}
     fn text_quantities_survive_a_list_rewrite() {
         const PIECES: &[&str] = &[
             "\\", "%", "=", "-", "[", "]", "0", "1", "/", ".", " ", "a", "--", "[-", "-]", "1/2",
-            "==", "#", "?", "@",
+            "==", "#", "?", "@", "}", "\\}",
         ];
         let mut seed = 0x2545_f491_4f6c_dd1d_u64;
         let mut next = move || {
