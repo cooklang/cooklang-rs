@@ -67,4 +67,55 @@ mod name;
 pub use name::cleaned_name;
 mod aisle_match;
 mod list;
+mod model;
 mod rules;
+
+pub use model::{IngredientModel, ModelError, ModelParse, MODEL_CONFIDENCE_THRESHOLD};
+
+use cooklang::aisle::AisleConf;
+
+/// Parses one typed ingredient line.
+///
+/// The rules decide first. `model`, when given, is asked only about a line
+/// whose first word is a number and whose amount the rules did not take
+/// from the end; its answer is used at [`MODEL_CONFIDENCE_THRESHOLD`] or
+/// above. With `aisle`, the final name is matched against the configuration
+/// ignoring case and simple English plurals, and takes its spelling.
+pub fn parse_ingredient(
+    line: &str,
+    aisle: Option<&AisleConf>,
+    model: Option<&dyn IngredientModel>,
+) -> ParsedIngredient {
+    let rules = rules::recognize(line);
+    let model_answer = model
+        .filter(|_| model::should_ask(line, &rules))
+        .and_then(|model| model::accept(model.parse_line(line)));
+    let mut parsed = model_answer.unwrap_or(ParsedIngredient {
+        name: cleaned_name(&rules.name),
+        amount: rules.amount,
+        size: None,
+        prep: None,
+        comment: None,
+        confidence: 1.0,
+        source: ParseSource::Rules,
+        aisle_match: None,
+    });
+    if let Some(found) = aisle.and_then(|aisle| aisle_match::find(aisle, &parsed.name)) {
+        parsed.name = found.name.clone();
+        parsed.aisle_match = Some(found);
+    }
+    parsed
+}
+
+/// Parses pasted text: one result per non-blank line, without bullets,
+/// checkboxes or Markdown headings.
+pub fn parse_ingredient_list(
+    text: &str,
+    aisle: Option<&AisleConf>,
+    model: Option<&dyn IngredientModel>,
+) -> Vec<ParsedIngredient> {
+    list::split_lines(text)
+        .iter()
+        .map(|line| parse_ingredient(line, aisle, model))
+        .collect()
+}
