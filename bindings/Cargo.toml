@@ -12,6 +12,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0"
 cooklang = { path = "..", default-features = false, features = ["aisle", "shopping_list"] }
+cooklang-ingredient-parser = { version = "0.20.0", path = "../ingredient-parser" }
 thiserror = "2"
 uniffi = "0.32.2"
 

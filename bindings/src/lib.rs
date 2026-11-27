@@ -5,6 +5,7 @@ use cooklang::metadata::StdKey as OriginalStdKey;
 
 pub mod aisle;
 pub mod model;
+pub mod ingredient_parser;
 pub mod shopping_list;
 
 use aisle::*;
