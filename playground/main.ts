@@ -24,7 +24,6 @@ const EXTENSIONS: [string, string, number][] = [
     ["ADVANCED_UNITS", "Advanced units", 1 << 5],
     ["MODES", "Modes ([mode]: …)", 1 << 6],
     ["INLINE_QUANTITIES", "Inline quantities", 1 << 7],
-    ["RANGE_VALUES", "Ranges {2-3}", 1 << 9],
     ["TIMER_REQUIRES_TIME", "Timers require a time", 1 << 10],
     ["INTERMEDIATE_PREPARATIONS", "Intermediate preparations", (1 << 11) | (1 << 1)],
 ];

@@ -1,6 +1,12 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- (breaking) Range values (`@garlic{2-3%cloves}`, `~{25-30%minutes}`) are core syntax (spec proposal 0011): they are parsed without `Extensions::RANGE_VALUES`, which now does nothing. The canonical parser (`CooklangParser::canonical()`, used by the Swift/Kotlin bindings' `parse_recipe`) and shopping list quantities return `Value::Range` where they returned text before. A range with a unit but no `%` (`{1-2 handfuls}`) still needs `ADVANCED_UNITS`
+- The en dash `–` and em dash `—` are range separators like `-`, with or without extensions: `{2–3}` was text even with `RANGE_VALUES`. Ranges are written back with `-` (`Quantity::to_cooklang`), and a text value that reads as a range is escaped (`\1-2`)
+- A range whose start is larger than its end (`{3-2}`) is kept as written, with a warning
+- bindings: `combine_ingredients` and the other ingredient-list merges add a plain number to both ends of a range in the same unit, instead of keeping a `Number` and a `Range` group side by side (`@garlic{2}` + `@garlic{1-2}` is one `Range` group, 3-4)
+- Canonical tests v9: range cases, `quantity: {start, end}` in the test runner
+- Playground: the "Ranges" extension toggle is gone, as ranges are always on
 
 ## 0.22.0 - 2026-11-27
 - (breaking) Shopping lists: `IngredientItem.quantity` is an `Option<Quantity>`, parsed with the recipe quantity grammar (no extensions) and written back with the new `Quantity::to_cooklang`. A quantity never makes a line fail to parse: what the grammar can't read as a number stays text. Rewriting a list normalises spellings (`0.50%kg` → `0.5%kg`, `2%` → `2`, `{}` → no braces, extra spaces collapsed, `{` inside text → a space); values are unchanged, and text is escaped so it reads back as the same text. The JSON shape of `IngredientItem` changes accordingly (`quantity` was a string)

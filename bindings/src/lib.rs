@@ -1435,6 +1435,81 @@ Combine @cheese{100%g} and @spinach{50%g}, then season to taste.
     }
 
     #[test]
+    fn test_parse_recipe_ranges() {
+        use crate::{parse_recipe, Amount, Value};
+
+        let recipe = parse_recipe(
+            "Fry @garlic{2-3%cloves} for ~{25–30%minutes}.".to_string(),
+            2.0,
+        );
+        assert_eq!(
+            recipe.ingredients[0].amount,
+            Some(Amount {
+                quantity: Value::Range {
+                    start: 4.0,
+                    end: 6.0
+                },
+                units: Some("cloves".to_string()),
+            })
+        );
+        assert_eq!(
+            recipe.timers[0].amount,
+            Some(Amount {
+                quantity: Value::Range {
+                    start: 25.0,
+                    end: 30.0
+                },
+                units: Some("minutes".to_string()),
+            })
+        );
+    }
+
+    #[test]
+    fn test_combine_ingredients_numbers_and_ranges() {
+        use crate::{combine_ingredients, parse_recipe, GroupedQuantityKey, QuantityType, Value};
+        use std::collections::HashMap;
+
+        let recipe = parse_recipe(
+            "@garlic{2} @garlic{1-2} @eggs{1-2} @eggs{3} \
+             @water{100-150%ml} @water{50-100%ml} @flour{100%g} @flour{1-2%tbsp}"
+                .to_string(),
+            1.0,
+        );
+        let combined = combine_ingredients(&recipe.ingredients);
+        let key = |name: &str, unit_type| GroupedQuantityKey {
+            name: name.to_string(),
+            unit_type,
+        };
+        let range = |start, end| Value::Range { start, end };
+
+        // number first, then range
+        assert_eq!(
+            combined["garlic"],
+            HashMap::from([(key("", QuantityType::Range), range(3.0, 4.0))])
+        );
+        // range first, then number
+        assert_eq!(
+            combined["eggs"],
+            HashMap::from([(key("", QuantityType::Range), range(4.0, 5.0))])
+        );
+        assert_eq!(
+            combined["water"],
+            HashMap::from([(key("ml", QuantityType::Range), range(150.0, 250.0))])
+        );
+        // different units stay separate
+        assert_eq!(
+            combined["flour"],
+            HashMap::from([
+                (
+                    key("g", QuantityType::Number),
+                    Value::Number { value: 100.0 }
+                ),
+                (key("tbsp", QuantityType::Range), range(1.0, 2.0)),
+            ])
+        );
+    }
+
+    #[test]
     fn test_recipe_reference() {
         use crate::{parse_recipe, RecipeReference};
 

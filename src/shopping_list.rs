@@ -55,8 +55,9 @@ pub struct IngredientItem {
     /// Optional quantity (`4%l`, `500%g`, `2`, `a pinch` in the file).
     ///
     /// Parsed from the text between the braces alone with the recipe quantity
-    /// grammar and no extensions, so `1-2` is text and the name is never read
-    /// as Cooklang; written back with [`Quantity::to_cooklang`].
+    /// grammar and no extensions, so `1-2` is a range (as in a recipe) and the
+    /// name is never read as Cooklang; written back with
+    /// [`Quantity::to_cooklang`].
     pub quantity: Option<Quantity>,
     /// Accepted optional ingredient of the parent recipe, written as a
     /// selection line (`? name{quantity}`). The quantity is the final amount
@@ -1049,6 +1050,40 @@ olive oil{4%l}
         let mut out = Vec::new();
         write(&parse(input).unwrap(), &mut out).unwrap();
         assert_eq!(String::from_utf8(out).unwrap(), input);
+    }
+
+    #[test]
+    fn ranges_are_read_and_written_with_a_hyphen() {
+        let input = "garlic{2–3%cloves}\n./Soup{2}\n  ? chilli flakes{1-2%pinch}\nwater{1 - 2%l}\n";
+        let list = parse(input).unwrap();
+        let range = |start: f64, end: f64, unit: &str| {
+            Some(Quantity::new(
+                crate::quantity::Value::Range {
+                    start: start.into(),
+                    end: end.into(),
+                },
+                Some(unit.to_string()),
+            ))
+        };
+        let ShoppingListItem::Ingredient(garlic) = &list.items[0] else {
+            panic!("expected ingredient");
+        };
+        assert_eq!(garlic.quantity, range(2.0, 3.0, "cloves"));
+        let ShoppingListItem::Recipe(soup) = &list.items[1] else {
+            panic!("expected recipe");
+        };
+        let ShoppingListItem::Ingredient(chilli) = &soup.children[0] else {
+            panic!("expected selection line");
+        };
+        assert!(chilli.optional);
+        assert_eq!(chilli.quantity, range(1.0, 2.0, "pinch"));
+
+        let mut out = Vec::new();
+        write(&list, &mut out).unwrap();
+        assert_eq!(
+            String::from_utf8(out).unwrap(),
+            "garlic{2-3%cloves}\n./Soup{2}\n  ? chilli flakes{1-2%pinch}\nwater{1-2%l}\n"
+        );
     }
 
     #[test]

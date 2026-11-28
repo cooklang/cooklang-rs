@@ -52,6 +52,11 @@ enum TestStepItem {
 enum TestValue {
     Number(f64),
     Text(String),
+    /// `quantity: {start: 2, end: 3}`
+    Range {
+        start: f64,
+        end: f64,
+    },
 }
 
 mod canonical_cases;
@@ -174,7 +179,10 @@ impl TestValue {
     fn from_cooklang_value(value: Value) -> Self {
         match value {
             Value::Number(num) => TestValue::Number(num.value()),
-            Value::Range { .. } => panic!("unexpected range value"),
+            Value::Range { start, end } => TestValue::Range {
+                start: start.value(),
+                end: end.value(),
+            },
             Value::Text(value) => TestValue::Text(value),
         }
     }

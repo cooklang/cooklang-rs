@@ -909,6 +909,165 @@ source: 'Did you add the @salt{}?
   '
 "#
 ; "QuestionMarkAfterIngredient")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: garlic
+      quantity:
+        end: 3
+        start: 2
+      type: ingredient
+      units: cloves
+source: '@garlic{2-3%cloves}
+
+  '
+"#
+; "IngredientRange")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: chilli flakes
+      quantity:
+        end: 1
+        start: 0.5
+      type: ingredient
+      units: tsp
+source: '@chilli flakes{1/2-1%tsp}
+
+  '
+"#
+; "IngredientRangeFraction")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: cream
+      quantity:
+        end: 2.25
+        start: 1.5
+      type: ingredient
+      units: cups
+source: '@cream{1.5-2.25%cups}
+
+  '
+"#
+; "IngredientRangeDecimal")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: flour
+      quantity:
+        end: 2
+        start: 1.5
+      type: ingredient
+      units: cups
+source: '@flour{1 1/2-2%cups}
+
+  '
+"#
+; "IngredientRangeMixedNumber")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: eggs
+      quantity:
+        end: 3
+        start: 2
+      type: ingredient
+      units: ''
+source: '@eggs{2 - 3}
+
+  '
+"#
+; "IngredientRangeWithSpaces")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: 'Bake for '
+    - name: ''
+      quantity:
+        end: 30
+        start: 25
+      type: timer
+      units: minutes
+source: 'Bake for ~{25-30%minutes}
+
+  '
+"#
+; "TimerRange")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: eggs
+      quantity: 2-
+      type: ingredient
+      units: ''
+source: '@eggs{2-}
+
+  '
+"#
+; "RangeOpenEndedIsText")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: eggs
+      quantity: 1-2-3
+      type: ingredient
+      units: ''
+source: '@eggs{1-2-3}
+
+  '
+"#
+; "RangeThreeNumbersIsText")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: eggs
+      quantity:
+        end: 3
+        start: 2
+      type: ingredient
+      units: ''
+source: '@eggs{2–3}
+
+  '
+"#
+; "IngredientRangeEnDash")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: water
+      quantity: 1-2 handfuls
+      type: ingredient
+      units: ''
+source: '@water{1-2 handfuls}
+
+  '
+"#
+; "RangeLikeTextStaysText")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - name: milk
+      quantity: 0.5
+      type: ingredient
+      units: cup
+source: '@milk{.5%cup}
+
+  '
+"#
+; "DecimalWithoutLeadingZero")]
 fn canonical(input: &str) {
     let test_case: TestCase = serde_yaml::from_str(input).expect("Bad YAML input");
     runner(test_case);

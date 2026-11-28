@@ -133,15 +133,22 @@ Preheat the #oven to 180 ºC.
 ```
 
 ## Range values
-Recipes are not always exact. This is a little improvement that should help
-comunicating that in some cases.
+Range values are part of the [Cooklang
+specification](https://cooklang.org/docs/spec/#ranges) and are always parsed,
+even without this extension; `Extensions::RANGE_VALUES` does nothing and is
+kept for compatibility.
 
 ```cooklang
 @eggs{2-4}
 @tomato sauce{200-300%ml}            -- works with units
 @water{1.5-2%l}                      -- with decimal numbers too
+@eggs{2–3}                           -- en and em dashes work too
 @flour{100%g} ... @&flour{200-400%g} -- the total will be 300-500 g
 ```
+
+With the [advanced units](#advanced-units) extension a range can also take a
+unit without `%`, as in `@water{1-2 handfuls}`; without it that quantity is
+text.
 
 ## Timer requires time
 Just an extra rule that makes timers like `~name` invalid.
