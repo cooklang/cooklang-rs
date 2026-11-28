@@ -3,10 +3,9 @@
 use indexmap::IndexMap;
 use serde::Serialize;
 
-use crate::{
-    aisle::AisleConf, convert::Converter, model::Ingredient, quantity::GroupedQuantity, Cookware,
-    Recipe,
-};
+#[cfg(feature = "aisle")]
+use crate::aisle::AisleConf;
+use crate::{convert::Converter, model::Ingredient, quantity::GroupedQuantity, Cookware, Recipe};
 
 /// Ingredient with all quantities from it's references and itself grouped.
 ///
@@ -362,6 +361,7 @@ impl IngredientList {
     /// Categories and ingredients within each category are returned in the same
     /// order as they appear in the aisle configuration.
     /// Ingredients without category will be placed in `"other"`.
+    #[cfg(feature = "aisle")]
     pub fn categorize(self, aisle: &AisleConf) -> CategorizedIngredientList {
         // Build a lookup from the shopping list (lowercase name -> (original_name, quantity))
         let mut shopping_lookup: IndexMap<String, (String, GroupedQuantity)> = self
@@ -415,6 +415,7 @@ impl IngredientList {
     /// Replace names of ingredients with common names given by aisle configuration.
     ///
     /// Matching is case-insensitive.
+    #[cfg(feature = "aisle")]
     pub fn use_common_names(self, aisle: &AisleConf, converter: &Converter) -> Self {
         let ingredients_info = aisle.ingredients_info();
         let mut normalized = Self::new();
@@ -521,7 +522,7 @@ impl Iterator for CategorizedIntoIter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "aisle", feature = "bundled_units"))]
 mod tests {
     use super::*;
     use crate::{CooklangParser, Extensions};
