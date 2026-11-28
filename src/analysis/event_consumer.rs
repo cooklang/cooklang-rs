@@ -1035,8 +1035,10 @@ impl<'i> RecipeCollector<'i, '_> {
             return (value.into_inner(), true);
         }
 
-        // Warn if scaling lock is used unnecessarily (on non-ingredients or text values)
-        if has_scaling_lock {
+        // Warn if scaling lock is used unnecessarily (on non-ingredients or text values).
+        // A numeric ingredient with a lock also gets here, and there the lock is what keeps it
+        // from scaling.
+        if has_scaling_lock && (!is_ingredient || is_text) {
             let mut warning = warning!(
                 "Unnecessary scaling lock modifier",
                 label!(value.span(), "this scaling lock has no effect")
