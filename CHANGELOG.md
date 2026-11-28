@@ -1,6 +1,13 @@
 # Change Log
 
 ## Unreleased - ReleaseDate
+- (breaking) Inline formatting in notes (spec proposal 0022): emphasis (`*text*`, `_text_`), strong emphasis (`**text**`, `__text__`) and links (`[text](destination)`) are read in `>` notes with the CommonMark 0.31.2 rules; nothing else of Markdown is. An escaped character (`\*`, `\_`, `\[`) never opens or closes formatting. Steps, metadata, section names and ingredient notes are unchanged
+- (breaking) `Content::Text` holds a `Note` instead of a `String`: a list of `TextRun`s with `value` and optional `strong`, `emphasis` and `link`. `Note::text()` (and `Display`) gives the plain text, which for a note without formatting is the same string as before. `Content::unwrap_text` returns `&Note`
+- Serialized, a text content keeps `{"type": "text", "value": <plain text>}` and adds `items` with the runs; JSON without `items` still deserializes. The plain `value` no longer contains the formatting delimiters
+- `TextFragmentKind::Escaped` and `TextFragment::kind()`: the text of note blocks keeps escaped characters as their own fragments
+- (breaking) bindings: `BlockNote` gains `items: [TextRun]`; `text` stays and is the plain text
+- typescript: the `Content` type has `items` for text; the HTML renderer shows bold, italic and `http`/`https`/`mailto` links in notes
+- Canonical tests v10: note cases, `notes` in the test runner
 
 ## 0.23.0 - 2026-11-28
 - (breaking) Range values (`@garlic{2-3%cloves}`, `~{25-30%minutes}`) are core syntax (spec proposal 0011): they are parsed without `Extensions::RANGE_VALUES`, which now does nothing. The canonical parser (`CooklangParser::canonical()`, used by the Swift/Kotlin bindings' `parse_recipe`) and shopping list quantities return `Value::Range` where they returned text before. A range with a unit but no `%` (`{1-2 handfuls}`) still needs `ADVANCED_UNITS`

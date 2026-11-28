@@ -1101,6 +1101,37 @@ egg | eggs
     }
 
     #[test]
+    fn test_parse_recipe_with_formatted_note() {
+        use crate::{parse_recipe, Block, TextRun};
+
+        let recipe = parse_recipe(
+            "> **Make ahead:** keeps *3 days*, see [shaping](<./Basic dough.cook>).\n".to_string(),
+            1.0,
+        );
+        let Block::NoteBlock(note) = &recipe.sections[0].blocks[0] else {
+            panic!("Expected a note");
+        };
+        assert_eq!(note.text, "Make ahead: keeps 3 days, see shaping.");
+        let run = |value: &str, strong, emphasis, link: Option<&str>| TextRun {
+            value: value.to_string(),
+            strong,
+            emphasis,
+            link: link.map(str::to_string),
+        };
+        assert_eq!(
+            note.items,
+            vec![
+                run("Make ahead:", true, false, None),
+                run(" keeps ", false, false, None),
+                run("3 days", false, true, None),
+                run(", see ", false, false, None),
+                run("shaping", false, false, Some("./Basic dough.cook")),
+                run(".", false, false, None),
+            ]
+        );
+    }
+
+    #[test]
     fn test_parse_recipe_with_note() {
         use crate::{parse_recipe, Block, Item};
 

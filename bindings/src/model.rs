@@ -81,7 +81,44 @@ pub struct Step {
 /// A text note within the recipe
 #[derive(uniffi::Record, Debug, Clone)]
 pub struct BlockNote {
+    /// The plain text of the note, without formatting
     pub text: String,
+    /// The note as runs of formatted text (spec proposal 0022)
+    ///
+    /// Joining the `value` of every run gives `text`. A note without
+    /// formatting has a single run.
+    pub items: Vec<TextRun>,
+}
+
+/// A stretch of text in a note with the same formatting
+///
+/// Nested formatting is flattened, so a run can be both `strong` and
+/// `emphasis`, and the consecutive runs of a link share its `link`.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct TextRun {
+    /// The text, with delimiters and escapes removed
+    pub value: String,
+    /// Strong emphasis (`**text**`), usually shown in bold
+    pub strong: bool,
+    /// Emphasis (`*text*`), usually shown in italics
+    pub emphasis: bool,
+    /// Destination of the link the run is in, as written
+    ///
+    /// Untrusted: open only `http:`, `https:` and `mailto:` destinations,
+    /// and scheme-less paths that resolve inside the recipe collection.
+    /// Show the text of anything else as plain text.
+    pub link: Option<String>,
+}
+
+impl From<&cooklang::TextRun> for TextRun {
+    fn from(run: &cooklang::TextRun) -> Self {
+        TextRun {
+            value: run.value.clone(),
+            strong: run.strong,
+            emphasis: run.emphasis,
+            link: run.link.clone(),
+        }
+    }
 }
 
 /// Represents a reference to another recipe file
@@ -653,7 +690,8 @@ pub(crate) fn into_simple_recipe(recipe: &OriginalRecipe) -> CooklangRecipe {
 
                 cooklang::Content::Text(text) => {
                     blocks.push(Block::NoteBlock(BlockNote {
-                        text: text.to_string(),
+                        text: text.text(),
+                        items: text.items.iter().map(TextRun::from).collect(),
                     }));
                 }
             }

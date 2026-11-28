@@ -70,14 +70,88 @@ impl Section {
 }
 
 /// Each type of content inside a section
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[cfg_attr(feature = "ts", derive(Tsify))]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+///
+/// Serialized as `{"type": "step", "value": <step>}` or, for text,
+/// `{"type": "text", "value": <plain text>, "items": [<runs>]}`. The plain
+/// `value` is the shape from before notes had formatting, so consumers that
+/// read only it keep working. `items` is optional when deserializing.
+#[derive(Debug, PartialEq, Clone)]
 pub enum Content {
     /// A step
     Step(Step),
     /// A paragraph of just text, no instructions
-    Text(String),
+    Text(Note),
+}
+
+impl Serialize for Content {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        #[serde(tag = "type", rename_all = "camelCase")]
+        enum Repr<'a> {
+            Step { value: &'a Step },
+            Text { value: String, items: &'a [TextRun] },
+        }
+        match self {
+            Content::Step(step) => Repr::Step { value: step },
+            Content::Text(note) => Repr::Text {
+                value: note.text(),
+                items: &note.items,
+            },
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Content {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(tag = "type", rename_all = "camelCase")]
+        enum Repr {
+            Step {
+                value: Step,
+            },
+            Text {
+                value: String,
+                #[serde(default)]
+                items: Option<Vec<TextRun>>,
+            },
+        }
+        Ok(match Repr::deserialize(deserializer)? {
+            Repr::Step { value } => Content::Step(value),
+            Repr::Text {
+                items: Some(items), ..
+            } => Content::Text(Note { items }),
+            Repr::Text { value, items: None } => Content::Text(Note::plain(value)),
+        })
+    }
+}
+
+/// TypeScript type of [`Content`], which has its own serialization
+#[cfg(feature = "ts")]
+mod content_ts {
+    use super::{Step, TextRun};
+    use tsify::Tsify;
+
+    /// Each type of content inside a section
+    #[derive(Tsify)]
+    #[serde(tag = "type", rename_all = "camelCase")]
+    #[allow(dead_code)]
+    enum Content {
+        Step {
+            value: Step,
+        },
+        Text {
+            /// The plain text
+            value: String,
+            /// Formatted runs of the text
+            items: Vec<TextRun>,
+        },
+    }
+
+    #[test]
+    fn declaration_is_named_content() {
+        assert!(<Content as Tsify>::DECL.contains("export type Content = "));
+    }
 }
 
 impl Content {
@@ -102,15 +176,126 @@ impl Content {
         }
     }
 
-    /// Get's the inner step
+    /// Get's the inner text
     ///
     /// # Panics
     /// If the content is [`Content::Step`]
-    pub fn unwrap_text(&self) -> &str {
+    pub fn unwrap_text(&self) -> &Note {
         match self {
             Content::Step(_) => panic!("content is step"),
-            Content::Text(t) => t.as_str(),
+            Content::Text(t) => t,
         }
+    }
+}
+
+/// A paragraph of text that is not a step: a note (`> ...`)
+///
+/// A note is a list of [`TextRun`]s, each a stretch of text with the same
+/// formatting. Notes are the only place where inline formatting (emphasis,
+/// strong emphasis and links) is read, see spec proposal 0022.
+///
+/// The plain text of the note, without any formatting, is [`Note::text`].
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
+pub struct Note {
+    /// Runs of text, in order
+    ///
+    /// Adjacent runs never have the same formatting and no run is empty, so
+    /// a note without formatting has a single run (or none if it is empty).
+    pub items: Vec<TextRun>,
+}
+
+impl Note {
+    /// A note of plain text, without formatting
+    pub fn plain(text: impl Into<String>) -> Self {
+        let value = text.into();
+        let items = if value.is_empty() {
+            vec![]
+        } else {
+            vec![TextRun::plain(value)]
+        };
+        Self { items }
+    }
+
+    /// The plain text of the note
+    ///
+    /// This is the text of every run joined together, for consumers that do
+    /// not show formatting.
+    pub fn text(&self) -> String {
+        self.items.iter().map(|r| r.value.as_str()).collect()
+    }
+
+    /// Checks if any run has formatting or a link
+    pub fn is_formatted(&self) -> bool {
+        self.items.iter().any(|r| !r.is_plain())
+    }
+}
+
+impl std::fmt::Display for Note {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for run in &self.items {
+            f.write_str(&run.value)?;
+        }
+        Ok(())
+    }
+}
+
+impl From<String> for Note {
+    fn from(value: String) -> Self {
+        Self::plain(value)
+    }
+}
+
+impl From<&str> for Note {
+    fn from(value: &str) -> Self {
+        Self::plain(value)
+    }
+}
+
+/// A stretch of text in a [`Note`] with the same formatting
+///
+/// Nested formatting is flattened: the text of `**a *b***` is two runs, both
+/// `strong`, the second also `emphasis`.
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[cfg_attr(feature = "ts", derive(Tsify))]
+#[serde(tag = "type", rename = "text")]
+pub struct TextRun {
+    /// The text, with delimiters and escapes removed
+    pub value: String,
+    /// Inside strong emphasis (`**text**`, `__text__`)
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub strong: bool,
+    /// Inside emphasis (`*text*`, `_text_`)
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub emphasis: bool,
+    /// Destination of the link (`[text](destination)`) the run is in
+    ///
+    /// This is returned as written, without resolving or validating it. A
+    /// destination is untrusted input: see the proposal for which ones an
+    /// application may make active.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub link: Option<String>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+impl TextRun {
+    /// A run without formatting
+    pub fn plain(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            ..Default::default()
+        }
+    }
+
+    /// Checks if the run has no formatting and no link
+    pub fn is_plain(&self) -> bool {
+        !self.strong && !self.emphasis && self.link.is_none()
+    }
+
+    pub(crate) fn same_format(&self, other: &Self) -> bool {
+        self.strong == other.strong && self.emphasis == other.emphasis && self.link == other.link
     }
 }
 

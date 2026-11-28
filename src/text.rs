@@ -100,7 +100,7 @@ impl<'a> Text<'a> {
         let mut s = Cow::default();
         for f in self.fragments() {
             let text = match f.kind {
-                TextFragmentKind::Text => f.text,
+                TextFragmentKind::Text | TextFragmentKind::Escaped => f.text,
                 TextFragmentKind::SoftBreak => " ",
             };
             s += text;
@@ -199,6 +199,11 @@ pub struct TextFragment<'a> {
 pub enum TextFragmentKind {
     Text,
     SoftBreak,
+    /// A character escaped with a backslash, without the backslash
+    ///
+    /// Only the text of note blocks marks escapes, elsewhere escaped
+    /// characters are part of [`TextFragmentKind::Text`] fragments.
+    Escaped,
 }
 
 impl<'a> TextFragment<'a> {
@@ -216,6 +221,19 @@ impl<'a> TextFragment<'a> {
             offset,
             kind: TextFragmentKind::SoftBreak,
         }
+    }
+
+    pub(crate) fn escaped(text: &'a str, offset: usize) -> Self {
+        Self {
+            text,
+            offset,
+            kind: TextFragmentKind::Escaped,
+        }
+    }
+
+    /// Kind of the fragment
+    pub fn kind(&self) -> TextFragmentKind {
+        self.kind
     }
 
     /// Get the inner text
@@ -244,6 +262,7 @@ impl Debug for TextFragment<'_> {
         match self.kind {
             TextFragmentKind::Text => write!(f, "{:?}", self.text),
             TextFragmentKind::SoftBreak => write!(f, "SoftBreak({:?})", self.text),
+            TextFragmentKind::Escaped => write!(f, "Escaped({:?})", self.text),
         }?;
         write!(f, " @ {:?}", self.span())
     }
