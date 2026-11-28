@@ -1615,6 +1615,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "bundled_units")]
     #[test]
     fn test_find_inline_quantity() {
         let conv = Converter::bundled();

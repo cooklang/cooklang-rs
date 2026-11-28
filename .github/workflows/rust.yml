@@ -29,7 +29,9 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Build without default features
-      run: cargo build --verbose --no-default-features
+      run: cargo build --verbose --no-default-features --all-targets
+    - name: Run tests without default features
+      run: cargo test --verbose --no-default-features
 
   fuzz:
     runs-on: ubuntu-latest

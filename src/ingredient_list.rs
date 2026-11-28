@@ -41,6 +41,7 @@ impl Recipe {
     /// merge different recipes, see [`IngredientList`].
     ///
     /// ```
+    /// # #[cfg(feature = "bundled_units")] {
     /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser.parse("@flour{1000%g} @water @&flour{100%g}")
@@ -59,6 +60,7 @@ impl Recipe {
     /// let water = &grouped[1];
     /// assert_eq!(water.ingredient.name, "water");
     /// assert!(water.quantity.is_empty());
+    /// # }
     /// ```
     pub fn group_ingredients<'a>(&'a self, converter: &Converter) -> Vec<GroupedIngredient<'a>> {
         let mut list = Vec::new();
@@ -734,7 +736,7 @@ apple
     }
 }
 
-#[cfg(all(test, feature = "pantry"))]
+#[cfg(all(test, feature = "pantry", feature = "bundled_units"))]
 mod pantry_tests {
     use super::*;
     use crate::{CooklangParser, Extensions};
@@ -896,6 +898,7 @@ sugar = "500%g"
         assert!(!result.iter().any(|(name, _)| name.as_str() == "sugar"));
     }
 
+    #[cfg(feature = "aisle")]
     #[test]
     fn test_use_common_names() {
         let converter = Converter::bundled();

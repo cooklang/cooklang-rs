@@ -1,4 +1,4 @@
-use cooklang::{Content, CooklangParser, Extensions, Item, Value};
+use cooklang::{Content, CooklangParser, Extensions};
 use indoc::indoc;
 use test_case::test_case;
 
@@ -188,8 +188,11 @@ fn single_line_no_separator() {
     assert_eq!(r.metadata.map.len(), 1);
 }
 
+#[cfg(feature = "bundled_units")]
 #[test]
 fn multiple_temperatures() {
+    use cooklang::{Item, Value};
+
     let input = "text 2ºC more text 150 F end text";
     let parser = CooklangParser::new(Extensions::all(), Default::default());
     let r = parser.parse(input).unwrap_output();
@@ -219,6 +222,7 @@ fn multiple_temperatures() {
     );
 }
 
+#[cfg(feature = "bundled_units")]
 #[test_case("Heat to 230°C, or 200°C with convection."
     => ["Heat to ", "[230 °C]", ", or ", "[200 °C]", " with convection."]; "compact temperatures")]
 #[test_case("Add 1ml." => ["Add ", "[1 ml]", "."]; "compact volume")]
@@ -229,6 +233,8 @@ fn multiple_temperatures() {
 #[test_case("Add (1 tsp.), then stir."
     => ["Add (", "[1 tsp.]", "), then stir."]; "punctuated unit symbol")]
 fn inline_quantity_boundaries(input: &str) -> Vec<String> {
+    use cooklang::Item;
+
     let parser = CooklangParser::new(Extensions::INLINE_QUANTITIES, Default::default());
     let recipe = parser.parse(input).unwrap_output();
     let Content::Step(step) = &recipe.sections[0].content[0] else {

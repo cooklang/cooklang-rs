@@ -58,10 +58,16 @@ ts = ["wasm-bindgen", "tsify"]
 [[bench]]
 name = "parse"
 harness = false
+required-features = ["bundled_units"]
 
 [[bench]]
 name = "convert"
 harness = false
+required-features = ["bundled_units"]
+
+[[example]]
+name = "time"
+required-features = ["bundled_units"]
 
 [workspace]
 members = [".", "typescript", "bindings", "fuzz", "ingredient-parser"]
