@@ -272,9 +272,9 @@ impl Quantity {
     /// Not guaranteed to read back the same: `{` and line breaks (written as
     /// spaces), whitespace at either end or repeated inside text and units
     /// (the reader trims and collapses it), an empty unit, an empty text
-    /// without a unit, ranges (read as text, as shopping lists have no range
-    /// values), and negative, NaN or infinite numbers or fractions with a zero
-    /// denominator.
+    /// without a unit, and negative, NaN or infinite numbers or fractions with
+    /// a zero denominator. Ranges are written with a hyphen-minus and no
+    /// spaces (`1-2%cup`), so one read with an en or em dash is normalised.
     pub fn to_cooklang(&self) -> String {
         let value = self.value.to_cooklang();
         match &self.unit {
@@ -923,14 +923,19 @@ mod tests {
             start: Number::Regular(1.0),
             end: Number::Regular(2.0),
         };
-        assert_eq!(q(range, Some("cup")).to_cooklang(), "1-2%cup");
+        assert_eq!(q(range.clone(), Some("cup")).to_cooklang(), "1-2%cup");
+        assert_eq!(
+            read_back(&q(range.clone(), Some("cup"))),
+            Some(q(range, Some("cup")))
+        );
         assert_eq!(
             q(Value::Text("a pinch".into()), None).to_cooklang(),
             "a pinch"
         );
+        // Text that reads as a range is escaped so it stays text.
         assert_eq!(
             q(Value::Text("1-2".into()), Some("cup")).to_cooklang(),
-            "1-2%cup"
+            "\\1-2%cup"
         );
     }
 
@@ -958,8 +963,10 @@ mod tests {
         assert_eq!(t("2").to_cooklang(), "\\2");
         assert_eq!(t("1/2").to_cooklang(), "\\1/2");
         assert_eq!(t(".5").to_cooklang(), "\\.5");
+        assert_eq!(t("1-2").to_cooklang(), "\\1-2");
+        assert_eq!(t("1–2").to_cooklang(), "\\1–2");
         // Text the reader already reads as text needs no escape.
-        assert_eq!(t("1-2").to_cooklang(), "1-2");
+        assert_eq!(t("1-2-3").to_cooklang(), "1-2-3");
         assert_eq!(t("1,5").to_cooklang(), "1,5");
         assert_eq!(t("1/0").to_cooklang(), "1/0");
         assert_eq!(t("01").to_cooklang(), "01");
@@ -977,6 +984,7 @@ mod tests {
             t("a%b"),
             t("=2"),
             t("2"),
+            t("1-2"),
             t("a\\b"),
         ] {
             assert_eq!(format!("{:?}", read_back(&q)), format!("{:?}", Some(&q)));

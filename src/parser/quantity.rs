@@ -128,6 +128,7 @@ fn parse_advanced_quantity<'i>(bp: &mut BlockParser<'_, 'i>) -> Option<ParsedQua
             Value::recover()
         }
     };
+    warn_reversed_range(&value, value_span, bp);
     let value = Located::new(value, value_span);
 
     let unit = bp.text(unit_tokens.first().unwrap().span.start(), unit_tokens);
@@ -188,8 +189,24 @@ fn parse_value(tokens: &[Token], bp: &mut BlockParser) -> Located<Value> {
             Value::recover()
         }
     };
+    warn_reversed_range(&val, span, bp);
 
     Located::new(val, span)
+}
+
+/// A range is kept as written, but `3-2` is most likely a typo.
+fn warn_reversed_range(value: &Value, span: Span, bp: &mut BlockParser) {
+    if let Value::Range { start, end } = value {
+        if start.value() > end.value() {
+            bp.warn(
+                warning!(
+                    "Range starts higher than it ends",
+                    label!(span, "the start is larger than the end"),
+                )
+                .hint("Write the lower number first, as in `2-3`"),
+            );
+        }
+    }
 }
 
 fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
@@ -203,12 +220,25 @@ fn text_value(tokens: &[Token], offset: usize, bp: &mut BlockParser) -> Value {
     Value::Text(text.text_trimmed().into_owned())
 }
 
-fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, SourceDiag>> {
-    if !bp.extension(Extensions::RANGE_VALUES) {
-        return None;
+/// A range separator: the hyphen-minus `-`, the en dash `–` (U+2013) or the
+/// em dash `—` (U+2014). Other dash-like characters, such as the minus sign
+/// (U+2212), are not.
+fn is_range_separator(token: &Token, bp: &BlockParser) -> bool {
+    match token.kind {
+        T![-] => true,
+        T![punctuation] => matches!(bp.token_str(*token), "\u{2013}" | "\u{2014}"),
+        _ => false,
     }
+}
 
-    let mid = tokens.iter().position(|t| t.kind == T![-])?;
+/// Two numbers joined by a [range separator](is_range_separator), part of the
+/// Cooklang specification (proposal 0011) and parsed with or without
+/// [`Extensions::RANGE_VALUES`].
+///
+/// `None` if the tokens are not a range: no separator, either end missing or
+/// not a number, or more than one separator (`1-2-3`).
+fn range_value(tokens: &[Token], bp: &BlockParser) -> Option<Result<Value, SourceDiag>> {
+    let mid = tokens.iter().position(|t| is_range_separator(t, bp))?;
     let (start, end) = tokens.split_at(mid);
     let (_mid, end) = end.split_first().unwrap();
 
@@ -553,16 +583,98 @@ mod tests {
     }
 
     #[test]
-    fn range_value_no_extension() {
-        let (q, _, _) = t!("2-3", Extensions::empty());
+    fn range_value_without_extensions() {
+        // ranges are core syntax (spec 0011), not an extension
+        let (q, _, r) = t!("2-3", Extensions::empty());
         assert_eq!(
             q.value,
             QuantityValue {
-                value: Located::new(Value::Text("2-3".into()), 0..3),
+                value: Located::new(range!(2.0, 3.0), 0..3),
                 scaling_lock: None,
             }
         );
         assert_eq!(q.unit, None);
+        assert!(r.is_empty());
+    }
+
+    #[test_case("2-3" ; "hyphen-minus")]
+    #[test_case("2–3" ; "en dash")]
+    #[test_case("2—3" ; "em dash")]
+    #[test_case("2 – 3" ; "en dash with spaces")]
+    #[test_case(" 2 - 3 " ; "surrounding spaces")]
+    fn range_separators(s: &str) {
+        let (q, _, r) = t!(s, Extensions::empty());
+        assert_eq!(q.value.value.into_inner(), range!(2.0, 3.0));
+        assert!(r.is_empty());
+    }
+
+    #[test_case("2\u{2212}3" ; "minus sign")]
+    #[test_case("2\u{2010}3" ; "hyphen")]
+    #[test_case("2\u{2012}3" ; "figure dash")]
+    #[test_case("2\u{2015}3" ; "horizontal bar")]
+    #[test_case("2-" ; "open end")]
+    #[test_case("-3" ; "open start")]
+    #[test_case("1-2-3" ; "three numbers")]
+    #[test_case("1–2-3" ; "three numbers mixed dashes")]
+    #[test_case("2-few" ; "text end")]
+    #[test_case("1-2 handfuls" ; "unit without separator")]
+    fn not_a_range(s: &str) {
+        let (q, _, r) = t!(s, Extensions::empty());
+        assert_eq!(q.value.value.into_inner(), Value::Text(s.trim().into()));
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn range_with_unit_and_scaling_lock() {
+        let (q, s, r) = t!("=1-2%tsp", Extensions::empty());
+        assert_eq!(
+            q.value,
+            QuantityValue {
+                value: Located::new(range!(1.0, 2.0), 1..4),
+                scaling_lock: Some(Span::new(0, 1)),
+            }
+        );
+        assert_eq!(s, Some(Span::new(4, 5)));
+        assert_eq!(q.unit.unwrap().text(), "tsp");
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn range_fraction_ends() {
+        let (q, _, r) = t!("1/2-1%tsp", Extensions::empty());
+        assert_eq!(
+            q.value.value.into_inner(),
+            Value::Range {
+                start: Number::Fraction {
+                    whole: 0,
+                    num: 1,
+                    den: 2,
+                    err: 0.0
+                },
+                end: Number::Regular(1.0),
+            }
+        );
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn reversed_range_is_kept_with_a_warning() {
+        let (q, _, r) = t!("3-2", Extensions::empty());
+        assert_eq!(q.value.value.into_inner(), range!(3.0, 2.0));
+        assert!(r.errors().next().is_none());
+        assert_eq!(r.warnings().count(), 1);
+
+        let (q, _, r) = t!("2-2", Extensions::empty());
+        assert_eq!(q.value.value.into_inner(), range!(2.0, 2.0));
+        assert!(r.is_empty());
+    }
+
+    #[test]
+    fn range_with_zero_denominator_is_an_error() {
+        let (_, _, r) = t!("1/0-2", Extensions::empty());
+        assert_eq!(r.errors().count(), 1);
+        let (_, _, r) = t!("1-2/0", Extensions::empty());
+        assert_eq!(r.errors().count(), 1);
     }
 
     #[test]
@@ -685,7 +797,18 @@ mod tests {
             );
             assert_eq!(
                 text_q("1-2%cup"),
-                Some(Q::new(QValue::Text("1-2".into()), Some("cup".into())))
+                Some(Q::new(
+                    QValue::Range {
+                        start: QNumber::Regular(1.0),
+                        end: QNumber::Regular(2.0)
+                    },
+                    Some("cup".into())
+                ))
+            );
+            assert_eq!(text_q("1–2%cup"), text_q("1-2%cup"));
+            assert_eq!(
+                text_q("1-2 handfuls"),
+                Some(Q::new(QValue::Text("1-2 handfuls".into()), None))
             );
             assert_eq!(
                 text_q("1,5%kg").unwrap().value(),
@@ -727,6 +850,24 @@ mod tests {
         }
 
         #[test]
+        fn quantity_text_range_is_written_with_a_hyphen() {
+            for input in ["1-2%tbsp", "1–2%tbsp", "1—2%tbsp", "1 - 2%tbsp"] {
+                assert_eq!(text_q(input).unwrap().to_cooklang(), "1-2%tbsp", "{input}");
+            }
+            assert_eq!(text_q("1 1/2-2%cup").unwrap().to_cooklang(), "1 1/2-2%cup");
+        }
+
+        #[test]
+        fn quantity_text_range_like_text_stays_text() {
+            // a text value that looks like a range is escaped so it reads back as text
+            for t in ["2-3", "2–3", "1/2-1"] {
+                let q = Q::new(QValue::Text(t.into()), None);
+                let written = q.to_cooklang();
+                assert_eq!(text_q(&written), Some(q), "{t} written as {written}");
+            }
+        }
+
+        #[test]
         fn quantity_text_scaling_lock_is_dropped() {
             assert_eq!(text_q("=2%l"), num_q(2.0, Some("l")));
         }
@@ -742,6 +883,8 @@ mod tests {
                 "0.0004%kg",
                 "a pinch",
                 "1-2%cup",
+                "1–2%cup",
+                "1 1/2-2%cup",
                 "1,5%kg",
                 "%l",
                 "1/0",

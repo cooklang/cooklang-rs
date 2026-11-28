@@ -208,7 +208,8 @@ pub(crate) fn into_group_quantity(amount: &Option<Amount>) -> GroupedQuantity {
 #[derive(uniffi::Enum, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum QuantityType {
     Number,
-    Range, // how to combine ranges?
+    /// A range, which also holds any plain number in the same unit
+    Range,
     Text,
     Empty,
 }
@@ -543,6 +544,36 @@ pub(crate) fn merge_grouped_quantities(left: &mut GroupedQuantity, right: &Group
             })
             .or_insert(value.clone());
     });
+
+    fold_numbers_into_ranges(left);
+}
+
+/// A number and a range in the same unit are one total (spec 0011): the
+/// number is added to both ends of the range, whichever came first.
+fn fold_numbers_into_ranges(quantity: &mut GroupedQuantity) {
+    let units: Vec<String> = quantity
+        .keys()
+        .filter(|key| key.unit_type == QuantityType::Range)
+        .map(|key| key.name.clone())
+        .collect();
+
+    for name in units {
+        let number_key = GroupedQuantityKey {
+            name: name.clone(),
+            unit_type: QuantityType::Number,
+        };
+        let Some(Value::Number { value: n }) = quantity.remove(&number_key) else {
+            continue;
+        };
+        let range_key = GroupedQuantityKey {
+            name,
+            unit_type: QuantityType::Range,
+        };
+        if let Some(Value::Range { start, end }) = quantity.get_mut(&range_key) {
+            *start += n;
+            *end += n;
+        }
+    }
 }
 
 pub(crate) fn into_item(item: &OriginalItem) -> Item {

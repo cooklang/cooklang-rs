@@ -126,7 +126,9 @@ bitflags! {
         const MODES                    = 1 << 6;
         /// Searches for inline quantities in all the recipe text
         const INLINE_QUANTITIES        = 1 << 7;
-        /// Add support for range values `@igr{2-3}`
+        /// Does nothing. Range values (`@igr{2-3}`) are part of the Cooklang
+        /// specification (proposal 0011) and always parsed; the flag is kept
+        /// so code that sets it keeps compiling.
         const RANGE_VALUES             = 1 << 9;
         /// Creating a timer without a time becomes an error
         const TIMER_REQUIRES_TIME      = 1 << 10;
