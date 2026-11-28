@@ -2448,6 +2448,9 @@ public func FfiConverterTypeItem_lower(_ value: Item) -> RustBuffer {
 public enum QuantityType: Equatable, Hashable {
     
     case number
+    /**
+     * A range, which also holds any plain number in the same unit
+     */
     case range
     case text
     case empty
