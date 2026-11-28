@@ -658,7 +658,7 @@ mod tests {
             let input: Vec<NoteChar> = (0..len)
                 .map(|_| NoteChar {
                     c: ALPHABET[(rng.next() % ALPHABET.len() as u64) as usize],
-                    escaped: rng.next() % 5 == 0,
+                    escaped: rng.next().is_multiple_of(5),
                 })
                 .collect();
             let runs = parse_note(&input);
