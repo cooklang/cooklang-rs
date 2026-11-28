@@ -396,7 +396,7 @@ fn render(r: cooklang::Recipe, converter: &Converter) -> String {
 
             @for content in &section.content {
                 @match content {
-                    cooklang::Content::Text(t) => p { (t) },
+                    cooklang::Content::Text(note) => p { (render_note(note)) },
                     cooklang::Content::Step(s) => p {
                         b { (s.number) ". " }
                         @for item in &s.items {
@@ -525,4 +525,91 @@ pub fn ingredient_amount_quantity(value: f64, unit: Option<String>) -> Option<qu
 #[wasm_bindgen]
 pub fn ingredient_amount_chip(value: f64, unit: Option<String>) -> String {
     cooklang_ingredient_parser::Amount { value, unit }.chip_text()
+}
+
+/// HTML of a note: bold and italic runs, and links for the destinations that
+/// are safe to open outside the recipe (`http:`, `https:`, `mailto:`).
+/// Consecutive runs with the same destination are one link. Other
+/// destinations, including paths to recipes, which can't be resolved here,
+/// show their text only.
+fn render_note(note: &cooklang::Note) -> maud::Markup {
+    let runs = &note.items;
+    let mut groups: Vec<&[cooklang::TextRun]> = Vec::new();
+    let mut start = 0;
+    for i in 1..=runs.len() {
+        if i == runs.len() || runs[i].link != runs[start].link {
+            groups.push(&runs[start..i]);
+            start = i;
+        }
+    }
+    maud::html! {
+        @for group in groups {
+            @let text = maud::html! {
+                @for run in group {
+                    @if run.strong && run.emphasis { b { i { (run.value) } } }
+                    @else if run.strong { b { (run.value) } }
+                    @else if run.emphasis { i { (run.value) } }
+                    @else { (run.value) }
+                }
+            };
+            @match group[0].link.as_deref().filter(|d| is_external_link(d)) {
+                Some(destination) => a href=(destination) target="_blank" rel="noopener noreferrer" { (text) },
+                None => (text),
+            }
+        }
+    }
+}
+
+fn is_external_link(destination: &str) -> bool {
+    let lower = destination.trim_start().to_ascii_lowercase();
+    ["http:", "https:", "mailto:"]
+        .iter()
+        .any(|scheme| lower.starts_with(scheme))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn note_html(input: &str) -> String {
+        let recipe = CooklangParser::new(Extensions::empty(), Converter::empty())
+            .parse(input)
+            .into_output()
+            .unwrap();
+        render(recipe, &Converter::empty())
+    }
+
+    #[test]
+    fn note_formatting_is_rendered() {
+        let html = note_html("> **Tip:** use *fresh* <herbs>");
+        assert!(
+            html.contains("<p><b>Tip:</b> use <i>fresh</i> &lt;herbs&gt;</p>"),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn external_link_is_one_anchor() {
+        let html = note_html("> See [the **shaping** guide](https://example.com/a?b=1&c=2).");
+        assert!(
+            html.contains(r#"<a href="https://example.com/a?b=1&amp;c=2" target="_blank" rel="noopener noreferrer">the <b>shaping</b> guide</a>."#),
+            "{html}"
+        );
+    }
+
+    #[test]
+    fn other_destinations_are_text() {
+        for dest in [
+            "javascript:alert(1)",
+            "data:text/html,x",
+            "//example.com",
+            "./Dough.cook",
+            "<>",
+        ] {
+            let html = note_html(&format!("> [click]({dest})"));
+            assert!(!html.contains("<a "), "{dest}: {html}");
+            assert!(html.contains("<p>click</p>"), "{dest}: {html}");
+        }
+        assert!(note_html("> [mail](MAILTO:a@b.c)").contains(r#"<a href="MAILTO:a@b.c""#));
+    }
 }

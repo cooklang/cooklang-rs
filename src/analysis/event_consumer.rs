@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use crate::convert::{Converter, PhysicalQuantity};
 use crate::error::{label, CowStr, PassResult, SourceDiag, SourceReport};
+use crate::inline::{parse_note, NoteChar};
 use crate::located::Located;
 use crate::metadata::{check_std_entry, StdKey};
 use crate::parser::{
@@ -11,7 +12,7 @@ use crate::parser::{
 };
 use crate::quantity::{Quantity, Value};
 use crate::span::Span;
-use crate::text::Text;
+use crate::text::{Text, TextFragmentKind};
 use crate::{model::*, Extensions, ParseOptions};
 
 use super::{AnalysisResult, CheckOptions, DefineMode, DuplicateMode};
@@ -115,7 +116,13 @@ impl<'i> RecipeCollector<'i, '_> {
     fn parse_events(mut self, mut events: impl Iterator<Item = Event<'i>>) -> AnalysisResult {
         enum BlockBuffer {
             Step(Vec<Item>),
-            Text(String),
+            /// Characters of a text block, and whether its formatting is
+            /// read: only in notes, not in steps turned to text by
+            /// [`DefineMode::Text`]
+            Text {
+                chars: Vec<NoteChar>,
+                formatted: bool,
+            },
         }
         let mut current_block = None;
 
@@ -136,12 +143,16 @@ impl<'i> RecipeCollector<'i, '_> {
                         Section::new(name.map(|t| t.text_trimmed().into_owned()));
                 }
                 Event::Start(kind) => {
+                    let text = || BlockBuffer::Text {
+                        chars: Vec::new(),
+                        formatted: kind == BlockKind::Text,
+                    };
                     let buffer = if self.define_mode == DefineMode::Text {
-                        BlockBuffer::Text(String::new())
+                        text()
                     } else {
                         match kind {
                             BlockKind::Step => BlockBuffer::Step(Vec::new()),
-                            BlockKind::Text => BlockBuffer::Text(String::new()),
+                            BlockKind::Text => text(),
                         }
                     };
                     current_block = Some(buffer)
@@ -155,11 +166,18 @@ impl<'i> RecipeCollector<'i, '_> {
                                 number: self.step_counter,
                             })
                         }
-                        Some(BlockBuffer::Text(text)) => {
+                        Some(BlockBuffer::Text { chars, formatted }) => {
                             assert!(
                                 kind == BlockKind::Text || self.define_mode == DefineMode::Text,
                             );
-                            Content::Text(text)
+                            let note = if formatted {
+                                Note {
+                                    items: parse_note(&chars),
+                                }
+                            } else {
+                                Note::plain(chars.iter().map(|c| c.c).collect::<String>())
+                            };
+                            Content::Text(note)
                         }
                         None => panic!("End event without Start"),
                     };
@@ -181,7 +199,7 @@ impl<'i> RecipeCollector<'i, '_> {
                 | Event::Cookware(_)
                 | Event::Timer(_)) => match &mut current_block {
                     Some(BlockBuffer::Step(items)) => self.in_step(item, items),
-                    Some(BlockBuffer::Text(text)) => self.in_text(item, text),
+                    Some(BlockBuffer::Text { chars, .. }) => self.in_text(item, chars),
                     None => panic!("Content outside block"),
                 },
 
@@ -540,9 +558,20 @@ impl<'i> RecipeCollector<'i, '_> {
         };
     }
 
-    fn in_text(&mut self, ev: Event<'i>, s: &mut String) {
+    fn in_text(&mut self, ev: Event<'i>, chars: &mut Vec<NoteChar>) {
+        let plain = |c| NoteChar { c, escaped: false };
         match ev {
-            Event::Text(t) => s.push_str(t.text().as_ref()),
+            Event::Text(t) => {
+                for f in t.fragments() {
+                    match f.kind() {
+                        TextFragmentKind::Text => chars.extend(f.text().chars().map(plain)),
+                        TextFragmentKind::SoftBreak => chars.push(plain(' ')),
+                        TextFragmentKind::Escaped => {
+                            chars.extend(f.text().chars().map(|c| NoteChar { c, escaped: true }))
+                        }
+                    }
+                }
+            }
             Event::Ingredient(_) | Event::Cookware(_) | Event::Timer(_) => {
                 assert_eq!(
                     self.define_mode,
@@ -559,7 +588,7 @@ impl<'i> RecipeCollector<'i, '_> {
                 };
                 self.ctx
                     .warn(warning!(format!("Ignoring {c} in text mode"), label!(span)));
-                s.push_str(&self.input[span.range()]);
+                chars.extend(self.input[span.range()].chars().map(plain));
             }
             _ => panic!("Unexpected event in text block: {ev:?}"),
         }

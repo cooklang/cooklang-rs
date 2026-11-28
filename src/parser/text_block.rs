@@ -13,7 +13,7 @@ pub(crate) fn parse_text_block(bp: &mut BlockParser) {
             bp.consume_while(|t| t != T![newline]);
             let _ = bp.consume(T![newline]);
         });
-        let text = bp.text(start, tokens);
+        let text = bp.text_marking_escapes(start, tokens);
         if !text.is_text_empty() {
             bp.event(Event::Text(text));
         }

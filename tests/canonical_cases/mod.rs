@@ -1057,7 +1057,6 @@ source: '@water{1-2 handfuls}
 ; "RangeLikeTextStaysText")]
 #[test_case(r#"
 result:
-  metadata: {}
   steps:
   - - name: milk
       quantity: 0.5
@@ -1068,6 +1067,344 @@ source: '@milk{.5%cup}
   '
 "#
 ; "DecimalWithoutLeadingZero")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: Don't burn the roux!
+  steps:
+  - - type: text
+      value: 'Mash '
+    - name: potato
+      quantity: 2
+      type: ingredient
+      units: kg
+source: '> Don''t burn the roux!
+
+
+  Mash @potato{2%kg}
+
+  '
+"#
+; "NotePlain")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: The dough keeps up to 3 days.
+  steps: []
+source: '> The dough keeps
+
+  > up to 3 days.
+
+  '
+"#
+; "NoteMultipleLines")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - strong: true
+      type: text
+      value: 'Make ahead:'
+    - type: text
+      value: ' the dough keeps '
+    - emphasis: true
+      type: text
+      value: up to 3 days
+    - type: text
+      value: ' in the fridge. See the '
+    - link: https://example.com/shaping
+      type: text
+      value: shaping guide
+    - type: text
+      value: ' before you start.'
+  steps:
+  - - type: text
+      value: 'Mix '
+    - name: flour
+      quantity: 500
+      type: ingredient
+      units: g
+    - type: text
+      value: .
+source: '> **Make ahead:** the dough keeps *up to 3 days* in the fridge.
+
+  > See the [shaping guide](https://example.com/shaping) before you start.
+
+
+  Mix @flour{500%g}.
+
+  '
+"#
+; "NoteFormatting")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - strong: true
+      type: text
+      value: Optional
+    - type: text
+      value: ', but '
+    - emphasis: true
+      type: text
+      value: highly
+    - type: text
+      value: ' suggested.'
+  steps: []
+source: '> __Optional__, but _highly_ suggested.
+
+  '
+"#
+; "NoteFormattingUnderscores")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - strong: true
+      type: text
+      value: 'Serve '
+    - emphasis: true
+      strong: true
+      type: text
+      value: immediately
+    - strong: true
+      type: text
+      value: ' or not at all'
+  steps: []
+source: '> **Serve *immediately* or not at all**
+
+  '
+"#
+; "NoteFormattingNested")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - emphasis: true
+      strong: true
+      type: text
+      value: both
+  steps: []
+source: '> ***both***
+
+  '
+"#
+; "NoteFormattingStrongAndEmphasis")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: 'It is '
+    - emphasis: true
+      type: text
+      value: very important
+    - type: text
+      value: ' to rest the dough.'
+  steps: []
+source: '> It is *very
+
+  > important* to rest the dough.
+
+  '
+"#
+; "NoteFormattingAcrossLines")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: '*one'
+  - - type: text
+      value: two*
+  steps: []
+source: '> *one
+
+
+  > two*
+
+  '
+"#
+; "NoteFormattingNotAcrossNotes")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: 'This filling also works in '
+    - link: ./Spinach pie.cook
+      type: text
+      value: Spinach pie
+    - type: text
+      value: .
+  steps: []
+source: '> This filling also works in [Spinach pie](<./Spinach pie.cook>).
+
+  '
+"#
+; "NoteLinkToRecipe")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: 'See '
+    - link: ./Basic dough.cook
+      strong: true
+      type: text
+      value: Basic
+    - link: ./Basic dough.cook
+      type: text
+      value: ' dough'
+  steps: []
+source: '> See [**Basic** dough](<./Basic dough.cook>)
+
+  '
+"#
+; "NoteLinkWithFormattedText")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - link: https://example.com/guide
+      type: text
+      value: Guide
+  steps: []
+source: '> [Guide](https://example.com/guide "The guide")
+
+  '
+"#
+; "NoteLinkTitleIsDiscarded")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: '!'
+    - link: dough.jpg
+      type: text
+      value: photo
+  steps: []
+source: '> ![photo](dough.jpg)
+
+  '
+"#
+; "NoteImageIsTextAndLink")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: '[tips] (see below) and [1]'
+  steps: []
+source: '> [tips] (see below) and [1]
+
+  '
+"#
+; "NoteBracketsWithoutDestination")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: '*Use fine sea salt'
+  steps: []
+source: '> *Use fine sea salt
+
+  '
+"#
+; "NoteLoneAsterisk")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: '* Day-old rice works best'
+  steps: []
+source: '> * Day-old rice works best
+
+  '
+"#
+; "NoteSpacedAsterisk")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: Save it as tomato_sauce_v2.cook
+  steps: []
+source: '> Save it as tomato_sauce_v2.cook
+
+  '
+"#
+; "NoteUnderscoreInsideWord")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: '**unclosed bold and '
+    - emphasis: true
+      type: text
+      value: closed italic
+  steps: []
+source: '> **unclosed bold and *closed italic*
+
+  '
+"#
+; "NoteUnclosedStrong")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: This is *not* emphasis, and 2*250 g is [not](a link).
+  steps: []
+source: '> This is \*not\* emphasis, and 2\*250 g is \[not\](a link).
+
+  '
+"#
+; "NoteEscapedDelimiters")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - emphasis: true
+      type: text
+      value: Use  herbs
+  steps: []
+source: '> *Use [- fresh -] herbs*
+
+  '
+"#
+; "NoteCommentInsideFormatting")]
+#[test_case(r#"
+result:
+  metadata: {}
+  notes:
+  - - type: text
+      value: 'Add @salt{1%tsp} to the #pot'
+  steps: []
+source: '> Add @salt{1%tsp} to the #pot
+
+  '
+"#
+; "NoteCooklangMarkersAreText")]
+#[test_case(r#"
+result:
+  metadata: {}
+  steps:
+  - - type: text
+      value: Mix *well* and see [this](https://example.com).
+source: 'Mix *well* and see [this](https://example.com).
+
+  '
+"#
+; "StepIsNotFormatted")]
 fn canonical(input: &str) {
     let test_case: TestCase = serde_yaml::from_str(input).expect("Bad YAML input");
     runner(test_case);

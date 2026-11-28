@@ -224,8 +224,27 @@ This library exports methods:
 
     /// A text note within the recipe
     struct BlockNote {
-        /// The content of the note
+        /// The plain text of the note, without formatting
         text: String,
+        /// The note as runs of formatted text; joining their `value`s gives `text`
+        items: Vec<TextRun>,
+    }
+
+    /// A stretch of note text with the same formatting (spec proposal 0022)
+    ///
+    /// Build attributed text from the runs (`AttributedString` on iOS,
+    /// `AnnotatedString` on Android). A run can be both strong and emphasis;
+    /// consecutive runs with the same `link` are one link.
+    struct TextRun {
+        value: String,
+        /// `**text**`, usually bold
+        strong: bool,
+        /// `*text*`, usually italic
+        emphasis: bool,
+        /// The destination as written. Untrusted: open only `http:`, `https:`
+        /// and `mailto:`, and scheme-less paths that resolve to a recipe inside
+        /// the collection; show anything else as plain text
+        link: Option<String>,
     }
 
     /// Represents an ingredient in the recipe

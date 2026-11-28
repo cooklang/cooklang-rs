@@ -125,6 +125,16 @@ impl<'t, 'i> BlockParser<'t, 'i> {
     }
 
     pub(crate) fn text(&self, offset: usize, tokens: &[Token]) -> Text<'i> {
+        self.text_inner(offset, tokens, false)
+    }
+
+    /// Like [`Self::text`], but each escaped character is its own
+    /// [`TextFragment`] of kind `Escaped`, for text that reads formatting
+    pub(crate) fn text_marking_escapes(&self, offset: usize, tokens: &[Token]) -> Text<'i> {
+        self.text_inner(offset, tokens, true)
+    }
+
+    fn text_inner(&self, offset: usize, tokens: &[Token], mark_escapes: bool) -> Text<'i> {
         debug_assert_adjacent!(tokens);
 
         let mut t = Text::empty(offset);
@@ -160,7 +170,11 @@ impl<'t, 'i> BlockParser<'t, 'i> {
                         "unexpected escaped token length"
                     );
                     start = token.span.start() + 1; // skip "\"
-                    end = token.span.end()
+                    end = token.span.end();
+                    if mark_escapes {
+                        t.append_fragment(TextFragment::escaped(&self.input[start..end], start));
+                        start = end;
+                    }
                 }
                 _ => end = token.span.end(),
             }

@@ -1,7 +1,7 @@
 //! Cooklang canonical tests https://github.com/cooklang/spec/blob/main/tests/canonical.yaml
 
 use cooklang::{
-    quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Modifiers, Recipe,
+    quantity::Value, Content, Converter, CooklangParser, Extensions, Item, Modifiers, Note, Recipe,
 };
 use serde::Deserialize;
 
@@ -14,7 +14,28 @@ struct TestCase {
 #[derive(Deserialize, PartialEq, Debug)]
 struct TestResult {
     steps: Vec<TestStep>,
+    /// Notes in order, each a list of text runs (spec proposal 0022)
+    #[serde(default)]
+    notes: Vec<TestNote>,
     metadata: serde_yaml::Mapping,
+}
+
+#[derive(Deserialize, PartialEq, Debug)]
+#[serde(transparent)]
+struct TestNote(Vec<TestNoteRun>);
+
+#[derive(Deserialize, PartialEq, Debug)]
+#[serde(tag = "type", rename_all = "camelCase")]
+enum TestNoteRun {
+    Text {
+        value: String,
+        #[serde(default)]
+        strong: bool,
+        #[serde(default)]
+        emphasis: bool,
+        #[serde(default)]
+        link: Option<String>,
+    },
 }
 
 #[derive(Deserialize, PartialEq, Debug)]
@@ -74,20 +95,38 @@ fn runner(input: TestCase) {
 impl TestResult {
     fn from_cooklang(value: Recipe) -> Self {
         assert!(value.sections.len() <= 1);
-        let steps = if let Some(section) = value.sections.first().cloned() {
+        let mut steps = vec![];
+        let mut notes = vec![];
+        if let Some(section) = value.sections.first().cloned() {
             assert!(section.name.is_none());
-            section
-                .content
-                .into_iter()
-                .map(|v| TestStep::from_cooklang_step(v, &value))
-                .collect()
-        } else {
-            vec![]
-        };
+            for content in section.content {
+                match content {
+                    Content::Text(note) => notes.push(TestNote::from_cooklang_note(note)),
+                    step => steps.push(TestStep::from_cooklang_step(step, &value)),
+                }
+            }
+        }
         Self {
             steps,
+            notes,
             metadata: value.metadata.map,
         }
+    }
+}
+
+impl TestNote {
+    fn from_cooklang_note(note: Note) -> Self {
+        Self(
+            note.items
+                .into_iter()
+                .map(|r| TestNoteRun::Text {
+                    value: r.value,
+                    strong: r.strong,
+                    emphasis: r.emphasis,
+                    link: r.link,
+                })
+                .collect(),
+        )
     }
 }
 
