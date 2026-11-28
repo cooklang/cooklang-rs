@@ -1057,6 +1057,7 @@ source: '@water{1-2 handfuls}
 ; "RangeLikeTextStaysText")]
 #[test_case(r#"
 result:
+  metadata: {}
   steps:
   - - name: milk
       quantity: 0.5

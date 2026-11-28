@@ -1094,6 +1094,8 @@ tests:
             name: "milk"
             quantity: 0.5
             units: "cup"
+      metadata: {}
+
 
   testNotePlain:
     source: |
