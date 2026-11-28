@@ -258,7 +258,7 @@ checksum = "56a42f52649afc3d3378670ccaaab507e48edd165c29a1591fa027745fffd743"
 
 [[package]]
 name = "cooklang"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "bitflags",
  "codesnake",
@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "cooklang-bindings"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "anyhow",
  "cooklang",
@@ -309,7 +309,7 @@ dependencies = [
 
 [[package]]
 name = "cooklang-ingredient-parser"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "cooklang",
  "serde",

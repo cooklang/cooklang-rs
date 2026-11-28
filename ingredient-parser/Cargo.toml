@@ -1,6 +1,6 @@
 [package]
 name = "cooklang-ingredient-parser"
-version = "0.22.0"
+version = "0.23.0"
 edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Turns a typed ingredient line into a name and an amount, for Cooklang apps"
@@ -10,7 +10,7 @@ keywords = ["cooklang", "ingredients", "parser", "shopping-list"]
 categories = ["parser-implementations"]
 
 [dependencies]
-cooklang = { version = "0.22.0", path = "..", default-features = false, features = ["aisle"] }
+cooklang = { version = "0.23.0", path = "..", default-features = false, features = ["aisle"] }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 unicode-normalization = "0.1"

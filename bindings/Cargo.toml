@@ -1,6 +1,6 @@
 [package]
 name = "cooklang-bindings"
-version = "0.22.0"
+version = "0.23.0"
 edition = "2021"
 authors = ["dubadub <dubovskoy.a@gmail.com>"]
 description = "Cooklang Uniffi bindings"
@@ -12,7 +12,7 @@ readme = "README.md"
 [dependencies]
 anyhow = "1.0"
 cooklang = { path = "..", default-features = false, features = ["aisle", "shopping_list"] }
-cooklang-ingredient-parser = { version = "0.22.0", path = "../ingredient-parser" }
+cooklang-ingredient-parser = { version = "0.23.0", path = "../ingredient-parser" }
 thiserror = "2"
 uniffi = "0.32.2"
 
