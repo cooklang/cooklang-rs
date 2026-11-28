@@ -315,7 +315,12 @@ impl InlineParser<'_> {
                 self.links
                     .push((opener.node + 1, self.nodes.len(), destination));
                 self.nodes[opener.node].clear();
-                for b in &mut self.brackets {
+                // links can't contain links. Brackets before an earlier link
+                // are inactive already, so stop at the first one
+                for b in self.brackets.iter_mut().rev() {
+                    if !b.active {
+                        break;
+                    }
                     b.active = false;
                 }
                 self.text_open = false;
@@ -629,6 +634,45 @@ mod tests {
         let _ = parse_note(&chars(&s));
     }
 
+    #[test]
+    fn many_links_after_many_brackets_is_fast() {
+        let n = 60_000;
+        let s = "[".repeat(n) + &"[a](b)".repeat(n);
+        let start = std::time::Instant::now();
+        let runs = parse_note(&chars(&s));
+        assert_eq!(runs.len(), 2);
+        assert!(
+            start.elapsed() < std::time::Duration::from_secs(2),
+            "took {:?}",
+            start.elapsed()
+        );
+    }
+
+    /// Any input, with escapes, gives runs that follow the rules of the model
+    #[test]
+    fn random_inputs_give_valid_runs() {
+        const ALPHABET: &[char] = &['*', '_', '[', ']', '(', ')', '<', '>', '"', ' ', 'a', '!'];
+        let mut rng = differential::Rng(0x9E3779B97F4A7C15);
+        for _ in 0..100_000 {
+            let len = (rng.next() % 16) as usize;
+            let input: Vec<NoteChar> = (0..len)
+                .map(|_| NoteChar {
+                    c: ALPHABET[(rng.next() % ALPHABET.len() as u64) as usize],
+                    escaped: rng.next() % 5 == 0,
+                })
+                .collect();
+            let runs = parse_note(&input);
+            assert!(runs.iter().all(|r| !r.value.is_empty()), "{input:?}");
+            assert!(
+                runs.windows(2).all(|w| !w[0].same_format(&w[1])),
+                "{input:?}"
+            );
+            // formatting only removes characters
+            let kept: usize = runs.iter().map(|r| r.value.chars().count()).sum();
+            assert!(kept <= input.len(), "{input:?}");
+        }
+    }
+
     /// Compare with a `CommonMark` implementation on inputs where the subset
     /// Cooklang reads is the whole of what `CommonMark` reads
     mod differential {
@@ -677,9 +721,9 @@ mod tests {
             Some(runs)
         }
 
-        struct Rng(u64);
+        pub(super) struct Rng(pub(super) u64);
         impl Rng {
-            fn next(&mut self) -> u64 {
+            pub(super) fn next(&mut self) -> u64 {
                 // xorshift64
                 self.0 ^= self.0 << 13;
                 self.0 ^= self.0 >> 7;
