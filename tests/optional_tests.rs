@@ -1,7 +1,6 @@
 //! Optional ingredients and cookware (`@?name`, `#?name`), spec proposal 0018.
 
 use cooklang::{Converter, CooklangParser, Extensions, Modifiers};
-use indoc::indoc;
 use test_case::test_case;
 
 fn names_and_optional(extensions: Extensions, input: &str) -> Vec<(String, bool)> {
@@ -84,11 +83,12 @@ fn timers_are_unaffected() {
     assert_eq!(r.timers[0].name.as_deref(), Some("?"));
 }
 
+#[cfg(feature = "bundled_units")]
 #[test]
 fn optional_and_required_are_listed_separately() {
     let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     let r = parser
-        .parse(indoc! {r#"
+        .parse(indoc::indoc! {r#"
             Stir @parmesan{100%g} into the sauce.
 
             Top with extra @?parmesan{50%g} before serving.
@@ -114,11 +114,12 @@ fn optional_and_required_are_listed_separately() {
     );
 }
 
+#[cfg(feature = "bundled_units")]
 #[test]
 fn duplicate_reference_mode_groups_by_optionality() {
     let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     let r = parser
-        .parse(indoc! {r#"
+        .parse(indoc::indoc! {r#"
             >> [duplicate]: ref
             Stir @parmesan{100%g} into the sauce, then @parmesan{20%g}.
 
@@ -144,6 +145,7 @@ fn duplicate_reference_mode_groups_by_optionality() {
     );
 }
 
+#[cfg(feature = "bundled_units")]
 #[test]
 fn explicit_reference_inherits_optional() {
     let parser = CooklangParser::new(Extensions::all(), Converter::bundled());

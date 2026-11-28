@@ -263,6 +263,7 @@ Add @salt{=1%tsp} and @flour{200%g}."#;
     assert_eq!(value(1), "400");
 }
 
+#[cfg(feature = "bundled_units")]
 #[test]
 fn test_scaling_lock_on_timer_still_warns() {
     let parser = CooklangParser::new(Extensions::all(), Converter::default());

@@ -214,6 +214,7 @@ impl Ingredient {
 
     /// Groups all quantities from itself and it's references (if any).
     /// ```
+    /// # #[cfg(feature = "bundled_units")] {
     /// # use cooklang::{CooklangParser, Extensions, Converter, Value, Quantity};
     /// let parser = CooklangParser::new(Extensions::all(), Converter::bundled());
     /// let recipe = parser
@@ -242,6 +243,7 @@ impl Ingredient {
     ///         ),
     ///     ]
     /// );
+    /// # }
     /// ```
     pub fn group_quantities(
         &self,
